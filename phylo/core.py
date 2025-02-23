@@ -12,13 +12,17 @@ def get_directory_structure(root_dir):
             structure[item] = get_directory_structure(item_path)
         else:
             structure.setdefault("_files", []).append(item)
-    return structure
+    return
+
+
+def sort_files_by_type(files):
+    return sorted(files, key=lambda f: (os.path.splitext(f)[1], f.lower()))
 
 
 def build_tree(structure, tree, parent_name="Root"):
     for folder, content in structure.items():
         if folder == "_files":
-            for file in content:
+            for file in sort_files_by_type(content):
                 tree.add(f"📄 {file}")
         else:
             subtree = tree.add(f"📁 {folder}")
