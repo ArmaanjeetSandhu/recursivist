@@ -2,10 +2,36 @@ import os
 from rich.tree import Tree
 from rich.console import Console
 from rich.text import Text
+from exports import DirectoryExporter
 import colorsys
 import hashlib
 import fnmatch
 from pathlib import Path
+
+
+def export_structure(structure, root_dir, format_type, output_path):
+    """Export the directory structure to various formats.
+
+    Args:
+        structure (dict): Directory structure dictionary
+        root_dir (str): Root directory name
+        format_type (str): Export format ('txt', 'json', 'pdf', 'html', or 'md')
+        output_path (str): Path where the export file will be saved
+    """
+    exporter = DirectoryExporter(structure, os.path.basename(root_dir))
+
+    format_map = {
+        "txt": exporter.to_txt,
+        "json": exporter.to_json,
+        "html": exporter.to_html,
+        "md": exporter.to_markdown,
+    }
+
+    if format_type.lower() not in format_map:
+        raise ValueError(f"Unsupported format: {format_type}")
+
+    export_func = format_map[format_type.lower()]
+    export_func(output_path)
 
 
 def parse_ignore_file(ignore_file_path):
@@ -197,7 +223,38 @@ if __name__ == "__main__":
         "Enter ignore file name (e.g., .gitignore) or press Enter to skip: "
     ).strip()
 
-    if os.path.exists(project_path) and os.path.isdir(project_path):
-        display_tree(project_path, exclude_dirs, ignore_file, exclude_extensions)
-    else:
+    if not os.path.exists(project_path) or not os.path.isdir(project_path):
         print("Invalid directory path. Please enter a valid path.")
+        exit(1)
+
+    structure, _ = get_directory_structure(
+        project_path,
+        exclude_dirs,
+        (
+            parse_ignore_file(os.path.join(project_path, ignore_file))
+            if ignore_file
+            else None
+        ),
+        exclude_extensions,
+    )
+
+    display_tree(project_path, exclude_dirs, ignore_file, exclude_extensions)
+
+    export_format = (
+        input("Export format (txt/json/html/md) or press Enter to skip: ")
+        .strip()
+        .lower()
+    )
+
+    if export_format:
+        if export_format not in ["txt", "json", "html", "md"]:
+            print("Unsupported format. Skipping export.")
+        else:
+            root_name = os.path.basename(project_path)
+            output_path = f"structure.{export_format}"
+
+            try:
+                export_structure(structure, project_path, export_format, output_path)
+                print(f"Successfully exported to {output_path}")
+            except Exception as e:
+                print(f"Error during export: {e}")
