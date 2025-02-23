@@ -25,15 +25,28 @@ def generate_color_for_extension(extension):
     return hex_color
 
 
-def get_directory_structure(root_dir):
-    """Build a nested dictionary representing the directory structure."""
+def get_directory_structure(root_dir, exclude_dirs=None):
+    """Build a nested dictionary representing the directory structure.
+
+    Args:
+        root_dir (str): Root directory path to start from
+        exclude_dirs (list): List of directory names to exclude
+    """
+    if exclude_dirs is None:
+        exclude_dirs = []
+
     structure = {}
     extensions_set = set()
 
     for item in os.listdir(root_dir):
+        if item in exclude_dirs:
+            continue
+
         item_path = os.path.join(root_dir, item)
         if os.path.isdir(item_path):
-            substructure, sub_extensions = get_directory_structure(item_path)
+            substructure, sub_extensions = get_directory_structure(
+                item_path, exclude_dirs
+            )
             structure[item] = substructure
             extensions_set.update(sub_extensions)
         else:
@@ -64,14 +77,21 @@ def build_tree(structure, tree, color_map, parent_name="Root"):
             build_tree(content, subtree, color_map, folder)
 
 
-def display_tree(root_dir):
-    """Display the directory tree with color-coded file types."""
-    structure, extensions = get_directory_structure(root_dir)
+def display_tree(root_dir, exclude_dirs=None):
+    """Display the directory tree with color-coded file types.
+
+    Args:
+        root_dir (str): Root directory path to display
+        exclude_dirs (list): List of directory names to exclude from the tree
+    """
+    if exclude_dirs is None:
+        exclude_dirs = []
+
+    structure, extensions = get_directory_structure(root_dir, exclude_dirs)
 
     color_map = {ext: generate_color_for_extension(ext) for ext in extensions}
 
     console = Console()
-
     tree = Tree(f"📂 {os.path.basename(root_dir)}")
     build_tree(structure, tree, color_map)
     console.print(tree)
@@ -79,7 +99,15 @@ def display_tree(root_dir):
 
 if __name__ == "__main__":
     project_path = input("Enter the project directory path: ").strip()
+
+    exclude_input = input(
+        "Enter directories to exclude (separated by space), or press Enter to skip: "
+    ).strip()
+    exclude_dirs = (
+        [d.strip() for d in exclude_input.split(" ")] if exclude_input else []
+    )
+
     if os.path.exists(project_path) and os.path.isdir(project_path):
-        display_tree(project_path)
+        display_tree(project_path, exclude_dirs)
     else:
         print("Invalid directory path. Please enter a valid path.")
