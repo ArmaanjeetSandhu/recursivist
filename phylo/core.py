@@ -50,18 +50,20 @@ def parse_ignore_file(ignore_file_path):
     return patterns
 
 
-def should_exclude(path, patterns, root_dir, exclude_extensions=None):
+def should_exclude(path, ignore_context, exclude_extensions=None):
     """Check if a path should be excluded based on ignore patterns and extensions.
 
     Args:
         path (str): Path to check
-        patterns (list): List of ignore patterns
-        root_dir (str): Root directory for relative path calculation
+        ignore_context (dict): Dictionary with 'patterns' and 'current_dir' keys
         exclude_extensions (set): Set of file extensions to exclude
 
     Returns:
         bool: True if path should be excluded
     """
+    patterns = ignore_context.get("patterns", [])
+    current_dir = ignore_context.get("current_dir", os.path.dirname(path))
+
     if exclude_extensions and os.path.isfile(path):
         _, ext = os.path.splitext(path)
         if ext.lower() in exclude_extensions:
@@ -70,7 +72,7 @@ def should_exclude(path, patterns, root_dir, exclude_extensions=None):
     if not patterns:
         return False
 
-    rel_path = os.path.relpath(path, root_dir)
+    rel_path = os.path.relpath(path, current_dir)
 
     for pattern in patterns:
         if pattern.startswith("!"):
@@ -99,22 +101,33 @@ def generate_color_for_extension(extension):
 
 
 def get_directory_structure(
-    root_dir, exclude_dirs=None, ignore_patterns=None, exclude_extensions=None
+    root_dir,
+    exclude_dirs=None,
+    ignore_file=None,
+    exclude_extensions=None,
+    parent_ignore_patterns=None,
 ):
     """Build a nested dictionary representing the directory structure.
 
     Args:
         root_dir (str): Root directory path to start from
         exclude_dirs (list): List of directory names to exclude
-        ignore_patterns (list): List of ignore patterns (like from .gitignore)
+        ignore_file (str): Name of ignore file (like .gitignore)
         exclude_extensions (set): Set of file extensions to exclude
+        parent_ignore_patterns (list): Patterns from parent directories
     """
     if exclude_dirs is None:
         exclude_dirs = []
-    if ignore_patterns is None:
-        ignore_patterns = []
     if exclude_extensions is None:
         exclude_extensions = set()
+
+    ignore_patterns = parent_ignore_patterns.copy() if parent_ignore_patterns else []
+
+    if ignore_file and os.path.exists(os.path.join(root_dir, ignore_file)):
+        current_ignore_patterns = parse_ignore_file(os.path.join(root_dir, ignore_file))
+        ignore_patterns.extend(current_ignore_patterns)
+
+    ignore_context = {"patterns": ignore_patterns, "current_dir": root_dir}
 
     structure = {}
     extensions_set = set()
@@ -123,13 +136,17 @@ def get_directory_structure(
         item_path = os.path.join(root_dir, item)
 
         if item in exclude_dirs or should_exclude(
-            item_path, ignore_patterns, root_dir, exclude_extensions
+            item_path, ignore_context, exclude_extensions
         ):
             continue
 
         if os.path.isdir(item_path):
             substructure, sub_extensions = get_directory_structure(
-                item_path, exclude_dirs, ignore_patterns, exclude_extensions
+                item_path,
+                exclude_dirs,
+                ignore_file,
+                exclude_extensions,
+                ignore_patterns,
             )
             structure[item] = substructure
             extensions_set.update(sub_extensions)
@@ -170,7 +187,7 @@ def display_tree(
     Args:
         root_dir (str): Root directory path to display
         exclude_dirs (list): List of directory names to exclude from the tree
-        ignore_file (str): Path to ignore file (like .gitignore)
+        ignore_file (str): Name of ignore file (like .gitignore)
         exclude_extensions (set): Set of file extensions to exclude (e.g., {'.pyc', '.log'})
     """
     if exclude_dirs is None:
@@ -183,13 +200,8 @@ def display_tree(
         for ext in exclude_extensions
     }
 
-    ignore_patterns = []
-    if ignore_file:
-        ignore_file_path = os.path.join(root_dir, ignore_file)
-        ignore_patterns = parse_ignore_file(ignore_file_path)
-
     structure, extensions = get_directory_structure(
-        root_dir, exclude_dirs, ignore_patterns, exclude_extensions
+        root_dir, exclude_dirs, ignore_file, exclude_extensions
     )
 
     color_map = {ext: generate_color_for_extension(ext) for ext in extensions}
@@ -230,11 +242,7 @@ if __name__ == "__main__":
     structure, _ = get_directory_structure(
         project_path,
         exclude_dirs,
-        (
-            parse_ignore_file(os.path.join(project_path, ignore_file))
-            if ignore_file
-            else None
-        ),
+        ignore_file,
         exclude_extensions,
     )
 
