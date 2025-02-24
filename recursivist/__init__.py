@@ -1,4 +1,4 @@
-"""Phylo-Tree: A directory structure visualization tool."""
+"""Recursivist: A directory structure visualization tool."""
 
 __version__ = "0.1.0"
 __author__ = "Armaanjeet Singh Sandhu"

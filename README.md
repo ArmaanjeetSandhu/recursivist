@@ -1,4 +1,4 @@
-# Phylo-Tree
+# Recursivist
 
 A beautiful command-line tool for visualizing directory structures with rich formatting, color-coding, and multiple export options.
 
@@ -16,14 +16,14 @@ A beautiful command-line tool for visualizing directory structures with rich for
 ### From PyPI
 
 ```bash
-pip install phylo-tree
+pip install recursivist
 ```
 
 ### From Source
 
 ```bash
-git clone https://github.com/ArmaanjeetSandhu/phylo-tree.git
-cd phylo-tree
+git clone https://github.com/ArmaanjeetSandhu/recursivist.git
+cd recursivist
 pip install .
 ```
 
@@ -34,7 +34,7 @@ pip install .
 Just run the command in any directory:
 
 ```bash
-phylo-tree visualize
+recursivist visualize
 ```
 
 This will show a colorful tree of the current directory structure in your terminal.
@@ -43,31 +43,31 @@ This will show a colorful tree of the current directory structure in your termin
 
 ```bash
 # Visualize a specific directory
-phylo-tree visualize /path/to/directory
+recursivist visualize /path/to/directory
 
 # Exclude specific directories
-phylo-tree visualize --exclude node_modules .git venv
+recursivist visualize --exclude node_modules .git venv
 
 # Exclude file extensions
-phylo-tree visualize --exclude-ext .pyc .log .cache
+recursivist visualize --exclude-ext .pyc .log .cache
 
 # Use a gitignore-style file
-phylo-tree visualize --ignore-file .gitignore
+recursivist visualize --ignore-file .gitignore
 
 # Export to various formats
-phylo-tree visualize --export txt json html md
+recursivist visualize --export txt json html md
 
 # Export to a specific directory
-phylo-tree visualize --export md --output-dir ./exports
+recursivist visualize --export md --output-dir ./exports
 
 # Custom filename prefix for exports
-phylo-tree visualize --export json --prefix my-project
+recursivist visualize --export json --prefix my-project
 
 # View the current version
-phylo-tree version
+recursivist version
 
 # Generate shell completion
-phylo-tree completion bash > ~/.bash_completion.d/phylo-tree
+recursivist completion bash > ~/.bash_completion.d/recursivist
 ```
 
 ### Command Overview
@@ -95,7 +95,7 @@ phylo-tree completion bash > ~/.bash_completion.d/phylo-tree
 ### Basic Directory Visualization
 
 ```bash
-phylo-tree visualize
+recursivist visualize
 ```
 
 This will produce output similar to:
@@ -116,7 +116,7 @@ This will produce output similar to:
 ### Export to Multiple Formats
 
 ```bash
-phylo-tree visualize --export txt md --output-dir ./docs
+recursivist visualize --export txt md --output-dir ./docs
 ```
 
 This exports the directory structure to both text and markdown formats in the `./docs` directory.
@@ -124,7 +124,7 @@ This exports the directory structure to both text and markdown formats in the `.
 ### Exclude Unwanted Directories and Files
 
 ```bash
-phylo-tree visualize --exclude node_modules .git --exclude-ext .pyc .log
+recursivist visualize --exclude node_modules .git --exclude-ext .pyc .log
 ```
 
 This shows the directory tree while ignoring the `node_modules` and `.git` directories, as well as any `.pyc` and `.log` files.
@@ -149,20 +149,20 @@ A markdown representation that renders nicely on platforms like GitHub.
 
 ## Shell Completion
 
-Phylo-Tree supports shell completion for easier command entry. Generate completion scripts with:
+Recursivist supports shell completion for easier command entry. Generate completion scripts with:
 
 ```bash
 # For Bash
-phylo-tree completion bash > ~/.bash_completion.d/phylo-tree
+recursivist completion bash > ~/.bash_completion.d/recursivist
 
 # For Zsh
-phylo-tree completion zsh > ~/.zsh/completion/_phylo-tree
+recursivist completion zsh > ~/.zsh/completion/_recursivist
 
 # For Fish
-phylo-tree completion fish > ~/.config/fish/completions/phylo-tree.fish
+recursivist completion fish > ~/.config/fish/completions/recursivist.fish
 
 # For PowerShell
-phylo-tree completion powershell > phylo-tree.ps1
+recursivist completion powershell > recursivist.ps1
 ```
 
 ## Advanced Usage
@@ -172,7 +172,7 @@ phylo-tree completion powershell > phylo-tree.ps1
 When working with Git repositories, you can use your existing `.gitignore` file:
 
 ```bash
-phylo-tree visualize --ignore-file .gitignore
+recursivist visualize --ignore-file .gitignore
 ```
 
 ### Integration with Other Tools
@@ -181,7 +181,7 @@ The JSON export format allows for easy integration with other tools:
 
 ```bash
 # Export to JSON
-phylo-tree visualize --export json --prefix myproject
+recursivist visualize --export json --prefix myproject
 
 # Use with jq for additional processing
 cat myproject.json | jq '.structure | keys'
@@ -193,8 +193,8 @@ cat myproject.json | jq '.structure | keys'
 
 ```bash
 # Clone the repository
-git clone https://github.com/ArmaanjeetSandhu/phylo-tree.git
-cd phylo-tree
+git clone https://github.com/ArmaanjeetSandhu/recursivist.git
+cd recursivist
 
 # Create a virtual environment
 python -m venv venv

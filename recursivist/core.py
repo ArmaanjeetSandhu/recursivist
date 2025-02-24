@@ -8,7 +8,7 @@ from rich.tree import Tree
 from rich.console import Console
 from rich.text import Text
 
-from phylo_tree.exports import DirectoryExporter
+from recursivist.exports import DirectoryExporter
 
 logger = logging.getLogger(__name__)
 

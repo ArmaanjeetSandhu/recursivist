@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Phylo-Tree CLI - A beautiful directory structure visualization tool.
+Recursivist CLI - A beautiful directory structure visualization tool.
 
-This module provides the command-line interface for the phylo-tree package,
+This module provides the command-line interface for the recursivist package,
 allowing users to visualize directory structures and export them in various formats.
 """
 
@@ -14,7 +14,7 @@ from rich.console import Console
 from rich.progress import Progress
 from rich.logging import RichHandler
 
-from phylo_tree.core import display_tree, get_directory_structure, export_structure
+from recursivist.core import display_tree, get_directory_structure, export_structure
 
 logging.basicConfig(
     level=logging.INFO,
@@ -22,10 +22,10 @@ logging.basicConfig(
     datefmt="[%X]",
     handlers=[RichHandler(rich_tracebacks=True)],
 )
-logger = logging.getLogger("phylo-tree")
+logger = logging.getLogger("recursivist")
 
 app = typer.Typer(
-    help="Phylo-Tree: A beautiful directory structure visualization tool",
+    help="Recursivist: A beautiful directory structure visualization tool",
     add_completion=True,
 )
 console = Console()
@@ -33,7 +33,7 @@ console = Console()
 
 @app.callback()
 def callback():
-    """Phylo-Tree CLI tool for directory visualization."""
+    """Recursivist CLI tool for directory visualization."""
     pass
 
 
@@ -116,12 +116,12 @@ def visualize(
     export flags.
 
     Examples:
-        phylo-tree visualize                          # Display current directory
-        phylo-tree visualize /path/to/project         # Display specific directory
-        phylo-tree visualize -e node_modules .git     # Exclude directories
-        phylo-tree visualize -x .pyc .log             # Exclude file extensions
-        phylo-tree visualize -f txt json              # Export to multiple formats
-        phylo-tree visualize -f md -o ./exports       # Export to custom directory
+        recursivist visualize                          # Display current directory
+        recursivist visualize /path/to/project         # Display specific directory
+        recursivist visualize -e node_modules .git     # Exclude directories
+        recursivist visualize -x .pyc .log             # Exclude file extensions
+        recursivist visualize -f txt json              # Export to multiple formats
+        recursivist visualize -f md -o ./exports       # Export to custom directory
     """
     if verbose:
         logger.setLevel(logging.DEBUG)
@@ -229,7 +229,7 @@ def completion(
     Generate shell completion script.
 
     This command outputs a shell script that can be sourced to enable
-    command completion for the phylo-tree CLI.
+    command completion for the recursivist CLI.
     """
     from typer.completion import get_completion_inspect_parameters
 
@@ -246,10 +246,10 @@ def completion(
 
 @app.command()
 def version():
-    """Display the current version of phylo-tree."""
-    from phylo_tree import __version__
+    """Display the current version of recursivist."""
+    from recursivist import __version__
 
-    typer.echo(f"Phylo-Tree version: {__version__}")
+    typer.echo(f"Recursivist version: {__version__}")
 
 
 def main():

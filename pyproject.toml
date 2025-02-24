@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "phylo-tree"
+name = "recursivist"
 version = "0.1.0"
 description = "A command-line tool for visualizing directory structures"
 readme = "README.md"
@@ -25,11 +25,11 @@ dependencies = [
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/ArmaanjeetSandhu/phylo-tree"
-"Bug Tracker" = "https://github.com/ArmaanjeetSandhu/phylo-tree/issues"
+"Homepage" = "https://github.com/ArmaanjeetSandhu/recursivist"
+"Bug Tracker" = "https://github.com/ArmaanjeetSandhu/recursivist/issues"
 
 [project.scripts]
-phylo-tree = "phylo_tree.cli:main"
+recursivist = "recursivist.cli:main"
 
 [project.optional-dependencies]
 dev = [
@@ -39,4 +39,4 @@ dev = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["phylo_tree"]
+packages = ["recursivist"]
