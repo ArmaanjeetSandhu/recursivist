@@ -1,0 +1,42 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "phylo-tree"
+version = "0.1.0"
+description = "A command-line tool for visualizing directory structures"
+readme = "README.md"
+requires-python = ">=3.7"
+license = {text = "MIT"}
+authors = [
+    {name = "Armaanjeet Singh Sandhu", email = "armaanjeetsandhu430@gmail.com"},
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Environment :: Console",
+    "Topic :: Utilities",
+]
+dependencies = [
+    "rich>=13.0.0",
+    "typer[all]>=0.9.0",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/ArmaanjeetSandhu/phylo-tree"
+"Bug Tracker" = "https://github.com/ArmaanjeetSandhu/phylo-tree/issues"
+
+[project.scripts]
+phylo-tree = "phylo_tree.cli:main"
+
+[project.optional-dependencies]
+dev = [
+    "build",
+    "twine",
+    "hatchling",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["phylo_tree"]

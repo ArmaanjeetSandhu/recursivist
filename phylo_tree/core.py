@@ -1,22 +1,31 @@
 import os
+import hashlib
+import fnmatch
+import colorsys
+import logging
+from typing import Dict, List, Optional, Set, Tuple
 from rich.tree import Tree
 from rich.console import Console
 from rich.text import Text
-from exports import DirectoryExporter
-import colorsys
-import hashlib
-import fnmatch
-from pathlib import Path
+
+from phylo_tree.exports import DirectoryExporter
+
+logger = logging.getLogger(__name__)
 
 
-def export_structure(structure, root_dir, format_type, output_path):
+def export_structure(
+    structure: Dict, root_dir: str, format_type: str, output_path: str
+) -> None:
     """Export the directory structure to various formats.
 
     Args:
-        structure (dict): Directory structure dictionary
-        root_dir (str): Root directory name
-        format_type (str): Export format ('txt', 'json', 'html', or 'md')
-        output_path (str): Path where the export file will be saved
+        structure: Directory structure dictionary
+        root_dir: Root directory name
+        format_type: Export format ('txt', 'json', 'html', or 'md')
+        output_path: Path where the export file will be saved
+
+    Raises:
+        ValueError: If the format_type is not supported
     """
     exporter = DirectoryExporter(structure, os.path.basename(root_dir))
 
@@ -32,10 +41,18 @@ def export_structure(structure, root_dir, format_type, output_path):
 
     export_func = format_map[format_type.lower()]
     export_func(output_path)
+    logger.info("Successfully exported to %s", output_path)
 
 
-def parse_ignore_file(ignore_file_path):
-    """Parse an ignore file (like .gitignore) and return patterns."""
+def parse_ignore_file(ignore_file_path: str) -> List[str]:
+    """Parse an ignore file (like .gitignore) and return patterns.
+
+    Args:
+        ignore_file_path: Path to the ignore file
+
+    Returns:
+        List of patterns to ignore
+    """
     if not os.path.exists(ignore_file_path):
         return []
 
@@ -50,16 +67,18 @@ def parse_ignore_file(ignore_file_path):
     return patterns
 
 
-def should_exclude(path, ignore_context, exclude_extensions=None):
+def should_exclude(
+    path: str, ignore_context: Dict, exclude_extensions: Optional[Set[str]] = None
+) -> bool:
     """Check if a path should be excluded based on ignore patterns and extensions.
 
     Args:
-        path (str): Path to check
-        ignore_context (dict): Dictionary with 'patterns' and 'current_dir' keys
-        exclude_extensions (set): Set of file extensions to exclude
+        path: Path to check
+        ignore_context: Dictionary with 'patterns' and 'current_dir' keys
+        exclude_extensions: Set of file extensions to exclude
 
     Returns:
-        bool: True if path should be excluded
+        True if path should be excluded
     """
     patterns = ignore_context.get("patterns", [])
     current_dir = ignore_context.get("current_dir", os.path.dirname(path))
@@ -84,8 +103,15 @@ def should_exclude(path, ignore_context, exclude_extensions=None):
     return False
 
 
-def generate_color_for_extension(extension):
-    """Generate a consistent color for a given file extension."""
+def generate_color_for_extension(extension: str) -> str:
+    """Generate a consistent color for a given file extension.
+
+    Args:
+        extension: File extension (with or without leading dot)
+
+    Returns:
+        Hex color code
+    """
     if not extension:
         return "#FFFFFF"
 
@@ -101,20 +127,23 @@ def generate_color_for_extension(extension):
 
 
 def get_directory_structure(
-    root_dir,
-    exclude_dirs=None,
-    ignore_file=None,
-    exclude_extensions=None,
-    parent_ignore_patterns=None,
-):
+    root_dir: str,
+    exclude_dirs: Optional[List[str]] = None,
+    ignore_file: Optional[str] = None,
+    exclude_extensions: Optional[Set[str]] = None,
+    parent_ignore_patterns: Optional[List[str]] = None,
+) -> Tuple[Dict, Set[str]]:
     """Build a nested dictionary representing the directory structure.
 
     Args:
-        root_dir (str): Root directory path to start from
-        exclude_dirs (list): List of directory names to exclude
-        ignore_file (str): Name of ignore file (like .gitignore)
-        exclude_extensions (set): Set of file extensions to exclude
-        parent_ignore_patterns (list): Patterns from parent directories
+        root_dir: Root directory path to start from
+        exclude_dirs: List of directory names to exclude
+        ignore_file: Name of ignore file (like .gitignore)
+        exclude_extensions: Set of file extensions to exclude
+        parent_ignore_patterns: Patterns from parent directories
+
+    Returns:
+        Tuple of (structure dictionary, set of extensions found)
     """
     if exclude_dirs is None:
         exclude_dirs = []
@@ -132,7 +161,16 @@ def get_directory_structure(
     structure = {}
     extensions_set = set()
 
-    for item in os.listdir(root_dir):
+    try:
+        items = os.listdir(root_dir)
+    except PermissionError:
+        logger.warning(f"Permission denied: {root_dir}")
+        return structure, extensions_set
+    except Exception as e:
+        logger.error(f"Error reading directory {root_dir}: {e}")
+        return structure, extensions_set
+
+    for item in items:
         item_path = os.path.join(root_dir, item)
 
         if item in exclude_dirs or should_exclude(
@@ -160,13 +198,29 @@ def get_directory_structure(
     return structure, extensions_set
 
 
-def sort_files_by_type(files):
-    """Sort files by extension and then by name."""
+def sort_files_by_type(files: List[str]) -> List[str]:
+    """Sort files by extension and then by name.
+
+    Args:
+        files: List of filenames to sort
+
+    Returns:
+        Sorted list of filenames
+    """
     return sorted(files, key=lambda f: (os.path.splitext(f)[1], f.lower()))
 
 
-def build_tree(structure, tree, color_map, parent_name="Root"):
-    """Build the tree structure with colored file names."""
+def build_tree(
+    structure: Dict, tree: Tree, color_map: Dict[str, str], parent_name: str = "Root"
+) -> None:
+    """Build the tree structure with colored file names.
+
+    Args:
+        structure: Dictionary representation of the directory structure
+        tree: Rich Tree object to build upon
+        color_map: Mapping of file extensions to colors
+        parent_name: Name of the parent directory
+    """
     for folder, content in sorted(structure.items()):
         if folder == "_files":
             for file in sort_files_by_type(content):
@@ -180,15 +234,18 @@ def build_tree(structure, tree, color_map, parent_name="Root"):
 
 
 def display_tree(
-    root_dir, exclude_dirs=None, ignore_file=None, exclude_extensions=None
-):
+    root_dir: str,
+    exclude_dirs: Optional[List[str]] = None,
+    ignore_file: Optional[str] = None,
+    exclude_extensions: Optional[Set[str]] = None,
+) -> None:
     """Display the directory tree with color-coded file types.
 
     Args:
-        root_dir (str): Root directory path to display
-        exclude_dirs (list): List of directory names to exclude from the tree
-        ignore_file (str): Name of ignore file (like .gitignore)
-        exclude_extensions (set): Set of file extensions to exclude (e.g., {'.pyc', '.log'})
+        root_dir: Root directory path to display
+        exclude_dirs: List of directory names to exclude from the tree
+        ignore_file: Name of ignore file (like .gitignore)
+        exclude_extensions: Set of file extensions to exclude (e.g., {'.pyc', '.log'})
     """
     if exclude_dirs is None:
         exclude_dirs = []
@@ -210,59 +267,3 @@ def display_tree(
     tree = Tree(f"📂 {os.path.basename(root_dir)}")
     build_tree(structure, tree, color_map)
     console.print(tree)
-
-
-if __name__ == "__main__":
-    project_path = input("Enter the project directory path: ").strip()
-
-    exclude_input = input(
-        "Enter directories to exclude (space-separated) or press Enter to skip: "
-    ).strip()
-    exclude_dirs = (
-        [d.strip() for d in exclude_input.split(" ")] if exclude_input else []
-    )
-
-    extensions_input = input(
-        "Enter file extensions to exclude (space-separated, with or without dots) or press Enter to skip: "
-    ).strip()
-    exclude_extensions = (
-        set(ext.strip() for ext in extensions_input.split(" "))
-        if extensions_input
-        else set()
-    )
-
-    ignore_file = input(
-        "Enter ignore file name (e.g., .gitignore) or press Enter to skip: "
-    ).strip()
-
-    if not os.path.exists(project_path) or not os.path.isdir(project_path):
-        print("Invalid directory path. Please enter a valid path.")
-        exit(1)
-
-    structure, _ = get_directory_structure(
-        project_path,
-        exclude_dirs,
-        ignore_file,
-        exclude_extensions,
-    )
-
-    display_tree(project_path, exclude_dirs, ignore_file, exclude_extensions)
-
-    export_format = (
-        input("Export format (txt/json/html/md) or press Enter to skip: ")
-        .strip()
-        .lower()
-    )
-
-    if export_format:
-        if export_format not in ["txt", "json", "html", "md"]:
-            print("Unsupported format. Skipping export.")
-        else:
-            root_name = os.path.basename(project_path)
-            output_path = f"structure.{export_format}"
-
-            try:
-                export_structure(structure, project_path, export_format, output_path)
-                print(f"Successfully exported to {output_path}")
-            except Exception as e:
-                print(f"Error during export: {e}")
