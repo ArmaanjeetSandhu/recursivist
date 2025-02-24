@@ -15,7 +15,7 @@ def export_structure(structure, root_dir, format_type, output_path):
     Args:
         structure (dict): Directory structure dictionary
         root_dir (str): Root directory name
-        format_type (str): Export format ('txt', 'json', 'pdf', 'html', or 'md')
+        format_type (str): Export format ('txt', 'json', 'html', or 'md')
         output_path (str): Path where the export file will be saved
     """
     exporter = DirectoryExporter(structure, os.path.basename(root_dir))

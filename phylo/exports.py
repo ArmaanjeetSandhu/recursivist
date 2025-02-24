@@ -1,5 +1,11 @@
 import json
 import html
+import os
+
+
+def sort_files_by_type(files):
+    """Sort files by extension and then by name."""
+    return sorted(files, key=lambda f: (os.path.splitext(f)[1], f.lower()))
 
 
 class DirectoryExporter:
@@ -26,7 +32,7 @@ class DirectoryExporter:
 
             for i, (name, content) in enumerate(items):
                 if name == "_files":
-                    for file in sorted(content):
+                    for file in sort_files_by_type(content):
                         lines.append(f"{prefix}├── 📄 {file}")
                 else:
                     lines.append(f"{prefix}├── 📁 {name}")
@@ -63,7 +69,7 @@ class DirectoryExporter:
             html_content = ["<ul>"]
 
             if "_files" in structure:
-                for file in sorted(structure["_files"]):
+                for file in sort_files_by_type(structure["_files"]):
                     html_content.append(f'<li class="file">📄 {html.escape(file)}</li>')
 
             for name, content in sorted(structure.items()):
@@ -122,12 +128,12 @@ class DirectoryExporter:
             indent = "    " * level
 
             if "_files" in structure:
-                for file in sorted(structure["_files"]):
-                    lines.append(f"{indent}* 📄 `{file}`")
+                for file in sort_files_by_type(structure["_files"]):
+                    lines.append(f"{indent}- 📄 `{file}`")
 
             for name, content in sorted(structure.items()):
                 if name != "_files":
-                    lines.append(f"{indent}* 📁 **{name}**")
+                    lines.append(f"{indent}- 📁 **{name}**")
                     if isinstance(content, dict):
                         lines.extend(_build_md_tree(content, level + 1))
 
