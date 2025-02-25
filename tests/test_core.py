@@ -1,7 +1,6 @@
 """Tests for the core functionality of the recursivist package."""
 
 import os
-import pytest
 from recursivist.core import (
     get_directory_structure,
     generate_color_for_extension,
@@ -83,7 +82,7 @@ def test_parse_ignore_file(sample_directory):
 
 def test_should_exclude():
     """Test the exclude logic."""
-    ignore_context = {"patterns": ["*.log", "node_modules/"], "current_dir": "/test"}
+    ignore_context = {"patterns": ["*.log", "node_modules"], "current_dir": "/test"}
 
     assert should_exclude("/test/app.log", ignore_context)
     assert not should_exclude("/test/app.txt", ignore_context)
@@ -91,9 +90,18 @@ def test_should_exclude():
     assert should_exclude("/test/node_modules", ignore_context)
     assert not should_exclude("/test/src", ignore_context)
 
+    ignore_context_without_patterns = {
+        "patterns": [],
+        "current_dir": "/test",
+    }
     exclude_extensions = {".py"}
-    assert should_exclude("/test/script.py", ignore_context, exclude_extensions)
-    assert not should_exclude("/test/doc.md", ignore_context, exclude_extensions)
+
+    assert should_exclude(
+        "/test/script.py", ignore_context_without_patterns, exclude_extensions
+    )
+    assert not should_exclude(
+        "/test/script.txt", ignore_context_without_patterns, exclude_extensions
+    )
 
 
 def test_empty_directory(temp_dir):

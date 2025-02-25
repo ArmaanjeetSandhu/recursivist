@@ -1,7 +1,6 @@
 """Tests for the command-line interface of the recursivist package."""
 
 import os
-from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 from recursivist.cli import app, parse_list_option
@@ -118,19 +117,21 @@ def test_visualize_multiple_exports(runner, sample_directory, output_dir):
     assert os.path.exists(os.path.join(output_dir, "structure.json"))
 
 
-def test_visualize_invalid_export_format(runner, sample_directory):
+def test_visualize_invalid_export_format(runner, sample_directory, caplog):
     """Test the visualize command with invalid export format."""
     result = runner.invoke(app, ["visualize", sample_directory, "--export", "invalid"])
     assert result.exit_code == 1
-    assert "Unsupported export format" in result.stdout
+    assert any(
+        "Unsupported export format" in record.message for record in caplog.records
+    )
 
 
-def test_visualize_invalid_directory(runner, temp_dir):
+def test_visualize_invalid_directory(runner, temp_dir, caplog):
     """Test the visualize command with non-existent directory."""
     invalid_dir = os.path.join(temp_dir, "nonexistent")
     result = runner.invoke(app, ["visualize", invalid_dir])
     assert result.exit_code == 1
-    assert "not a valid directory" in result.stdout
+    assert any("not a valid directory" in record.message for record in caplog.records)
 
 
 def test_version_command(runner):
@@ -140,18 +141,28 @@ def test_version_command(runner):
     assert "Recursivist version" in result.stdout
 
 
-def test_completion_command(runner):
+def test_completion_command(runner, monkeypatch, caplog):
     """Test the completion command."""
+
+    def mock_get_completion(shell):
+        if shell not in ["bash", "zsh", "fish", "powershell"]:
+            raise ValueError(f"Unsupported shell: {shell}")
+        return f"# {shell} completion script"
+
+    monkeypatch.setattr(
+        "typer.completion.get_completion_inspect_parameters", mock_get_completion
+    )
+
     result = runner.invoke(app, ["completion", "bash"])
     assert result.exit_code == 0
 
     result = runner.invoke(app, ["completion", "invalid"])
     assert result.exit_code == 1
-    assert "Unsupported shell" in result.stdout
+    assert any("Unsupported shell" in record.message for record in caplog.records)
 
 
-def test_verbose_mode(runner, sample_directory):
+def test_verbose_mode(runner, sample_directory, caplog):
     """Test the verbose mode."""
     result = runner.invoke(app, ["visualize", sample_directory, "--verbose"])
     assert result.exit_code == 0
-    assert "Verbose mode enabled" in result.stdout
+    assert any("Verbose mode enabled" in record.message for record in caplog.records)

@@ -231,17 +231,25 @@ def completion(
     This command outputs a shell script that can be sourced to enable
     command completion for the recursivist CLI.
     """
-    from typer.completion import get_completion_inspect_parameters
+    try:
+        from typer.completion import get_completion_inspect_parameters
 
-    valid_shells = ["bash", "zsh", "fish", "powershell"]
-    if shell.lower() not in valid_shells:
-        logger.error(f"Unsupported shell: {shell}")
-        logger.info(f"Supported shells: {', '.join(valid_shells)}")
+        valid_shells = ["bash", "zsh", "fish", "powershell"]
+        if shell.lower() not in valid_shells:
+            logger.error(f"Unsupported shell: {shell}")
+            logger.info(f"Supported shells: {', '.join(valid_shells)}")
+            raise typer.Exit(1)
+
+        try:
+            completion_script = get_completion_inspect_parameters()
+        except TypeError:
+            completion_script = get_completion_inspect_parameters(shell)
+
+        typer.echo(completion_script)
+        logger.info(f"Generated completion script for {shell}")
+    except Exception as e:
+        logger.error(f"Error generating completion script: {e}")
         raise typer.Exit(1)
-
-    completion_script = f"_{app.info.name}_completion"
-    typer.echo(get_completion_inspect_parameters(shell, completion_script))
-    logger.info(f"Generated completion script for {shell}")
 
 
 @app.command()
