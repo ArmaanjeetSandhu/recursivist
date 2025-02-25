@@ -221,6 +221,51 @@ pip install build
 python -m build
 ```
 
+## Testing
+
+The Recursivist project uses pytest for testing. The test suite covers core functionality, CLI interface, and export features.
+
+### Running Tests
+
+To run the tests, first install the development dependencies:
+
+```bash
+pip install -e ".[dev]"
+```
+
+Then run the tests with coverage reporting:
+
+```bash
+pytest
+```
+
+You can also run specific test files:
+
+```bash
+# Run only core tests
+pytest tests/test_core.py
+
+# Run only export tests
+pytest tests/test_exports.py
+
+# Run only CLI tests
+pytest tests/test_cli.py
+```
+
+### Test Coverage
+
+To generate a detailed coverage report:
+
+```bash
+pytest --cov=recursivist --cov-report=html
+```
+
+This will create an HTML coverage report in the `htmlcov` directory, which you can open in your browser.
+
+### Continuous Integration
+
+The test suite is automatically run on GitHub Actions for every pull request and push to the main branch. This ensures that all changes maintain compatibility and don't introduce regressions.
+
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
