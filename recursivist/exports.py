@@ -1,8 +1,8 @@
-import json
 import html
-import os
+import json
 import logging
-from typing import Dict, List, Any
+import os
+from typing import Any, Dict, List
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +50,6 @@ class DirectoryExporter:
                 else:
                     lines.append(f"{prefix}├── 📁 {name}")
                     if isinstance(content, dict):
-                        extension = "└── " if i == len(items) - 1 else "├── "
                         lines.extend(_build_txt_tree(content, prefix + "│   "))
             return lines
 

@@ -6,15 +6,16 @@ This module provides the command-line interface for the recursivist package,
 allowing users to visualize directory structures and export them in various formats.
 """
 
-import typer
 import logging
-from typing import List, Optional, Set
 from pathlib import Path
-from rich.console import Console
-from rich.progress import Progress
-from rich.logging import RichHandler
+from typing import List, Optional, Set
 
-from recursivist.core import display_tree, get_directory_structure, export_structure
+import typer
+from rich.console import Console
+from rich.logging import RichHandler
+from rich.progress import Progress
+
+from recursivist.core import display_tree, export_structure, get_directory_structure
 
 logging.basicConfig(
     level=logging.INFO,

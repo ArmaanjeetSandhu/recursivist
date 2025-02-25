@@ -1,12 +1,13 @@
-import os
-import hashlib
-import fnmatch
 import colorsys
+import fnmatch
+import hashlib
 import logging
+import os
 from typing import Dict, List, Optional, Set, Tuple
-from rich.tree import Tree
+
 from rich.console import Console
 from rich.text import Text
+from rich.tree import Tree
 
 from recursivist.exports import DirectoryExporter
 
