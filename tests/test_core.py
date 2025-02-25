@@ -80,8 +80,10 @@ def test_parse_ignore_file(sample_directory):
     assert "node_modules" in patterns
 
 
-def test_should_exclude():
+def test_should_exclude(mocker):
     """Test the exclude logic."""
+    mocker.patch("os.path.isfile", return_value=True)
+
     ignore_context = {"patterns": ["*.log", "node_modules"], "current_dir": "/test"}
 
     assert should_exclude("/test/app.log", ignore_context)
@@ -100,7 +102,7 @@ def test_should_exclude():
         "/test/script.py", ignore_context_without_patterns, exclude_extensions
     )
     assert not should_exclude(
-        "/test/script.txt", ignore_context_without_patterns, exclude_extensions
+        "/test/app.txt", ignore_context_without_patterns, exclude_extensions
     )
 
 
