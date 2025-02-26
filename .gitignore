@@ -27,5 +27,3 @@ coverage.xml
 # Project specific
 structure.*
 *.log
-
-NestedCollapsible.jsx

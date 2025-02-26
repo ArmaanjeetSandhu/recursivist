@@ -22,7 +22,7 @@ def export_structure(
     Args:
         structure: Directory structure dictionary
         root_dir: Root directory name
-        format_type: Export format ('txt', 'json', 'html', or 'md')
+        format_type: Export format ('txt', 'json', 'html', 'md', 'jsx')
         output_path: Path where the export file will be saved
 
     Raises:
@@ -35,6 +35,7 @@ def export_structure(
         "json": exporter.to_json,
         "html": exporter.to_html,
         "md": exporter.to_markdown,
+        "jsx": exporter.to_jsx,
     }
 
     if format_type.lower() not in format_map:

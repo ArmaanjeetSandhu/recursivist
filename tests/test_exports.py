@@ -102,6 +102,29 @@ def test_export_to_markdown(sample_directory, output_dir):
     assert "- 📁 **subdir**" in content
 
 
+def test_export_to_jsx(sample_directory, output_dir):
+    """Test exporting directory structure to React component format."""
+    structure, _ = get_directory_structure(sample_directory)
+    output_path = os.path.join(output_dir, "structure.jsx")
+
+    export_structure(structure, sample_directory, "jsx", output_path)
+
+    assert os.path.exists(output_path)
+
+    with open(output_path, "r", encoding="utf-8") as f:
+        content = f.read()
+
+    assert "import React" in content
+    assert os.path.basename(sample_directory) in content
+    assert "DirectoryViewer" in content
+    assert "CollapsibleItem" in content
+    assert "file1.txt" in content
+    assert "file2.py" in content
+    assert "subdir" in content
+    assert "ChevronDown" in content
+    assert "ChevronUp" in content
+
+
 def test_export_unsupported_format(sample_directory, output_dir):
     """Test exporting to an unsupported format raises ValueError."""
     structure, _ = get_directory_structure(sample_directory)

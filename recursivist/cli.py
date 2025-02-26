@@ -64,7 +64,6 @@ def parse_list_option(option_value: Optional[List[str]]) -> List[str]:
 
     result = []
     for item in option_value:
-        # Split each option value by spaces and extend the result list
         result.extend([x.strip() for x in item.split() if x.strip()])
     return result
 
@@ -93,7 +92,7 @@ def visualize(
         None,
         "--export",
         "-f",
-        help="Export formats (space-separated or multiple flags): txt, json, html, md",
+        help="Export formats (space-separated or multiple flags): txt, json, html, md, jsx",
     ),
     output_dir: Optional[Path] = typer.Option(
         None,
@@ -134,7 +133,6 @@ def visualize(
 
     logger.info(f"Analyzing directory: {directory}")
 
-    # Parse space-separated exclude options
     parsed_exclude_dirs = parse_list_option(exclude_dirs)
     parsed_exclude_exts = parse_list_option(exclude_extensions)
 
@@ -172,13 +170,10 @@ def visualize(
         logger.info("Displaying directory tree:")
         display_tree(str(directory), parsed_exclude_dirs, ignore_file, exclude_exts_set)
 
-        # Handle multiple export formats
         if export_formats:
-            # Parse the formats as we do with other space-separated options
             parsed_formats = parse_list_option(export_formats)
-            valid_formats = ["txt", "json", "html", "md"]
+            valid_formats = ["txt", "json", "html", "md", "jsx"]
 
-            # Validate all formats
             invalid_formats = [
                 fmt for fmt in parsed_formats if fmt.lower() not in valid_formats
             ]
@@ -189,7 +184,6 @@ def visualize(
                 logger.info(f"Supported formats: {', '.join(valid_formats)}")
                 raise typer.Exit(1)
 
-            # Create output directory if needed
             if output_dir:
                 output_dir.mkdir(parents=True, exist_ok=True)
             else:
@@ -199,7 +193,6 @@ def visualize(
 
             with Progress() as progress:
                 for fmt in parsed_formats:
-                    # Determine output path
                     output_path = output_dir / f"{output_prefix}.{fmt.lower()}"
 
                     task_export = progress.add_task(
@@ -215,7 +208,6 @@ def visualize(
                     except Exception as e:
                         progress.update(task_export, completed=True)
                         logger.error(f"Failed to export to {fmt}: {e}")
-                        # Continue with other formats even if one fails
 
     except Exception as e:
         logger.error(f"Error: {e}", exc_info=verbose)

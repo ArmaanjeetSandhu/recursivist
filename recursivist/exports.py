@@ -4,6 +4,8 @@ import logging
 import os
 from typing import Any, Dict, List
 
+from recursivist.jsx_export import generate_jsx_component
+
 logger = logging.getLogger(__name__)
 
 
@@ -175,4 +177,17 @@ class DirectoryExporter:
             logger.info(f"Successfully exported Markdown to {output_path}")
         except Exception as e:
             logger.error(f"Error exporting to Markdown: {e}")
+            raise
+
+    def to_jsx(self, output_path: str) -> None:
+        """Export directory structure to a React component (JSX file).
+
+        Args:
+            output_path: Path where the React component file will be saved
+        """
+        try:
+            generate_jsx_component(self.structure, self.root_name, output_path)
+            logger.info(f"Successfully exported React component to {output_path}")
+        except Exception as e:
+            logger.error(f"Error exporting to React component: {e}")
             raise

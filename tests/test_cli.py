@@ -45,6 +45,33 @@ def test_visualize_command(runner, sample_directory):
     assert "subdir" in result.stdout
 
 
+def test_visualize_with_jsx_export(runner, sample_directory, output_dir):
+    """Test the visualize command with React export option."""
+    result = runner.invoke(
+        app,
+        [
+            "visualize",
+            sample_directory,
+            "--export",
+            "jsx",
+            "--output-dir",
+            output_dir,
+            "--prefix",
+            "test_component",
+        ],
+    )
+    assert result.exit_code == 0
+
+    export_file = os.path.join(output_dir, "test_component.jsx")
+    assert os.path.exists(export_file)
+
+    with open(export_file, "r", encoding="utf-8") as f:
+        content = f.read()
+
+    assert "import React" in content
+    assert "DirectoryViewer" in content
+
+
 def test_visualize_with_exclude_dirs(runner, sample_directory):
     """Test the visualize command with excluded directories."""
     exclude_dir = os.path.join(sample_directory, "exclude_me")
