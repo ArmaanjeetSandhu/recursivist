@@ -1,6 +1,5 @@
 """Tests for the directory comparison functionality."""
 
-import json
 import os
 
 import pytest
@@ -90,26 +89,6 @@ def test_display_comparison(comparison_directories, capsys):
     assert "Legend" in captured.out
 
 
-def test_export_comparison_json(comparison_directories, output_dir):
-    """Test JSON export of directory comparison."""
-    dir1, dir2 = comparison_directories
-    output_path = os.path.join(output_dir, "comparison.json")
-
-    export_comparison(dir1, dir2, "json", output_path)
-
-    assert os.path.exists(output_path)
-
-    with open(output_path, "r", encoding="utf-8") as f:
-        data = json.load(f)
-
-    assert "dir1" in data
-    assert "dir2" in data
-    assert data["dir1"]["name"] == os.path.basename(dir1)
-    assert data["dir2"]["name"] == os.path.basename(dir2)
-    assert "dir1_only" in data["dir1"]["structure"]
-    assert "dir2_only" in data["dir2"]["structure"]
-
-
 def test_export_comparison_txt(comparison_directories, output_dir):
     """Test text export of directory comparison."""
     dir1, dir2 = comparison_directories
@@ -144,25 +123,6 @@ def test_export_comparison_html(comparison_directories, output_dir):
     assert "<!DOCTYPE html>" in content
     assert "<html>" in content
     assert "Directory Comparison" in content
-    assert os.path.basename(dir1) in content
-    assert os.path.basename(dir2) in content
-    assert "dir1_only" in content
-    assert "dir2_only" in content
-
-
-def test_export_comparison_markdown(comparison_directories, output_dir):
-    """Test Markdown export of directory comparison."""
-    dir1, dir2 = comparison_directories
-    output_path = os.path.join(output_dir, "comparison.md")
-
-    export_comparison(dir1, dir2, "md", output_path)
-
-    assert os.path.exists(output_path)
-
-    with open(output_path, "r", encoding="utf-8") as f:
-        content = f.read()
-
-    assert "# Directory Comparison" in content
     assert os.path.basename(dir1) in content
     assert os.path.basename(dir2) in content
     assert "dir1_only" in content

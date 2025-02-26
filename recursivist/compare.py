@@ -3,7 +3,6 @@ This module contains functions to compare two directory structures and
 display them side by side with highlighting of differences.
 """
 
-import json
 import logging
 import os
 from typing import Any, Dict, List, Set, Tuple
@@ -199,7 +198,7 @@ def export_comparison(
     Args:
         dir1: Path to the first directory
         dir2: Path to the second directory
-        format_type: Export format ('txt', 'json', 'html', or 'md')
+        format_type: Export format ('txt' or 'html')
         output_path: Path where the export file will be saved
         exclude_dirs: List of directory names to exclude
         ignore_file: Name of ignore file (like .gitignore)
@@ -227,24 +226,12 @@ def export_comparison(
         "dir2": {"path": dir2, "name": os.path.basename(dir2), "structure": structure2},
     }
 
-    if format_type == "json":
-        _export_comparison_to_json(comparison_data, output_path)
-    elif format_type == "txt":
+    if format_type == "txt":
         _export_comparison_to_txt(comparison_data, output_path)
     elif format_type == "html":
         _export_comparison_to_html(comparison_data, output_path)
-    elif format_type == "md":
-        _export_comparison_to_markdown(comparison_data, output_path)
     else:
         raise ValueError(f"Unsupported format: {format_type}")
-
-
-def _export_comparison_to_json(
-    comparison_data: Dict[str, Any], output_path: str
-) -> None:
-    """Export comparison to JSON format."""
-    with open(output_path, "w", encoding="utf-8") as f:
-        json.dump(comparison_data, f, indent=2)
 
 
 def _export_comparison_to_txt(
@@ -468,52 +455,3 @@ def _export_comparison_to_html(
 
     with open(output_path, "w", encoding="utf-8") as f:
         f.write(html_template)
-
-
-def _export_comparison_to_markdown(
-    comparison_data: Dict[str, Any], output_path: str
-) -> None:
-    """Export comparison to Markdown format."""
-
-    def _build_md_tree(structure: Dict[str, Any], level: int = 0) -> List[str]:
-        lines = []
-        indent = "    " * level
-
-        for name, content in sorted(structure.items()):
-            if name != "_files":
-                lines.append(f"{indent}- 📁 **{name}**")
-                if isinstance(content, dict):
-                    lines.extend(_build_md_tree(content, level + 1))
-
-        if "_files" in structure:
-            for file in sort_files_by_type(structure["_files"]):
-                lines.append(f"{indent}- 📄 `{file}`")
-
-        return lines
-
-    dir1_name = comparison_data["dir1"]["name"]
-    dir2_name = comparison_data["dir2"]["name"]
-    dir1_path = comparison_data["dir1"]["path"]
-    dir2_path = comparison_data["dir2"]["path"]
-
-    md_content = [
-        "# Directory Comparison",
-        "",
-        f"Comparing **{dir1_name}** with **{dir2_name}**",
-        "",
-        "## Left: " + dir1_path,
-        "",
-        f"### 📂 {dir1_name}",
-        "",
-    ]
-
-    md_content.extend(_build_md_tree(comparison_data["dir1"]["structure"]))
-    md_content.append("")
-    md_content.append("## Right: " + dir2_path)
-    md_content.append("")
-    md_content.append(f"### 📂 {dir2_name}")
-    md_content.append("")
-    md_content.extend(_build_md_tree(comparison_data["dir2"]["structure"]))
-
-    with open(output_path, "w", encoding="utf-8") as f:
-        f.write("\n".join(md_content))

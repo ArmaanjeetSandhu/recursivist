@@ -105,7 +105,7 @@ recursivist completion bash > ~/.bash_completion.d/recursivist
 | `--exclude`     | `-e`  | Directories to exclude (space-separated or multiple flags)     |
 | `--exclude-ext` | `-x`  | File extensions to exclude (space-separated or multiple flags) |
 | `--ignore-file` | `-i`  | Ignore file to use (e.g., .gitignore)                          |
-| `--export`      | `-f`  | Export formats: txt, json, html, md                            |
+| `--export`      | `-f`  | Export formats: txt, html                                      |
 | `--output-dir`  | `-o`  | Output directory for exports                                   |
 | `--prefix`      | `-p`  | Prefix for exported filenames                                  |
 | `--verbose`     | `-v`  | Enable verbose output                                          |

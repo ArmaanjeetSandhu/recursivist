@@ -296,7 +296,7 @@ def compare(
         None,
         "--export",
         "-f",
-        help="Export formats (space-separated or multiple flags): txt, json, html, md",
+        help="Export formats (space-separated or multiple flags): txt, html",
     ),
     output_dir: Optional[Path] = typer.Option(
         None,
@@ -361,7 +361,7 @@ def compare(
 
         if export_formats:
             parsed_formats = parse_list_option(export_formats)
-            valid_formats = ["txt", "json", "html", "md"]
+            valid_formats = ["txt", "html"]
 
             invalid_formats = [
                 fmt for fmt in parsed_formats if fmt.lower() not in valid_formats
@@ -382,7 +382,6 @@ def compare(
 
             with Progress() as progress:
                 for fmt in parsed_formats:
-                    # Determine output path
                     output_path = output_dir / f"{output_prefix}.{fmt.lower()}"
 
                     task_export = progress.add_task(
