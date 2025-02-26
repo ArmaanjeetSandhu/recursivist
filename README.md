@@ -166,24 +166,6 @@ recursivist visualize --exclude node_modules .git --exclude-ext .pyc .log
 
 This shows the directory tree while ignoring the `node_modules` and `.git` directories, as well as any `.pyc` and `.log` files.
 
-## Export Formats
-
-### Text (TXT)
-
-A simple ASCII tree representation that can be viewed in any text editor.
-
-### JSON
-
-A structured JSON format that can be easily parsed by other tools or scripts.
-
-### HTML
-
-An HTML representation with styling that can be viewed in any web browser.
-
-### Markdown (MD)
-
-A markdown representation that renders nicely on platforms like GitHub.
-
 ## Shell Completion
 
 Recursivist supports shell completion for easier command entry. Generate completion scripts with:
