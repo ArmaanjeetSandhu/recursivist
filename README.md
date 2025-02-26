@@ -141,8 +141,8 @@ recursivist compare ~/project-v1 ~/project-v2
 
 This will display two directory trees side by side with differences highlighted:
 
-- Files and directories present only in the first directory are highlighted in green
-- Files and directories present only in the second directory are highlighted in red
+- Files and directories present only in the current directory are highlighted in green
+- Files and directories not present in the current directory are highlighted in red
 
 You can export the comparison to various formats:
 
