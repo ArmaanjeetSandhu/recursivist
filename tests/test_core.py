@@ -1,9 +1,10 @@
 """Tests for the core functionality of the recursivist package."""
 
 import os
+
 from recursivist.core import (
-    get_directory_structure,
     generate_color_for_extension,
+    get_directory_structure,
     parse_ignore_file,
     should_exclude,
 )

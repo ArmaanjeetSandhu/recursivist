@@ -1,8 +1,10 @@
 """Tests for the command-line interface of the recursivist package."""
 
 import os
+
 import pytest
 from typer.testing import CliRunner
+
 from recursivist.cli import app, parse_list_option
 
 

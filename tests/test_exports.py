@@ -1,9 +1,11 @@
 """Tests for the export functionality of the recursivist package."""
 
-import os
 import json
+import os
+
 import pytest
-from recursivist.core import get_directory_structure, export_structure
+
+from recursivist.core import export_structure, get_directory_structure
 from recursivist.exports import DirectoryExporter, sort_files_by_type
 
 
