@@ -40,7 +40,7 @@ def generate_jsx_component(
             files = structure["_files"]
             for file in sorted(files, key=lambda f: f.lower()):
                 file_content = (
-                    f'<div className="p-3 bg-white rounded-lg border border-gray-100">'
+                    '<div className="p-3 bg-white rounded-lg border border-gray-100">'
                 )
                 file_content += f'<p className="flex items-center"><span className="mr-2">📄</span> {html.escape(file)}</p>'
                 file_content += "</div>"
@@ -56,19 +56,19 @@ const CollapsibleContext = React.createContext();
 const CollapsibleItem = ({{ title, children, level = 0 }}) => {{
   const [isOpen, setIsOpen] = useState(false);
   const {{ expandAll, collapseAll, resetTrigger }} = React.useContext(CollapsibleContext);
-  
+
   useEffect(() => {{
     if (expandAll) {{
       setIsOpen(true);
     }}
   }}, [expandAll]);
-  
+
   useEffect(() => {{
     if (collapseAll) {{
       setIsOpen(false);
     }}
   }}, [collapseAll]);
-  
+
   useEffect(() => {{
   }}, [resetTrigger]);
 
@@ -91,7 +91,7 @@ const CollapsibleItem = ({{ title, children, level = 0 }}) => {{
           <ChevronDown className="w-4 h-4 transition-transform" />
         )}}
       </button>
-      
+
       <div
         className={{`overflow-hidden transition-all duration-300 ease-in-out ${{
           isOpen ? 'max-h-screen opacity-100' : 'max-h-0 opacity-0'
@@ -109,7 +109,7 @@ const DirectoryViewer = () => {{
   const [expandAll, setExpandAll] = useState(false);
   const [collapseAll, setCollapseAll] = useState(false);
   const [resetTrigger, setResetTrigger] = useState(0);
-  
+
   const handleExpandAll = () => {{
     setExpandAll(true);
     setCollapseAll(false);
@@ -118,7 +118,7 @@ const DirectoryViewer = () => {{
       setResetTrigger(prev => prev + 1);
     }}, 100);
   }};
-  
+
   const handleCollapseAll = () => {{
     setCollapseAll(true);
     setExpandAll(false);
@@ -132,16 +132,16 @@ const DirectoryViewer = () => {{
     <CollapsibleContext.Provider value={{{{ expandAll, collapseAll, resetTrigger }}}}>
       <div className="w-full max-w-5xl mx-auto space-y-2">
         <h1 className="text-xl font-bold mb-4">Directory Structure: {html.escape(root_name)}</h1>
-        
+
         <div className="flex justify-end mb-4 space-x-2">
-          <button 
+          <button
             onClick={{handleExpandAll}}
             className="flex items-center px-3 py-1 text-sm bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-md transition-colors"
           >
             <Maximize2 className="w-4 h-4 mr-1" />
             Expand All
           </button>
-          <button 
+          <button
             onClick={{handleCollapseAll}}
             className="flex items-center px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md transition-colors"
           >

@@ -3,7 +3,7 @@ import fnmatch
 import hashlib
 import logging
 import os
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from rich.console import Console
 from rich.text import Text
@@ -134,7 +134,7 @@ def get_directory_structure(
     ignore_file: Optional[str] = None,
     exclude_extensions: Optional[Set[str]] = None,
     parent_ignore_patterns: Optional[List[str]] = None,
-) -> Tuple[Dict, Set[str]]:
+) -> Tuple[Dict[str, Any], Set[str]]:
     """Build a nested dictionary representing the directory structure.
 
     Args:
@@ -160,8 +160,8 @@ def get_directory_structure(
 
     ignore_context = {"patterns": ignore_patterns, "current_dir": root_dir}
 
-    structure = {}
-    extensions_set = set()
+    structure: Dict[str, Any] = {}
+    extensions_set: Set[str] = set()
 
     try:
         items = os.listdir(root_dir)
@@ -193,7 +193,9 @@ def get_directory_structure(
         else:
             _, ext = os.path.splitext(item)
             if ext.lower() not in exclude_extensions:
-                structure.setdefault("_files", []).append(item)
+                if "_files" not in structure:
+                    structure["_files"] = []
+                structure["_files"].append(item)
                 if ext:
                     extensions_set.add(ext.lower())
 

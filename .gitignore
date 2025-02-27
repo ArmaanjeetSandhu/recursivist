@@ -10,7 +10,7 @@ build/
 *.egg
 
 # Virtual environments
-phylenv/
+rv-env/
 env/
 ENV/
 .env/
@@ -18,11 +18,12 @@ ENV/
 
 # Testing
 .pytest_cache/
+.mypy_cache/
 .coverage
-htmlcov/
 coverage.xml
 .hypothesis/
 .tox/
+htmlcov/
 
 # Project specific
 structure.*

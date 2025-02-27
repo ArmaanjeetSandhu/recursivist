@@ -7,6 +7,7 @@ allowing users to visualize directory structures and export them in various form
 """
 
 import logging
+import sys
 from pathlib import Path
 from typing import List, Optional, Set
 
@@ -225,18 +226,21 @@ def completion(
     command completion for the recursivist CLI.
     """
     try:
-        from typer.completion import get_completion_inspect_parameters
-
         valid_shells = ["bash", "zsh", "fish", "powershell"]
         if shell.lower() not in valid_shells:
             logger.error(f"Unsupported shell: {shell}")
             logger.info(f"Supported shells: {', '.join(valid_shells)}")
             raise typer.Exit(1)
 
-        try:
-            completion_script = get_completion_inspect_parameters()
-        except TypeError:
-            completion_script = get_completion_inspect_parameters(shell)
+        completion_script = ""
+        if shell == "bash":
+            completion_script = f'eval "$({sys.argv[0]} --completion-script bash)"'
+        elif shell == "zsh":
+            completion_script = f'eval "$({sys.argv[0]} --completion-script zsh)"'
+        elif shell == "fish":
+            completion_script = f"{sys.argv[0]} --completion-script fish | source"
+        elif shell == "powershell":
+            completion_script = f"& {sys.argv[0]} --completion-script powershell | Out-String | Invoke-Expression"
 
         typer.echo(completion_script)
         logger.info(f"Generated completion script for {shell}")
@@ -347,8 +351,14 @@ def compare(
                 logger.warning(f"Ignore file not found in {d}: {ignore_path}")
 
     try:
+        actual_ignore_file = "" if ignore_file is None else ignore_file
+
         display_comparison(
-            str(dir1), str(dir2), parsed_exclude_dirs, ignore_file, exclude_exts_set
+            str(dir1),
+            str(dir2),
+            parsed_exclude_dirs,
+            actual_ignore_file,
+            exclude_exts_set,
         )
 
         if export_formats:
@@ -387,7 +397,7 @@ def compare(
                             fmt.lower(),
                             str(output_path),
                             parsed_exclude_dirs,
-                            ignore_file,
+                            actual_ignore_file,
                             exclude_exts_set,
                         )
                         progress.update(task_export, completed=True)

@@ -5,7 +5,7 @@ display them side by side with highlighting of differences.
 
 import logging
 import os
-from typing import Any, Dict, List, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from rich.columns import Columns
 from rich.console import Console
@@ -25,9 +25,9 @@ logger = logging.getLogger(__name__)
 def compare_directory_structures(
     dir1: str,
     dir2: str,
-    exclude_dirs: List[str] = None,
-    ignore_file: str = None,
-    exclude_extensions: Set[str] = None,
+    exclude_dirs: Optional[List[str]] = None,
+    ignore_file: Optional[str] = None,
+    exclude_extensions: Optional[Set[str]] = None,
 ) -> Tuple[Dict, Dict, Set[str]]:
     """
     Compare two directory structures and return both structures and a combined set of extensions.
@@ -116,9 +116,9 @@ def build_comparison_tree(
 def display_comparison(
     dir1: str,
     dir2: str,
-    exclude_dirs: List[str] = None,
-    ignore_file: str = None,
-    exclude_extensions: Set[str] = None,
+    exclude_dirs: Optional[List[str]] = None,
+    ignore_file: Optional[str] = None,
+    exclude_extensions: Optional[Set[str]] = None,
 ) -> None:
     """
     Display two directory trees side by side with highlighted differences.
@@ -188,9 +188,9 @@ def export_comparison(
     dir2: str,
     format_type: str,
     output_path: str,
-    exclude_dirs: List[str] = None,
-    ignore_file: str = None,
-    exclude_extensions: Set[str] = None,
+    exclude_dirs: Optional[List[str]] = None,
+    ignore_file: Optional[str] = None,
+    exclude_extensions: Optional[Set[str]] = None,
 ) -> None:
     """
     Export directory comparison to various formats.
