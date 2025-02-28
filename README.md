@@ -8,6 +8,7 @@ A beautiful command-line tool for visualizing directory structures with rich for
 - 🌳 **Tree Structure**: Displays your directories in an intuitive, hierarchical tree format
 - 📁 **Smart Filtering**: Easily exclude directories and file extensions you don't want to see
 - 🧩 **Gitignore Support**: Automatically respects your `.gitignore` patterns
+- 🔍 **Powerful Pattern Matching**: Use glob and regex patterns to precisely include or exclude files
 - 📊 **Multiple Export Formats**: Export to TXT, JSON, HTML, Markdown, and React components
 - 🔄 **Directory Comparison**: Compare two directory structures side by side with highlighted differences
 - 🧩 **React Component Export**: Generate interactive, collapsible React components for web integration
@@ -56,6 +57,18 @@ recursivist visualize --exclude-ext .pyc .log .cache
 # Use a gitignore-style file
 recursivist visualize --ignore-file .gitignore
 
+# Use glob patterns to exclude files
+recursivist visualize --exclude-pattern "*.test.js" "*.spec.js"
+
+# Use regex patterns for more precise control
+recursivist visualize --exclude-pattern "^test_.*\.py$" ".*_test\.js$" --regex
+
+# Include only specific patterns (overrides exclusions)
+recursivist visualize --include-pattern "src/*" "*.md"
+
+# Include with regex patterns
+recursivist visualize --include-pattern "^src/.*\.jsx?$" "^docs/.*\.md$" --regex
+
 # Export to various formats
 recursivist visualize --export txt json html md jsx
 
@@ -70,6 +83,9 @@ recursivist visualize --export json --prefix my-project
 
 # Compare two directories
 recursivist compare /path/to/dir1 /path/to/dir2
+
+# Compare with pattern exclusions
+recursivist compare dir1 dir2 --exclude-pattern "*.test.js" --regex
 
 # Compare and export the comparison
 recursivist compare dir1 dir2 --export html --output-dir ./reports
@@ -92,27 +108,33 @@ recursivist completion bash > ~/.bash_completion.d/recursivist
 
 ### Command Options for `visualize`
 
-| Option          | Short | Description                                                    |
-| --------------- | ----- | -------------------------------------------------------------- |
-| `--exclude`     | `-e`  | Directories to exclude (space-separated or multiple flags)     |
-| `--exclude-ext` | `-x`  | File extensions to exclude (space-separated or multiple flags) |
-| `--ignore-file` | `-i`  | Ignore file to use (e.g., .gitignore)                          |
-| `--export`      | `-f`  | Export formats: txt, json, html, md, jsx                       |
-| `--output-dir`  | `-o`  | Output directory for exports                                   |
-| `--prefix`      | `-p`  | Prefix for exported filenames                                  |
-| `--verbose`     | `-v`  | Enable verbose output                                          |
+| Option              | Short | Description                                                    |
+| ------------------- | ----- | -------------------------------------------------------------- |
+| `--exclude`         | `-e`  | Directories to exclude (space-separated or multiple flags)     |
+| `--exclude-ext`     | `-x`  | File extensions to exclude (space-separated or multiple flags) |
+| `--exclude-pattern` | `-p`  | Patterns to exclude (glob by default, regex with --regex flag) |
+| `--include-pattern` | `-i`  | Patterns to include (overrides exclusions)                     |
+| `--regex`           | `-r`  | Treat patterns as regex instead of glob patterns               |
+| `--ignore-file`     | `-g`  | Ignore file to use (e.g., .gitignore)                          |
+| `--export`          | `-f`  | Export formats: txt, json, html, md, jsx                       |
+| `--output-dir`      | `-o`  | Output directory for exports                                   |
+| `--prefix`          | `-n`  | Prefix for exported filenames                                  |
+| `--verbose`         | `-v`  | Enable verbose output                                          |
 
 ### Command Options for `compare`
 
-| Option          | Short | Description                                                    |
-| --------------- | ----- | -------------------------------------------------------------- |
-| `--exclude`     | `-e`  | Directories to exclude (space-separated or multiple flags)     |
-| `--exclude-ext` | `-x`  | File extensions to exclude (space-separated or multiple flags) |
-| `--ignore-file` | `-i`  | Ignore file to use (e.g., .gitignore)                          |
-| `--export`      | `-f`  | Export formats: txt, html                                      |
-| `--output-dir`  | `-o`  | Output directory for exports                                   |
-| `--prefix`      | `-p`  | Prefix for exported filenames                                  |
-| `--verbose`     | `-v`  | Enable verbose output                                          |
+| Option              | Short | Description                                                    |
+| ------------------- | ----- | -------------------------------------------------------------- |
+| `--exclude`         | `-e`  | Directories to exclude (space-separated or multiple flags)     |
+| `--exclude-ext`     | `-x`  | File extensions to exclude (space-separated or multiple flags) |
+| `--exclude-pattern` | `-p`  | Patterns to exclude (glob by default, regex with --regex flag) |
+| `--include-pattern` | `-i`  | Patterns to include (overrides exclusions)                     |
+| `--regex`           | `-r`  | Treat patterns as regex instead of glob patterns               |
+| `--ignore-file`     | `-g`  | Ignore file to use (e.g., .gitignore)                          |
+| `--export`          | `-f`  | Export formats: txt, html                                      |
+| `--output-dir`      | `-o`  | Output directory for exports                                   |
+| `--prefix`          | `-n`  | Prefix for exported filenames                                  |
+| `--verbose`         | `-v`  | Enable verbose output                                          |
 
 ## Examples
 
@@ -135,6 +157,46 @@ This will produce output similar to:
 ├── 📄 README.md
 ├── 📄 requirements.txt
 └── 📄 setup.py
+```
+
+### Pattern Matching with Glob and Regex
+
+Recursivist supports both glob patterns (default) and regular expressions for precise control over which files and directories to include or exclude.
+
+#### Glob Pattern Examples
+
+Glob patterns use wildcard characters like `*` to match multiple characters:
+
+```bash
+# Exclude all JavaScript test files
+recursivist visualize --exclude-pattern "*.test.js" "*.spec.js"
+
+# Include only source code and documentation
+recursivist visualize --include-pattern "src/*" "docs/*.md"
+```
+
+#### Regex Pattern Examples
+
+For more precise control, use the `--regex` flag to enable regular expressions:
+
+```bash
+# Exclude files starting with "test_" and ending with ".py"
+recursivist visualize --exclude-pattern "^test_.*\.py$" --regex
+
+# Include only React components in the src directory
+recursivist visualize --include-pattern "^src/.*\.(jsx|tsx)$" --regex
+```
+
+#### Combining Include and Exclude Patterns
+
+When you specify both include and exclude patterns, include patterns take precedence:
+
+```bash
+# Include all markdown files, but exclude those containing "draft"
+recursivist visualize --include-pattern "*.md" --exclude-pattern "*draft*"
+
+# With regex, include TypeScript files but exclude test files
+recursivist visualize --include-pattern "^.*\.ts$" --exclude-pattern ".*\.test\.ts$" --regex
 ```
 
 ### Directory Comparison
@@ -217,7 +279,7 @@ This creates a self-contained React component file that you can import directly 
    }
    ```
 
-Note: The component uses Tailwind CSS for styling. If your project doesn't use Tailwind, you'll need to add it or modify the component to use your preferred styling solution.
+**Note:** The component uses Tailwind CSS for styling. If your project doesn't use Tailwind, you'll need to add it or modify the component to use your preferred styling solution.
 
 ## Shell Completion
 
@@ -325,6 +387,9 @@ pytest tests/test_cli.py
 
 # Run only compare tests
 pytest tests/test_compare.py
+
+# Run regex pattern tests
+pytest tests/test_regex.py
 ```
 
 ### Test Coverage

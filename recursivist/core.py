@@ -3,7 +3,8 @@ import fnmatch
 import hashlib
 import logging
 import os
-from typing import Any, Dict, List, Optional, Set, Tuple
+import re
+from typing import Any, Dict, List, Optional, Pattern, Set, Tuple, Union, cast
 
 from rich.console import Console
 from rich.text import Text
@@ -69,15 +70,49 @@ def parse_ignore_file(ignore_file_path: str) -> List[str]:
     return patterns
 
 
+def compile_regex_patterns(
+    patterns: List[str], is_regex: bool = False
+) -> List[Union[str, Pattern[str]]]:
+    """Compile regex patterns if needed.
+
+    Args:
+        patterns: List of patterns to compile
+        is_regex: Whether the patterns should be treated as regex or glob patterns
+
+    Returns:
+        List of patterns (either strings for glob patterns or compiled regex patterns)
+    """
+    if not is_regex:
+        # Cast the list to the correct return type
+        return cast(List[Union[str, Pattern[str]]], patterns)
+
+    compiled_patterns: List[Union[str, Pattern[str]]] = []
+    for pattern in patterns:
+        try:
+            compiled_patterns.append(re.compile(pattern))
+        except re.error as e:
+            logger.warning(f"Invalid regex pattern '{pattern}': {e}")
+            # Add as a plain string so it can be matched as a glob pattern
+            compiled_patterns.append(pattern)
+
+    return compiled_patterns
+
+
 def should_exclude(
-    path: str, ignore_context: Dict, exclude_extensions: Optional[Set[str]] = None
+    path: str,
+    ignore_context: Dict,
+    exclude_extensions: Optional[Set[str]] = None,
+    exclude_patterns: Optional[List[Union[str, Pattern[str]]]] = None,
+    include_patterns: Optional[List[Union[str, Pattern[str]]]] = None,
 ) -> bool:
-    """Check if a path should be excluded based on ignore patterns and extensions.
+    """Check if a path should be excluded based on ignore patterns, extensions, and regex patterns.
 
     Args:
         path: Path to check
         ignore_context: Dictionary with 'patterns' and 'current_dir' keys
         exclude_extensions: Set of file extensions to exclude
+        exclude_patterns: List of regex patterns to exclude
+        include_patterns: List of regex patterns to include (overrides exclusions)
 
     Returns:
         True if path should be excluded
@@ -85,22 +120,66 @@ def should_exclude(
     patterns = ignore_context.get("patterns", [])
     current_dir = ignore_context.get("current_dir", os.path.dirname(path))
 
+    # Check if file extension should be excluded
     if exclude_extensions and os.path.isfile(path):
         _, ext = os.path.splitext(path)
         if ext.lower() in exclude_extensions:
             return True
 
+    # Need to handle both absolute and relative paths
+    rel_path = os.path.relpath(path, current_dir)
+    # Fix to handle how paths are normalized
+    if os.name == "nt":  # For Windows
+        rel_path = rel_path.replace("\\", "/")
+    basename = os.path.basename(path)
+
+    # Check include patterns first (these override exclusions)
+    if include_patterns:
+        # If we have include patterns, we need an explicit match to include
+        included = False
+        for pattern in include_patterns:
+            if isinstance(pattern, Pattern):
+                # Check both the relative path and basename
+                if pattern.search(rel_path) or pattern.search(basename):
+                    included = True
+                    break
+            else:  # pattern is a string (glob pattern)
+                if fnmatch.fnmatch(rel_path, pattern) or fnmatch.fnmatch(
+                    basename, pattern
+                ):
+                    included = True
+                    break
+
+        # The key fix: if the path is included by an include pattern,
+        # it should NOT be excluded, regardless of exclude patterns
+        if included:
+            return False
+        else:
+            return True  # Exclude if not explicitly included
+
+    # If no include patterns, check if explicitly excluded by patterns
+    if exclude_patterns:
+        for pattern in exclude_patterns:
+            if isinstance(pattern, Pattern):
+                if pattern.search(rel_path) or pattern.search(basename):
+                    return True
+            else:  # pattern is a string (glob pattern)
+                if fnmatch.fnmatch(rel_path, pattern) or fnmatch.fnmatch(
+                    basename, pattern
+                ):
+                    return True
+
+    # Finally check gitignore-style patterns
     if not patterns:
         return False
 
-    rel_path = os.path.relpath(path, current_dir)
-
     for pattern in patterns:
-        if pattern.startswith("!"):
-            if fnmatch.fnmatch(rel_path, pattern[1:]):
-                return False
-        elif fnmatch.fnmatch(rel_path, pattern):
-            return True
+        if isinstance(pattern, str):  # Only strings can have startswith
+            if pattern.startswith("!"):
+                if fnmatch.fnmatch(rel_path, pattern[1:]):
+                    return False
+            elif fnmatch.fnmatch(rel_path, pattern):
+                return True
 
     return False
 
@@ -134,6 +213,8 @@ def get_directory_structure(
     ignore_file: Optional[str] = None,
     exclude_extensions: Optional[Set[str]] = None,
     parent_ignore_patterns: Optional[List[str]] = None,
+    exclude_patterns: Optional[List[Union[str, Pattern[str]]]] = None,
+    include_patterns: Optional[List[Union[str, Pattern[str]]]] = None,
 ) -> Tuple[Dict[str, Any], Set[str]]:
     """Build a nested dictionary representing the directory structure.
 
@@ -143,6 +224,8 @@ def get_directory_structure(
         ignore_file: Name of ignore file (like .gitignore)
         exclude_extensions: Set of file extensions to exclude
         parent_ignore_patterns: Patterns from parent directories
+        exclude_patterns: List of regex patterns to exclude
+        include_patterns: List of regex patterns to include (overrides exclusions)
 
     Returns:
         Tuple of (structure dictionary, set of extensions found)
@@ -151,6 +234,10 @@ def get_directory_structure(
         exclude_dirs = []
     if exclude_extensions is None:
         exclude_extensions = set()
+    if exclude_patterns is None:
+        exclude_patterns = []
+    if include_patterns is None:
+        include_patterns = []
 
     ignore_patterns = parent_ignore_patterns.copy() if parent_ignore_patterns else []
 
@@ -176,7 +263,11 @@ def get_directory_structure(
         item_path = os.path.join(root_dir, item)
 
         if item in exclude_dirs or should_exclude(
-            item_path, ignore_context, exclude_extensions
+            item_path,
+            ignore_context,
+            exclude_extensions,
+            exclude_patterns,
+            include_patterns,
         ):
             continue
 
@@ -187,6 +278,8 @@ def get_directory_structure(
                 ignore_file,
                 exclude_extensions,
                 ignore_patterns,
+                exclude_patterns,
+                include_patterns,
             )
             structure[item] = substructure
             extensions_set.update(sub_extensions)
@@ -242,6 +335,9 @@ def display_tree(
     exclude_dirs: Optional[List[str]] = None,
     ignore_file: Optional[str] = None,
     exclude_extensions: Optional[Set[str]] = None,
+    exclude_patterns: Optional[List[str]] = None,
+    include_patterns: Optional[List[str]] = None,
+    use_regex: bool = False,
 ) -> None:
     """Display the directory tree with color-coded file types.
 
@@ -250,19 +346,35 @@ def display_tree(
         exclude_dirs: List of directory names to exclude from the tree
         ignore_file: Name of ignore file (like .gitignore)
         exclude_extensions: Set of file extensions to exclude (e.g., {'.pyc', '.log'})
+        exclude_patterns: List of patterns to exclude
+        include_patterns: List of patterns to include (overrides exclusions)
+        use_regex: Whether to treat patterns as regex instead of glob patterns
     """
     if exclude_dirs is None:
         exclude_dirs = []
     if exclude_extensions is None:
         exclude_extensions = set()
+    if exclude_patterns is None:
+        exclude_patterns = []
+    if include_patterns is None:
+        include_patterns = []
 
     exclude_extensions = {
         ext.lower() if ext.startswith(".") else f".{ext.lower()}"
         for ext in exclude_extensions
     }
 
+    # Compile regex patterns if needed
+    compiled_exclude = compile_regex_patterns(exclude_patterns, use_regex)
+    compiled_include = compile_regex_patterns(include_patterns, use_regex)
+
     structure, extensions = get_directory_structure(
-        root_dir, exclude_dirs, ignore_file, exclude_extensions
+        root_dir,
+        exclude_dirs,
+        ignore_file,
+        exclude_extensions,
+        exclude_patterns=compiled_exclude,
+        include_patterns=compiled_include,
     )
 
     color_map = {ext: generate_color_for_extension(ext) for ext in extensions}

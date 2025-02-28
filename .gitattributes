@@ -1,0 +1,46 @@
+# Set default behavior to automatically normalize line endings
+* text=auto
+
+# Python files
+*.py text diff=python
+
+# JavaScript files
+*.jsx text eol=lf
+
+# Documents
+*.md text diff=markdown
+*.txt text
+*.rst text
+*.json text
+*.toml text
+
+# SVG treated as text files
+*.svg text
+
+# Exclude specific paths from language statistics
+tests/* linguist-vendored=false
+
+# Binary files
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.zip binary
+*.tar binary
+*.gz binary
+*.whl binary
+
+# Shell scripts should use LF
+*.sh text eol=lf
+*.bash text eol=lf
+
+# Windows-specific files should use CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# GitHub configurations and docs
+.github/* text
+CONTRIBUTING.md text
+LICENSE text

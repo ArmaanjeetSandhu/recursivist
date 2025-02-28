@@ -5,7 +5,7 @@ display them side by side with highlighting of differences.
 
 import logging
 import os
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Pattern, Set, Tuple, Union
 
 from rich.columns import Columns
 from rich.console import Console
@@ -14,6 +14,7 @@ from rich.text import Text
 from rich.tree import Tree
 
 from recursivist.core import (
+    compile_regex_patterns,
     generate_color_for_extension,
     get_directory_structure,
     sort_files_by_type,
@@ -28,6 +29,8 @@ def compare_directory_structures(
     exclude_dirs: Optional[List[str]] = None,
     ignore_file: Optional[str] = None,
     exclude_extensions: Optional[Set[str]] = None,
+    exclude_patterns: Optional[List[Union[str, Pattern]]] = None,
+    include_patterns: Optional[List[Union[str, Pattern]]] = None,
 ) -> Tuple[Dict, Dict, Set[str]]:
     """
     Compare two directory structures and return both structures and a combined set of extensions.
@@ -38,15 +41,27 @@ def compare_directory_structures(
         exclude_dirs: List of directory names to exclude
         ignore_file: Name of ignore file (like .gitignore)
         exclude_extensions: Set of file extensions to exclude
+        exclude_patterns: List of patterns to exclude
+        include_patterns: List of patterns to include (overrides exclusions)
 
     Returns:
         Tuple of (structure1, structure2, combined_extensions)
     """
     structure1, extensions1 = get_directory_structure(
-        dir1, exclude_dirs, ignore_file, exclude_extensions
+        dir1,
+        exclude_dirs,
+        ignore_file,
+        exclude_extensions,
+        exclude_patterns=exclude_patterns,
+        include_patterns=include_patterns,
     )
     structure2, extensions2 = get_directory_structure(
-        dir2, exclude_dirs, ignore_file, exclude_extensions
+        dir2,
+        exclude_dirs,
+        ignore_file,
+        exclude_extensions,
+        exclude_patterns=exclude_patterns,
+        include_patterns=include_patterns,
     )
 
     combined_extensions = extensions1.union(extensions2)
@@ -119,6 +134,9 @@ def display_comparison(
     exclude_dirs: Optional[List[str]] = None,
     ignore_file: Optional[str] = None,
     exclude_extensions: Optional[Set[str]] = None,
+    exclude_patterns: Optional[List[str]] = None,
+    include_patterns: Optional[List[str]] = None,
+    use_regex: bool = False,
 ) -> None:
     """
     Display two directory trees side by side with highlighted differences.
@@ -129,19 +147,36 @@ def display_comparison(
         exclude_dirs: List of directory names to exclude
         ignore_file: Name of ignore file (like .gitignore)
         exclude_extensions: Set of file extensions to exclude
+        exclude_patterns: List of patterns to exclude
+        include_patterns: List of patterns to include (overrides exclusions)
+        use_regex: Whether to treat patterns as regex instead of glob patterns
     """
     if exclude_dirs is None:
         exclude_dirs = []
     if exclude_extensions is None:
         exclude_extensions = set()
+    if exclude_patterns is None:
+        exclude_patterns = []
+    if include_patterns is None:
+        include_patterns = []
 
     exclude_extensions = {
         ext.lower() if ext.startswith(".") else f".{ext.lower()}"
         for ext in exclude_extensions
     }
 
+    # Compile regex patterns if needed - make sure patterns are List[str]
+    compiled_exclude = compile_regex_patterns(exclude_patterns, use_regex)
+    compiled_include = compile_regex_patterns(include_patterns, use_regex)
+
     structure1, structure2, extensions = compare_directory_structures(
-        dir1, dir2, exclude_dirs, ignore_file, exclude_extensions
+        dir1,
+        dir2,
+        exclude_dirs,
+        ignore_file,
+        exclude_extensions,
+        exclude_patterns=compiled_exclude,
+        include_patterns=compiled_include,
     )
 
     color_map = {ext: generate_color_for_extension(ext) for ext in extensions}
@@ -159,6 +194,25 @@ def display_comparison(
     legend_text.append("= Only in left directory, ")
     legend_text.append("Red background ", style="on red")
     legend_text.append("= Only in right directory")
+
+    if exclude_patterns or include_patterns:
+        pattern_info = []
+        if exclude_patterns:
+            pattern_type = "Regex" if use_regex else "Glob"
+            pattern_info.append(
+                f"{pattern_type} exclusion patterns: {', '.join(str(p) for p in exclude_patterns)}"
+            )
+        if include_patterns:
+            pattern_type = "Regex" if use_regex else "Glob"
+            pattern_info.append(
+                f"{pattern_type} inclusion patterns: {', '.join(str(p) for p in include_patterns)}"
+            )
+
+        if pattern_info:
+            pattern_panel = Panel(
+                "\n".join(pattern_info), title="Applied Patterns", border_style="blue"
+            )
+            console.print(pattern_panel)
 
     legend_panel = Panel(legend_text, border_style="dim")
 
@@ -191,6 +245,9 @@ def export_comparison(
     exclude_dirs: Optional[List[str]] = None,
     ignore_file: Optional[str] = None,
     exclude_extensions: Optional[Set[str]] = None,
+    exclude_patterns: Optional[List[str]] = None,
+    include_patterns: Optional[List[str]] = None,
+    use_regex: bool = False,
 ) -> None:
     """
     Export directory comparison to various formats.
@@ -203,6 +260,9 @@ def export_comparison(
         exclude_dirs: List of directory names to exclude
         ignore_file: Name of ignore file (like .gitignore)
         exclude_extensions: Set of file extensions to exclude
+        exclude_patterns: List of patterns to exclude
+        include_patterns: List of patterns to include (overrides exclusions)
+        use_regex: Whether to treat patterns as regex instead of glob patterns
 
     Raises:
         ValueError: If the format_type is not supported
@@ -211,19 +271,38 @@ def export_comparison(
         exclude_dirs = []
     if exclude_extensions is None:
         exclude_extensions = set()
+    if exclude_patterns is None:
+        exclude_patterns = []
+    if include_patterns is None:
+        include_patterns = []
 
     exclude_extensions = {
         ext.lower() if ext.startswith(".") else f".{ext.lower()}"
         for ext in exclude_extensions
     }
 
+    # Compile regex patterns if needed - make sure patterns are List[str]
+    compiled_exclude = compile_regex_patterns(exclude_patterns, use_regex)
+    compiled_include = compile_regex_patterns(include_patterns, use_regex)
+
     structure1, structure2, _ = compare_directory_structures(
-        dir1, dir2, exclude_dirs, ignore_file, exclude_extensions
+        dir1,
+        dir2,
+        exclude_dirs,
+        ignore_file,
+        exclude_extensions,
+        exclude_patterns=compiled_exclude,
+        include_patterns=compiled_include,
     )
 
     comparison_data = {
         "dir1": {"path": dir1, "name": os.path.basename(dir1), "structure": structure1},
         "dir2": {"path": dir2, "name": os.path.basename(dir2), "structure": structure2},
+        "metadata": {
+            "exclude_patterns": [str(p) for p in exclude_patterns],
+            "include_patterns": [str(p) for p in include_patterns],
+            "pattern_type": "regex" if use_regex else "glob",
+        },
     }
 
     if format_type == "txt":
@@ -290,6 +369,23 @@ def _export_comparison_to_txt(
     combined_lines.append("=" * 80)
     combined_lines.append(f"Left: {comparison_data['dir1']['path']}")
     combined_lines.append(f"Right: {comparison_data['dir2']['path']}")
+
+    # Add pattern information if available
+    metadata = comparison_data.get("metadata", {})
+    if metadata.get("exclude_patterns") or metadata.get("include_patterns"):
+        combined_lines.append("-" * 80)
+        pattern_type = metadata.get("pattern_type", "glob")
+
+        if metadata.get("exclude_patterns"):
+            combined_lines.append(
+                f"Exclude {pattern_type} patterns: {', '.join(metadata['exclude_patterns'])}"
+            )
+
+        if metadata.get("include_patterns"):
+            combined_lines.append(
+                f"Include {pattern_type} patterns: {', '.join(metadata['include_patterns'])}"
+            )
+
     combined_lines.append("=" * 80)
 
     for i in range(max(len(dir1_lines), len(dir2_lines))):
@@ -354,6 +450,35 @@ def _export_comparison_to_html(
     dir2_name = html.escape(comparison_data["dir2"]["name"])
     dir1_path = html.escape(comparison_data["dir1"]["path"])
     dir2_path = html.escape(comparison_data["dir2"]["path"])
+
+    # Pattern information
+    pattern_info_html = ""
+    metadata = comparison_data.get("metadata", {})
+    if metadata.get("exclude_patterns") or metadata.get("include_patterns"):
+        pattern_type = metadata.get("pattern_type", "glob").capitalize()
+        pattern_items = []
+
+        if metadata.get("exclude_patterns"):
+            patterns = [html.escape(p) for p in metadata.get("exclude_patterns", [])]
+            pattern_items.append(
+                f"<dt>Exclude {pattern_type} Patterns:</dt><dd>{', '.join(patterns)}</dd>"
+            )
+
+        if metadata.get("include_patterns"):
+            patterns = [html.escape(p) for p in metadata.get("include_patterns", [])]
+            pattern_items.append(
+                f"<dt>Include {pattern_type} Patterns:</dt><dd>{', '.join(patterns)}</dd>"
+            )
+
+        if pattern_items:
+            pattern_info_html = f"""
+            <div class="pattern-info">
+                <h3>Applied Patterns</h3>
+                <dl>
+                    {''.join(pattern_items)}
+                </dl>
+            </div>
+            """
 
     html_template = f"""
     <!DOCTYPE html>
@@ -427,10 +552,26 @@ def _export_comparison_to_html(
             .legend-unique {{
                 background-color: #fcf3cf;
             }}
+            .pattern-info {{
+                margin-bottom: 20px;
+                padding: 10px;
+                background-color: #f0f8ff;
+                border: 1px solid #add8e6;
+                border-radius: 4px;
+            }}
+            dt {{
+                font-weight: bold;
+                margin-top: 10px;
+            }}
+            dd {{
+                margin-left: 20px;
+                margin-bottom: 10px;
+            }}
         </style>
     </head>
     <body>
         <h1>Directory Comparison</h1>
+        {pattern_info_html}
         <div class="legend">
             <div class="legend-item">
                 <span class="legend-color legend-unique"></span>

@@ -9,14 +9,19 @@ allowing users to visualize directory structures and export them in various form
 import logging
 import sys
 from pathlib import Path
-from typing import List, Optional, Set
+from typing import List, Optional, Pattern, Set, Union, cast
 
 import typer
 from rich.console import Console
 from rich.logging import RichHandler
 from rich.progress import Progress
 
-from recursivist.core import display_tree, export_structure, get_directory_structure
+from recursivist.core import (
+    compile_regex_patterns,
+    display_tree,
+    export_structure,
+    get_directory_structure,
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -86,8 +91,26 @@ def visualize(
         "-x",
         help="File extensions to exclude (space-separated or multiple flags)",
     ),
+    exclude_patterns: Optional[List[str]] = typer.Option(
+        None,
+        "--exclude-pattern",
+        "-p",
+        help="Patterns to exclude (space-separated or multiple flags)",
+    ),
+    include_patterns: Optional[List[str]] = typer.Option(
+        None,
+        "--include-pattern",
+        "-i",
+        help="Patterns to include (overrides exclusions, space-separated or multiple flags)",
+    ),
+    use_regex: bool = typer.Option(
+        False,
+        "--regex",
+        "-r",
+        help="Treat patterns as regex instead of glob patterns",
+    ),
     ignore_file: Optional[str] = typer.Option(
-        None, "--ignore-file", "-i", help="Ignore file to use (e.g., .gitignore)"
+        None, "--ignore-file", "-g", help="Ignore file to use (e.g., .gitignore)"
     ),
     export_formats: Optional[List[str]] = typer.Option(
         None,
@@ -102,7 +125,7 @@ def visualize(
         help="Output directory for exports (defaults to current directory)",
     ),
     output_prefix: Optional[str] = typer.Option(
-        "structure", "--prefix", "-p", help="Prefix for exported filenames"
+        "structure", "--prefix", "-n", help="Prefix for exported filenames"
     ),
     verbose: bool = typer.Option(
         False, "--verbose", "-v", help="Enable verbose output"
@@ -121,6 +144,9 @@ def visualize(
         recursivist visualize /path/to/project         # Display specific directory
         recursivist visualize -e node_modules .git     # Exclude directories
         recursivist visualize -x .pyc .log             # Exclude file extensions
+        recursivist visualize -p "*.test.js" "*.spec.js" # Exclude test files (glob pattern)
+        recursivist visualize -p ".*test.*" -r         # Exclude test files (regex pattern)
+        recursivist visualize -i "src/*" "*.md"        # Include only src dir and markdown files
         recursivist visualize -f txt json              # Export to multiple formats
         recursivist visualize -f md -o ./exports       # Export to custom directory
     """
@@ -136,6 +162,8 @@ def visualize(
 
     parsed_exclude_dirs = parse_list_option(exclude_dirs)
     parsed_exclude_exts = parse_list_option(exclude_extensions)
+    parsed_exclude_patterns = parse_list_option(exclude_patterns)
+    parsed_include_patterns = parse_list_option(include_patterns)
 
     exclude_exts_set: Set[str] = set()
     if parsed_exclude_exts:
@@ -147,6 +175,14 @@ def visualize(
 
     if parsed_exclude_dirs:
         logger.debug(f"Excluding directories: {parsed_exclude_dirs}")
+
+    if parsed_exclude_patterns:
+        pattern_type = "regex" if use_regex else "glob"
+        logger.debug(f"Excluding {pattern_type} patterns: {parsed_exclude_patterns}")
+
+    if parsed_include_patterns:
+        pattern_type = "regex" if use_regex else "glob"
+        logger.debug(f"Including {pattern_type} patterns: {parsed_include_patterns}")
 
     if ignore_file:
         ignore_path = directory / ignore_file
@@ -161,15 +197,46 @@ def visualize(
                 "[cyan]Scanning directory structure...", total=None
             )
 
+            # Compile regex patterns if needed
+            if use_regex:
+                compiled_exclude = compile_regex_patterns(
+                    parsed_exclude_patterns, use_regex
+                )
+                compiled_include = compile_regex_patterns(
+                    parsed_include_patterns, use_regex
+                )
+            else:
+                # Cast string lists to the expected type for non-regex mode
+                compiled_exclude = cast(
+                    List[Union[str, Pattern[str]]], parsed_exclude_patterns
+                )
+                compiled_include = cast(
+                    List[Union[str, Pattern[str]]], parsed_include_patterns
+                )
+
             structure, extensions = get_directory_structure(
-                str(directory), parsed_exclude_dirs, ignore_file, exclude_exts_set
+                str(directory),
+                parsed_exclude_dirs,
+                ignore_file,
+                exclude_exts_set,
+                exclude_patterns=compiled_exclude,
+                include_patterns=compiled_include,
             )
 
             progress.update(task_scan, completed=True)
             logger.debug(f"Found {len(extensions)} unique file extensions")
 
         logger.info("Displaying directory tree:")
-        display_tree(str(directory), parsed_exclude_dirs, ignore_file, exclude_exts_set)
+        # For display_tree, we need to pass the original string patterns
+        display_tree(
+            str(directory),
+            parsed_exclude_dirs,
+            ignore_file,
+            exclude_exts_set,
+            parsed_exclude_patterns,
+            parsed_include_patterns,
+            use_regex,
+        )
 
         if export_formats:
             parsed_formats = parse_list_option(export_formats)
@@ -285,8 +352,26 @@ def compare(
         "-x",
         help="File extensions to exclude (space-separated or multiple flags)",
     ),
+    exclude_patterns: Optional[List[str]] = typer.Option(
+        None,
+        "--exclude-pattern",
+        "-p",
+        help="Patterns to exclude (space-separated or multiple flags)",
+    ),
+    include_patterns: Optional[List[str]] = typer.Option(
+        None,
+        "--include-pattern",
+        "-i",
+        help="Patterns to include (overrides exclusions, space-separated or multiple flags)",
+    ),
+    use_regex: bool = typer.Option(
+        False,
+        "--regex",
+        "-r",
+        help="Treat patterns as regex instead of glob patterns",
+    ),
     ignore_file: Optional[str] = typer.Option(
-        None, "--ignore-file", "-i", help="Ignore file to use (e.g., .gitignore)"
+        None, "--ignore-file", "-g", help="Ignore file to use (e.g., .gitignore)"
     ),
     export_formats: Optional[List[str]] = typer.Option(
         None,
@@ -301,7 +386,7 @@ def compare(
         help="Output directory for exports (defaults to current directory)",
     ),
     output_prefix: Optional[str] = typer.Option(
-        "comparison", "--prefix", "-p", help="Prefix for exported filenames"
+        "comparison", "--prefix", "-n", help="Prefix for exported filenames"
     ),
     verbose: bool = typer.Option(
         False, "--verbose", "-v", help="Enable verbose output"
@@ -318,6 +403,9 @@ def compare(
         recursivist compare dir1 dir2                   # Compare two directories
         recursivist compare dir1 dir2 -e node_modules   # Exclude directories
         recursivist compare dir1 dir2 -x .pyc .log      # Exclude file extensions
+        recursivist compare dir1 dir2 -p "*.test.js"    # Exclude test files (glob pattern)
+        recursivist compare dir1 dir2 -p ".*test.*" -r  # Exclude test files (regex pattern)
+        recursivist compare dir1 dir2 -i "src/*"        # Include only src directory
         recursivist compare dir1 dir2 -f txt html       # Export comparison
     """
     if verbose:
@@ -330,6 +418,8 @@ def compare(
 
     parsed_exclude_dirs = parse_list_option(exclude_dirs)
     parsed_exclude_exts = parse_list_option(exclude_extensions)
+    parsed_exclude_patterns = parse_list_option(exclude_patterns)
+    parsed_include_patterns = parse_list_option(include_patterns)
 
     exclude_exts_set: Set[str] = set()
     if parsed_exclude_exts:
@@ -341,6 +431,14 @@ def compare(
 
     if parsed_exclude_dirs:
         logger.debug(f"Excluding directories: {parsed_exclude_dirs}")
+
+    if parsed_exclude_patterns:
+        pattern_type = "regex" if use_regex else "glob"
+        logger.debug(f"Excluding {pattern_type} patterns: {parsed_exclude_patterns}")
+
+    if parsed_include_patterns:
+        pattern_type = "regex" if use_regex else "glob"
+        logger.debug(f"Including {pattern_type} patterns: {parsed_include_patterns}")
 
     if ignore_file:
         for d in [dir1, dir2]:
@@ -359,6 +457,9 @@ def compare(
             parsed_exclude_dirs,
             actual_ignore_file,
             exclude_exts_set,
+            exclude_patterns=parsed_exclude_patterns,
+            include_patterns=parsed_include_patterns,
+            use_regex=use_regex,
         )
 
         if export_formats:
@@ -399,6 +500,9 @@ def compare(
                             parsed_exclude_dirs,
                             actual_ignore_file,
                             exclude_exts_set,
+                            exclude_patterns=parsed_exclude_patterns,
+                            include_patterns=parsed_include_patterns,
+                            use_regex=use_regex,
                         )
                         progress.update(task_export, completed=True)
                         logger.info(f"Successfully exported to {output_path}")
