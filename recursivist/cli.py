@@ -130,6 +130,9 @@ def visualize(
     output_prefix: Optional[str] = typer.Option(
         "structure", "--prefix", "-n", help="Prefix for exported filenames"
     ),
+    show_full_path: bool = typer.Option(
+        False, "--full-path", "-l", help="Show full paths instead of just filenames"
+    ),
     verbose: bool = typer.Option(
         False, "--verbose", "-v", help="Enable verbose output"
     ),
@@ -151,6 +154,7 @@ def visualize(
         recursivist visualize -p ".*test.*" -r         # Exclude test files (regex pattern)
         recursivist visualize -i "src/*" "*.md"        # Include only src dir and markdown files
         recursivist visualize -d 2                     # Limit directory depth to 2 levels
+        recursivist visualize -l                       # Show full paths instead of just filenames
         recursivist visualize -f txt json              # Export to multiple formats
         recursivist visualize -f md -o ./exports       # Export to custom directory
     """
@@ -166,6 +170,9 @@ def visualize(
 
     if max_depth > 0:
         logger.info(f"Limiting depth to {max_depth} levels")
+
+    if show_full_path:
+        logger.info(f"Showing full paths instead of just filenames")
 
     parsed_exclude_dirs = parse_list_option(exclude_dirs)
     parsed_exclude_exts = parse_list_option(exclude_extensions)
@@ -227,6 +234,7 @@ def visualize(
                 exclude_patterns=compiled_exclude,
                 include_patterns=compiled_include,
                 max_depth=max_depth,
+                show_full_path=show_full_path,
             )
 
             progress.update(task_scan, completed=True)
@@ -242,6 +250,7 @@ def visualize(
             parsed_include_patterns,
             use_regex,
             max_depth,
+            show_full_path,
         )
 
         if export_formats:
@@ -275,7 +284,11 @@ def visualize(
 
                     try:
                         export_structure(
-                            structure, str(directory), fmt.lower(), str(output_path)
+                            structure,
+                            str(directory),
+                            fmt.lower(),
+                            str(output_path),
+                            show_full_path,
                         )
                         progress.update(task_export, completed=True)
                         logger.info(f"Successfully exported to {output_path}")
@@ -397,6 +410,9 @@ def compare(
     output_prefix: Optional[str] = typer.Option(
         "comparison", "--prefix", "-n", help="Prefix for exported filenames"
     ),
+    show_full_path: bool = typer.Option(
+        False, "--full-path", "-l", help="Show full paths instead of just filenames"
+    ),
     verbose: bool = typer.Option(
         False, "--verbose", "-v", help="Enable verbose output"
     ),
@@ -416,6 +432,7 @@ def compare(
         recursivist compare dir1 dir2 -p ".*test.*" -r  # Exclude test files (regex pattern)
         recursivist compare dir1 dir2 -i "src/*"        # Include only src directory
         recursivist compare dir1 dir2 -d 2              # Limit directory depth to 2 levels
+        recursivist compare dir1 dir2 -l                # Show full paths instead of just filenames
         recursivist compare dir1 dir2 -f txt html       # Export comparison
     """
     if verbose:
@@ -428,6 +445,9 @@ def compare(
 
     if max_depth > 0:
         logger.info(f"Limiting depth to {max_depth} levels")
+
+    if show_full_path:
+        logger.info(f"Showing full paths instead of just filenames")
 
     parsed_exclude_dirs = parse_list_option(exclude_dirs)
     parsed_exclude_exts = parse_list_option(exclude_extensions)
@@ -474,6 +494,7 @@ def compare(
             include_patterns=parsed_include_patterns,
             use_regex=use_regex,
             max_depth=max_depth,
+            show_full_path=show_full_path,
         )
 
         if export_formats:
@@ -518,6 +539,7 @@ def compare(
                             include_patterns=parsed_include_patterns,
                             use_regex=use_regex,
                             max_depth=max_depth,
+                            show_full_path=show_full_path,
                         )
                         progress.update(task_export, completed=True)
                         logger.info(f"Successfully exported to {output_path}")

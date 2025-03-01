@@ -45,6 +45,26 @@ def test_visualize_command(runner, sample_directory):
     assert "subdir" in result.stdout
 
 
+def test_visualize_with_full_path(runner, sample_directory):
+    """Test the visualize command with full path option."""
+    result = runner.invoke(app, ["visualize", sample_directory, "--full-path"])
+    assert result.exit_code == 0
+    assert os.path.basename(sample_directory) in result.stdout
+
+    base_name = os.path.basename(sample_directory)
+    sample_path = f"{base_name}/file1.txt".replace("/", os.path.sep)
+    sample_path_alt = f"{base_name}\\file1.txt".replace("\\", os.path.sep)
+
+    has_full_path = base_name in result.stdout and (
+        "file1.txt" in result.stdout
+        or "file2.py" in result.stdout
+        or sample_path in result.stdout
+        or sample_path_alt in result.stdout
+    )
+
+    assert has_full_path, "Full path information not found in output"
+
+
 def test_visualize_with_jsx_export(runner, sample_directory, output_dir):
     """Test the visualize command with React export option."""
     result = runner.invoke(
@@ -70,6 +90,35 @@ def test_visualize_with_jsx_export(runner, sample_directory, output_dir):
 
     assert "import React" in content
     assert "DirectoryViewer" in content
+
+
+def test_visualize_with_jsx_export_full_path(runner, sample_directory, output_dir):
+    """Test the visualize command with React export option and full path display."""
+    result = runner.invoke(
+        app,
+        [
+            "visualize",
+            sample_directory,
+            "--export",
+            "jsx",
+            "--output-dir",
+            output_dir,
+            "--prefix",
+            "test_component_full_path",
+            "--full-path",
+        ],
+    )
+    assert result.exit_code == 0
+
+    export_file = os.path.join(output_dir, "test_component_full_path.jsx")
+    assert os.path.exists(export_file)
+
+    with open(export_file, "r", encoding="utf-8") as f:
+        content = f.read()
+
+    assert "import React" in content
+    assert "DirectoryViewer" in content
+    assert "Showing full file paths" in content
 
 
 def test_visualize_with_exclude_dirs(runner, sample_directory):
@@ -125,6 +174,48 @@ def test_visualize_with_export(runner, sample_directory, output_dir):
 
     export_file = os.path.join(output_dir, "test.txt")
     assert os.path.exists(export_file)
+
+
+def test_visualize_with_export_full_path(runner, sample_directory, output_dir):
+    """Test the visualize command with export option and full path display."""
+    result = runner.invoke(
+        app,
+        [
+            "visualize",
+            sample_directory,
+            "--export",
+            "txt",
+            "--output-dir",
+            output_dir,
+            "--prefix",
+            "test_full_path",
+            "--full-path",
+        ],
+    )
+    assert result.exit_code == 0
+
+    export_file = os.path.join(output_dir, "test_full_path.txt")
+    assert os.path.exists(export_file)
+
+    with open(export_file, "r", encoding="utf-8") as f:
+        content = f.read()
+
+    assert (
+        "file1.txt" in content or "file2.py" in content
+    ), "No file information found in exported content"
+
+    has_path_info = False
+    base_name = os.path.basename(sample_directory)
+
+    lines = content.split("\n")
+    for line in lines:
+        if ("├── 📄" in line or "└── 📄" in line) and (
+            base_name in line or os.path.sep in line or "/" in line
+        ):
+            has_path_info = True
+            break
+
+    assert has_path_info, "No full path information found in exported content"
 
 
 def test_visualize_multiple_exports(runner, sample_directory, output_dir):

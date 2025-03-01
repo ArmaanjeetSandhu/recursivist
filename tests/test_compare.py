@@ -77,6 +77,31 @@ def test_compare_directory_structures(comparison_directories):
     assert ".py" in extensions
 
 
+def test_compare_directory_structures_with_full_path(comparison_directories):
+    """Test that directory structures are correctly compared with full paths."""
+    dir1, dir2 = comparison_directories
+
+    structure1, structure2, extensions = compare_directory_structures(
+        dir1, dir2, show_full_path=True
+    )
+
+    assert "_files" in structure1
+    assert "_files" in structure2
+
+    assert isinstance(structure1["_files"][0], tuple)
+    assert len(structure1["_files"][0]) == 2
+
+    found = False
+    for filename, full_path in structure1["_files"]:
+        if filename == "file1.txt":
+            found = True
+            assert (
+                os.path.basename(dir1) in os.path.dirname(full_path)
+                or "file1.txt" in full_path
+            )
+    assert found, "Could not find file1.txt with full path in structure1"
+
+
 def test_display_comparison(comparison_directories, capsys):
     """Test that comparison display works without errors."""
     dir1, dir2 = comparison_directories
@@ -87,6 +112,19 @@ def test_display_comparison(comparison_directories, capsys):
     assert os.path.basename(dir1) in captured.out
     assert os.path.basename(dir2) in captured.out
     assert "Legend" in captured.out
+
+
+def test_display_comparison_with_full_path(comparison_directories, capsys):
+    """Test that comparison display works with full path option."""
+    dir1, dir2 = comparison_directories
+
+    display_comparison(dir1, dir2, show_full_path=True)
+
+    captured = capsys.readouterr()
+    assert os.path.basename(dir1) in captured.out
+    assert os.path.basename(dir2) in captured.out
+    assert "Legend" in captured.out
+    assert "Full file paths are shown" in captured.out
 
 
 def test_export_comparison_txt(comparison_directories, output_dir):
@@ -108,6 +146,26 @@ def test_export_comparison_txt(comparison_directories, output_dir):
     assert "dir2_only" in content
 
 
+def test_export_comparison_txt_with_full_path(comparison_directories, output_dir):
+    """Test text export of directory comparison with full paths."""
+    dir1, dir2 = comparison_directories
+    output_path = os.path.join(output_dir, "comparison_full_path.txt")
+
+    export_comparison(dir1, dir2, "txt", output_path, show_full_path=True)
+
+    assert os.path.exists(output_path)
+
+    with open(output_path, "r", encoding="utf-8") as f:
+        content = f.read()
+
+    assert "Directory Comparison" in content
+    assert os.path.basename(dir1) in content
+    assert os.path.basename(dir2) in content
+    assert "dir1_only" in content
+    assert "dir2_only" in content
+    assert "Showing full file paths" in content
+
+
 def test_export_comparison_html(comparison_directories, output_dir):
     """Test HTML export of directory comparison."""
     dir1, dir2 = comparison_directories
@@ -127,6 +185,28 @@ def test_export_comparison_html(comparison_directories, output_dir):
     assert os.path.basename(dir2) in content
     assert "dir1_only" in content
     assert "dir2_only" in content
+
+
+def test_export_comparison_html_with_full_path(comparison_directories, output_dir):
+    """Test HTML export of directory comparison with full paths."""
+    dir1, dir2 = comparison_directories
+    output_path = os.path.join(output_dir, "comparison_full_path.html")
+
+    export_comparison(dir1, dir2, "html", output_path, show_full_path=True)
+
+    assert os.path.exists(output_path)
+
+    with open(output_path, "r", encoding="utf-8") as f:
+        content = f.read()
+
+    assert "<!DOCTYPE html>" in content
+    assert "<html>" in content
+    assert "Directory Comparison" in content
+    assert os.path.basename(dir1) in content
+    assert os.path.basename(dir2) in content
+    assert "dir1_only" in content
+    assert "dir2_only" in content
+    assert "Showing full file paths" in content
 
 
 def test_export_comparison_unsupported_format(comparison_directories, output_dir):
@@ -180,6 +260,21 @@ def test_cli_command(runner, comparison_directories):
     assert "Legend" in result.stdout
 
 
+def test_cli_command_with_full_path(runner, comparison_directories):
+    """Test the compare CLI command with full path option."""
+    from recursivist.cli import app
+
+    dir1, dir2 = comparison_directories
+
+    result = runner.invoke(app, ["compare", dir1, dir2, "--full-path"])
+
+    assert result.exit_code == 0
+    assert os.path.basename(dir1) in result.stdout
+    assert os.path.basename(dir2) in result.stdout
+    assert "Legend" in result.stdout
+    assert "Full file paths are shown" in result.stdout
+
+
 def test_cli_command_with_export(runner, comparison_directories, output_dir):
     """Test the compare CLI command with export option."""
     from recursivist.cli import app
@@ -205,3 +300,36 @@ def test_cli_command_with_export(runner, comparison_directories, output_dir):
 
     output_file = os.path.join(output_dir, "test_compare.txt")
     assert os.path.exists(output_file)
+
+
+def test_cli_command_with_export_full_path(runner, comparison_directories, output_dir):
+    """Test the compare CLI command with export option and full path display."""
+    from recursivist.cli import app
+
+    dir1, dir2 = comparison_directories
+
+    result = runner.invoke(
+        app,
+        [
+            "compare",
+            dir1,
+            dir2,
+            "--export",
+            "txt",
+            "--output-dir",
+            output_dir,
+            "--prefix",
+            "test_compare_full_path",
+            "--full-path",
+        ],
+    )
+
+    assert result.exit_code == 0
+
+    output_file = os.path.join(output_dir, "test_compare_full_path.txt")
+    assert os.path.exists(output_file)
+
+    with open(output_file, "r", encoding="utf-8") as f:
+        content = f.read()
+
+    assert "Showing full file paths" in content

@@ -2,37 +2,50 @@ import html
 import json
 import logging
 import os
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from recursivist.jsx_export import generate_jsx_component
 
 logger = logging.getLogger(__name__)
 
 
-def sort_files_by_type(files: List[str]) -> List[str]:
+def sort_files_by_type(
+    files: List[Union[str, Tuple[str, str]]]
+) -> List[Union[str, Tuple[str, str]]]:
     """Sort files by extension and then by name.
 
     Args:
-        files: List of filenames to sort
+        files: List of filenames or (filename, full_path) tuples to sort
 
     Returns:
-        Sorted list of filenames
+        Sorted list of filenames or tuples
     """
-    return sorted(files, key=lambda f: (os.path.splitext(f)[1], f.lower()))
+    if not files:
+        return []
+
+    if files and isinstance(files[0], tuple):
+        return sorted(files, key=lambda f: (os.path.splitext(f[0])[1], f[0].lower()))
+    else:
+        return sorted(files, key=lambda f: (os.path.splitext(f)[1], f.lower()))
 
 
 class DirectoryExporter:
     """Handles exporting directory structures to various formats."""
 
-    def __init__(self, structure: Dict[str, Any], root_name: str):
+    def __init__(
+        self, structure: Dict[str, Any], root_name: str, base_path: Optional[str] = None
+    ):
         """Initialize the exporter with directory structure and root name.
 
         Args:
             structure: The directory structure dictionary
             root_name: Name of the root directory
+            base_path: Base path for full path display (if None, only show filenames)
         """
         self.structure = structure
         self.root_name = root_name
+        self.base_path = base_path
+        self.show_full_path = base_path is not None
 
     def to_txt(self, output_path: str) -> None:
         """Export directory structure to a text file with ASCII tree representation.
@@ -41,27 +54,40 @@ class DirectoryExporter:
             output_path: Path where the txt file will be saved
         """
 
-        def _build_txt_tree(structure: Dict[str, Any], prefix: str = "") -> List[str]:
+        def _build_txt_tree(
+            structure: Dict[str, Any], prefix: str = "", path_prefix: str = ""
+        ) -> List[str]:
             lines = []
             items = sorted(structure.items())
 
             for i, (name, content) in enumerate(items):
                 if name == "_files":
-                    for file in sort_files_by_type(content):
-                        lines.append(f"{prefix}├── 📄 {file}")
+                    for file_item in sort_files_by_type(content):
+                        if self.show_full_path and isinstance(file_item, tuple):
+                            file_name, full_path = file_item
+                            lines.append(f"{prefix}├── 📄 {full_path}")
+                        else:
+                            lines.append(f"{prefix}├── 📄 {file_item}")
                 elif name == "_max_depth_reached":
                     continue
                 else:
                     lines.append(f"{prefix}├── 📁 {name}")
+                    next_path = os.path.join(path_prefix, name) if path_prefix else name
                     if isinstance(content, dict):
                         if content.get("_max_depth_reached"):
                             lines.append(f"{prefix}│   ├── ⋯ (max depth reached)")
                         else:
-                            lines.extend(_build_txt_tree(content, prefix + "│   "))
+                            lines.extend(
+                                _build_txt_tree(content, prefix + "│   ", next_path)
+                            )
             return lines
 
         tree_lines = [f"📂 {self.root_name}"]
-        tree_lines.extend(_build_txt_tree(self.structure))
+        tree_lines.extend(
+            _build_txt_tree(
+                self.structure, "", self.root_name if self.show_full_path else ""
+            )
+        )
 
         try:
             with open(output_path, "w", encoding="utf-8") as f:
@@ -77,10 +103,35 @@ class DirectoryExporter:
         Args:
             output_path: Path where the JSON file will be saved
         """
+        if self.show_full_path:
+
+            def convert_tuples_to_paths(structure):
+                result = {}
+                for k, v in structure.items():
+                    if k == "_files":
+                        result[k] = [full_path for _, full_path in v]
+                    elif k == "_max_depth_reached":
+                        result[k] = v
+                    elif isinstance(v, dict):
+                        result[k] = convert_tuples_to_paths(v)
+                    else:
+                        result[k] = v
+                return result
+
+            export_structure = convert_tuples_to_paths(self.structure)
+        else:
+            export_structure = self.structure
+
         try:
             with open(output_path, "w", encoding="utf-8") as f:
                 json.dump(
-                    {"root": self.root_name, "structure": self.structure}, f, indent=2
+                    {
+                        "root": self.root_name,
+                        "structure": export_structure,
+                        "show_full_path": self.show_full_path,
+                    },
+                    f,
+                    indent=2,
                 )
             logger.info(f"Successfully exported JSON to {output_path}")
         except Exception as e:
@@ -94,18 +145,27 @@ class DirectoryExporter:
             output_path: Path where the HTML file will be saved
         """
 
-        def _build_html_tree(structure: Dict[str, Any]) -> str:
+        def _build_html_tree(structure: Dict[str, Any], path_prefix: str = "") -> str:
             html_content = ["<ul>"]
 
             if "_files" in structure:
-                for file in sort_files_by_type(structure["_files"]):
-                    html_content.append(f'<li class="file">📄 {html.escape(file)}</li>')
+                for file_item in sort_files_by_type(structure["_files"]):
+                    if self.show_full_path and isinstance(file_item, tuple):
+                        file_name, full_path = file_item
+                        html_content.append(
+                            f'<li class="file">📄 {html.escape(full_path)}</li>'
+                        )
+                    else:
+                        html_content.append(
+                            f'<li class="file">📄 {html.escape(file_item)}</li>'
+                        )
 
             for name, content in sorted(structure.items()):
                 if name == "_files" or name == "_max_depth_reached":
                     continue
 
                 html_content.append(f'<li class="directory">📁 {html.escape(name)}')
+                next_path = os.path.join(path_prefix, name) if path_prefix else name
 
                 if isinstance(content, dict):
                     if content.get("_max_depth_reached"):
@@ -113,7 +173,7 @@ class DirectoryExporter:
                             '<ul><li class="max-depth">⋯ (max depth reached)</li></ul>'
                         )
                     else:
-                        html_content.append(_build_html_tree(content))
+                        html_content.append(_build_html_tree(content, next_path))
 
                 html_content.append("</li>")
 
@@ -146,11 +206,17 @@ class DirectoryExporter:
                     color: #999;
                     font-style: italic;
                 }}
+                .path-info {{
+                    margin-bottom: 20px;
+                    font-style: italic;
+                    color: #666;
+                }}
             </style>
         </head>
         <body>
             <h1>📂 {html.escape(self.root_name)}</h1>
-            {_build_html_tree(self.structure)}
+            {f'<div class="path-info">Showing full file paths from: {html.escape(self.base_path or "")}</div>' if self.show_full_path else ''}
+            {_build_html_tree(self.structure, self.root_name if self.show_full_path else "")}
         </body>
         </html>
         """
@@ -170,30 +236,45 @@ class DirectoryExporter:
             output_path: Path where the Markdown file will be saved
         """
 
-        def _build_md_tree(structure: Dict[str, Any], level: int = 0) -> List[str]:
+        def _build_md_tree(
+            structure: Dict[str, Any], level: int = 0, path_prefix: str = ""
+        ) -> List[str]:
             lines = []
             indent = "    " * level
 
             if "_files" in structure:
-                for file in sort_files_by_type(structure["_files"]):
-                    lines.append(f"{indent}- 📄 `{file}`")
+                for file_item in sort_files_by_type(structure["_files"]):
+                    if self.show_full_path and isinstance(file_item, tuple):
+                        file_name, full_path = file_item
+                        lines.append(f"{indent}- 📄 `{full_path}`")
+                    else:
+                        lines.append(f"{indent}- 📄 `{file_item}`")
 
             for name, content in sorted(structure.items()):
                 if name == "_files" or name == "_max_depth_reached":
                     continue
 
                 lines.append(f"{indent}- 📁 **{name}**")
+                next_path = os.path.join(path_prefix, name) if path_prefix else name
 
                 if isinstance(content, dict):
                     if content.get("_max_depth_reached"):
                         lines.append(f"{indent}    - ⋯ *(max depth reached)*")
                     else:
-                        lines.extend(_build_md_tree(content, level + 1))
+                        lines.extend(_build_md_tree(content, level + 1, next_path))
 
             return lines
 
         md_content = [f"# 📂 {self.root_name}", ""]
-        md_content.extend(_build_md_tree(self.structure))
+        if self.show_full_path:
+            md_content.append(f"> Showing full file paths from: {self.base_path}")
+            md_content.append("")
+
+        md_content.extend(
+            _build_md_tree(
+                self.structure, 0, self.root_name if self.show_full_path else ""
+            )
+        )
 
         try:
             with open(output_path, "w", encoding="utf-8") as f:
@@ -210,7 +291,13 @@ class DirectoryExporter:
             output_path: Path where the React component file will be saved
         """
         try:
-            generate_jsx_component(self.structure, self.root_name, output_path)
+            generate_jsx_component(
+                self.structure,
+                self.root_name,
+                output_path,
+                self.show_full_path,
+                self.base_path,
+            )
             logger.info(f"Successfully exported React component to {output_path}")
         except Exception as e:
             logger.error(f"Error exporting to React component: {e}")

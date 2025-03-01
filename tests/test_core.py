@@ -27,6 +27,43 @@ def test_get_directory_structure(sample_directory):
     assert ".json" in extensions
 
 
+def test_get_directory_structure_with_full_path(sample_directory):
+    """Test that directory structure with full paths is correctly built."""
+    structure, extensions = get_directory_structure(
+        sample_directory, show_full_path=True
+    )
+
+    assert isinstance(structure, dict)
+    assert "_files" in structure
+    assert "subdir" in structure
+
+    assert isinstance(structure["_files"][0], tuple)
+    assert len(structure["_files"][0]) == 2
+
+    found_txt = False
+    found_py = False
+    base_name = os.path.basename(sample_directory)
+
+    for file_name, full_path in structure["_files"]:
+        if file_name == "file1.txt":
+            found_txt = True
+            norm_path = full_path.replace("\\", "/")
+            assert f"{base_name}/file1.txt" in norm_path or file_name in norm_path
+
+        if file_name == "file2.py":
+            found_py = True
+            norm_path = full_path.replace("\\", "/")
+            assert f"{base_name}/file2.py" in norm_path or file_name in norm_path
+
+    assert found_txt, "file1.txt not found in structure with full path"
+    assert found_py, "file2.py not found in structure with full path"
+
+    assert ".txt" in extensions
+    assert ".py" in extensions
+    assert ".md" in extensions
+    assert ".json" in extensions
+
+
 def test_get_directory_structure_with_excludes(sample_directory):
     """Test directory structure with excluded directories."""
     exclude_dirs = ["node_modules"]

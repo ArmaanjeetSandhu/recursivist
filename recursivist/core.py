@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 def export_structure(
-    structure: Dict, root_dir: str, format_type: str, output_path: str
+    structure: Dict, root_dir: str, format_type: str, output_path: str, show_full_path: bool = False
 ) -> None:
     """Export the directory structure to various formats.
 
@@ -25,11 +25,12 @@ def export_structure(
         root_dir: Root directory name
         format_type: Export format ('txt', 'json', 'html', 'md', 'jsx')
         output_path: Path where the export file will be saved
+        show_full_path: Whether to show full paths instead of just filenames
 
     Raises:
         ValueError: If the format_type is not supported
     """
-    exporter = DirectoryExporter(structure, os.path.basename(root_dir))
+    exporter = DirectoryExporter(structure, os.path.basename(root_dir), root_dir if show_full_path else None)
 
     format_map = {
         "txt": exporter.to_txt,
@@ -205,6 +206,8 @@ def get_directory_structure(
     include_patterns: Optional[List[Union[str, Pattern[str]]]] = None,
     max_depth: int = 0,
     current_depth: int = 0,
+    current_path: str = "",
+    show_full_path: bool = False,
 ) -> Tuple[Dict[str, Any], Set[str]]:
     """Build a nested dictionary representing the directory structure.
 
@@ -218,6 +221,8 @@ def get_directory_structure(
         include_patterns: List of regex patterns to include (overrides exclusions)
         max_depth: Maximum depth to traverse (0 for unlimited)
         current_depth: Current depth in the directory tree
+        current_path: Current path for full path display
+        show_full_path: Whether to show full paths instead of just filenames
 
     Returns:
         Tuple of (structure dictionary, set of extensions found)
@@ -271,7 +276,13 @@ def get_directory_structure(
             if ext.lower() not in exclude_extensions:
                 if "_files" not in structure:
                     structure["_files"] = []
-                structure["_files"].append(item)
+                
+                if show_full_path:
+                    full_path = os.path.join(current_path, item) if current_path else item
+                    structure["_files"].append((item, full_path))
+                else:
+                    structure["_files"].append(item)
+                
                 if ext:
                     extensions_set.add(ext.lower())
 
@@ -288,6 +299,8 @@ def get_directory_structure(
             continue
 
         if os.path.isdir(item_path):
+            next_path = os.path.join(current_path, item) if current_path else item
+            
             substructure, sub_extensions = get_directory_structure(
                 item_path,
                 exclude_dirs,
@@ -298,6 +311,8 @@ def get_directory_structure(
                 include_patterns,
                 max_depth,
                 current_depth + 1,
+                next_path,
+                show_full_path,
             )
             structure[item] = substructure
             extensions_set.update(sub_extensions)
@@ -305,16 +320,22 @@ def get_directory_structure(
     return structure, extensions_set
 
 
-def sort_files_by_type(files: List[str]) -> List[str]:
+def sort_files_by_type(files: List[Union[str, Tuple[str, str]]]) -> List[Union[str, Tuple[str, str]]]:
     """Sort files by extension and then by name.
 
     Args:
-        files: List of filenames to sort
+        files: List of filenames or (filename, full_path) tuples to sort
 
     Returns:
-        Sorted list of filenames
+        Sorted list of filenames or tuples
     """
-    return sorted(files, key=lambda f: (os.path.splitext(f)[1], f.lower()))
+    if not files:
+        return []
+    
+    if isinstance(files[0], tuple):
+        return sorted(files, key=lambda f: (os.path.splitext(f[0])[1], f[0].lower()))
+    else:
+        return sorted(files, key=lambda f: (os.path.splitext(f)[1], f.lower()))
 
 
 def build_tree(
@@ -322,6 +343,7 @@ def build_tree(
     tree: Tree,
     color_map: Dict[str, str],
     parent_name: str = "Root",
+    show_full_path: bool = False,
 ) -> None:
     """Build the tree structure with colored file names.
 
@@ -330,14 +352,23 @@ def build_tree(
         tree: Rich Tree object to build upon
         color_map: Mapping of file extensions to colors
         parent_name: Name of the parent directory
+        show_full_path: Whether to show full paths instead of just filenames
     """
     for folder, content in sorted(structure.items()):
         if folder == "_files":
-            for file in sort_files_by_type(content):
-                ext = os.path.splitext(file)[1].lower()
-                color = color_map.get(ext, "#FFFFFF")
-                colored_text = Text(f"📄 {file}", style=color)
-                tree.add(colored_text)
+            for file_item in sort_files_by_type(content):
+                if show_full_path and isinstance(file_item, tuple):
+                    file_name, full_path = file_item
+                    ext = os.path.splitext(file_name)[1].lower()
+                    color = color_map.get(ext, "#FFFFFF")
+                    colored_text = Text(f"📄 {full_path}", style=color)
+                    tree.add(colored_text)
+                else:
+                    file_name = file_item
+                    ext = os.path.splitext(file_name)[1].lower()
+                    color = color_map.get(ext, "#FFFFFF")
+                    colored_text = Text(f"📄 {file_name}", style=color)
+                    tree.add(colored_text)
         elif folder == "_max_depth_reached":
             pass
         else:
@@ -345,7 +376,7 @@ def build_tree(
             if isinstance(content, dict) and content.get("_max_depth_reached"):
                 subtree.add(Text("⋯ (max depth reached)", style="dim"))
             else:
-                build_tree(content, subtree, color_map, folder)
+                build_tree(content, subtree, color_map, folder, show_full_path)
 
 
 def display_tree(
@@ -357,6 +388,7 @@ def display_tree(
     include_patterns: Optional[List[str]] = None,
     use_regex: bool = False,
     max_depth: int = 0,
+    show_full_path: bool = False,
 ) -> None:
     """Display the directory tree with color-coded file types.
 
@@ -369,6 +401,7 @@ def display_tree(
         include_patterns: List of patterns to include (overrides exclusions)
         use_regex: Whether to treat patterns as regex instead of glob patterns
         max_depth: Maximum depth to display (0 for unlimited)
+        show_full_path: Whether to show full paths instead of just filenames
     """
     if exclude_dirs is None:
         exclude_dirs = []
@@ -395,11 +428,12 @@ def display_tree(
         exclude_patterns=compiled_exclude,
         include_patterns=compiled_include,
         max_depth=max_depth,
+        show_full_path=show_full_path,
     )
 
     color_map = {ext: generate_color_for_extension(ext) for ext in extensions}
 
     console = Console()
     tree = Tree(f"📂 {os.path.basename(root_dir)}")
-    build_tree(structure, tree, color_map)
+    build_tree(structure, tree, color_map, show_full_path=show_full_path)
     console.print(tree)

@@ -32,6 +32,7 @@ def compare_directory_structures(
     exclude_patterns: Optional[List[Union[str, Pattern]]] = None,
     include_patterns: Optional[List[Union[str, Pattern]]] = None,
     max_depth: int = 0,
+    show_full_path: bool = False,
 ) -> Tuple[Dict, Dict, Set[str]]:
     """
     Compare two directory structures and return both structures and a combined set of extensions.
@@ -45,6 +46,7 @@ def compare_directory_structures(
         exclude_patterns: List of patterns to exclude
         include_patterns: List of patterns to include (overrides exclusions)
         max_depth: Maximum depth to display (0 for unlimited)
+        show_full_path: Whether to show full paths instead of just filenames
 
     Returns:
         Tuple of (structure1, structure2, combined_extensions)
@@ -57,6 +59,7 @@ def compare_directory_structures(
         exclude_patterns=exclude_patterns,
         include_patterns=include_patterns,
         max_depth=max_depth,
+        show_full_path=show_full_path,
     )
     structure2, extensions2 = get_directory_structure(
         dir2,
@@ -66,6 +69,7 @@ def compare_directory_structures(
         exclude_patterns=exclude_patterns,
         include_patterns=include_patterns,
         max_depth=max_depth,
+        show_full_path=show_full_path,
     )
 
     combined_extensions = extensions1.union(extensions2)
@@ -79,6 +83,7 @@ def build_comparison_tree(
     tree: Tree,
     color_map: Dict[str, str],
     parent_name: str = "Root",
+    show_full_path: bool = False,
 ) -> None:
     """
     Build a tree structure with highlighted differences.
@@ -89,19 +94,42 @@ def build_comparison_tree(
         tree: Rich Tree object to build upon
         color_map: Mapping of file extensions to colors
         parent_name: Name of the parent directory
+        show_full_path: Whether to show full paths instead of just filenames
     """
     if "_files" in structure:
         files_in_other = other_structure.get("_files", []) if other_structure else []
-        for file in sort_files_by_type(structure["_files"]):
-            ext = os.path.splitext(file)[1].lower()
-            color = color_map.get(ext, "#FFFFFF")
 
-            if file not in files_in_other:
-                colored_text = Text(f"📄 {file}", style=f"{color} on green")
-                tree.add(colored_text)
-            else:
-                colored_text = Text(f"📄 {file}", style=color)
-                tree.add(colored_text)
+        if (
+            show_full_path
+            and structure["_files"]
+            and isinstance(structure["_files"][0], tuple)
+        ):
+            files_in_other_names = [
+                item[0] if isinstance(item, tuple) else item for item in files_in_other
+            ]
+
+            for file_item in sort_files_by_type(structure["_files"]):
+                file_name, full_path = file_item
+                ext = os.path.splitext(file_name)[1].lower()
+                color = color_map.get(ext, "#FFFFFF")
+
+                if file_name not in files_in_other_names:
+                    colored_text = Text(f"📄 {full_path}", style=f"{color} on green")
+                    tree.add(colored_text)
+                else:
+                    colored_text = Text(f"📄 {full_path}", style=color)
+                    tree.add(colored_text)
+        else:
+            for file in sort_files_by_type(structure["_files"]):
+                ext = os.path.splitext(file)[1].lower()
+                color = color_map.get(ext, "#FFFFFF")
+
+                if file not in files_in_other:
+                    colored_text = Text(f"📄 {file}", style=f"{color} on green")
+                    tree.add(colored_text)
+                else:
+                    colored_text = Text(f"📄 {file}", style=color)
+                    tree.add(colored_text)
 
     for folder, content in sorted(structure.items()):
         if folder == "_files" or folder == "_max_depth_reached":
@@ -117,16 +145,36 @@ def build_comparison_tree(
         if isinstance(content, dict) and content.get("_max_depth_reached"):
             subtree.add(Text("⋯ (max depth reached)", style="dim"))
         else:
-            build_comparison_tree(content, other_content, subtree, color_map, folder)
+            build_comparison_tree(
+                content, other_content, subtree, color_map, folder, show_full_path
+            )
 
     if other_structure and "_files" in other_structure:
         files_in_this = structure.get("_files", [])
-        for file in sort_files_by_type(other_structure["_files"]):
-            if file not in files_in_this:
-                ext = os.path.splitext(file)[1].lower()
-                color = color_map.get(ext, "#FFFFFF")
-                colored_text = Text(f"📄 {file}", style=f"{color} on red")
-                tree.add(colored_text)
+
+        if (
+            show_full_path
+            and other_structure["_files"]
+            and isinstance(other_structure["_files"][0], tuple)
+        ):
+            files_in_this_names = [
+                item[0] if isinstance(item, tuple) else item for item in files_in_this
+            ]
+
+            for file_item in sort_files_by_type(other_structure["_files"]):
+                file_name, full_path = file_item
+                if file_name not in files_in_this_names:
+                    ext = os.path.splitext(file_name)[1].lower()
+                    color = color_map.get(ext, "#FFFFFF")
+                    colored_text = Text(f"📄 {full_path}", style=f"{color} on red")
+                    tree.add(colored_text)
+        else:
+            for file in sort_files_by_type(other_structure["_files"]):
+                if file not in files_in_this:
+                    ext = os.path.splitext(file)[1].lower()
+                    color = color_map.get(ext, "#FFFFFF")
+                    colored_text = Text(f"📄 {file}", style=f"{color} on red")
+                    tree.add(colored_text)
 
     if other_structure:
         for folder in sorted(other_structure.keys()):
@@ -143,7 +191,9 @@ def build_comparison_tree(
                 ):
                     subtree.add(Text("⋯ (max depth reached)", style="dim"))
                 else:
-                    build_comparison_tree({}, other_content, subtree, color_map, folder)
+                    build_comparison_tree(
+                        {}, other_content, subtree, color_map, folder, show_full_path
+                    )
 
 
 def display_comparison(
@@ -156,6 +206,7 @@ def display_comparison(
     include_patterns: Optional[List[str]] = None,
     use_regex: bool = False,
     max_depth: int = 0,
+    show_full_path: bool = False,
 ) -> None:
     """
     Display two directory trees side by side with highlighted differences.
@@ -170,6 +221,7 @@ def display_comparison(
         include_patterns: List of patterns to include (overrides exclusions)
         use_regex: Whether to treat patterns as regex instead of glob patterns
         max_depth: Maximum depth to display (0 for unlimited)
+        show_full_path: Whether to show full paths instead of just filenames
     """
     if exclude_dirs is None:
         exclude_dirs = []
@@ -197,6 +249,7 @@ def display_comparison(
         exclude_patterns=compiled_exclude,
         include_patterns=compiled_include,
         max_depth=max_depth,
+        show_full_path=show_full_path,
     )
 
     color_map = {ext: generate_color_for_extension(ext) for ext in extensions}
@@ -205,8 +258,12 @@ def display_comparison(
     tree1 = Tree(Text(f"📂 {os.path.basename(dir1)}", style="bold"))
     tree2 = Tree(Text(f"📂 {os.path.basename(dir2)}", style="bold"))
 
-    build_comparison_tree(structure1, structure2, tree1, color_map)
-    build_comparison_tree(structure2, structure1, tree2, color_map)
+    build_comparison_tree(
+        structure1, structure2, tree1, color_map, show_full_path=show_full_path
+    )
+    build_comparison_tree(
+        structure2, structure1, tree2, color_map, show_full_path=show_full_path
+    )
 
     legend_text = Text()
     legend_text.append("Legend: ", style="bold")
@@ -219,6 +276,10 @@ def display_comparison(
         legend_text.append("\n")
         legend_text.append("⋯ (max depth reached) ", style="dim")
         legend_text.append(f"= Directory tree is limited to {max_depth} levels")
+
+    if show_full_path:
+        legend_text.append("\n")
+        legend_text.append("Full file paths are shown instead of just filenames")
 
     if exclude_patterns or include_patterns:
         pattern_info = []
@@ -274,6 +335,7 @@ def export_comparison(
     include_patterns: Optional[List[str]] = None,
     use_regex: bool = False,
     max_depth: int = 0,
+    show_full_path: bool = False,
 ) -> None:
     """
     Export directory comparison to various formats.
@@ -290,6 +352,7 @@ def export_comparison(
         include_patterns: List of patterns to include (overrides exclusions)
         use_regex: Whether to treat patterns as regex instead of glob patterns
         max_depth: Maximum depth to display (0 for unlimited)
+        show_full_path: Whether to show full paths instead of just filenames
 
     Raises:
         ValueError: If the format_type is not supported
@@ -320,6 +383,7 @@ def export_comparison(
         exclude_patterns=compiled_exclude,
         include_patterns=compiled_include,
         max_depth=max_depth,
+        show_full_path=show_full_path,
     )
 
     comparison_data = {
@@ -330,6 +394,7 @@ def export_comparison(
             "include_patterns": [str(p) for p in include_patterns],
             "pattern_type": "regex" if use_regex else "glob",
             "max_depth": max_depth,
+            "show_full_path": show_full_path,
         },
     }
 
@@ -351,6 +416,9 @@ def _export_comparison_to_txt(
     ) -> List[str]:
         lines = []
         items = list(sorted(structure.items()))
+        show_full_path = comparison_data.get("metadata", {}).get(
+            "show_full_path", False
+        )
 
         for i, (name, content) in enumerate(items):
             if name == "_files" or name == "_max_depth_reached":
@@ -378,12 +446,19 @@ def _export_comparison_to_txt(
 
         if "_files" in structure:
             files = sort_files_by_type(structure["_files"])
-            for i, file in enumerate(files):
+            for i, file_item in enumerate(files):
                 is_last_file = i == len(files) - 1
-                if is_last_file:
-                    lines.append(f"{prefix}└── 📄 {file}")
+
+                if show_full_path and isinstance(file_item, tuple):
+                    file_name, full_path = file_item
+                    display_name = full_path
                 else:
-                    lines.append(f"{prefix}├── 📄 {file}")
+                    display_name = file_item
+
+                if is_last_file:
+                    lines.append(f"{prefix}└── 📄 {display_name}")
+                else:
+                    lines.append(f"{prefix}├── 📄 {display_name}")
 
         return lines
 
@@ -407,6 +482,9 @@ def _export_comparison_to_txt(
     metadata = comparison_data.get("metadata", {})
     if metadata.get("max_depth", 0) > 0:
         combined_lines.append(f"Max depth: {metadata['max_depth']} levels")
+
+    if metadata.get("show_full_path", False):
+        combined_lines.append("Showing full file paths instead of just filenames")
 
     if metadata.get("exclude_patterns") or metadata.get("include_patterns"):
         combined_lines.append("-" * 80)
@@ -443,6 +521,43 @@ def _export_comparison_to_html(
         structure: Dict[str, Any], include_differences: bool = False
     ) -> str:
         html_content = ["<ul>"]
+        show_full_path = comparison_data.get("metadata", {}).get(
+            "show_full_path", False
+        )
+
+        if "_files" in structure:
+            for file_item in sort_files_by_type(structure["_files"]):
+                file_class = ""
+                if include_differences:
+                    other_structure = (
+                        comparison_data["dir2"]["structure"]
+                        if structure == comparison_data["dir1"]["structure"]
+                        else comparison_data["dir1"]["structure"]
+                    )
+                    other_files = other_structure.get("_files", [])
+
+                    if show_full_path and isinstance(file_item, tuple):
+                        file_name, full_path = file_item
+                        other_file_names = [
+                            f[0] if isinstance(f, tuple) else f for f in other_files
+                        ]
+                        if file_name not in other_file_names:
+                            file_class = ' class="file-unique"'
+                        display_name = full_path
+                    else:
+                        if file_item not in other_files:
+                            file_class = ' class="file-unique"'
+                        display_name = file_item
+
+                else:
+                    if show_full_path and isinstance(file_item, tuple):
+                        _, display_name = file_item
+                    else:
+                        display_name = file_item
+
+                html_content.append(
+                    f'<li{file_class}><span class="file">📄 {html.escape(display_name)}</span></li>'
+                )
 
         for name, content in sorted(structure.items()):
             if name == "_files" or name == "_max_depth_reached":
@@ -471,23 +586,6 @@ def _export_comparison_to_html(
 
             html_content.append("</li>")
 
-        if "_files" in structure:
-            for file in sort_files_by_type(structure["_files"]):
-                file_class = ""
-                if include_differences:
-                    other_structure = (
-                        comparison_data["dir2"]["structure"]
-                        if structure == comparison_data["dir1"]["structure"]
-                        else comparison_data["dir1"]["structure"]
-                    )
-                    other_files = other_structure.get("_files", [])
-                    if file not in other_files:
-                        file_class = ' class="file-unique"'
-
-                html_content.append(
-                    f'<li{file_class}><span class="file">📄 {html.escape(file)}</span></li>'
-                )
-
         html_content.append("</ul>")
         return "\n".join(html_content)
 
@@ -497,10 +595,15 @@ def _export_comparison_to_html(
     dir2_path = html.escape(comparison_data["dir2"]["path"])
 
     metadata = comparison_data.get("metadata", {})
+    show_full_path = metadata.get("show_full_path", False)
 
     max_depth_info = ""
     if metadata.get("max_depth", 0) > 0:
         max_depth_info = f'<div class="info-block"><span class="info-label">Max Depth:</span> {metadata["max_depth"]} levels</div>'
+
+    path_info = ""
+    if show_full_path:
+        path_info = '<div class="info-block"><span class="info-label">Display:</span> Showing full file paths instead of just filenames</div>'
 
     pattern_info_html = ""
     if metadata.get("exclude_patterns") or metadata.get("include_patterns"):
@@ -632,6 +735,7 @@ def _export_comparison_to_html(
     <body>
         <h1>Directory Comparison</h1>
         {max_depth_info}
+        {path_info}
         {pattern_info_html}
         <div class="legend">
             <div class="legend-item">

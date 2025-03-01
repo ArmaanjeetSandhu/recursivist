@@ -5,13 +5,18 @@ It generates a JSX file with a nested collapsible component for directory visual
 
 import html
 import logging
-from typing import Any, Dict
+import os
+from typing import Any, Dict, Optional, Tuple, Union
 
 logger = logging.getLogger(__name__)
 
 
 def generate_jsx_component(
-    structure: Dict[str, Any], root_name: str, output_path: str
+    structure: Dict[str, Any],
+    root_name: str,
+    output_path: str,
+    show_full_path: bool = False,
+    base_path: Optional[str] = None,
 ) -> None:
     """
     Generate a React component file for directory structure visualization.
@@ -20,9 +25,13 @@ def generate_jsx_component(
         structure: Directory structure dictionary
         root_name: Root directory name
         output_path: Path where the React component file will be saved
+        show_full_path: Whether to show full paths instead of just filenames
+        base_path: Base path for full path display
     """
 
-    def _build_structure_jsx(structure: Dict[str, Any], level: int = 0) -> str:
+    def _build_structure_jsx(
+        structure: Dict[str, Any], level: int = 0, path_prefix: str = ""
+    ) -> str:
         jsx_content = []
 
         for name, content in sorted(
@@ -37,6 +46,8 @@ def generate_jsx_component(
                 f'<CollapsibleItem title="{html.escape(name)}" level={level}>'
             )
 
+            next_path = f"{path_prefix}/{name}" if path_prefix else name
+
             if isinstance(content, dict):
                 if content.get("_max_depth_reached"):
                     jsx_content.append(
@@ -47,24 +58,43 @@ def generate_jsx_component(
                     )
                     jsx_content.append("</div>")
                 else:
-                    jsx_content.append(_build_structure_jsx(content, level + 1))
+                    jsx_content.append(
+                        _build_structure_jsx(content, level + 1, next_path)
+                    )
 
             jsx_content.append("</CollapsibleItem>")
 
         if "_files" in structure:
             files = structure["_files"]
-            for file in sorted(files, key=lambda f: f.lower()):
+            for file_item in sorted(
+                files, key=lambda f: f[0].lower() if isinstance(f, tuple) else f.lower()
+            ):
                 file_content = (
                     '<div className="p-3 bg-white rounded-lg border border-gray-100">'
                 )
-                file_content += f'<p className="flex items-center"><span className="mr-2">📄</span> {html.escape(file)}</p>'
+
+                if show_full_path and isinstance(file_item, tuple):
+                    file_name, full_path = file_item
+                    file_content += f'<p className="flex items-center"><span className="mr-2">📄</span> {html.escape(full_path)}</p>'
+                else:
+                    file_name = file_item
+                    file_content += f'<p className="flex items-center"><span className="mr-2">📄</span> {html.escape(file_name)}</p>'
+
                 file_content += "</div>"
                 jsx_content.append(file_content)
 
         return "\n".join(jsx_content)
 
-    component_template = f"""import React, {{ useState, useEffect }} from 'jsx';
-import {{ ChevronDown, ChevronUp, Folder, File, Maximize2, Minimize2 }} from 'lucide-jsx';
+    path_info = ""
+    if show_full_path and base_path:
+        path_info = f"""
+        <div className="text-gray-500 text-sm italic mb-4">
+          Showing full file paths from: {html.escape(base_path)}
+        </div>
+        """
+
+    component_template = f"""import React, {{ useState, useEffect }} from 'react';
+import {{ ChevronDown, ChevronUp, Folder, File, Maximize2, Minimize2 }} from 'lucide-react';
 
 const CollapsibleContext = React.createContext();
 
@@ -147,7 +177,7 @@ const DirectoryViewer = () => {{
     <CollapsibleContext.Provider value={{{{ expandAll, collapseAll, resetTrigger }}}}>
       <div className="w-full max-w-5xl mx-auto space-y-2">
         <h1 className="text-xl font-bold mb-4">Directory Structure: {html.escape(root_name)}</h1>
-
+        {path_info}
         <div className="flex justify-end mb-4 space-x-2">
           <button
             onClick={{handleExpandAll}}
@@ -165,7 +195,7 @@ const DirectoryViewer = () => {{
           </button>
         </div>
         <CollapsibleItem title="{html.escape(root_name)}">
-{_build_structure_jsx(structure, 1)}
+{_build_structure_jsx(structure, 1, root_name if show_full_path else "")}
         </CollapsibleItem>
       </div>
     </CollapsibleContext.Provider>
