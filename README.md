@@ -50,55 +50,78 @@ This will show a colorful tree of the current directory structure in your termin
 recursivist visualize /path/to/directory
 
 # Exclude specific directories
-recursivist visualize --exclude node_modules .git venv
+recursivist visualize \
+  --exclude node_modules .git venv
 
 # Exclude file extensions
-recursivist visualize --exclude-ext .pyc .log .cache
+recursivist visualize \
+  --exclude-ext .pyc .log .cache
 
 # Use a gitignore-style file
-recursivist visualize --ignore-file .gitignore
+recursivist visualize \
+  --ignore-file .gitignore
 
 # Use glob patterns to exclude files
-recursivist visualize --exclude-pattern "*.test.js" "*.spec.js"
+recursivist visualize \
+  --exclude-pattern "*.test.js" "*.spec.js"
 
 # Use regex patterns for more precise control
-recursivist visualize --exclude-pattern "^test_.*\.py$" ".*_test\.js$" --regex
+recursivist visualize \
+  --exclude-pattern "^test_.*\.py$" ".*_test\.js$" \
+  --regex
 
 # Include only specific patterns (overrides exclusions)
-recursivist visualize --include-pattern "src/*" "*.md"
+recursivist visualize \
+  --include-pattern "src/*" "*.md"
 
 # Include with regex patterns
-recursivist visualize --include-pattern "^src/.*\.jsx?$" "^docs/.*\.md$" --regex
+recursivist visualize \
+  --include-pattern "^src/.*\.jsx?$" "^docs/.*\.md$" \
+  --regex
 
 # Limit directory depth
-recursivist visualize --depth 3
+recursivist visualize \
+  --depth 3
 
 # Show full file paths
-recursivist visualize --full-path
+recursivist visualize \
+  --full-path
 
 # Export to various formats
-recursivist visualize --export txt json html md jsx
+recursivist visualize \
+  --export txt json html md jsx
 
 # Export to a specific directory
-recursivist visualize --export md --output-dir ./exports
+recursivist visualize \
+  --export md \
+  --output-dir ./exports
 
 # Export as a React component
-recursivist visualize --export jsx --output-dir ./components
+recursivist visualize \
+  --export jsx \
+  --output-dir ./components
 
 # Custom filename prefix for exports
-recursivist visualize --export json --prefix my-project
+recursivist visualize \
+  --export json \
+  --prefix my-project
 
 # Compare two directories
 recursivist compare /path/to/dir1 /path/to/dir2
 
 # Compare with pattern exclusions
-recursivist compare dir1 dir2 --exclude-pattern "*.test.js" --regex
+recursivist compare dir1 dir2 \
+  --exclude-pattern "*.test.js" \
+  --regex
 
 # Compare with depth limit
-recursivist compare dir1 dir2 --depth 2
+recursivist compare dir1 dir2 \
+  --depth 2
 
 # Compare and export the comparison
-recursivist compare dir1 dir2 --export html --output-dir ./reports
+recursivist compare dir1 dir2 \
+  --export html \
+  --output-dir ./reports
 
 # View the current version
 recursivist version
@@ -183,10 +206,12 @@ Glob patterns use wildcard characters like `*` to match multiple characters:
 
 ```bash
 # Exclude all JavaScript test files
-recursivist visualize --exclude-pattern "*.test.js" "*.spec.js"
+recursivist visualize \
+  --exclude-pattern "*.test.js" "*.spec.js"
 
 # Include only source code and documentation
-recursivist visualize --include-pattern "src/*" "docs/*.md"
+recursivist visualize \
+  --include-pattern "src/*" "docs/*.md"
 ```
 
 #### Regex Pattern Examples
@@ -195,10 +220,14 @@ For more precise control, use the `--regex` flag to enable regular expressions:
 
 ```bash
 # Exclude files starting with "test_" and ending with ".py"
-recursivist visualize --exclude-pattern "^test_.*\.py$" --regex
+recursivist visualize \
+  --exclude-pattern "^test_.*\.py$" \
+  --regex
 
 # Include only React components in the src directory
-recursivist visualize --include-pattern "^src/.*\.(jsx|tsx)$" --regex
+recursivist visualize \
+  --include-pattern "^src/.*\.(jsx|tsx)$" \
+  --regex
 ```
 
 #### Combining Include and Exclude Patterns
@@ -207,10 +236,15 @@ When you specify both include and exclude patterns, include patterns take preced
 
 ```bash
 # Include all markdown files, but exclude those containing "draft"
-recursivist visualize --include-pattern "*.md" --exclude-pattern "*draft*"
+recursivist visualize \
+  --include-pattern "*.md" \
+  --exclude-pattern "*draft*"
 
 # With regex, include TypeScript files but exclude test files
-recursivist visualize --include-pattern "^.*\.ts$" --exclude-pattern ".*\.test\.ts$" --regex
+recursivist visualize \
+  --include-pattern "^.*\.ts$" \
+  --exclude-pattern ".*\.test\.ts$" \
+  --regex
 ```
 
 ### Directory Comparison
@@ -227,7 +261,9 @@ This will display two directory trees side by side with differences highlighted:
 You can export the comparison to various formats:
 
 ```bash
-recursivist compare ~/project-v1 ~/project-v2 --export html --output-dir ./reports
+recursivist compare ~/project-v1 ~/project-v2 \
+  --export html \
+  --output-dir ./reports
 ```
 
 ### Limiting Directory Depth
@@ -235,7 +271,8 @@ recursivist compare ~/project-v1 ~/project-v2 --export html --output-dir ./repor
 For large projects, it can be helpful to limit the display depth:
 
 ```bash
-recursivist visualize --depth 2
+recursivist visualize \
+  --depth 2
 ```
 
 This will show only the top two levels of the directory structure, with an indicator showing where the depth limit was reached.
@@ -245,7 +282,8 @@ This will show only the top two levels of the directory structure, with an indic
 When you need to see the complete path for each file:
 
 ```bash
-recursivist visualize --full-path
+recursivist visualize \
+  --full-path
 ```
 
 This will display the full path for each file rather than just the filename.
@@ -253,7 +291,9 @@ This will display the full path for each file rather than just the filename.
 ### Export to Multiple Formats
 
 ```bash
-recursivist visualize --export txt md jsx --output-dir ./docs
+recursivist visualize \
+  --export txt md jsx \
+  --output-dir ./docs
 ```
 
 This exports the directory structure to text, markdown, and React component formats in the `./docs` directory.
@@ -261,7 +301,9 @@ This exports the directory structure to text, markdown, and React component form
 ### Exclude Unwanted Directories and Files
 
 ```bash
-recursivist visualize --exclude node_modules .git --exclude-ext .pyc .log
+recursivist visualize \
+  --exclude node_modules .git \
+  --exclude-ext .pyc .log
 ```
 
 This shows the directory tree while ignoring the `node_modules` and `.git` directories, as well as any `.pyc` and `.log` files.
@@ -289,7 +331,9 @@ A markdown representation that renders nicely on platforms like GitHub.
 An interactive React component with a collapsible tree view that can be integrated into your web applications. The component uses Tailwind CSS for styling and includes features like "Expand All" and "Collapse All" buttons.
 
 ```bash
-recursivist visualize --export jsx --output-dir ./components
+recursivist visualize \
+  --export jsx \
+  --output-dir ./components
 ```
 
 This creates a self-contained React component file that you can import directly into your React projects. To use it:
@@ -340,7 +384,8 @@ recursivist completion powershell > recursivist.ps1
 When working with Git repositories, you can use your existing `.gitignore` file:
 
 ```bash
-recursivist visualize --ignore-file .gitignore
+recursivist visualize \
+  --ignore-file .gitignore
 ```
 
 ### Integration with Other Tools
@@ -349,7 +394,9 @@ The JSON export format allows for easy integration with other tools:
 
 ```bash
 # Export to JSON
-recursivist visualize --export json --prefix myproject
+recursivist visualize \
+  --export json \
+  --prefix myproject
 
 # Use with jq for additional processing
 cat myproject.json | jq '.structure | keys'
