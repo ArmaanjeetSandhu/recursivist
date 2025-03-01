@@ -26,14 +26,29 @@ def generate_jsx_component(
         jsx_content = []
 
         for name, content in sorted(
-            [(k, v) for k, v in structure.items() if k != "_files"],
+            [
+                (k, v)
+                for k, v in structure.items()
+                if k != "_files" and k != "_max_depth_reached"
+            ],
             key=lambda x: x[0].lower(),
         ):
             jsx_content.append(
                 f'<CollapsibleItem title="{html.escape(name)}" level={level}>'
             )
+
             if isinstance(content, dict):
-                jsx_content.append(_build_structure_jsx(content, level + 1))
+                if content.get("_max_depth_reached"):
+                    jsx_content.append(
+                        '<div className="p-3 bg-gray-50 rounded-lg border border-gray-100 ml-4 my-1">'
+                    )
+                    jsx_content.append(
+                        '<p className="text-gray-500">⋯ (max depth reached)</p>'
+                    )
+                    jsx_content.append("</div>")
+                else:
+                    jsx_content.append(_build_structure_jsx(content, level + 1))
+
             jsx_content.append("</CollapsibleItem>")
 
         if "_files" in structure:

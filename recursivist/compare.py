@@ -31,6 +31,7 @@ def compare_directory_structures(
     exclude_extensions: Optional[Set[str]] = None,
     exclude_patterns: Optional[List[Union[str, Pattern]]] = None,
     include_patterns: Optional[List[Union[str, Pattern]]] = None,
+    max_depth: int = 0,
 ) -> Tuple[Dict, Dict, Set[str]]:
     """
     Compare two directory structures and return both structures and a combined set of extensions.
@@ -43,6 +44,7 @@ def compare_directory_structures(
         exclude_extensions: Set of file extensions to exclude
         exclude_patterns: List of patterns to exclude
         include_patterns: List of patterns to include (overrides exclusions)
+        max_depth: Maximum depth to display (0 for unlimited)
 
     Returns:
         Tuple of (structure1, structure2, combined_extensions)
@@ -54,6 +56,7 @@ def compare_directory_structures(
         exclude_extensions,
         exclude_patterns=exclude_patterns,
         include_patterns=include_patterns,
+        max_depth=max_depth,
     )
     structure2, extensions2 = get_directory_structure(
         dir2,
@@ -62,6 +65,7 @@ def compare_directory_structures(
         exclude_extensions,
         exclude_patterns=exclude_patterns,
         include_patterns=include_patterns,
+        max_depth=max_depth,
     )
 
     combined_extensions = extensions1.union(extensions2)
@@ -100,14 +104,19 @@ def build_comparison_tree(
                 tree.add(colored_text)
 
     for folder, content in sorted(structure.items()):
-        if folder != "_files":
-            other_content = other_structure.get(folder, {}) if other_structure else {}
+        if folder == "_files" or folder == "_max_depth_reached":
+            continue
 
-            if folder not in (other_structure or {}):
-                subtree = tree.add(Text(f"📁 {folder}", style="green"))
-            else:
-                subtree = tree.add(f"📁 {folder}")
+        other_content = other_structure.get(folder, {}) if other_structure else {}
 
+        if folder not in (other_structure or {}):
+            subtree = tree.add(Text(f"📁 {folder}", style="green"))
+        else:
+            subtree = tree.add(f"📁 {folder}")
+
+        if isinstance(content, dict) and content.get("_max_depth_reached"):
+            subtree.add(Text("⋯ (max depth reached)", style="dim"))
+        else:
             build_comparison_tree(content, other_content, subtree, color_map, folder)
 
     if other_structure and "_files" in other_structure:
@@ -121,11 +130,20 @@ def build_comparison_tree(
 
     if other_structure:
         for folder in sorted(other_structure.keys()):
-            if folder != "_files" and folder not in structure:
+            if (
+                folder != "_files"
+                and folder != "_max_depth_reached"
+                and folder not in structure
+            ):
                 subtree = tree.add(Text(f"📁 {folder}", style="red"))
-                build_comparison_tree(
-                    {}, other_structure[folder], subtree, color_map, folder
-                )
+                other_content = other_structure[folder]
+
+                if isinstance(other_content, dict) and other_content.get(
+                    "_max_depth_reached"
+                ):
+                    subtree.add(Text("⋯ (max depth reached)", style="dim"))
+                else:
+                    build_comparison_tree({}, other_content, subtree, color_map, folder)
 
 
 def display_comparison(
@@ -137,6 +155,7 @@ def display_comparison(
     exclude_patterns: Optional[List[str]] = None,
     include_patterns: Optional[List[str]] = None,
     use_regex: bool = False,
+    max_depth: int = 0,
 ) -> None:
     """
     Display two directory trees side by side with highlighted differences.
@@ -150,6 +169,7 @@ def display_comparison(
         exclude_patterns: List of patterns to exclude
         include_patterns: List of patterns to include (overrides exclusions)
         use_regex: Whether to treat patterns as regex instead of glob patterns
+        max_depth: Maximum depth to display (0 for unlimited)
     """
     if exclude_dirs is None:
         exclude_dirs = []
@@ -165,7 +185,6 @@ def display_comparison(
         for ext in exclude_extensions
     }
 
-    # Compile regex patterns if needed - make sure patterns are List[str]
     compiled_exclude = compile_regex_patterns(exclude_patterns, use_regex)
     compiled_include = compile_regex_patterns(include_patterns, use_regex)
 
@@ -177,6 +196,7 @@ def display_comparison(
         exclude_extensions,
         exclude_patterns=compiled_exclude,
         include_patterns=compiled_include,
+        max_depth=max_depth,
     )
 
     color_map = {ext: generate_color_for_extension(ext) for ext in extensions}
@@ -194,6 +214,11 @@ def display_comparison(
     legend_text.append("= Only in left directory, ")
     legend_text.append("Red background ", style="on red")
     legend_text.append("= Only in right directory")
+
+    if max_depth > 0:
+        legend_text.append("\n")
+        legend_text.append("⋯ (max depth reached) ", style="dim")
+        legend_text.append(f"= Directory tree is limited to {max_depth} levels")
 
     if exclude_patterns or include_patterns:
         pattern_info = []
@@ -248,6 +273,7 @@ def export_comparison(
     exclude_patterns: Optional[List[str]] = None,
     include_patterns: Optional[List[str]] = None,
     use_regex: bool = False,
+    max_depth: int = 0,
 ) -> None:
     """
     Export directory comparison to various formats.
@@ -263,6 +289,7 @@ def export_comparison(
         exclude_patterns: List of patterns to exclude
         include_patterns: List of patterns to include (overrides exclusions)
         use_regex: Whether to treat patterns as regex instead of glob patterns
+        max_depth: Maximum depth to display (0 for unlimited)
 
     Raises:
         ValueError: If the format_type is not supported
@@ -281,7 +308,6 @@ def export_comparison(
         for ext in exclude_extensions
     }
 
-    # Compile regex patterns if needed - make sure patterns are List[str]
     compiled_exclude = compile_regex_patterns(exclude_patterns, use_regex)
     compiled_include = compile_regex_patterns(include_patterns, use_regex)
 
@@ -293,6 +319,7 @@ def export_comparison(
         exclude_extensions,
         exclude_patterns=compiled_exclude,
         include_patterns=compiled_include,
+        max_depth=max_depth,
     )
 
     comparison_data = {
@@ -302,6 +329,7 @@ def export_comparison(
             "exclude_patterns": [str(p) for p in exclude_patterns],
             "include_patterns": [str(p) for p in include_patterns],
             "pattern_type": "regex" if use_regex else "glob",
+            "max_depth": max_depth,
         },
     }
 
@@ -325,7 +353,7 @@ def _export_comparison_to_txt(
         items = list(sorted(structure.items()))
 
         for i, (name, content) in enumerate(items):
-            if name == "_files":
+            if name == "_files" or name == "_max_depth_reached":
                 continue
 
             is_last_item = i == len(items) - 1 or (
@@ -340,7 +368,13 @@ def _export_comparison_to_txt(
                 new_prefix = prefix + "│   "
 
             if isinstance(content, dict):
-                lines.extend(_build_txt_tree(content, new_prefix, is_last_item))
+                if content.get("_max_depth_reached"):
+                    if is_last_item:
+                        lines.append(f"{new_prefix}└── ⋯ (max depth reached)")
+                    else:
+                        lines.append(f"{new_prefix}├── ⋯ (max depth reached)")
+                else:
+                    lines.extend(_build_txt_tree(content, new_prefix, is_last_item))
 
         if "_files" in structure:
             files = sort_files_by_type(structure["_files"])
@@ -370,8 +404,10 @@ def _export_comparison_to_txt(
     combined_lines.append(f"Left: {comparison_data['dir1']['path']}")
     combined_lines.append(f"Right: {comparison_data['dir2']['path']}")
 
-    # Add pattern information if available
     metadata = comparison_data.get("metadata", {})
+    if metadata.get("max_depth", 0) > 0:
+        combined_lines.append(f"Max depth: {metadata['max_depth']} levels")
+
     if metadata.get("exclude_patterns") or metadata.get("include_patterns"):
         combined_lines.append("-" * 80)
         pattern_type = metadata.get("pattern_type", "glob")
@@ -409,22 +445,31 @@ def _export_comparison_to_html(
         html_content = ["<ul>"]
 
         for name, content in sorted(structure.items()):
-            if name != "_files":
-                dir_class = ""
-                if include_differences:
-                    other_structure = (
-                        comparison_data["dir2"]["structure"]
-                        if structure == comparison_data["dir1"]["structure"]
-                        else comparison_data["dir1"]["structure"]
-                    )
-                    if name not in other_structure:
-                        dir_class = ' class="directory-unique"'
+            if name == "_files" or name == "_max_depth_reached":
+                continue
 
-                html_content.append(
-                    f'<li{dir_class}><span class="directory">📁 {html.escape(name)}</span>'
+            dir_class = ""
+            if include_differences:
+                other_structure = (
+                    comparison_data["dir2"]["structure"]
+                    if structure == comparison_data["dir1"]["structure"]
+                    else comparison_data["dir1"]["structure"]
                 )
+                if name not in other_structure:
+                    dir_class = ' class="directory-unique"'
+
+            html_content.append(
+                f'<li{dir_class}><span class="directory">📁 {html.escape(name)}</span>'
+            )
+
+            if isinstance(content, dict) and content.get("_max_depth_reached"):
+                html_content.append(
+                    '<ul><li class="max-depth">⋯ (max depth reached)</li></ul>'
+                )
+            else:
                 html_content.append(_build_html_tree(content, include_differences))
-                html_content.append("</li>")
+
+            html_content.append("</li>")
 
         if "_files" in structure:
             for file in sort_files_by_type(structure["_files"]):
@@ -451,9 +496,13 @@ def _export_comparison_to_html(
     dir1_path = html.escape(comparison_data["dir1"]["path"])
     dir2_path = html.escape(comparison_data["dir2"]["path"])
 
-    # Pattern information
-    pattern_info_html = ""
     metadata = comparison_data.get("metadata", {})
+
+    max_depth_info = ""
+    if metadata.get("max_depth", 0) > 0:
+        max_depth_info = f'<div class="info-block"><span class="info-label">Max Depth:</span> {metadata["max_depth"]} levels</div>'
+
+    pattern_info_html = ""
     if metadata.get("exclude_patterns") or metadata.get("include_patterns"):
         pattern_type = metadata.get("pattern_type", "glob").capitalize()
         pattern_items = []
@@ -531,6 +580,10 @@ def _export_comparison_to_html(
             .directory-unique {{
                 background-color: #fcf3cf;
             }}
+            .max-depth {{
+                color: #999;
+                font-style: italic;
+            }}
             .legend {{
                 margin-bottom: 20px;
                 padding: 10px;
@@ -559,6 +612,13 @@ def _export_comparison_to_html(
                 border: 1px solid #add8e6;
                 border-radius: 4px;
             }}
+            .info-block {{
+                margin-bottom: 10px;
+                color: #333;
+            }}
+            .info-label {{
+                font-weight: bold;
+            }}
             dt {{
                 font-weight: bold;
                 margin-top: 10px;
@@ -571,6 +631,7 @@ def _export_comparison_to_html(
     </head>
     <body>
         <h1>Directory Comparison</h1>
+        {max_depth_info}
         {pattern_info_html}
         <div class="legend">
             <div class="legend-item">

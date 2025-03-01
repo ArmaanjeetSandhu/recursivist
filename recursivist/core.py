@@ -83,7 +83,6 @@ def compile_regex_patterns(
         List of patterns (either strings for glob patterns or compiled regex patterns)
     """
     if not is_regex:
-        # Cast the list to the correct return type
         return cast(List[Union[str, Pattern[str]]], patterns)
 
     compiled_patterns: List[Union[str, Pattern[str]]] = []
@@ -92,7 +91,6 @@ def compile_regex_patterns(
             compiled_patterns.append(re.compile(pattern))
         except re.error as e:
             logger.warning(f"Invalid regex pattern '{pattern}': {e}")
-            # Add as a plain string so it can be matched as a glob pattern
             compiled_patterns.append(pattern)
 
     return compiled_patterns
@@ -120,61 +118,51 @@ def should_exclude(
     patterns = ignore_context.get("patterns", [])
     current_dir = ignore_context.get("current_dir", os.path.dirname(path))
 
-    # Check if file extension should be excluded
     if exclude_extensions and os.path.isfile(path):
         _, ext = os.path.splitext(path)
         if ext.lower() in exclude_extensions:
             return True
 
-    # Need to handle both absolute and relative paths
     rel_path = os.path.relpath(path, current_dir)
-    # Fix to handle how paths are normalized
-    if os.name == "nt":  # For Windows
+    if os.name == "nt":
         rel_path = rel_path.replace("\\", "/")
     basename = os.path.basename(path)
 
-    # Check include patterns first (these override exclusions)
     if include_patterns:
-        # If we have include patterns, we need an explicit match to include
         included = False
         for pattern in include_patterns:
             if isinstance(pattern, Pattern):
-                # Check both the relative path and basename
                 if pattern.search(rel_path) or pattern.search(basename):
                     included = True
                     break
-            else:  # pattern is a string (glob pattern)
+            else:
                 if fnmatch.fnmatch(rel_path, pattern) or fnmatch.fnmatch(
                     basename, pattern
                 ):
                     included = True
                     break
 
-        # The key fix: if the path is included by an include pattern,
-        # it should NOT be excluded, regardless of exclude patterns
         if included:
             return False
         else:
-            return True  # Exclude if not explicitly included
+            return True
 
-    # If no include patterns, check if explicitly excluded by patterns
     if exclude_patterns:
         for pattern in exclude_patterns:
             if isinstance(pattern, Pattern):
                 if pattern.search(rel_path) or pattern.search(basename):
                     return True
-            else:  # pattern is a string (glob pattern)
+            else:
                 if fnmatch.fnmatch(rel_path, pattern) or fnmatch.fnmatch(
                     basename, pattern
                 ):
                     return True
 
-    # Finally check gitignore-style patterns
     if not patterns:
         return False
 
     for pattern in patterns:
-        if isinstance(pattern, str):  # Only strings can have startswith
+        if isinstance(pattern, str):
             if pattern.startswith("!"):
                 if fnmatch.fnmatch(rel_path, pattern[1:]):
                     return False
@@ -215,6 +203,8 @@ def get_directory_structure(
     parent_ignore_patterns: Optional[List[str]] = None,
     exclude_patterns: Optional[List[Union[str, Pattern[str]]]] = None,
     include_patterns: Optional[List[Union[str, Pattern[str]]]] = None,
+    max_depth: int = 0,
+    current_depth: int = 0,
 ) -> Tuple[Dict[str, Any], Set[str]]:
     """Build a nested dictionary representing the directory structure.
 
@@ -226,6 +216,8 @@ def get_directory_structure(
         parent_ignore_patterns: Patterns from parent directories
         exclude_patterns: List of regex patterns to exclude
         include_patterns: List of regex patterns to include (overrides exclusions)
+        max_depth: Maximum depth to traverse (0 for unlimited)
+        current_depth: Current depth in the directory tree
 
     Returns:
         Tuple of (structure dictionary, set of extensions found)
@@ -250,6 +242,9 @@ def get_directory_structure(
     structure: Dict[str, Any] = {}
     extensions_set: Set[str] = set()
 
+    if max_depth > 0 and current_depth >= max_depth:
+        return {"_max_depth_reached": True}, extensions_set
+
     try:
         items = os.listdir(root_dir)
     except PermissionError:
@@ -258,6 +253,27 @@ def get_directory_structure(
     except Exception as e:
         logger.error(f"Error reading directory {root_dir}: {e}")
         return structure, extensions_set
+
+    for item in items:
+        item_path = os.path.join(root_dir, item)
+
+        if item in exclude_dirs or should_exclude(
+            item_path,
+            ignore_context,
+            exclude_extensions,
+            exclude_patterns,
+            include_patterns,
+        ):
+            continue
+
+        if not os.path.isdir(item_path):
+            _, ext = os.path.splitext(item)
+            if ext.lower() not in exclude_extensions:
+                if "_files" not in structure:
+                    structure["_files"] = []
+                structure["_files"].append(item)
+                if ext:
+                    extensions_set.add(ext.lower())
 
     for item in items:
         item_path = os.path.join(root_dir, item)
@@ -280,17 +296,11 @@ def get_directory_structure(
                 ignore_patterns,
                 exclude_patterns,
                 include_patterns,
+                max_depth,
+                current_depth + 1,
             )
             structure[item] = substructure
             extensions_set.update(sub_extensions)
-        else:
-            _, ext = os.path.splitext(item)
-            if ext.lower() not in exclude_extensions:
-                if "_files" not in structure:
-                    structure["_files"] = []
-                structure["_files"].append(item)
-                if ext:
-                    extensions_set.add(ext.lower())
 
     return structure, extensions_set
 
@@ -308,7 +318,10 @@ def sort_files_by_type(files: List[str]) -> List[str]:
 
 
 def build_tree(
-    structure: Dict, tree: Tree, color_map: Dict[str, str], parent_name: str = "Root"
+    structure: Dict,
+    tree: Tree,
+    color_map: Dict[str, str],
+    parent_name: str = "Root",
 ) -> None:
     """Build the tree structure with colored file names.
 
@@ -325,9 +338,14 @@ def build_tree(
                 color = color_map.get(ext, "#FFFFFF")
                 colored_text = Text(f"📄 {file}", style=color)
                 tree.add(colored_text)
+        elif folder == "_max_depth_reached":
+            pass
         else:
             subtree = tree.add(f"📁 {folder}")
-            build_tree(content, subtree, color_map, folder)
+            if isinstance(content, dict) and content.get("_max_depth_reached"):
+                subtree.add(Text("⋯ (max depth reached)", style="dim"))
+            else:
+                build_tree(content, subtree, color_map, folder)
 
 
 def display_tree(
@@ -338,6 +356,7 @@ def display_tree(
     exclude_patterns: Optional[List[str]] = None,
     include_patterns: Optional[List[str]] = None,
     use_regex: bool = False,
+    max_depth: int = 0,
 ) -> None:
     """Display the directory tree with color-coded file types.
 
@@ -349,6 +368,7 @@ def display_tree(
         exclude_patterns: List of patterns to exclude
         include_patterns: List of patterns to include (overrides exclusions)
         use_regex: Whether to treat patterns as regex instead of glob patterns
+        max_depth: Maximum depth to display (0 for unlimited)
     """
     if exclude_dirs is None:
         exclude_dirs = []
@@ -364,7 +384,6 @@ def display_tree(
         for ext in exclude_extensions
     }
 
-    # Compile regex patterns if needed
     compiled_exclude = compile_regex_patterns(exclude_patterns, use_regex)
     compiled_include = compile_regex_patterns(include_patterns, use_regex)
 
@@ -375,6 +394,7 @@ def display_tree(
         exclude_extensions,
         exclude_patterns=compiled_exclude,
         include_patterns=compiled_include,
+        max_depth=max_depth,
     )
 
     color_map = {ext: generate_color_for_extension(ext) for ext in extensions}

@@ -49,10 +49,15 @@ class DirectoryExporter:
                 if name == "_files":
                     for file in sort_files_by_type(content):
                         lines.append(f"{prefix}├── 📄 {file}")
+                elif name == "_max_depth_reached":
+                    continue
                 else:
                     lines.append(f"{prefix}├── 📁 {name}")
                     if isinstance(content, dict):
-                        lines.extend(_build_txt_tree(content, prefix + "│   "))
+                        if content.get("_max_depth_reached"):
+                            lines.append(f"{prefix}│   ├── ⋯ (max depth reached)")
+                        else:
+                            lines.extend(_build_txt_tree(content, prefix + "│   "))
             return lines
 
         tree_lines = [f"📂 {self.root_name}"]
@@ -97,11 +102,20 @@ class DirectoryExporter:
                     html_content.append(f'<li class="file">📄 {html.escape(file)}</li>')
 
             for name, content in sorted(structure.items()):
-                if name != "_files":
-                    html_content.append(f'<li class="directory">📁 {html.escape(name)}')
-                    if isinstance(content, dict):
+                if name == "_files" or name == "_max_depth_reached":
+                    continue
+
+                html_content.append(f'<li class="directory">📁 {html.escape(name)}')
+
+                if isinstance(content, dict):
+                    if content.get("_max_depth_reached"):
+                        html_content.append(
+                            '<ul><li class="max-depth">⋯ (max depth reached)</li></ul>'
+                        )
+                    else:
                         html_content.append(_build_html_tree(content))
-                    html_content.append("</li>")
+
+                html_content.append("</li>")
 
             html_content.append("</ul>")
             return "\n".join(html_content)
@@ -127,6 +141,10 @@ class DirectoryExporter:
                 }}
                 .file {{
                     color: #34495e;
+                }}
+                .max-depth {{
+                    color: #999;
+                    font-style: italic;
                 }}
             </style>
         </head>
@@ -161,9 +179,15 @@ class DirectoryExporter:
                     lines.append(f"{indent}- 📄 `{file}`")
 
             for name, content in sorted(structure.items()):
-                if name != "_files":
-                    lines.append(f"{indent}- 📁 **{name}**")
-                    if isinstance(content, dict):
+                if name == "_files" or name == "_max_depth_reached":
+                    continue
+
+                lines.append(f"{indent}- 📁 **{name}**")
+
+                if isinstance(content, dict):
+                    if content.get("_max_depth_reached"):
+                        lines.append(f"{indent}    - ⋯ *(max depth reached)*")
+                    else:
                         lines.extend(_build_md_tree(content, level + 1))
 
             return lines

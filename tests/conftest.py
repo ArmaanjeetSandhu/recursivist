@@ -30,18 +30,15 @@ def sample_directory(temp_dir):
         ├── subfile1.md
         └── subfile2.json
     """
-    # Create files in temp directory
     with open(os.path.join(temp_dir, "file1.txt"), "w") as f:
         f.write("Sample content")
 
     with open(os.path.join(temp_dir, "file2.py"), "w") as f:
         f.write("print('Hello, world!')")
 
-    # Create .gitignore
     with open(os.path.join(temp_dir, ".gitignore"), "w") as f:
         f.write("*.log\nnode_modules/\n")
 
-    # Create subdirectory
     subdir = os.path.join(temp_dir, "subdir")
     os.makedirs(subdir, exist_ok=True)
 
@@ -51,7 +48,6 @@ def sample_directory(temp_dir):
     with open(os.path.join(subdir, "subfile2.json"), "w") as f:
         f.write('{"key": "value"}')
 
-    # Create node_modules directory (typically excluded)
     node_modules = os.path.join(temp_dir, "node_modules")
     os.makedirs(node_modules, exist_ok=True)
 

@@ -112,6 +112,9 @@ def visualize(
     ignore_file: Optional[str] = typer.Option(
         None, "--ignore-file", "-g", help="Ignore file to use (e.g., .gitignore)"
     ),
+    max_depth: int = typer.Option(
+        0, "--depth", "-d", help="Maximum depth to display (0 for unlimited)"
+    ),
     export_formats: Optional[List[str]] = typer.Option(
         None,
         "--export",
@@ -147,6 +150,7 @@ def visualize(
         recursivist visualize -p "*.test.js" "*.spec.js" # Exclude test files (glob pattern)
         recursivist visualize -p ".*test.*" -r         # Exclude test files (regex pattern)
         recursivist visualize -i "src/*" "*.md"        # Include only src dir and markdown files
+        recursivist visualize -d 2                     # Limit directory depth to 2 levels
         recursivist visualize -f txt json              # Export to multiple formats
         recursivist visualize -f md -o ./exports       # Export to custom directory
     """
@@ -159,6 +163,9 @@ def visualize(
         raise typer.Exit(1)
 
     logger.info(f"Analyzing directory: {directory}")
+
+    if max_depth > 0:
+        logger.info(f"Limiting depth to {max_depth} levels")
 
     parsed_exclude_dirs = parse_list_option(exclude_dirs)
     parsed_exclude_exts = parse_list_option(exclude_extensions)
@@ -197,7 +204,6 @@ def visualize(
                 "[cyan]Scanning directory structure...", total=None
             )
 
-            # Compile regex patterns if needed
             if use_regex:
                 compiled_exclude = compile_regex_patterns(
                     parsed_exclude_patterns, use_regex
@@ -206,7 +212,6 @@ def visualize(
                     parsed_include_patterns, use_regex
                 )
             else:
-                # Cast string lists to the expected type for non-regex mode
                 compiled_exclude = cast(
                     List[Union[str, Pattern[str]]], parsed_exclude_patterns
                 )
@@ -221,13 +226,13 @@ def visualize(
                 exclude_exts_set,
                 exclude_patterns=compiled_exclude,
                 include_patterns=compiled_include,
+                max_depth=max_depth,
             )
 
             progress.update(task_scan, completed=True)
             logger.debug(f"Found {len(extensions)} unique file extensions")
 
         logger.info("Displaying directory tree:")
-        # For display_tree, we need to pass the original string patterns
         display_tree(
             str(directory),
             parsed_exclude_dirs,
@@ -236,6 +241,7 @@ def visualize(
             parsed_exclude_patterns,
             parsed_include_patterns,
             use_regex,
+            max_depth,
         )
 
         if export_formats:
@@ -373,6 +379,9 @@ def compare(
     ignore_file: Optional[str] = typer.Option(
         None, "--ignore-file", "-g", help="Ignore file to use (e.g., .gitignore)"
     ),
+    max_depth: int = typer.Option(
+        0, "--depth", "-d", help="Maximum depth to display (0 for unlimited)"
+    ),
     export_formats: Optional[List[str]] = typer.Option(
         None,
         "--export",
@@ -406,6 +415,7 @@ def compare(
         recursivist compare dir1 dir2 -p "*.test.js"    # Exclude test files (glob pattern)
         recursivist compare dir1 dir2 -p ".*test.*" -r  # Exclude test files (regex pattern)
         recursivist compare dir1 dir2 -i "src/*"        # Include only src directory
+        recursivist compare dir1 dir2 -d 2              # Limit directory depth to 2 levels
         recursivist compare dir1 dir2 -f txt html       # Export comparison
     """
     if verbose:
@@ -415,6 +425,9 @@ def compare(
     from recursivist.compare import display_comparison, export_comparison
 
     logger.info(f"Comparing directories: {dir1} and {dir2}")
+
+    if max_depth > 0:
+        logger.info(f"Limiting depth to {max_depth} levels")
 
     parsed_exclude_dirs = parse_list_option(exclude_dirs)
     parsed_exclude_exts = parse_list_option(exclude_extensions)
@@ -460,6 +473,7 @@ def compare(
             exclude_patterns=parsed_exclude_patterns,
             include_patterns=parsed_include_patterns,
             use_regex=use_regex,
+            max_depth=max_depth,
         )
 
         if export_formats:
@@ -503,6 +517,7 @@ def compare(
                             exclude_patterns=parsed_exclude_patterns,
                             include_patterns=parsed_include_patterns,
                             use_regex=use_regex,
+                            max_depth=max_depth,
                         )
                         progress.update(task_export, completed=True)
                         logger.info(f"Successfully exported to {output_path}")
