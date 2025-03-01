@@ -9,9 +9,10 @@ A beautiful command-line tool for visualizing directory structures with rich for
 - 📁 **Smart Filtering**: Easily exclude directories and file extensions you don't want to see
 - 🧩 **Gitignore Support**: Automatically respects your `.gitignore` patterns
 - 🔍 **Powerful Pattern Matching**: Use glob and regex patterns to precisely include or exclude files
-- 📊 **Multiple Export Formats**: Export to TXT, JSON, HTML, Markdown, and React components
 - 🔄 **Directory Comparison**: Compare two directory structures side by side with highlighted differences
-- 🧩 **React Component Export**: Generate interactive, collapsible React components for web integration
+- 📊 **Multiple Export Formats**: Export to TXT, JSON, HTML, Markdown, and React components
+- 🔎 **Depth Control**: Limit the display depth to focus on higher-level structure
+- 🌐 **Full Path Display**: Option to show full paths instead of just filenames
 - 🚀 **Simple Interface**: Intuitive command-line interface with smart defaults
 
 ## Installation
@@ -69,6 +70,12 @@ recursivist visualize --include-pattern "src/*" "*.md"
 # Include with regex patterns
 recursivist visualize --include-pattern "^src/.*\.jsx?$" "^docs/.*\.md$" --regex
 
+# Limit directory depth
+recursivist visualize --depth 3
+
+# Show full file paths
+recursivist visualize --full-path
+
 # Export to various formats
 recursivist visualize --export txt json html md jsx
 
@@ -86,6 +93,9 @@ recursivist compare /path/to/dir1 /path/to/dir2
 
 # Compare with pattern exclusions
 recursivist compare dir1 dir2 --exclude-pattern "*.test.js" --regex
+
+# Compare with depth limit
+recursivist compare dir1 dir2 --depth 2
 
 # Compare and export the comparison
 recursivist compare dir1 dir2 --export html --output-dir ./reports
@@ -116,6 +126,8 @@ recursivist completion bash > ~/.bash_completion.d/recursivist
 | `--include-pattern` | `-i`  | Patterns to include (overrides exclusions)                     |
 | `--regex`           | `-r`  | Treat patterns as regex instead of glob patterns               |
 | `--ignore-file`     | `-g`  | Ignore file to use (e.g., .gitignore)                          |
+| `--depth`           | `-d`  | Maximum depth to display (0 for unlimited)                     |
+| `--full-path`       | `-l`  | Show full paths instead of just filenames                      |
 | `--export`          | `-f`  | Export formats: txt, json, html, md, jsx                       |
 | `--output-dir`      | `-o`  | Output directory for exports                                   |
 | `--prefix`          | `-n`  | Prefix for exported filenames                                  |
@@ -131,6 +143,8 @@ recursivist completion bash > ~/.bash_completion.d/recursivist
 | `--include-pattern` | `-i`  | Patterns to include (overrides exclusions)                     |
 | `--regex`           | `-r`  | Treat patterns as regex instead of glob patterns               |
 | `--ignore-file`     | `-g`  | Ignore file to use (e.g., .gitignore)                          |
+| `--depth`           | `-d`  | Maximum depth to display (0 for unlimited)                     |
+| `--full-path`       | `-l`  | Show full paths instead of just filenames                      |
 | `--export`          | `-f`  | Export formats: txt, html                                      |
 | `--output-dir`      | `-o`  | Output directory for exports                                   |
 | `--prefix`          | `-n`  | Prefix for exported filenames                                  |
@@ -207,14 +221,34 @@ recursivist compare ~/project-v1 ~/project-v2
 
 This will display two directory trees side by side with differences highlighted:
 
-- Files and directories present only in the current directory are highlighted in green
-- Files and directories not present in the current directory are highlighted in red
+- Files and directories present only in the left directory are highlighted in green
+- Files and directories present only in the right directory are highlighted in red
 
 You can export the comparison to various formats:
 
 ```bash
 recursivist compare ~/project-v1 ~/project-v2 --export html --output-dir ./reports
 ```
+
+### Limiting Directory Depth
+
+For large projects, it can be helpful to limit the display depth:
+
+```bash
+recursivist visualize --depth 2
+```
+
+This will show only the top two levels of the directory structure, with an indicator showing where the depth limit was reached.
+
+### Showing Full Paths
+
+When you need to see the complete path for each file:
+
+```bash
+recursivist visualize --full-path
+```
+
+This will display the full path for each file rather than just the filename.
 
 ### Export to Multiple Formats
 
@@ -263,7 +297,7 @@ This creates a self-contained React component file that you can import directly 
 1. Copy the generated `.jsx` file to your React project's components directory
 2. Make sure you have the required dependencies:
    ```
-   npm install lucide-jsx
+   npm install lucide-react
    ```
 3. Import and use the component in your application:
 
@@ -357,7 +391,7 @@ python -m build
 
 ## Testing
 
-The Recursivist project uses pytest for testing. The test suite covers core functionality, CLI interface, and export features.
+The Recursivist project uses pytest for testing. The test suite covers core functionality, CLI interface, export features, comparison functionality, and regex pattern matching.
 
 ### Running Tests
 
@@ -377,19 +411,22 @@ You can also run specific test files:
 
 ```bash
 # Run only core tests
-pytest tests/test_core.py
+pytest test_core.py
 
 # Run only export tests
-pytest tests/test_exports.py
+pytest test_exports.py
 
 # Run only CLI tests
-pytest tests/test_cli.py
+pytest test_cli.py
 
 # Run only compare tests
-pytest tests/test_compare.py
+pytest test_compare.py
 
 # Run regex pattern tests
-pytest tests/test_regex.py
+pytest test_regex.py
+
+# Run depth limit tests
+pytest test_depth.py
 ```
 
 ### Test Coverage
@@ -423,7 +460,7 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 ## Acknowledgements
 
 - [Rich](https://github.com/Textualize/rich) - For beautiful terminal formatting
-- [Typer](https://github.com/fastapi/typer) - For the intuitive CLI interface
+- [Typer](https://github.com/tiangolo/typer) - For the intuitive CLI interface
 
 ## Author
 
