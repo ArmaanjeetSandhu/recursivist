@@ -28,7 +28,7 @@ def test_get_directory_structure(sample_directory):
 
 
 def test_get_directory_structure_with_full_path(sample_directory):
-    """Test that directory structure with full paths is correctly built."""
+    """Test that directory structure with absolute paths is correctly built."""
     structure, extensions = get_directory_structure(
         sample_directory, show_full_path=True
     )
@@ -42,18 +42,29 @@ def test_get_directory_structure_with_full_path(sample_directory):
 
     found_txt = False
     found_py = False
-    base_name = os.path.basename(sample_directory)
 
     for file_name, full_path in structure["_files"]:
         if file_name == "file1.txt":
             found_txt = True
-            norm_path = full_path.replace("\\", "/")
-            assert f"{base_name}/file1.txt" in norm_path or file_name in norm_path
+            assert os.path.isabs(
+                full_path.replace("/", os.sep)
+            ), f"Path should be absolute: {full_path}"
+            expected_path = os.path.abspath(os.path.join(sample_directory, "file1.txt"))
+            normalized_expected = expected_path.replace(os.sep, "/")
+            assert (
+                full_path == normalized_expected
+            ), f"Expected {normalized_expected}, got {full_path}"
 
         if file_name == "file2.py":
             found_py = True
-            norm_path = full_path.replace("\\", "/")
-            assert f"{base_name}/file2.py" in norm_path or file_name in norm_path
+            assert os.path.isabs(
+                full_path.replace("/", os.sep)
+            ), f"Path should be absolute: {full_path}"
+            expected_path = os.path.abspath(os.path.join(sample_directory, "file2.py"))
+            normalized_expected = expected_path.replace(os.sep, "/")
+            assert (
+                full_path == normalized_expected
+            ), f"Expected {normalized_expected}, got {full_path}"
 
     assert found_txt, "file1.txt not found in structure with full path"
     assert found_py, "file2.py not found in structure with full path"
@@ -160,3 +171,38 @@ def test_permission_denied(mocker, temp_dir):
 
     assert structure == {}
     assert not extensions
+
+
+def test_subdirectory_full_path(sample_directory):
+    """Test full path resolution for files in subdirectories."""
+    structure, _ = get_directory_structure(sample_directory, show_full_path=True)
+
+    assert "subdir" in structure
+    assert "_files" in structure["subdir"]
+
+    found_md = False
+    found_json = False
+
+    for file_name, full_path in structure["subdir"]["_files"]:
+        if file_name == "subfile1.md":
+            found_md = True
+            expected_path = os.path.abspath(
+                os.path.join(sample_directory, "subdir", "subfile1.md")
+            )
+            normalized_expected = expected_path.replace(os.sep, "/")
+            assert (
+                full_path == normalized_expected
+            ), f"Expected {normalized_expected}, got {full_path}"
+
+        if file_name == "subfile2.json":
+            found_json = True
+            expected_path = os.path.abspath(
+                os.path.join(sample_directory, "subdir", "subfile2.json")
+            )
+            normalized_expected = expected_path.replace(os.sep, "/")
+            assert (
+                full_path == normalized_expected
+            ), f"Expected {normalized_expected}, got {full_path}"
+
+    assert found_md, "subfile1.md not found in structure with full path"
+    assert found_json, "subfile2.json not found in structure with full path"

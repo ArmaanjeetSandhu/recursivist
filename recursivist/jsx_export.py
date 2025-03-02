@@ -73,10 +73,12 @@ def generate_jsx_component(
                 )
 
                 if show_full_path and isinstance(file_item, tuple):
-                    file_name, full_path = file_item
+                    _, full_path = file_item
                     file_content += f'<p className="flex items-center"><span className="mr-2">📄</span> {html.escape(full_path)}</p>'
                 else:
                     file_name = file_item
+                    if isinstance(file_name, tuple):
+                        file_name = file_name[0]
                     file_content += f'<p className="flex items-center"><span className="mr-2">📄</span> {html.escape(file_name)}</p>'
 
                 file_content += "</div>"

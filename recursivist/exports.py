@@ -107,7 +107,7 @@ class DirectoryExporter:
                 if name == "_files":
                     for file_item in sort_files_by_type(content):
                         if self.show_full_path and isinstance(file_item, tuple):
-                            file_name, full_path = file_item
+                            _, full_path = file_item
                             lines.append(f"{prefix}├── 📄 {full_path}")
                         else:
                             lines.append(f"{prefix}├── 📄 {file_item}")
@@ -194,7 +194,7 @@ class DirectoryExporter:
             if "_files" in structure:
                 for file_item in sort_files_by_type(structure["_files"]):
                     if self.show_full_path and isinstance(file_item, tuple):
-                        file_name, full_path = file_item
+                        _, full_path = file_item
                         html_content.append(
                             f'<li class="file">📄 {html.escape(full_path)}</li>'
                         )
@@ -289,7 +289,7 @@ class DirectoryExporter:
             if "_files" in structure:
                 for file_item in sort_files_by_type(structure["_files"]):
                     if self.show_full_path and isinstance(file_item, tuple):
-                        file_name, full_path = file_item
+                        _, full_path = file_item
                         lines.append(f"{indent}- 📄 `{full_path}`")
                     else:
                         lines.append(f"{indent}- 📄 `{file_item}`")

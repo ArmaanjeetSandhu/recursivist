@@ -310,7 +310,7 @@ def export(
     """
     Export a directory structure to various formats without displaying in the terminal.
 
-    This command exports the directory structure to specified formats. You can export to multiple formats at once by providing a comma-separated list.
+    This command exports the directory structure to specified formats. You can export to multiple formats at once by providing a space-separated list.
 
     Examples:
         recursivist export                             # Export current directory to TXT
@@ -409,7 +409,7 @@ def export(
 
         parsed_formats = []
         for fmt in formats:
-            parsed_formats.extend([x.strip() for x in fmt.split(",") if x.strip()])
+            parsed_formats.extend([x.strip() for x in fmt.split(" ") if x.strip()])
 
         valid_formats = ["txt", "json", "html", "md", "jsx"]
         invalid_formats = [

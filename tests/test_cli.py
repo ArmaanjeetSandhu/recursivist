@@ -170,7 +170,7 @@ def test_export_multiple_formats(runner, sample_directory, output_dir):
             "export",
             sample_directory,
             "--format",
-            "txt,json",
+            "txt json",
             "--output-dir",
             output_dir,
         ],

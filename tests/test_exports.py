@@ -95,16 +95,14 @@ def test_export_to_txt_with_full_path(sample_directory, output_dir):
 
     assert os.path.basename(sample_directory) in content
 
-    normalized_content = content.replace("\\", "/")
-    base_name = os.path.basename(sample_directory)
-    assert (
-        f"{base_name}/file1.txt" in normalized_content
-        or "file1.txt" in normalized_content
-    )
-    assert (
-        f"{base_name}/file2.py" in normalized_content
-        or "file2.py" in normalized_content
-    )
+    for file_name in ["file1.txt", "file2.py"]:
+        expected_abs_path = os.path.abspath(os.path.join(sample_directory, file_name))
+        expected_abs_path = expected_abs_path.replace(os.sep, "/")
+
+        assert (
+            expected_abs_path in content
+        ), f"Absolute path for {file_name} not found in TXT export"
+
     assert "subdir" in content
 
 
@@ -157,9 +155,13 @@ def test_export_to_json_with_full_path(sample_directory, output_dir):
 
     for file_path in files:
         assert isinstance(file_path, str), "File path is not a string"
-        assert any(
-            ext in file_path for ext in [".txt", ".py", ".json", ".md", ".gitignore"]
-        ), f"File path '{file_path}' doesn't seem to contain valid file information"
+        assert os.path.isabs(
+            file_path.replace("/", os.sep)
+        ), f"File path '{file_path}' is not absolute"
+        base_name = os.path.basename(sample_directory)
+        assert (
+            base_name in file_path
+        ), f"File path '{file_path}' doesn't contain base directory '{base_name}'"
 
 
 def test_export_to_html(sample_directory, output_dir):
@@ -204,16 +206,14 @@ def test_export_to_html_with_full_path(sample_directory, output_dir):
     assert os.path.basename(sample_directory) in content
     assert "Showing full file paths" in content
 
-    normalized_content = content.replace("\\", "/")
-    base_name = os.path.basename(sample_directory)
-    assert (
-        f"{base_name}/file1.txt" in normalized_content
-        or "file1.txt" in normalized_content
-    )
-    assert (
-        f"{base_name}/file2.py" in normalized_content
-        or "file2.py" in normalized_content
-    )
+    for file_name in ["file1.txt", "file2.py"]:
+        expected_abs_path = os.path.abspath(os.path.join(sample_directory, file_name))
+        expected_abs_path = expected_abs_path.replace(os.sep, "/")
+
+        assert (
+            expected_abs_path in content
+        ), f"Absolute path for {file_name} not found in HTML export"
+
     assert "subdir" in content
 
 
@@ -253,16 +253,14 @@ def test_export_to_markdown_with_full_path(sample_directory, output_dir):
     assert f"# 📂 {os.path.basename(sample_directory)}" in content
     assert "Showing full file paths" in content
 
-    normalized_content = content.replace("\\", "/")
-    base_name = os.path.basename(sample_directory)
-    assert (
-        f"`{base_name}/file1.txt`" in normalized_content
-        or "`file1.txt`" in normalized_content
-    )
-    assert (
-        f"`{base_name}/file2.py`" in normalized_content
-        or "`file2.py`" in normalized_content
-    )
+    for file_name in ["file1.txt", "file2.py"]:
+        expected_abs_path = os.path.abspath(os.path.join(sample_directory, file_name))
+        expected_abs_path = expected_abs_path.replace(os.sep, "/")
+
+        assert (
+            f"`{expected_abs_path}`" in content
+        ), f"Absolute path for {file_name} not found in Markdown export"
+
     assert "- 📁 **subdir**" in content
 
 
@@ -311,6 +309,15 @@ def test_export_to_jsx_with_full_path(sample_directory, output_dir):
     assert "Showing full file paths" in content
     assert "ChevronDown" in content
     assert "ChevronUp" in content
+
+    for file_name in ["file1.txt", "file2.py"]:
+        expected_abs_path = os.path.abspath(os.path.join(sample_directory, file_name))
+        expected_abs_path = expected_abs_path.replace(os.sep, "/")
+        escaped_path = expected_abs_path.replace('"', '\\"')
+
+        assert (
+            escaped_path in content or expected_abs_path in content
+        ), f"Absolute path for {file_name} not found in JSX export"
 
 
 def test_export_unsupported_format(sample_directory, output_dir):

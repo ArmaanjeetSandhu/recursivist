@@ -284,10 +284,9 @@ def get_directory_structure(
                     structure["_files"] = []
 
                 if show_full_path:
-                    full_path = (
-                        os.path.join(current_path, item) if current_path else item
-                    )
-                    structure["_files"].append((item, full_path))
+                    abs_path = os.path.abspath(item_path)
+                    abs_path = abs_path.replace(os.sep, "/")
+                    structure["_files"].append((item, abs_path))
                 else:
                     structure["_files"].append(item)
 
@@ -417,7 +416,10 @@ def build_tree(
                     colored_text = Text(f"📄 {full_path}", style=color)
                     tree.add(colored_text)
                 else:
-                    file_name = cast(str, file_item)
+                    if isinstance(file_item, tuple):
+                        file_name, _ = file_item
+                    else:
+                        file_name = cast(str, file_item)
                     ext = os.path.splitext(file_name)[1].lower()
                     color = color_map.get(ext, "#FFFFFF")
                     colored_text = Text(f"📄 {file_name}", style=color)
