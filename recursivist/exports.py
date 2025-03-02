@@ -2,7 +2,7 @@ import html
 import json
 import logging
 import os
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union, cast
 
 from recursivist.jsx_export import generate_jsx_component
 
@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 def sort_files_by_type(
-    files: List[Union[str, Tuple[str, str]]]
+    files: List[Union[str, Tuple[str, str]]],
 ) -> List[Union[str, Tuple[str, str]]]:
     """Sort files by extension and then by name.
 
@@ -23,10 +23,53 @@ def sort_files_by_type(
     if not files:
         return []
 
-    if files and isinstance(files[0], tuple):
-        return sorted(files, key=lambda f: (os.path.splitext(f[0])[1], f[0].lower()))
+    all_tuples = all(isinstance(item, tuple) for item in files)
+    all_strings = all(isinstance(item, str) for item in files)
+
+    if all_strings:
+        files_as_strings = cast(List[str], files)
+        return cast(
+            List[Union[str, Tuple[str, str]]],
+            sorted(
+                files_as_strings,
+                key=lambda f: (os.path.splitext(f)[1].lower(), f.lower()),
+            ),
+        )
+    elif all_tuples:
+        files_as_tuples = cast(List[Tuple[str, str]], files)
+        return cast(
+            List[Union[str, Tuple[str, str]]],
+            sorted(
+                files_as_tuples,
+                key=lambda t: (os.path.splitext(t[0])[1].lower(), t[0].lower()),
+            ),
+        )
     else:
-        return sorted(files, key=lambda f: (os.path.splitext(f)[1], f.lower()))
+        str_items: List[str] = []
+        tuple_items: List[Tuple[str, str]] = []
+
+        for item in files:
+            if isinstance(item, tuple):
+                tuple_items.append(cast(Tuple[str, str], item))
+            else:
+                str_items.append(cast(str, item))
+
+        sorted_strings = sorted(
+            str_items, key=lambda f: (os.path.splitext(f)[1].lower(), f.lower())
+        )
+        sorted_tuples = sorted(
+            tuple_items, key=lambda t: (os.path.splitext(t[0])[1].lower(), t[0].lower())
+        )
+
+        result: List[Union[str, Tuple[str, str]]] = []
+
+        for item in sorted_strings:
+            result.append(item)
+
+        for item in sorted_tuples:
+            result.append(item)
+
+        return result
 
 
 class DirectoryExporter:
@@ -156,8 +199,9 @@ class DirectoryExporter:
                             f'<li class="file">📄 {html.escape(full_path)}</li>'
                         )
                     else:
+                        filename_str = cast(str, file_item)
                         html_content.append(
-                            f'<li class="file">📄 {html.escape(file_item)}</li>'
+                            f'<li class="file">📄 {html.escape(filename_str)}</li>'
                         )
 
             for name, content in sorted(structure.items()):

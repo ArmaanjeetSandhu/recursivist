@@ -40,7 +40,16 @@ console = Console()
 
 @app.callback()
 def callback():
-    """Recursivist CLI tool for directory visualization."""
+    """
+    Recursivist CLI tool for directory visualization and export.
+
+    Commands:
+    - visualize: Display a directory structure in the terminal
+    - export: Export a directory structure to various file formats
+    - compare: Compare two directory structures side by side
+    - version: Display the current version
+    - completion: Generate shell completion script
+    """
     pass
 
 
@@ -115,21 +124,6 @@ def visualize(
     max_depth: int = typer.Option(
         0, "--depth", "-d", help="Maximum depth to display (0 for unlimited)"
     ),
-    export_formats: Optional[List[str]] = typer.Option(
-        None,
-        "--export",
-        "-f",
-        help="Export formats (space-separated or multiple flags): txt, json, html, md, jsx",
-    ),
-    output_dir: Optional[Path] = typer.Option(
-        None,
-        "--output-dir",
-        "-o",
-        help="Output directory for exports (defaults to current directory)",
-    ),
-    output_prefix: Optional[str] = typer.Option(
-        "structure", "--prefix", "-n", help="Prefix for exported filenames"
-    ),
     show_full_path: bool = typer.Option(
         False, "--full-path", "-l", help="Show full paths instead of just filenames"
     ),
@@ -138,12 +132,9 @@ def visualize(
     ),
 ):
     """
-    Visualize a directory structure as a tree.
+    Visualize a directory structure as a tree in the terminal.
 
-    This command displays the directory structure in the terminal and
-    optionally exports it to various formats. You can export to multiple
-    formats at once by providing space-separated formats or using multiple
-    export flags.
+    This command displays the directory structure in the terminal.
 
     Examples:
         recursivist visualize                          # Display current directory
@@ -155,8 +146,6 @@ def visualize(
         recursivist visualize -i "src/*" "*.md"        # Include only src dir and markdown files
         recursivist visualize -d 2                     # Limit directory depth to 2 levels
         recursivist visualize -l                       # Show full paths instead of just filenames
-        recursivist visualize -f txt json              # Export to multiple formats
-        recursivist visualize -f md -o ./exports       # Export to custom directory
     """
     if verbose:
         logger.setLevel(logging.DEBUG)
@@ -172,7 +161,7 @@ def visualize(
         logger.info(f"Limiting depth to {max_depth} levels")
 
     if show_full_path:
-        logger.info(f"Showing full paths instead of just filenames")
+        logger.info("Showing full paths instead of just filenames")
 
     parsed_exclude_dirs = parse_list_option(exclude_dirs)
     parsed_exclude_exts = parse_list_option(exclude_extensions)
@@ -253,48 +242,213 @@ def visualize(
             show_full_path,
         )
 
-        if export_formats:
-            parsed_formats = parse_list_option(export_formats)
-            valid_formats = ["txt", "json", "html", "md", "jsx"]
+    except Exception as e:
+        logger.error(f"Error: {e}", exc_info=verbose)
+        raise typer.Exit(1)
 
-            invalid_formats = [
-                fmt for fmt in parsed_formats if fmt.lower() not in valid_formats
-            ]
-            if invalid_formats:
-                logger.error(
-                    f"Unsupported export format(s): {', '.join(invalid_formats)}"
+
+@app.command()
+def export(
+    directory: Path = typer.Argument(
+        ".", help="Directory path to export (defaults to current directory)"
+    ),
+    formats: List[str] = typer.Option(
+        ["md"], "--format", "-f", help="Export formats: txt, json, html, md, jsx"
+    ),
+    output_dir: Optional[Path] = typer.Option(
+        None,
+        "--output-dir",
+        "-o",
+        help="Output directory for exports (defaults to current directory)",
+    ),
+    output_prefix: Optional[str] = typer.Option(
+        "structure", "--prefix", "-n", help="Prefix for exported filenames"
+    ),
+    exclude_dirs: Optional[List[str]] = typer.Option(
+        None,
+        "--exclude",
+        "-e",
+        help="Directories to exclude (space-separated or multiple flags)",
+    ),
+    exclude_extensions: Optional[List[str]] = typer.Option(
+        None,
+        "--exclude-ext",
+        "-x",
+        help="File extensions to exclude (space-separated or multiple flags)",
+    ),
+    exclude_patterns: Optional[List[str]] = typer.Option(
+        None,
+        "--exclude-pattern",
+        "-p",
+        help="Patterns to exclude (space-separated or multiple flags)",
+    ),
+    include_patterns: Optional[List[str]] = typer.Option(
+        None,
+        "--include-pattern",
+        "-i",
+        help="Patterns to include (overrides exclusions, space-separated or multiple flags)",
+    ),
+    use_regex: bool = typer.Option(
+        False,
+        "--regex",
+        "-r",
+        help="Treat patterns as regex instead of glob patterns",
+    ),
+    ignore_file: Optional[str] = typer.Option(
+        None, "--ignore-file", "-g", help="Ignore file to use (e.g., .gitignore)"
+    ),
+    max_depth: int = typer.Option(
+        0, "--depth", "-d", help="Maximum depth to export (0 for unlimited)"
+    ),
+    show_full_path: bool = typer.Option(
+        False, "--full-path", "-l", help="Show full paths instead of just filenames"
+    ),
+    verbose: bool = typer.Option(
+        False, "--verbose", "-v", help="Enable verbose output"
+    ),
+):
+    """
+    Export a directory structure to various formats without displaying in the terminal.
+
+    This command exports the directory structure to specified formats. You can export to multiple formats at once by providing a comma-separated list.
+
+    Examples:
+        recursivist export                             # Export current directory to TXT
+        recursivist export /path/to/project            # Export specific directory
+        recursivist export -f json,md,html             # Export to multiple formats
+        recursivist export -e node_modules .git        # Exclude directories
+        recursivist export -x .pyc .log                # Exclude file extensions
+        recursivist export -p "*.test.js" "*.spec.js"  # Exclude test files (glob pattern)
+        recursivist export -p ".*test.*" -r            # Exclude test files (regex pattern)
+        recursivist export -i "src/*" "*.md"           # Include only src dir and markdown files
+        recursivist export -d 2                        # Limit directory depth to 2 levels
+        recursivist export -l                          # Show full paths instead of just filenames
+        recursivist export -o ./exports                # Export to custom directory
+    """
+    if verbose:
+        logger.setLevel(logging.DEBUG)
+        logger.debug("Verbose mode enabled")
+
+    if not directory.exists() or not directory.is_dir():
+        logger.error(f"Error: {directory} is not a valid directory")
+        raise typer.Exit(1)
+
+    logger.info(f"Analyzing directory: {directory}")
+
+    if max_depth > 0:
+        logger.info(f"Limiting depth to {max_depth} levels")
+
+    if show_full_path:
+        logger.info("Showing full paths instead of just filenames")
+
+    parsed_exclude_dirs = parse_list_option(exclude_dirs)
+    parsed_exclude_exts = parse_list_option(exclude_extensions)
+    parsed_exclude_patterns = parse_list_option(exclude_patterns)
+    parsed_include_patterns = parse_list_option(include_patterns)
+
+    exclude_exts_set: Set[str] = set()
+    if parsed_exclude_exts:
+        exclude_exts_set = {
+            ext.lower() if ext.startswith(".") else f".{ext.lower()}"
+            for ext in parsed_exclude_exts
+        }
+        logger.debug(f"Excluding extensions: {exclude_exts_set}")
+
+    if parsed_exclude_dirs:
+        logger.debug(f"Excluding directories: {parsed_exclude_dirs}")
+
+    if parsed_exclude_patterns:
+        pattern_type = "regex" if use_regex else "glob"
+        logger.debug(f"Excluding {pattern_type} patterns: {parsed_exclude_patterns}")
+
+    if parsed_include_patterns:
+        pattern_type = "regex" if use_regex else "glob"
+        logger.debug(f"Including {pattern_type} patterns: {parsed_include_patterns}")
+
+    if ignore_file:
+        ignore_path = directory / ignore_file
+        if ignore_path.exists():
+            logger.debug(f"Using ignore file: {ignore_path}")
+        else:
+            logger.warning(f"Ignore file not found: {ignore_path}")
+
+    try:
+        with Progress() as progress:
+            task_scan = progress.add_task(
+                "[cyan]Scanning directory structure...", total=None
+            )
+
+            if use_regex:
+                compiled_exclude = compile_regex_patterns(
+                    parsed_exclude_patterns, use_regex
                 )
-                logger.info(f"Supported formats: {', '.join(valid_formats)}")
-                raise typer.Exit(1)
-
-            if output_dir:
-                output_dir.mkdir(parents=True, exist_ok=True)
+                compiled_include = compile_regex_patterns(
+                    parsed_include_patterns, use_regex
+                )
             else:
-                output_dir = Path(".")
+                compiled_exclude = cast(
+                    List[Union[str, Pattern[str]]], parsed_exclude_patterns
+                )
+                compiled_include = cast(
+                    List[Union[str, Pattern[str]]], parsed_include_patterns
+                )
 
-            logger.info(f"Exporting to {len(parsed_formats)} format(s)")
+            structure, extensions = get_directory_structure(
+                str(directory),
+                parsed_exclude_dirs,
+                ignore_file,
+                exclude_exts_set,
+                exclude_patterns=compiled_exclude,
+                include_patterns=compiled_include,
+                max_depth=max_depth,
+                show_full_path=show_full_path,
+            )
 
-            with Progress() as progress:
-                for fmt in parsed_formats:
-                    output_path = output_dir / f"{output_prefix}.{fmt.lower()}"
+            progress.update(task_scan, completed=True)
+            logger.debug(f"Found {len(extensions)} unique file extensions")
 
-                    task_export = progress.add_task(
-                        f"[green]Exporting to {fmt}...", total=None
+        parsed_formats = []
+        for fmt in formats:
+            parsed_formats.extend([x.strip() for x in fmt.split(",") if x.strip()])
+
+        valid_formats = ["txt", "json", "html", "md", "jsx"]
+        invalid_formats = [
+            fmt for fmt in parsed_formats if fmt.lower() not in valid_formats
+        ]
+
+        if invalid_formats:
+            logger.error(f"Unsupported export format(s): {', '.join(invalid_formats)}")
+            logger.info(f"Supported formats: {', '.join(valid_formats)}")
+            raise typer.Exit(1)
+
+        if output_dir:
+            output_dir.mkdir(parents=True, exist_ok=True)
+        else:
+            output_dir = Path(".")
+
+        logger.info(f"Exporting to {len(parsed_formats)} format(s)")
+
+        with Progress() as progress:
+            for fmt in parsed_formats:
+                output_path = output_dir / f"{output_prefix}.{fmt.lower()}"
+
+                task_export = progress.add_task(
+                    f"[green]Exporting to {fmt}...", total=None
+                )
+
+                try:
+                    export_structure(
+                        structure,
+                        str(directory),
+                        fmt.lower(),
+                        str(output_path),
+                        show_full_path,
                     )
-
-                    try:
-                        export_structure(
-                            structure,
-                            str(directory),
-                            fmt.lower(),
-                            str(output_path),
-                            show_full_path,
-                        )
-                        progress.update(task_export, completed=True)
-                        logger.info(f"Successfully exported to {output_path}")
-                    except Exception as e:
-                        progress.update(task_export, completed=True)
-                        logger.error(f"Failed to export to {fmt}: {e}")
+                    progress.update(task_export, completed=True)
+                    logger.info(f"Successfully exported to {output_path}")
+                except Exception as e:
+                    progress.update(task_export, completed=True)
+                    logger.error(f"Failed to export to {fmt}: {e}")
 
     except Exception as e:
         logger.error(f"Error: {e}", exc_info=verbose)
@@ -447,7 +601,7 @@ def compare(
         logger.info(f"Limiting depth to {max_depth} levels")
 
     if show_full_path:
-        logger.info(f"Showing full paths instead of just filenames")
+        logger.info("Showing full paths instead of just filenames")
 
     parsed_exclude_dirs = parse_list_option(exclude_dirs)
     parsed_exclude_exts = parse_list_option(exclude_extensions)

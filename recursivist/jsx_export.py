@@ -5,8 +5,7 @@ It generates a JSX file with a nested collapsible component for directory visual
 
 import html
 import logging
-import os
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any, Dict, Optional
 
 logger = logging.getLogger(__name__)
 

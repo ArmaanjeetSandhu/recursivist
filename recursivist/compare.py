@@ -5,7 +5,7 @@ display them side by side with highlighting of differences.
 
 import logging
 import os
-from typing import Any, Dict, List, Optional, Pattern, Set, Tuple, Union
+from typing import Any, Dict, List, Optional, Pattern, Set, Tuple, Union, cast
 
 from rich.columns import Columns
 from rich.console import Console
@@ -104,31 +104,53 @@ def build_comparison_tree(
             and structure["_files"]
             and isinstance(structure["_files"][0], tuple)
         ):
-            files_in_other_names = [
-                item[0] if isinstance(item, tuple) else item for item in files_in_other
-            ]
+            files_in_other_names = []
+            for item in files_in_other:
+                if isinstance(item, tuple):
+                    files_in_other_names.append(item[0])
+                else:
+                    files_in_other_names.append(cast(str, item))
 
             for file_item in sort_files_by_type(structure["_files"]):
-                file_name, full_path = file_item
-                ext = os.path.splitext(file_name)[1].lower()
-                color = color_map.get(ext, "#FFFFFF")
+                if isinstance(file_item, tuple):
+                    file_name, full_path = file_item
+                    ext = os.path.splitext(file_name)[1].lower()
+                    color = color_map.get(ext, "#FFFFFF")
 
-                if file_name not in files_in_other_names:
-                    colored_text = Text(f"📄 {full_path}", style=f"{color} on green")
-                    tree.add(colored_text)
-                else:
-                    colored_text = Text(f"📄 {full_path}", style=color)
-                    tree.add(colored_text)
+                    if file_name not in files_in_other_names:
+                        colored_text = Text(
+                            f"📄 {full_path}", style=f"{color} on green"
+                        )
+                        tree.add(colored_text)
+                    else:
+                        colored_text = Text(f"📄 {full_path}", style=color)
+                        tree.add(colored_text)
         else:
             for file in sort_files_by_type(structure["_files"]):
-                ext = os.path.splitext(file)[1].lower()
+                if isinstance(file, tuple):
+                    file_name, _ = file
+                    ext = os.path.splitext(file_name)[1].lower()
+                else:
+                    file_name = cast(str, file)
+                    ext = os.path.splitext(file_name)[1].lower()
+
                 color = color_map.get(ext, "#FFFFFF")
 
-                if file not in files_in_other:
-                    colored_text = Text(f"📄 {file}", style=f"{color} on green")
+                if file_name not in files_in_other:
+                    if isinstance(file, tuple):
+                        _, full_path = file
+                        colored_text = Text(
+                            f"📄 {full_path}", style=f"{color} on green"
+                        )
+                    else:
+                        colored_text = Text(f"📄 {file}", style=f"{color} on green")
                     tree.add(colored_text)
                 else:
-                    colored_text = Text(f"📄 {file}", style=color)
+                    if isinstance(file, tuple):
+                        _, full_path = file
+                        colored_text = Text(f"📄 {full_path}", style=color)
+                    else:
+                        colored_text = Text(f"📄 {file}", style=color)
                     tree.add(colored_text)
 
     for folder, content in sorted(structure.items()):
@@ -157,23 +179,42 @@ def build_comparison_tree(
             and other_structure["_files"]
             and isinstance(other_structure["_files"][0], tuple)
         ):
-            files_in_this_names = [
-                item[0] if isinstance(item, tuple) else item for item in files_in_this
-            ]
+            files_in_this_names = []
+            for item in files_in_this:
+                if isinstance(item, tuple):
+                    files_in_this_names.append(item[0])
+                else:
+                    files_in_this_names.append(cast(str, item))
 
             for file_item in sort_files_by_type(other_structure["_files"]):
-                file_name, full_path = file_item
-                if file_name not in files_in_this_names:
+                if isinstance(file_item, tuple):
+                    file_name, full_path = file_item
+                    if file_name not in files_in_this_names:
+                        ext = os.path.splitext(file_name)[1].lower()
+                        color = color_map.get(ext, "#FFFFFF")
+                        colored_text = Text(f"📄 {full_path}", style=f"{color} on red")
+                        tree.add(colored_text)
+        else:
+            for file in sort_files_by_type(other_structure["_files"]):
+                if isinstance(file, tuple):
+                    file_name, full_path = file
+                else:
+                    file_name = cast(str, file)
+                    full_path = file_name
+
+                file_in_this = False
+                for this_file in files_in_this:
+                    if isinstance(this_file, tuple) and this_file[0] == file_name:
+                        file_in_this = True
+                        break
+                    elif this_file == file_name:
+                        file_in_this = True
+                        break
+
+                if not file_in_this:
                     ext = os.path.splitext(file_name)[1].lower()
                     color = color_map.get(ext, "#FFFFFF")
                     colored_text = Text(f"📄 {full_path}", style=f"{color} on red")
-                    tree.add(colored_text)
-        else:
-            for file in sort_files_by_type(other_structure["_files"]):
-                if file not in files_in_this:
-                    ext = os.path.splitext(file)[1].lower()
-                    color = color_map.get(ext, "#FFFFFF")
-                    colored_text = Text(f"📄 {file}", style=f"{color} on red")
                     tree.add(colored_text)
 
     if other_structure:
@@ -450,10 +491,13 @@ def _export_comparison_to_txt(
                 is_last_file = i == len(files) - 1
 
                 if show_full_path and isinstance(file_item, tuple):
-                    file_name, full_path = file_item
+                    _, full_path = file_item
                     display_name = full_path
                 else:
-                    display_name = file_item
+                    if isinstance(file_item, tuple):
+                        _, display_name = file_item
+                    else:
+                        display_name = cast(str, file_item)
 
                 if is_last_file:
                     lines.append(f"{prefix}└── 📄 {display_name}")
@@ -538,25 +582,57 @@ def _export_comparison_to_html(
 
                     if show_full_path and isinstance(file_item, tuple):
                         file_name, full_path = file_item
-                        other_file_names = [
-                            f[0] if isinstance(f, tuple) else f for f in other_files
-                        ]
+
+                        other_file_names = []
+                        for f in other_files:
+                            if isinstance(f, tuple):
+                                other_file_names.append(f[0])
+                            else:
+                                other_file_names.append(cast(str, f))
+
                         if file_name not in other_file_names:
                             file_class = ' class="file-unique"'
-                        display_name = full_path
-                    else:
-                        if file_item not in other_files:
-                            file_class = ' class="file-unique"'
-                        display_name = file_item
 
+                        display_name = html.escape(full_path)
+                    else:
+                        if isinstance(file_item, tuple):
+                            file_name, _ = file_item
+                        else:
+                            file_name = cast(str, file_item)
+
+                        file_in_other = False
+                        for other_file in other_files:
+                            if (
+                                isinstance(other_file, tuple)
+                                and other_file[0] == file_name
+                            ):
+                                file_in_other = True
+                                break
+                            elif other_file == file_name:
+                                file_in_other = True
+                                break
+
+                        if not file_in_other:
+                            file_class = ' class="file-unique"'
+
+                        if isinstance(file_item, tuple):
+                            _, display_path = file_item
+                            display_name = html.escape(display_path)
+                        else:
+                            display_name = html.escape(cast(str, file_item))
                 else:
                     if show_full_path and isinstance(file_item, tuple):
-                        _, display_name = file_item
+                        _, display_path = file_item
+                        display_name = html.escape(display_path)
                     else:
-                        display_name = file_item
+                        if isinstance(file_item, tuple):
+                            _, display_path = file_item
+                            display_name = html.escape(display_path)
+                        else:
+                            display_name = html.escape(cast(str, file_item))
 
                 html_content.append(
-                    f'<li{file_class}><span class="file">📄 {html.escape(display_name)}</span></li>'
+                    f'<li{file_class}><span class="file">📄 {display_name}</span></li>'
                 )
 
         for name, content in sorted(structure.items()):

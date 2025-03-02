@@ -65,62 +65,6 @@ def test_visualize_with_full_path(runner, sample_directory):
     assert has_full_path, "Full path information not found in output"
 
 
-def test_visualize_with_jsx_export(runner, sample_directory, output_dir):
-    """Test the visualize command with React export option."""
-    result = runner.invoke(
-        app,
-        [
-            "visualize",
-            sample_directory,
-            "--export",
-            "jsx",
-            "--output-dir",
-            output_dir,
-            "--prefix",
-            "test_component",
-        ],
-    )
-    assert result.exit_code == 0
-
-    export_file = os.path.join(output_dir, "test_component.jsx")
-    assert os.path.exists(export_file)
-
-    with open(export_file, "r", encoding="utf-8") as f:
-        content = f.read()
-
-    assert "import React" in content
-    assert "DirectoryViewer" in content
-
-
-def test_visualize_with_jsx_export_full_path(runner, sample_directory, output_dir):
-    """Test the visualize command with React export option and full path display."""
-    result = runner.invoke(
-        app,
-        [
-            "visualize",
-            sample_directory,
-            "--export",
-            "jsx",
-            "--output-dir",
-            output_dir,
-            "--prefix",
-            "test_component_full_path",
-            "--full-path",
-        ],
-    )
-    assert result.exit_code == 0
-
-    export_file = os.path.join(output_dir, "test_component_full_path.jsx")
-    assert os.path.exists(export_file)
-
-    with open(export_file, "r", encoding="utf-8") as f:
-        content = f.read()
-
-    assert "import React" in content
-    assert "DirectoryViewer" in content
-    assert "Showing full file paths" in content
-
-
 def test_visualize_with_exclude_dirs(runner, sample_directory):
     """Test the visualize command with excluded directories."""
     exclude_dir = os.path.join(sample_directory, "exclude_me")
@@ -153,97 +97,6 @@ def test_visualize_with_ignore_file(runner, sample_with_logs):
     assert result.exit_code == 0
     assert "app.log" not in result.stdout
     assert "node_modules" not in result.stdout
-
-
-def test_visualize_with_export(runner, sample_directory, output_dir):
-    """Test the visualize command with export option."""
-    result = runner.invoke(
-        app,
-        [
-            "visualize",
-            sample_directory,
-            "--export",
-            "txt",
-            "--output-dir",
-            output_dir,
-            "--prefix",
-            "test",
-        ],
-    )
-    assert result.exit_code == 0
-
-    export_file = os.path.join(output_dir, "test.txt")
-    assert os.path.exists(export_file)
-
-
-def test_visualize_with_export_full_path(runner, sample_directory, output_dir):
-    """Test the visualize command with export option and full path display."""
-    result = runner.invoke(
-        app,
-        [
-            "visualize",
-            sample_directory,
-            "--export",
-            "txt",
-            "--output-dir",
-            output_dir,
-            "--prefix",
-            "test_full_path",
-            "--full-path",
-        ],
-    )
-    assert result.exit_code == 0
-
-    export_file = os.path.join(output_dir, "test_full_path.txt")
-    assert os.path.exists(export_file)
-
-    with open(export_file, "r", encoding="utf-8") as f:
-        content = f.read()
-
-    assert (
-        "file1.txt" in content or "file2.py" in content
-    ), "No file information found in exported content"
-
-    has_path_info = False
-    base_name = os.path.basename(sample_directory)
-
-    lines = content.split("\n")
-    for line in lines:
-        if ("├── 📄" in line or "└── 📄" in line) and (
-            base_name in line or os.path.sep in line or "/" in line
-        ):
-            has_path_info = True
-            break
-
-    assert has_path_info, "No full path information found in exported content"
-
-
-def test_visualize_multiple_exports(runner, sample_directory, output_dir):
-    """Test the visualize command with multiple export formats."""
-    result = runner.invoke(
-        app,
-        [
-            "visualize",
-            sample_directory,
-            "--export",
-            "txt json",
-            "--output-dir",
-            output_dir,
-        ],
-    )
-    assert result.exit_code == 0
-
-    assert os.path.exists(os.path.join(output_dir, "structure.txt"))
-    assert os.path.exists(os.path.join(output_dir, "structure.json"))
-
-
-def test_visualize_invalid_export_format(runner, sample_directory, caplog):
-    """Test the visualize command with invalid export format."""
-    result = runner.invoke(app, ["visualize", sample_directory, "--export", "invalid"])
-    assert result.exit_code == 1
-    assert any(
-        "Unsupported export format" in record.message for record in caplog.records
-    )
 
 
 def test_visualize_invalid_directory(runner, temp_dir, caplog):
@@ -286,3 +139,117 @@ def test_verbose_mode(runner, sample_directory, caplog):
     result = runner.invoke(app, ["visualize", sample_directory, "--verbose"])
     assert result.exit_code == 0
     assert any("Verbose mode enabled" in record.message for record in caplog.records)
+
+
+def test_export_command(runner, sample_directory, output_dir):
+    """Test the export command."""
+    result = runner.invoke(
+        app,
+        [
+            "export",
+            sample_directory,
+            "--format",
+            "txt",
+            "--output-dir",
+            output_dir,
+            "--prefix",
+            "test_export",
+        ],
+    )
+    assert result.exit_code == 0
+
+    export_file = os.path.join(output_dir, "test_export.txt")
+    assert os.path.exists(export_file)
+
+
+def test_export_multiple_formats(runner, sample_directory, output_dir):
+    """Test the export command with multiple formats."""
+    result = runner.invoke(
+        app,
+        [
+            "export",
+            sample_directory,
+            "--format",
+            "txt,json",
+            "--output-dir",
+            output_dir,
+        ],
+    )
+    assert result.exit_code == 0
+
+    assert os.path.exists(os.path.join(output_dir, "structure.txt"))
+    assert os.path.exists(os.path.join(output_dir, "structure.json"))
+
+
+def test_export_with_full_path(runner, sample_directory, output_dir):
+    """Test the export command with full path option."""
+    result = runner.invoke(
+        app,
+        [
+            "export",
+            sample_directory,
+            "--format",
+            "txt",
+            "--output-dir",
+            output_dir,
+            "--prefix",
+            "test_export_full_path",
+            "--full-path",
+        ],
+    )
+    assert result.exit_code == 0
+
+    export_file = os.path.join(output_dir, "test_export_full_path.txt")
+    assert os.path.exists(export_file)
+
+    with open(export_file, "r", encoding="utf-8") as f:
+        content = f.read()
+
+    base_name = os.path.basename(sample_directory)
+    has_path_info = False
+
+    lines = content.split("\n")
+    for line in lines:
+        if ("├── 📄" in line or "└── 📄" in line) and (
+            base_name in line or os.path.sep in line or "/" in line
+        ):
+            has_path_info = True
+            break
+
+    assert has_path_info, "No full path information found in exported content"
+
+
+def test_export_invalid_format(runner, sample_directory, caplog):
+    """Test the export command with invalid format."""
+    result = runner.invoke(app, ["export", sample_directory, "--format", "invalid"])
+    assert result.exit_code == 1
+    assert any(
+        "Unsupported export format" in record.message for record in caplog.records
+    )
+
+
+def test_export_jsx_format(runner, sample_directory, output_dir):
+    """Test the export command with React component format."""
+    result = runner.invoke(
+        app,
+        [
+            "export",
+            sample_directory,
+            "--format",
+            "jsx",
+            "--output-dir",
+            output_dir,
+            "--prefix",
+            "test_component",
+        ],
+    )
+    assert result.exit_code == 0
+
+    export_file = os.path.join(output_dir, "test_component.jsx")
+    assert os.path.exists(export_file)
+
+    with open(export_file, "r", encoding="utf-8") as f:
+        content = f.read()
+
+    assert "import React" in content
+    assert "DirectoryViewer" in content

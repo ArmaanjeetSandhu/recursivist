@@ -16,7 +16,11 @@ logger = logging.getLogger(__name__)
 
 
 def export_structure(
-    structure: Dict, root_dir: str, format_type: str, output_path: str, show_full_path: bool = False
+    structure: Dict,
+    root_dir: str,
+    format_type: str,
+    output_path: str,
+    show_full_path: bool = False,
 ) -> None:
     """Export the directory structure to various formats.
 
@@ -30,7 +34,9 @@ def export_structure(
     Raises:
         ValueError: If the format_type is not supported
     """
-    exporter = DirectoryExporter(structure, os.path.basename(root_dir), root_dir if show_full_path else None)
+    exporter = DirectoryExporter(
+        structure, os.path.basename(root_dir), root_dir if show_full_path else None
+    )
 
     format_map = {
         "txt": exporter.to_txt,
@@ -276,13 +282,15 @@ def get_directory_structure(
             if ext.lower() not in exclude_extensions:
                 if "_files" not in structure:
                     structure["_files"] = []
-                
+
                 if show_full_path:
-                    full_path = os.path.join(current_path, item) if current_path else item
+                    full_path = (
+                        os.path.join(current_path, item) if current_path else item
+                    )
                     structure["_files"].append((item, full_path))
                 else:
                     structure["_files"].append(item)
-                
+
                 if ext:
                     extensions_set.add(ext.lower())
 
@@ -300,7 +308,7 @@ def get_directory_structure(
 
         if os.path.isdir(item_path):
             next_path = os.path.join(current_path, item) if current_path else item
-            
+
             substructure, sub_extensions = get_directory_structure(
                 item_path,
                 exclude_dirs,
@@ -320,7 +328,9 @@ def get_directory_structure(
     return structure, extensions_set
 
 
-def sort_files_by_type(files: List[Union[str, Tuple[str, str]]]) -> List[Union[str, Tuple[str, str]]]:
+def sort_files_by_type(
+    files: List[Union[str, Tuple[str, str]]],
+) -> List[Union[str, Tuple[str, str]]]:
     """Sort files by extension and then by name.
 
     Args:
@@ -331,11 +341,54 @@ def sort_files_by_type(files: List[Union[str, Tuple[str, str]]]) -> List[Union[s
     """
     if not files:
         return []
-    
-    if isinstance(files[0], tuple):
-        return sorted(files, key=lambda f: (os.path.splitext(f[0])[1], f[0].lower()))
+
+    all_tuples = all(isinstance(item, tuple) for item in files)
+    all_strings = all(isinstance(item, str) for item in files)
+
+    if all_strings:
+        files_as_strings = cast(List[str], files)
+        return cast(
+            List[Union[str, Tuple[str, str]]],
+            sorted(
+                files_as_strings,
+                key=lambda f: (os.path.splitext(f)[1].lower(), f.lower()),
+            ),
+        )
+    elif all_tuples:
+        files_as_tuples = cast(List[Tuple[str, str]], files)
+        return cast(
+            List[Union[str, Tuple[str, str]]],
+            sorted(
+                files_as_tuples,
+                key=lambda t: (os.path.splitext(t[0])[1].lower(), t[0].lower()),
+            ),
+        )
     else:
-        return sorted(files, key=lambda f: (os.path.splitext(f)[1], f.lower()))
+        str_items: List[str] = []
+        tuple_items: List[Tuple[str, str]] = []
+
+        for item in files:
+            if isinstance(item, tuple):
+                tuple_items.append(cast(Tuple[str, str], item))
+            else:
+                str_items.append(cast(str, item))
+
+        sorted_strings = sorted(
+            str_items, key=lambda f: (os.path.splitext(f)[1].lower(), f.lower())
+        )
+        sorted_tuples = sorted(
+            tuple_items, key=lambda t: (os.path.splitext(t[0])[1].lower(), t[0].lower())
+        )
+
+        result: List[Union[str, Tuple[str, str]]] = []
+
+        for item in sorted_strings:
+            result.append(item)
+
+        for item in sorted_tuples:
+            result.append(item)
+
+        return result
 
 
 def build_tree(
@@ -364,7 +417,7 @@ def build_tree(
                     colored_text = Text(f"📄 {full_path}", style=color)
                     tree.add(colored_text)
                 else:
-                    file_name = file_item
+                    file_name = cast(str, file_item)
                     ext = os.path.splitext(file_name)[1].lower()
                     color = color_map.get(ext, "#FFFFFF")
                     colored_text = Text(f"📄 {file_name}", style=color)

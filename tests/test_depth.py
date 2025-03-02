@@ -130,11 +130,11 @@ def test_export_with_depth_limit(runner, nested_directory, output_dir, monkeypat
     result = runner.invoke(
         app,
         [
-            "visualize",
+            "export",
             nested_directory,
             "--depth",
             "2",
-            "--export",
+            "--format",
             "json",
             "--output-dir",
             output_dir,
