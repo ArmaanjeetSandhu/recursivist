@@ -42,7 +42,7 @@ def generate_jsx_component(
             key=lambda x: x[0].lower(),
         ):
             jsx_content.append(
-                f'<CollapsibleItem title="{html.escape(name)}" level={level}>'
+                f'<CollapsibleItem title="{html.escape(name)}" level={{level}}>'
             )
 
             next_path = f"{path_prefix}/{name}" if path_prefix else name
@@ -95,7 +95,7 @@ def generate_jsx_component(
         """
 
     component_template = f"""import React, {{ useState, useEffect }} from 'react';
-import {{ ChevronDown, ChevronUp, Folder, File, Maximize2, Minimize2 }} from 'lucide-react';
+import {{ ChevronDown, ChevronUp, Folder, Maximize2, Minimize2 }} from 'lucide-react';
 
 const CollapsibleContext = React.createContext();
 
