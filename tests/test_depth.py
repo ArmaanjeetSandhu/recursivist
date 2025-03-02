@@ -169,7 +169,7 @@ def test_comparison_export_with_depth_limit(
             compare_dir,
             "--depth",
             "2",
-            "--export",
+            "--save-as",
             "txt",
             "--output-dir",
             output_dir,

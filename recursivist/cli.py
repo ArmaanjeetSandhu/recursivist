@@ -549,11 +549,11 @@ def compare(
     max_depth: int = typer.Option(
         0, "--depth", "-d", help="Maximum depth to display (0 for unlimited)"
     ),
-    export_formats: Optional[List[str]] = typer.Option(
+    save_formats: Optional[List[str]] = typer.Option(
         None,
-        "--export",
+        "--save-as",
         "-f",
-        help="Export formats (space-separated or multiple flags): txt, html",
+        help="Save comparison as format (space-separated or multiple flags): txt, html",
     ),
     output_dir: Optional[Path] = typer.Option(
         None,
@@ -651,8 +651,8 @@ def compare(
             show_full_path=show_full_path,
         )
 
-        if export_formats:
-            parsed_formats = parse_list_option(export_formats)
+        if save_formats:
+            parsed_formats = parse_list_option(save_formats)
             valid_formats = ["txt", "html"]
 
             invalid_formats = [
