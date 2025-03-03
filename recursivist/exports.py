@@ -135,7 +135,6 @@ class DirectoryExporter:
         try:
             with open(output_path, "w", encoding="utf-8") as f:
                 f.write("\n".join(tree_lines))
-            logger.info(f"Successfully exported TXT to {output_path}")
         except Exception as e:
             logger.error(f"Error exporting to TXT: {e}")
             raise
@@ -175,7 +174,6 @@ class DirectoryExporter:
                     f,
                     indent=2,
                 )
-            logger.info(f"Successfully exported JSON to {output_path}")
         except Exception as e:
             logger.error(f"Error exporting to JSON: {e}")
             raise
@@ -270,7 +268,6 @@ class DirectoryExporter:
         try:
             with open(output_path, "w", encoding="utf-8") as f:
                 f.write(html_template)
-            logger.info(f"Successfully exported HTML to {output_path}")
         except Exception as e:
             logger.error(f"Error exporting to HTML: {e}")
             raise
@@ -322,7 +319,6 @@ class DirectoryExporter:
         try:
             with open(output_path, "w", encoding="utf-8") as f:
                 f.write("\n".join(md_content))
-            logger.info(f"Successfully exported Markdown to {output_path}")
         except Exception as e:
             logger.error(f"Error exporting to Markdown: {e}")
             raise
@@ -341,7 +337,6 @@ class DirectoryExporter:
                 self.show_full_path,
                 self.base_path,
             )
-            logger.info(f"Successfully exported React component to {output_path}")
         except Exception as e:
             logger.error(f"Error exporting to React component: {e}")
             raise

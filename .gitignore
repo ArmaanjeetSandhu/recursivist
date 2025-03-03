@@ -27,4 +27,7 @@ htmlcov/
 
 # Project specific
 structure.*
+comparison.*
 *.log
+
+.vscode/

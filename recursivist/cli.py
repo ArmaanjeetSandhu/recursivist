@@ -155,8 +155,6 @@ def visualize(
         logger.error(f"Error: {directory} is not a valid directory")
         raise typer.Exit(1)
 
-    logger.info(f"Analyzing directory: {directory}")
-
     if max_depth > 0:
         logger.info(f"Limiting depth to {max_depth} levels")
 
@@ -315,7 +313,8 @@ def export(
     Examples:
         recursivist export                             # Export current directory to TXT
         recursivist export /path/to/project            # Export specific directory
-        recursivist export -f json,md,html             # Export to multiple formats
+        recursivist export -f "json md html"           # Export to multiple formats (quoted)
+        recursivist export -f json -f md -f html       # Export to multiple formats (multiple flags)
         recursivist export -e node_modules .git        # Exclude directories
         recursivist export -x .pyc .log                # Exclude file extensions
         recursivist export -p "*.test.js" "*.spec.js"  # Exclude test files (glob pattern)
@@ -332,8 +331,6 @@ def export(
     if not directory.exists() or not directory.is_dir():
         logger.error(f"Error: {directory} is not a valid directory")
         raise typer.Exit(1)
-
-    logger.info(f"Analyzing directory: {directory}")
 
     if max_depth > 0:
         logger.info(f"Limiting depth to {max_depth} levels")
@@ -428,27 +425,20 @@ def export(
 
         logger.info(f"Exporting to {len(parsed_formats)} format(s)")
 
-        with Progress() as progress:
-            for fmt in parsed_formats:
-                output_path = output_dir / f"{output_prefix}.{fmt.lower()}"
+        for fmt in parsed_formats:
+            output_path = output_dir / f"{output_prefix}.{fmt.lower()}"
 
-                task_export = progress.add_task(
-                    f"[green]Exporting to {fmt}...", total=None
+            try:
+                export_structure(
+                    structure,
+                    str(directory),
+                    fmt.lower(),
+                    str(output_path),
+                    show_full_path,
                 )
-
-                try:
-                    export_structure(
-                        structure,
-                        str(directory),
-                        fmt.lower(),
-                        str(output_path),
-                        show_full_path,
-                    )
-                    progress.update(task_export, completed=True)
-                    logger.info(f"Successfully exported to {output_path}")
-                except Exception as e:
-                    progress.update(task_export, completed=True)
-                    logger.error(f"Failed to export to {fmt}: {e}")
+                logger.info(f"Successfully exported to {output_path}")
+            except Exception as e:
+                logger.error(f"Failed to export to {fmt}: {e}")
 
     except Exception as e:
         logger.error(f"Error: {e}", exc_info=verbose)
@@ -672,34 +662,27 @@ def compare(
 
             logger.info(f"Exporting comparison to {len(parsed_formats)} format(s)")
 
-            with Progress() as progress:
-                for fmt in parsed_formats:
-                    output_path = output_dir / f"{output_prefix}.{fmt.lower()}"
+            for fmt in parsed_formats:
+                output_path = output_dir / f"{output_prefix}.{fmt.lower()}"
 
-                    task_export = progress.add_task(
-                        f"[green]Exporting to {fmt}...", total=None
+                try:
+                    export_comparison(
+                        str(dir1),
+                        str(dir2),
+                        fmt.lower(),
+                        str(output_path),
+                        parsed_exclude_dirs,
+                        actual_ignore_file,
+                        exclude_exts_set,
+                        exclude_patterns=parsed_exclude_patterns,
+                        include_patterns=parsed_include_patterns,
+                        use_regex=use_regex,
+                        max_depth=max_depth,
+                        show_full_path=show_full_path,
                     )
-
-                    try:
-                        export_comparison(
-                            str(dir1),
-                            str(dir2),
-                            fmt.lower(),
-                            str(output_path),
-                            parsed_exclude_dirs,
-                            actual_ignore_file,
-                            exclude_exts_set,
-                            exclude_patterns=parsed_exclude_patterns,
-                            include_patterns=parsed_include_patterns,
-                            use_regex=use_regex,
-                            max_depth=max_depth,
-                            show_full_path=show_full_path,
-                        )
-                        progress.update(task_export, completed=True)
-                        logger.info(f"Successfully exported to {output_path}")
-                    except Exception as e:
-                        progress.update(task_export, completed=True)
-                        logger.error(f"Failed to export to {fmt}: {e}")
+                    logger.info(f"Successfully exported to {output_path}")
+                except Exception as e:
+                    logger.error(f"Failed to export to {fmt}: {e}")
 
     except Exception as e:
         logger.error(f"Error: {e}", exc_info=verbose)

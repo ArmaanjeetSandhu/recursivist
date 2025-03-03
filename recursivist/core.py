@@ -51,7 +51,6 @@ def export_structure(
 
     export_func = format_map[format_type.lower()]
     export_func(output_path)
-    logger.info("Successfully exported to %s", output_path)
 
 
 def parse_ignore_file(ignore_file_path: str) -> List[str]:

@@ -346,7 +346,7 @@ This will display the full path for each file rather than just the filename.
 
 ```bash
 recursivist export \
-  --format txt md jsx \
+  --format "txt md jsx" \
   --output-dir ./docs
 ```
 
