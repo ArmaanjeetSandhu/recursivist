@@ -1,5 +1,6 @@
 """Tests for the directory comparison functionality."""
 
+import html
 import os
 
 import pytest
@@ -163,7 +164,17 @@ def test_export_comparison_txt_with_full_path(comparison_directories, output_dir
     assert os.path.basename(dir2) in content
     assert "dir1_only" in content
     assert "dir2_only" in content
-    assert "Showing full file paths" in content
+
+    base_name_dir1 = os.path.basename(dir1)
+    base_name_dir2 = os.path.basename(dir2)
+
+    found_full_path = False
+    for line in content.split("\n"):
+        if ("📄" in line) and (base_name_dir1 in line or base_name_dir2 in line):
+            found_full_path = True
+            break
+
+    assert found_full_path, "No full paths found in the text export"
 
 
 def test_export_comparison_html(comparison_directories, output_dir):
@@ -206,7 +217,30 @@ def test_export_comparison_html_with_full_path(comparison_directories, output_di
     assert os.path.basename(dir2) in content
     assert "dir1_only" in content
     assert "dir2_only" in content
-    assert "Showing full file paths" in content
+
+    file1_path = os.path.join(dir1, "file1.txt").replace(os.sep, "/")
+    dir1_only_path = os.path.join(dir1, "dir1_only.txt").replace(os.sep, "/")
+    dir2_only_path = os.path.join(dir2, "dir2_only.txt").replace(os.sep, "/")
+
+    found_at_least_one_full_path = False
+    for path in [file1_path, dir1_only_path, dir2_only_path]:
+        if path in content or html.escape(path) in content:
+            found_at_least_one_full_path = True
+            break
+
+    if not found_at_least_one_full_path:
+        base_name_dir1 = os.path.basename(dir1)
+        base_name_dir2 = os.path.basename(dir2)
+
+        for line in content.split("\n"):
+            if ("📄" in line or "file" in line) and (
+                base_name_dir1 in line or base_name_dir2 in line
+            ):
+                if "/" in line or "\\" in line:
+                    found_at_least_one_full_path = True
+                    break
+
+    assert found_at_least_one_full_path, "No full paths found in the HTML export"
 
 
 def test_export_comparison_unsupported_format(comparison_directories, output_dir):
@@ -332,4 +366,13 @@ def test_cli_command_with_export_full_path(runner, comparison_directories, outpu
     with open(output_file, "r", encoding="utf-8") as f:
         content = f.read()
 
-    assert "Showing full file paths" in content
+    base_name_dir1 = os.path.basename(dir1)
+    base_name_dir2 = os.path.basename(dir2)
+
+    found_full_path = False
+    for line in content.split("\n"):
+        if ("📄" in line) and (base_name_dir1 in line or base_name_dir2 in line):
+            found_full_path = True
+            break
+
+    assert found_full_path, "No full paths found in the exported file"

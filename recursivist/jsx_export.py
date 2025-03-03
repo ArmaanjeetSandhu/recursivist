@@ -86,14 +86,6 @@ def generate_jsx_component(
 
         return "\n".join(jsx_content)
 
-    path_info = ""
-    if show_full_path and base_path:
-        path_info = f"""
-        <div className="text-gray-500 text-sm italic mb-4">
-          Showing full file paths from: {html.escape(base_path)}
-        </div>
-        """
-
     component_template = f"""import React, {{ useState, useEffect }} from 'react';
 import {{ ChevronDown, ChevronUp, Folder, Maximize2, Minimize2 }} from 'lucide-react';
 
@@ -178,7 +170,6 @@ const DirectoryViewer = () => {{
     <CollapsibleContext.Provider value={{{{ expandAll, collapseAll, resetTrigger }}}}>
       <div className="w-full max-w-5xl mx-auto space-y-2">
         <h1 className="text-xl font-bold mb-4">Directory Structure: {html.escape(root_name)}</h1>
-        {path_info}
         <div className="flex justify-end mb-4 space-x-2">
           <button
             onClick={{handleExpandAll}}

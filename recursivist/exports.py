@@ -171,7 +171,6 @@ class DirectoryExporter:
                     {
                         "root": self.root_name,
                         "structure": export_structure,
-                        "show_full_path": self.show_full_path,
                     },
                     f,
                     indent=2,
@@ -208,7 +207,9 @@ class DirectoryExporter:
                 if name == "_files" or name == "_max_depth_reached":
                     continue
 
-                html_content.append(f'<li class="directory">📁 {html.escape(name)}')
+                html_content.append(
+                    f'<li class="directory">📁 <span class="dir-name">{html.escape(name)}</span>'
+                )
                 next_path = os.path.join(path_prefix, name) if path_prefix else name
 
                 if isinstance(content, dict):
@@ -241,6 +242,8 @@ class DirectoryExporter:
                 }}
                 .directory {{
                     color: #2c3e50;
+                }}
+                .dir-name {{
                     font-weight: bold;
                 }}
                 .file {{
@@ -259,7 +262,6 @@ class DirectoryExporter:
         </head>
         <body>
             <h1>📂 {html.escape(self.root_name)}</h1>
-            {f'<div class="path-info">Showing full file paths from: {html.escape(self.base_path or "")}</div>' if self.show_full_path else ''}
             {_build_html_tree(self.structure, self.root_name if self.show_full_path else "")}
         </body>
         </html>
@@ -310,9 +312,6 @@ class DirectoryExporter:
             return lines
 
         md_content = [f"# 📂 {self.root_name}", ""]
-        if self.show_full_path:
-            md_content.append(f"> Showing full file paths from: {self.base_path}")
-            md_content.append("")
 
         md_content.extend(
             _build_md_tree(

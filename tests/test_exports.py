@@ -123,8 +123,6 @@ def test_export_to_json(sample_directory, output_dir):
     assert data["root"] == os.path.basename(sample_directory)
     assert "_files" in data["structure"]
     assert "subdir" in data["structure"]
-    assert "show_full_path" in data
-    assert data["show_full_path"] is False
 
 
 def test_export_to_json_with_full_path(sample_directory, output_dir):
@@ -146,8 +144,6 @@ def test_export_to_json_with_full_path(sample_directory, output_dir):
     assert data["root"] == os.path.basename(sample_directory)
     assert "_files" in data["structure"]
     assert "subdir" in data["structure"]
-    assert "show_full_path" in data
-    assert data["show_full_path"] is True
 
     files = data["structure"]["_files"]
 
@@ -183,7 +179,6 @@ def test_export_to_html(sample_directory, output_dir):
     assert "file1.txt" in content
     assert "file2.py" in content
     assert "subdir" in content
-    assert "Showing full file paths" not in content
 
 
 def test_export_to_html_with_full_path(sample_directory, output_dir):
@@ -204,7 +199,6 @@ def test_export_to_html_with_full_path(sample_directory, output_dir):
     assert "<html>" in content
     assert "</html>" in content
     assert os.path.basename(sample_directory) in content
-    assert "Showing full file paths" in content
 
     for file_name in ["file1.txt", "file2.py"]:
         expected_abs_path = os.path.abspath(os.path.join(sample_directory, file_name))
@@ -233,7 +227,6 @@ def test_export_to_markdown(sample_directory, output_dir):
     assert "- 📄 `file1.txt`" in content
     assert "- 📄 `file2.py`" in content
     assert "- 📁 **subdir**" in content
-    assert "Showing full file paths" not in content
 
 
 def test_export_to_markdown_with_full_path(sample_directory, output_dir):
@@ -251,7 +244,6 @@ def test_export_to_markdown_with_full_path(sample_directory, output_dir):
         content = f.read()
 
     assert f"# 📂 {os.path.basename(sample_directory)}" in content
-    assert "Showing full file paths" in content
 
     for file_name in ["file1.txt", "file2.py"]:
         expected_abs_path = os.path.abspath(os.path.join(sample_directory, file_name))
@@ -285,7 +277,6 @@ def test_export_to_jsx(sample_directory, output_dir):
     assert "subdir" in content
     assert "ChevronDown" in content
     assert "ChevronUp" in content
-    assert "Showing full file paths" not in content
 
 
 def test_export_to_jsx_with_full_path(sample_directory, output_dir):
@@ -306,7 +297,6 @@ def test_export_to_jsx_with_full_path(sample_directory, output_dir):
     assert os.path.basename(sample_directory) in content
     assert "DirectoryViewer" in content
     assert "CollapsibleItem" in content
-    assert "Showing full file paths" in content
     assert "ChevronDown" in content
     assert "ChevronUp" in content
 

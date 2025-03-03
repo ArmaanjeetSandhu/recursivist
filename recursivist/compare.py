@@ -527,9 +527,6 @@ def _export_comparison_to_txt(
     if metadata.get("max_depth", 0) > 0:
         combined_lines.append(f"Max depth: {metadata['max_depth']} levels")
 
-    if metadata.get("show_full_path", False):
-        combined_lines.append("Showing full file paths instead of just filenames")
-
     if metadata.get("exclude_patterns") or metadata.get("include_patterns"):
         combined_lines.append("-" * 80)
         pattern_type = metadata.get("pattern_type", "glob")
@@ -671,15 +668,12 @@ def _export_comparison_to_html(
     dir2_path = html.escape(comparison_data["dir2"]["path"])
 
     metadata = comparison_data.get("metadata", {})
-    show_full_path = metadata.get("show_full_path", False)
 
     max_depth_info = ""
     if metadata.get("max_depth", 0) > 0:
         max_depth_info = f'<div class="info-block"><span class="info-label">Max Depth:</span> {metadata["max_depth"]} levels</div>'
 
     path_info = ""
-    if show_full_path:
-        path_info = '<div class="info-block"><span class="info-label">Display:</span> Showing full file paths instead of just filenames</div>'
 
     pattern_info_html = ""
     if metadata.get("exclude_patterns") or metadata.get("include_patterns"):
