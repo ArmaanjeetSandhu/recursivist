@@ -309,9 +309,9 @@ def display_comparison(
     legend_text = Text()
     legend_text.append("Legend: ", style="bold")
     legend_text.append("Green background ", style="on green")
-    legend_text.append("= Only in left directory, ")
+    legend_text.append("= Unique to this directory, ")
     legend_text.append("Red background ", style="on red")
-    legend_text.append("= Only in right directory")
+    legend_text.append("= Unique to the other directory")
 
     if max_depth > 0:
         legend_text.append("\n")
@@ -559,7 +559,9 @@ def _export_comparison_to_html(
     import html
 
     def _build_html_tree(
-        structure: Dict[str, Any], include_differences: bool = False
+        structure: Dict[str, Any],
+        other_structure: Dict[str, Any],
+        is_left_tree: bool = True,
     ) -> str:
         html_content = ["<ul>"]
         show_full_path = comparison_data.get("metadata", {}).get(
@@ -567,66 +569,34 @@ def _export_comparison_to_html(
         )
 
         if "_files" in structure:
-            for file_item in sort_files_by_type(structure["_files"]):
-                file_class = ""
-                if include_differences:
-                    other_structure = (
-                        comparison_data["dir2"]["structure"]
-                        if structure == comparison_data["dir1"]["structure"]
-                        else comparison_data["dir1"]["structure"]
-                    )
-                    other_files = other_structure.get("_files", [])
+            files_in_this = structure.get("_files", [])
+            files_in_other = (
+                other_structure.get("_files", []) if other_structure else []
+            )
 
-                    if show_full_path and isinstance(file_item, tuple):
-                        file_name, full_path = file_item
-
-                        other_file_names = []
-                        for f in other_files:
-                            if isinstance(f, tuple):
-                                other_file_names.append(f[0])
-                            else:
-                                other_file_names.append(cast(str, f))
-
-                        if file_name not in other_file_names:
-                            file_class = ' class="file-unique"'
-
-                        display_name = html.escape(full_path)
-                    else:
-                        if isinstance(file_item, tuple):
-                            file_name, _ = file_item
-                        else:
-                            file_name = cast(str, file_item)
-
-                        file_in_other = False
-                        for other_file in other_files:
-                            if (
-                                isinstance(other_file, tuple)
-                                and other_file[0] == file_name
-                            ):
-                                file_in_other = True
-                                break
-                            elif other_file == file_name:
-                                file_in_other = True
-                                break
-
-                        if not file_in_other:
-                            file_class = ' class="file-unique"'
-
-                        if isinstance(file_item, tuple):
-                            _, display_path = file_item
-                            display_name = html.escape(display_path)
-                        else:
-                            display_name = html.escape(cast(str, file_item))
+            files_in_other_names = []
+            for item in files_in_other:
+                if isinstance(item, tuple):
+                    files_in_other_names.append(item[0])
                 else:
-                    if show_full_path and isinstance(file_item, tuple):
-                        _, display_path = file_item
-                        display_name = html.escape(display_path)
-                    else:
-                        if isinstance(file_item, tuple):
-                            _, display_path = file_item
-                            display_name = html.escape(display_path)
-                        else:
-                            display_name = html.escape(cast(str, file_item))
+                    files_in_other_names.append(cast(str, item))
+
+            for file_item in sort_files_by_type(files_in_this):
+                file_class = ""
+                if isinstance(file_item, tuple):
+                    file_name, full_path = file_item
+                    display_name = html.escape(
+                        full_path if show_full_path else file_name
+                    )
+
+                    if file_name not in files_in_other_names:
+                        file_class = ' class="file-unique"'
+                else:
+                    file_name = cast(str, file_item)
+                    display_name = html.escape(file_name)
+
+                    if file_name not in files_in_other_names:
+                        file_class = ' class="file-unique"'
 
                 html_content.append(
                     f'<li{file_class}><span class="file">📄 {display_name}</span></li>'
@@ -637,14 +607,8 @@ def _export_comparison_to_html(
                 continue
 
             dir_class = ""
-            if include_differences:
-                other_structure = (
-                    comparison_data["dir2"]["structure"]
-                    if structure == comparison_data["dir1"]["structure"]
-                    else comparison_data["dir1"]["structure"]
-                )
-                if name not in other_structure:
-                    dir_class = ' class="directory-unique"'
+            if name not in other_structure:
+                dir_class = ' class="directory-unique"'
 
             html_content.append(
                 f'<li{dir_class}><span class="directory">📁 {html.escape(name)}</span>'
@@ -655,7 +619,10 @@ def _export_comparison_to_html(
                     '<ul><li class="max-depth">⋯ (max depth reached)</li></ul>'
                 )
             else:
-                html_content.append(_build_html_tree(content, include_differences))
+                other_content = other_structure.get(name, {}) if other_structure else {}
+                html_content.append(
+                    _build_html_tree(content, other_content, is_left_tree)
+                )
 
             html_content.append("</li>")
 
@@ -666,6 +633,8 @@ def _export_comparison_to_html(
     dir2_name = html.escape(comparison_data["dir2"]["name"])
     dir1_path = html.escape(comparison_data["dir1"]["path"])
     dir2_path = html.escape(comparison_data["dir2"]["path"])
+    dir1_structure = comparison_data["dir1"]["structure"]
+    dir2_structure = comparison_data["dir2"]["structure"]
 
     metadata = comparison_data.get("metadata", {})
 
@@ -817,12 +786,12 @@ def _export_comparison_to_html(
             <div class="directory-tree">
                 <h3>📂 {dir1_name}</h3>
                 <p><em>Path: {dir1_path}</em></p>
-                {_build_html_tree(comparison_data["dir1"]["structure"], True)}
+                {_build_html_tree(dir1_structure, dir2_structure, True)}
             </div>
             <div class="directory-tree">
                 <h3>📂 {dir2_name}</h3>
                 <p><em>Path: {dir2_path}</em></p>
-                {_build_html_tree(comparison_data["dir2"]["structure"], True)}
+                {_build_html_tree(dir2_structure, dir1_structure, False)}
             </div>
         </div>
     </body>

@@ -543,7 +543,7 @@ def compare(
         None,
         "--save-as",
         "-f",
-        help="Save comparison as format (space-separated or multiple flags): txt, html",
+        help="Save comparison as format (space-separated or multiple flags): txt, html. When this option is used, the comparison will only be exported and not displayed in the terminal.",
     ),
     output_dir: Optional[Path] = typer.Option(
         None,
@@ -628,19 +628,6 @@ def compare(
     try:
         actual_ignore_file = "" if ignore_file is None else ignore_file
 
-        display_comparison(
-            str(dir1),
-            str(dir2),
-            parsed_exclude_dirs,
-            actual_ignore_file,
-            exclude_exts_set,
-            exclude_patterns=parsed_exclude_patterns,
-            include_patterns=parsed_include_patterns,
-            use_regex=use_regex,
-            max_depth=max_depth,
-            show_full_path=show_full_path,
-        )
-
         if save_formats:
             parsed_formats = parse_list_option(save_formats)
             valid_formats = ["txt", "html"]
@@ -683,6 +670,20 @@ def compare(
                     logger.info(f"Successfully exported to {output_path}")
                 except Exception as e:
                     logger.error(f"Failed to export to {fmt}: {e}")
+
+        else:
+            display_comparison(
+                str(dir1),
+                str(dir2),
+                parsed_exclude_dirs,
+                actual_ignore_file,
+                exclude_exts_set,
+                exclude_patterns=parsed_exclude_patterns,
+                include_patterns=parsed_include_patterns,
+                use_regex=use_regex,
+                max_depth=max_depth,
+                show_full_path=show_full_path,
+            )
 
     except Exception as e:
         logger.error(f"Error: {e}", exc_info=verbose)
