@@ -43,7 +43,19 @@ recursivist visualize
 
 This will show a colorful tree of the current directory structure in your terminal.
 
+### Command Overview
+
+| Command      | Description                                    |
+| ------------ | ---------------------------------------------- |
+| `visualize`  | Display and export directory structures        |
+| `export`     | Export directory structures to various formats |
+| `compare`    | Compare two directory structures side by side  |
+| `completion` | Generate shell completion scripts              |
+| `version`    | Show the current version                       |
+
 ### Advanced Options
+
+#### Visualize Command
 
 ```bash
 # Visualize a specific directory
@@ -87,25 +99,48 @@ recursivist visualize \
 recursivist visualize \
   --full-path
 
-# Export to various formats
+# Enable verbose output
 recursivist visualize \
-  --export txt json html md jsx
+  --verbose
+```
 
-# Export to a specific directory
-recursivist visualize \
-  --export md \
+#### Export Command
+
+```bash
+# Export to various formats
+recursivist export \
+  --format txt json html md jsx
+
+# Export a specific directory to a specific output directory
+recursivist export /path/to/directory \
+  --format md \
   --output-dir ./exports
 
 # Export as a React component
-recursivist visualize \
-  --export jsx \
+recursivist export \
+  --format jsx \
   --output-dir ./components
 
 # Custom filename prefix for exports
-recursivist visualize \
-  --export json \
+recursivist export \
+  --format json \
   --prefix my-project
 
+# Export with exclusions and pattern matching
+recursivist export \
+  --exclude node_modules \
+  --exclude-ext .pyc \
+  --exclude-pattern "*.test.js"
+
+# Export with depth limit and full paths
+recursivist export \
+  --depth 2 \
+  --full-path
+```
+
+#### Compare Command
+
+```bash
 # Compare two directories
 recursivist compare /path/to/dir1 /path/to/dir2
 
@@ -120,9 +155,21 @@ recursivist compare dir1 dir2 \
 
 # Compare and export the comparison
 recursivist compare dir1 dir2 \
-  --export html \
+  --save-as html \
   --output-dir ./reports
 
+# Compare with full paths
+recursivist compare dir1 dir2 \
+  --full-path
+
+# Compare with directory exclusions
+recursivist compare dir1 dir2 \
+  --exclude node_modules .git
+```
+
+#### Other Commands
+
+```bash
 # View the current version
 recursivist version
 
@@ -130,16 +177,9 @@ recursivist version
 recursivist completion bash > ~/.bash_completion.d/recursivist
 ```
 
-### Command Overview
+### Command Options
 
-| Command      | Description                                   |
-| ------------ | --------------------------------------------- |
-| `visualize`  | Display and export directory structures       |
-| `compare`    | Compare two directory structures side by side |
-| `completion` | Generate shell completion scripts             |
-| `version`    | Show the current version                      |
-
-### Command Options for `visualize`
+#### `visualize` Command Options
 
 | Option              | Short | Description                                                    |
 | ------------------- | ----- | -------------------------------------------------------------- |
@@ -151,12 +191,26 @@ recursivist completion bash > ~/.bash_completion.d/recursivist
 | `--ignore-file`     | `-g`  | Ignore file to use (e.g., .gitignore)                          |
 | `--depth`           | `-d`  | Maximum depth to display (0 for unlimited)                     |
 | `--full-path`       | `-l`  | Show full paths instead of just filenames                      |
-| `--export`          | `-f`  | Export formats: txt, json, html, md, jsx                       |
-| `--output-dir`      | `-o`  | Output directory for exports                                   |
-| `--prefix`          | `-n`  | Prefix for exported filenames                                  |
 | `--verbose`         | `-v`  | Enable verbose output                                          |
 
-### Command Options for `compare`
+#### `export` Command Options
+
+| Option              | Short | Description                                                    |
+| ------------------- | ----- | -------------------------------------------------------------- |
+| `--format`          | `-f`  | Export formats: txt, json, html, md, jsx                       |
+| `--output-dir`      | `-o`  | Output directory for exports                                   |
+| `--prefix`          | `-n`  | Prefix for exported filenames                                  |
+| `--exclude`         | `-e`  | Directories to exclude (space-separated or multiple flags)     |
+| `--exclude-ext`     | `-x`  | File extensions to exclude (space-separated or multiple flags) |
+| `--exclude-pattern` | `-p`  | Patterns to exclude (glob by default, regex with --regex flag) |
+| `--include-pattern` | `-i`  | Patterns to include (overrides exclusions)                     |
+| `--regex`           | `-r`  | Treat patterns as regex instead of glob patterns               |
+| `--ignore-file`     | `-g`  | Ignore file to use (e.g., .gitignore)                          |
+| `--depth`           | `-d`  | Maximum depth to display (0 for unlimited)                     |
+| `--full-path`       | `-l`  | Show full paths instead of just filenames                      |
+| `--verbose`         | `-v`  | Enable verbose output                                          |
+
+#### `compare` Command Options
 
 | Option              | Short | Description                                                    |
 | ------------------- | ----- | -------------------------------------------------------------- |
@@ -168,7 +222,7 @@ recursivist completion bash > ~/.bash_completion.d/recursivist
 | `--ignore-file`     | `-g`  | Ignore file to use (e.g., .gitignore)                          |
 | `--depth`           | `-d`  | Maximum depth to display (0 for unlimited)                     |
 | `--full-path`       | `-l`  | Show full paths instead of just filenames                      |
-| `--export`          | `-f`  | Export formats: txt, html                                      |
+| `--save-as`         | `-f`  | Export formats: txt, html                                      |
 | `--output-dir`      | `-o`  | Output directory for exports                                   |
 | `--prefix`          | `-n`  | Prefix for exported filenames                                  |
 | `--verbose`         | `-v`  | Enable verbose output                                          |
@@ -262,7 +316,7 @@ You can export the comparison to various formats:
 
 ```bash
 recursivist compare ~/project-v1 ~/project-v2 \
-  --export html \
+  --save-as html \
   --output-dir ./reports
 ```
 
@@ -291,8 +345,8 @@ This will display the full path for each file rather than just the filename.
 ### Export to Multiple Formats
 
 ```bash
-recursivist visualize \
-  --export txt md jsx \
+recursivist export \
+  --format txt md jsx \
   --output-dir ./docs
 ```
 
@@ -331,8 +385,8 @@ A markdown representation that renders nicely on platforms like GitHub.
 An interactive React component with a collapsible tree view that can be integrated into your web applications. The component uses Tailwind CSS for styling and includes features like "Expand All" and "Collapse All" buttons.
 
 ```bash
-recursivist visualize \
-  --export jsx \
+recursivist export \
+  --format jsx \
   --output-dir ./components
 ```
 
@@ -394,8 +448,8 @@ The JSON export format allows for easy integration with other tools:
 
 ```bash
 # Export to JSON
-recursivist visualize \
-  --export json \
+recursivist export \
+  --format json \
   --prefix myproject
 
 # Use with jq for additional processing
@@ -438,7 +492,7 @@ python -m build
 
 ## Testing
 
-The Recursivist project uses pytest for testing. The test suite covers core functionality, CLI interface, export features, comparison functionality, and regex pattern matching.
+The Recursivist project uses pytest for testing. The test suite covers core functionality, CLI interface, export features, comparison functionality, regex pattern matching, and depth limiting.
 
 ### Running Tests
 
@@ -481,7 +535,9 @@ pytest test_depth.py
 To generate a detailed coverage report:
 
 ```bash
-pytest --cov=recursivist --cov-report=html
+pytest \
+  --cov=recursivist \
+  --cov-report=html
 ```
 
 This will create an HTML coverage report in the `htmlcov` directory, which you can open in your browser.
