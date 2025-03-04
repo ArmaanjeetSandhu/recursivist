@@ -47,7 +47,7 @@ This will show a colorful tree of the current directory structure in your termin
 
 | Command      | Description                                    |
 | ------------ | ---------------------------------------------- |
-| `visualize`  | Display and export directory structures        |
+| `visualize`  | Display directory structures in the terminal   |
 | `export`     | Export directory structures to various formats |
 | `compare`    | Compare two directory structures side by side  |
 | `completion` | Generate shell completion scripts              |
@@ -155,7 +155,7 @@ recursivist compare dir1 dir2 \
 
 # Compare and export the comparison
 recursivist compare dir1 dir2 \
-  --save-as html \
+  --save \
   --output-dir ./reports
 
 # Compare with full paths
@@ -173,8 +173,11 @@ recursivist compare dir1 dir2 \
 # View the current version
 recursivist version
 
-# Generate shell completion
+# Generate shell completion for different shells
 recursivist completion bash > ~/.bash_completion.d/recursivist
+recursivist completion zsh > ~/.zsh/completion/_recursivist
+recursivist completion fish > ~/.config/fish/completions/recursivist.fish
+recursivist completion powershell > recursivist.ps1
 ```
 
 ### Command Options
@@ -222,7 +225,7 @@ recursivist completion bash > ~/.bash_completion.d/recursivist
 | `--ignore-file`     | `-g`  | Ignore file to use (e.g., .gitignore)                          |
 | `--depth`           | `-d`  | Maximum depth to display (0 for unlimited)                     |
 | `--full-path`       | `-l`  | Show full paths instead of just filenames                      |
-| `--save-as`         | `-f`  | Export formats: txt, html                                      |
+| `--save`            | `-f`  | Save comparison result to HTML file                            |
 | `--output-dir`      | `-o`  | Output directory for exports                                   |
 | `--prefix`          | `-n`  | Prefix for exported filenames                                  |
 | `--verbose`         | `-v`  | Enable verbose output                                          |
@@ -309,14 +312,14 @@ recursivist compare ~/project-v1 ~/project-v2
 
 This will display two directory trees side by side with differences highlighted:
 
-- Files and directories present only in the left directory are highlighted in green
-- Files and directories present only in the right directory are highlighted in red
+- Files and directories unique to each directory are highlighted
+- A legend explains the color-coding
 
-You can export the comparison to various formats:
+You can export the comparison to HTML:
 
 ```bash
 recursivist compare ~/project-v1 ~/project-v2 \
-  --save-as html \
+  --save \
   --output-dir ./reports
 ```
 
@@ -502,7 +505,7 @@ To run the tests, first install the development dependencies:
 pip install -e ".[dev]"
 ```
 
-Then run the tests with coverage reporting:
+Then run the tests with:
 
 ```bash
 pytest
@@ -528,6 +531,9 @@ pytest test_regex.py
 
 # Run depth limit tests
 pytest test_depth.py
+
+# Run integration tests
+pytest test_integration.py
 ```
 
 ### Test Coverage

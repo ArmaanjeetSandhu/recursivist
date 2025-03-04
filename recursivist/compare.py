@@ -1,6 +1,11 @@
 """
-This module contains functions to compare two directory structures and
-display them side by side with highlighting of differences.
+Comparison functionality for the Recursivist directory visualization tool.
+
+This module contains functions to compare two directory structures and display them side by side with highlighting of differences. It supports:
+- Side-by-side tree visualization with highlighted unique items
+- Visual indicators for files/directories that exist in only one structure
+- Export of comparison results to HTML for easier sharing and review
+- Consistent filtering options with the main visualization features
 """
 
 import logging
@@ -37,6 +42,8 @@ def compare_directory_structures(
     """
     Compare two directory structures and return both structures and a combined set of extensions.
 
+    Performs the initial comparison by generating directory structures for both directories using the same filtering options, then combines their file extensions for consistent color mapping.
+
     Args:
         dir1: Path to the first directory
         dir2: Path to the second directory
@@ -71,9 +78,7 @@ def compare_directory_structures(
         max_depth=max_depth,
         show_full_path=show_full_path,
     )
-
     combined_extensions = extensions1.union(extensions2)
-
     return structure1, structure2, combined_extensions
 
 
@@ -88,6 +93,13 @@ def build_comparison_tree(
     """
     Build a tree structure with highlighted differences.
 
+    Recursively builds a Rich tree with visual indicators for:
+    - Items that exist in both structures (normal display)
+    - Items unique to the current structure (green background)
+    - Items unique to the comparison structure (red background)
+
+    Handles both files and directories, and supports showing full paths.
+
     Args:
         structure: Dictionary representation of the current directory structure
         other_structure: Dictionary representation of the comparison directory structure
@@ -98,7 +110,6 @@ def build_comparison_tree(
     """
     if "_files" in structure:
         files_in_other = other_structure.get("_files", []) if other_structure else []
-
         if (
             show_full_path
             and structure["_files"]
@@ -110,13 +121,11 @@ def build_comparison_tree(
                     files_in_other_names.append(item[0])
                 else:
                     files_in_other_names.append(cast(str, item))
-
             for file_item in sort_files_by_type(structure["_files"]):
                 if isinstance(file_item, tuple):
                     file_name, full_path = file_item
                     ext = os.path.splitext(file_name)[1].lower()
                     color = color_map.get(ext, "#FFFFFF")
-
                     if file_name not in files_in_other_names:
                         colored_text = Text(
                             f"📄 {full_path}", style=f"{color} on green"
@@ -133,9 +142,7 @@ def build_comparison_tree(
                 else:
                     file_name = cast(str, file)
                     ext = os.path.splitext(file_name)[1].lower()
-
                 color = color_map.get(ext, "#FFFFFF")
-
                 if file_name not in files_in_other:
                     if isinstance(file, tuple):
                         _, full_path = file
@@ -152,28 +159,22 @@ def build_comparison_tree(
                     else:
                         colored_text = Text(f"📄 {file}", style=color)
                     tree.add(colored_text)
-
     for folder, content in sorted(structure.items()):
         if folder == "_files" or folder == "_max_depth_reached":
             continue
-
         other_content = other_structure.get(folder, {}) if other_structure else {}
-
         if folder not in (other_structure or {}):
             subtree = tree.add(Text(f"📁 {folder}", style="green"))
         else:
             subtree = tree.add(f"📁 {folder}")
-
         if isinstance(content, dict) and content.get("_max_depth_reached"):
             subtree.add(Text("⋯ (max depth reached)", style="dim"))
         else:
             build_comparison_tree(
                 content, other_content, subtree, color_map, folder, show_full_path
             )
-
     if other_structure and "_files" in other_structure:
         files_in_this = structure.get("_files", [])
-
         if (
             show_full_path
             and other_structure["_files"]
@@ -185,7 +186,6 @@ def build_comparison_tree(
                     files_in_this_names.append(item[0])
                 else:
                     files_in_this_names.append(cast(str, item))
-
             for file_item in sort_files_by_type(other_structure["_files"]):
                 if isinstance(file_item, tuple):
                     file_name, full_path = file_item
@@ -201,7 +201,6 @@ def build_comparison_tree(
                 else:
                     file_name = cast(str, file)
                     full_path = file_name
-
                 file_in_this = False
                 for this_file in files_in_this:
                     if isinstance(this_file, tuple) and this_file[0] == file_name:
@@ -210,13 +209,11 @@ def build_comparison_tree(
                     elif this_file == file_name:
                         file_in_this = True
                         break
-
                 if not file_in_this:
                     ext = os.path.splitext(file_name)[1].lower()
                     color = color_map.get(ext, "#FFFFFF")
                     colored_text = Text(f"📄 {full_path}", style=f"{color} on red")
                     tree.add(colored_text)
-
     if other_structure:
         for folder in sorted(other_structure.keys()):
             if (
@@ -226,7 +223,6 @@ def build_comparison_tree(
             ):
                 subtree = tree.add(Text(f"📁 {folder}", style="red"))
                 other_content = other_structure[folder]
-
                 if isinstance(other_content, dict) and other_content.get(
                     "_max_depth_reached"
                 ):
@@ -252,6 +248,12 @@ def display_comparison(
     """
     Display two directory trees side by side with highlighted differences.
 
+    Creates a side-by-side terminal display with:
+    - Two panel layout with labeled directory trees
+    - Color-coded highlighting for unique items
+    - Informative legend explaining the highlighting
+    - Support for all filtering options
+
     Args:
         dir1: Path to the first directory
         dir2: Path to the second directory
@@ -272,15 +274,12 @@ def display_comparison(
         exclude_patterns = []
     if include_patterns is None:
         include_patterns = []
-
     exclude_extensions = {
         ext.lower() if ext.startswith(".") else f".{ext.lower()}"
         for ext in exclude_extensions
     }
-
     compiled_exclude = compile_regex_patterns(exclude_patterns, use_regex)
     compiled_include = compile_regex_patterns(include_patterns, use_regex)
-
     structure1, structure2, extensions = compare_directory_structures(
         dir1,
         dir2,
@@ -292,36 +291,29 @@ def display_comparison(
         max_depth=max_depth,
         show_full_path=show_full_path,
     )
-
     color_map = {ext: generate_color_for_extension(ext) for ext in extensions}
-
     console = Console()
     tree1 = Tree(Text(f"📂 {os.path.basename(dir1)}", style="bold"))
     tree2 = Tree(Text(f"📂 {os.path.basename(dir2)}", style="bold"))
-
     build_comparison_tree(
         structure1, structure2, tree1, color_map, show_full_path=show_full_path
     )
     build_comparison_tree(
         structure2, structure1, tree2, color_map, show_full_path=show_full_path
     )
-
     legend_text = Text()
     legend_text.append("Legend: ", style="bold")
     legend_text.append("Green background ", style="on green")
     legend_text.append("= Unique to this directory, ")
     legend_text.append("Red background ", style="on red")
     legend_text.append("= Unique to the other directory")
-
     if max_depth > 0:
         legend_text.append("\n")
         legend_text.append("⋯ (max depth reached) ", style="dim")
         legend_text.append(f"= Directory tree is limited to {max_depth} levels")
-
     if show_full_path:
         legend_text.append("\n")
         legend_text.append("Full file paths are shown instead of just filenames")
-
     if exclude_patterns or include_patterns:
         pattern_info = []
         if exclude_patterns:
@@ -334,15 +326,12 @@ def display_comparison(
             pattern_info.append(
                 f"{pattern_type} inclusion patterns: {', '.join(str(p) for p in include_patterns)}"
             )
-
         if pattern_info:
             pattern_panel = Panel(
                 "\n".join(pattern_info), title="Applied Patterns", border_style="blue"
             )
             console.print(pattern_panel)
-
     legend_panel = Panel(legend_text, border_style="dim")
-
     console.print(legend_panel)
     console.print(
         Columns(
@@ -379,12 +368,20 @@ def export_comparison(
     show_full_path: bool = False,
 ) -> None:
     """
-    Export directory comparison to various formats.
+    Export directory comparison to HTML format.
+
+    Creates an HTML file containing the side-by-side comparison with:
+    - Highlighted differences between directories
+    - Interactive, responsive layout
+    - Detailed metadata about the comparison settings
+    - Visual legend explaining the highlighting
+
+    Currently only supports HTML export format.
 
     Args:
         dir1: Path to the first directory
         dir2: Path to the second directory
-        format_type: Export format ('txt' or 'html')
+        format_type: Export format (only 'html' is supported)
         output_path: Path where the export file will be saved
         exclude_dirs: List of directory names to exclude
         ignore_file: Name of ignore file (like .gitignore)
@@ -406,15 +403,12 @@ def export_comparison(
         exclude_patterns = []
     if include_patterns is None:
         include_patterns = []
-
     exclude_extensions = {
         ext.lower() if ext.startswith(".") else f".{ext.lower()}"
         for ext in exclude_extensions
     }
-
     compiled_exclude = compile_regex_patterns(exclude_patterns, use_regex)
     compiled_include = compile_regex_patterns(include_patterns, use_regex)
-
     structure1, structure2, _ = compare_directory_structures(
         dir1,
         dir2,
@@ -426,7 +420,6 @@ def export_comparison(
         max_depth=max_depth,
         show_full_path=show_full_path,
     )
-
     comparison_data = {
         "dir1": {"path": dir1, "name": os.path.basename(dir1), "structure": structure1},
         "dir2": {"path": dir2, "name": os.path.basename(dir2), "structure": structure2},
@@ -438,124 +431,25 @@ def export_comparison(
             "show_full_path": show_full_path,
         },
     }
-
-    if format_type == "txt":
-        _export_comparison_to_txt(comparison_data, output_path)
-    elif format_type == "html":
+    if format_type == "html":
         _export_comparison_to_html(comparison_data, output_path)
     else:
-        raise ValueError(f"Unsupported format: {format_type}")
-
-
-def _export_comparison_to_txt(
-    comparison_data: Dict[str, Any], output_path: str
-) -> None:
-    """Export comparison to text format with ASCII representation."""
-
-    def _build_txt_tree(
-        structure: Dict[str, Any], prefix: str = "", is_last: bool = True
-    ) -> List[str]:
-        lines = []
-        items = list(sorted(structure.items()))
-        show_full_path = comparison_data.get("metadata", {}).get(
-            "show_full_path", False
-        )
-
-        for i, (name, content) in enumerate(items):
-            if name == "_files" or name == "_max_depth_reached":
-                continue
-
-            is_last_item = i == len(items) - 1 or (
-                i == len(items) - 2 and "_files" in structure
-            )
-
-            if is_last_item:
-                lines.append(f"{prefix}└── 📁 {name}")
-                new_prefix = prefix + "    "
-            else:
-                lines.append(f"{prefix}├── 📁 {name}")
-                new_prefix = prefix + "│   "
-
-            if isinstance(content, dict):
-                if content.get("_max_depth_reached"):
-                    if is_last_item:
-                        lines.append(f"{new_prefix}└── ⋯ (max depth reached)")
-                    else:
-                        lines.append(f"{new_prefix}├── ⋯ (max depth reached)")
-                else:
-                    lines.extend(_build_txt_tree(content, new_prefix, is_last_item))
-
-        if "_files" in structure:
-            files = sort_files_by_type(structure["_files"])
-            for i, file_item in enumerate(files):
-                is_last_file = i == len(files) - 1
-
-                if show_full_path and isinstance(file_item, tuple):
-                    _, full_path = file_item
-                    display_name = full_path
-                else:
-                    if isinstance(file_item, tuple):
-                        _, display_name = file_item
-                    else:
-                        display_name = cast(str, file_item)
-
-                if is_last_file:
-                    lines.append(f"{prefix}└── 📄 {display_name}")
-                else:
-                    lines.append(f"{prefix}├── 📄 {display_name}")
-
-        return lines
-
-    dir1_name = comparison_data["dir1"]["name"]
-    dir2_name = comparison_data["dir2"]["name"]
-    dir1_structure = comparison_data["dir1"]["structure"]
-    dir2_structure = comparison_data["dir2"]["structure"]
-
-    dir1_lines = [f"📂 {dir1_name}"]
-    dir1_lines.extend(_build_txt_tree(dir1_structure))
-
-    dir2_lines = [f"📂 {dir2_name}"]
-    dir2_lines.extend(_build_txt_tree(dir2_structure))
-
-    max_width = max(len(line) for line in dir1_lines) + 4
-    combined_lines = ["Directory Comparison:"]
-    combined_lines.append("=" * 80)
-    combined_lines.append(f"Left: {comparison_data['dir1']['path']}")
-    combined_lines.append(f"Right: {comparison_data['dir2']['path']}")
-
-    metadata = comparison_data.get("metadata", {})
-    if metadata.get("max_depth", 0) > 0:
-        combined_lines.append(f"Max depth: {metadata['max_depth']} levels")
-
-    if metadata.get("exclude_patterns") or metadata.get("include_patterns"):
-        combined_lines.append("-" * 80)
-        pattern_type = metadata.get("pattern_type", "glob")
-
-        if metadata.get("exclude_patterns"):
-            combined_lines.append(
-                f"Exclude {pattern_type} patterns: {', '.join(metadata['exclude_patterns'])}"
-            )
-
-        if metadata.get("include_patterns"):
-            combined_lines.append(
-                f"Include {pattern_type} patterns: {', '.join(metadata['include_patterns'])}"
-            )
-
-    combined_lines.append("=" * 80)
-
-    for i in range(max(len(dir1_lines), len(dir2_lines))):
-        left = dir1_lines[i] if i < len(dir1_lines) else ""
-        right = dir2_lines[i] if i < len(dir2_lines) else ""
-        combined_lines.append(f"{left:<{max_width}} | {right}")
-
-    with open(output_path, "w", encoding="utf-8") as f:
-        f.write("\n".join(combined_lines))
+        raise ValueError("Only HTML format is supported for comparison export")
 
 
 def _export_comparison_to_html(
     comparison_data: Dict[str, Any], output_path: str
 ) -> None:
-    """Export comparison to HTML format."""
+    """Export comparison to HTML format.
+
+    Internal helper function that generates an HTML file from comparison data.
+    Creates a responsive, styled HTML document with side-by-side directory trees
+    and highlighted differences.
+
+    Args:
+        comparison_data: Dictionary containing comparison structures and metadata
+        output_path: Path where the HTML file will be saved
+    """
     import html
 
     def _build_html_tree(
@@ -567,20 +461,17 @@ def _export_comparison_to_html(
         show_full_path = comparison_data.get("metadata", {}).get(
             "show_full_path", False
         )
-
         if "_files" in structure:
             files_in_this = structure.get("_files", [])
             files_in_other = (
                 other_structure.get("_files", []) if other_structure else []
             )
-
             files_in_other_names = []
             for item in files_in_other:
                 if isinstance(item, tuple):
                     files_in_other_names.append(item[0])
                 else:
                     files_in_other_names.append(cast(str, item))
-
             for file_item in sort_files_by_type(files_in_this):
                 file_class = ""
                 if isinstance(file_item, tuple):
@@ -588,32 +479,25 @@ def _export_comparison_to_html(
                     display_name = html.escape(
                         full_path if show_full_path else file_name
                     )
-
                     if file_name not in files_in_other_names:
                         file_class = ' class="file-unique"'
                 else:
                     file_name = cast(str, file_item)
                     display_name = html.escape(file_name)
-
                     if file_name not in files_in_other_names:
                         file_class = ' class="file-unique"'
-
                 html_content.append(
                     f'<li{file_class}><span class="file">📄 {display_name}</span></li>'
                 )
-
         for name, content in sorted(structure.items()):
             if name == "_files" or name == "_max_depth_reached":
                 continue
-
             dir_class = ""
             if name not in other_structure:
                 dir_class = ' class="directory-unique"'
-
             html_content.append(
                 f'<li{dir_class}><span class="directory">📁 {html.escape(name)}</span>'
             )
-
             if isinstance(content, dict) and content.get("_max_depth_reached"):
                 html_content.append(
                     '<ul><li class="max-depth">⋯ (max depth reached)</li></ul>'
@@ -623,9 +507,7 @@ def _export_comparison_to_html(
                 html_content.append(
                     _build_html_tree(content, other_content, is_left_tree)
                 )
-
             html_content.append("</li>")
-
         html_content.append("</ul>")
         return "\n".join(html_content)
 
@@ -635,32 +517,25 @@ def _export_comparison_to_html(
     dir2_path = html.escape(comparison_data["dir2"]["path"])
     dir1_structure = comparison_data["dir1"]["structure"]
     dir2_structure = comparison_data["dir2"]["structure"]
-
     metadata = comparison_data.get("metadata", {})
-
     max_depth_info = ""
     if metadata.get("max_depth", 0) > 0:
         max_depth_info = f'<div class="info-block"><span class="info-label">Max Depth:</span> {metadata["max_depth"]} levels</div>'
-
     path_info = ""
-
     pattern_info_html = ""
     if metadata.get("exclude_patterns") or metadata.get("include_patterns"):
         pattern_type = metadata.get("pattern_type", "glob").capitalize()
         pattern_items = []
-
         if metadata.get("exclude_patterns"):
             patterns = [html.escape(p) for p in metadata.get("exclude_patterns", [])]
             pattern_items.append(
                 f"<dt>Exclude {pattern_type} Patterns:</dt><dd>{', '.join(patterns)}</dd>"
             )
-
         if metadata.get("include_patterns"):
             patterns = [html.escape(p) for p in metadata.get("include_patterns", [])]
             pattern_items.append(
                 f"<dt>Include {pattern_type} Patterns:</dt><dd>{', '.join(patterns)}</dd>"
             )
-
         if pattern_items:
             pattern_info_html = f"""
             <div class="pattern-info">
@@ -670,7 +545,6 @@ def _export_comparison_to_html(
                 </dl>
             </div>
             """
-
     html_template = f"""
     <!DOCTYPE html>
     <html>
@@ -797,6 +671,5 @@ def _export_comparison_to_html(
     </body>
     </html>
     """
-
     with open(output_path, "w", encoding="utf-8") as f:
         f.write(html_template)

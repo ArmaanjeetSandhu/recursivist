@@ -1,3 +1,11 @@
+"""
+Export functionality for the Recursivist directory visualization tool.
+
+This module handles the export of directory structures to various formats including text (ASCII tree), JSON, HTML, Markdown, and JSX (React component).
+
+The DirectoryExporter class provides a unified interface for transforming the directory structure dictionary into different output formats with consistent styling and organization.
+"""
+
 import html
 import json
 import logging
@@ -14,6 +22,8 @@ def sort_files_by_type(
 ) -> List[Union[str, Tuple[str, str]]]:
     """Sort files by extension and then by name.
 
+    Handles mixed input of both strings and tuples, ensuring correct sorting in either case. The extension is the primary sort key, followed by the filename as a secondary key.
+
     Args:
         files: List of filenames or (filename, full_path) tuples to sort
 
@@ -22,10 +32,8 @@ def sort_files_by_type(
     """
     if not files:
         return []
-
     all_tuples = all(isinstance(item, tuple) for item in files)
     all_strings = all(isinstance(item, str) for item in files)
-
     if all_strings:
         files_as_strings = cast(List[str], files)
         return cast(
@@ -47,33 +55,30 @@ def sort_files_by_type(
     else:
         str_items: List[str] = []
         tuple_items: List[Tuple[str, str]] = []
-
         for item in files:
             if isinstance(item, tuple):
                 tuple_items.append(cast(Tuple[str, str], item))
             else:
                 str_items.append(cast(str, item))
-
         sorted_strings = sorted(
             str_items, key=lambda f: (os.path.splitext(f)[1].lower(), f.lower())
         )
         sorted_tuples = sorted(
             tuple_items, key=lambda t: (os.path.splitext(t[0])[1].lower(), t[0].lower())
         )
-
         result: List[Union[str, Tuple[str, str]]] = []
-
         for item in sorted_strings:
             result.append(item)
-
         for item in sorted_tuples:
             result.append(item)
-
         return result
 
 
 class DirectoryExporter:
-    """Handles exporting directory structures to various formats."""
+    """Handles exporting directory structures to various formats.
+
+    Provides a unified interface for transforming directory structures into different output formats with consistent styling and organization. Supports text (ASCII tree), JSON, HTML, Markdown, and JSX (React component).
+    """
 
     def __init__(
         self, structure: Dict[str, Any], root_name: str, base_path: Optional[str] = None
@@ -93,6 +98,8 @@ class DirectoryExporter:
     def to_txt(self, output_path: str) -> None:
         """Export directory structure to a text file with ASCII tree representation.
 
+        Creates a text file containing an ASCII tree representation of the directory structure using standard box-drawing characters and indentation.
+
         Args:
             output_path: Path where the txt file will be saved
         """
@@ -102,7 +109,6 @@ class DirectoryExporter:
         ) -> List[str]:
             lines = []
             items = sorted(structure.items())
-
             for i, (name, content) in enumerate(items):
                 if name == "_files":
                     for file_item in sort_files_by_type(content):
@@ -131,7 +137,6 @@ class DirectoryExporter:
                 self.structure, "", self.root_name if self.show_full_path else ""
             )
         )
-
         try:
             with open(output_path, "w", encoding="utf-8") as f:
                 f.write("\n".join(tree_lines))
@@ -141,6 +146,8 @@ class DirectoryExporter:
 
     def to_json(self, output_path: str) -> None:
         """Export directory structure to a JSON file.
+
+        Creates a JSON file containing the directory structure with options for including full paths. The JSON structure includes a root name and the hierarchical structure of directories and files.
 
         Args:
             output_path: Path where the JSON file will be saved
@@ -163,7 +170,6 @@ class DirectoryExporter:
             export_structure = convert_tuples_to_paths(self.structure)
         else:
             export_structure = self.structure
-
         try:
             with open(output_path, "w", encoding="utf-8") as f:
                 json.dump(
@@ -181,13 +187,14 @@ class DirectoryExporter:
     def to_html(self, output_path: str) -> None:
         """Export directory structure to an HTML file.
 
+        Creates a standalone HTML file with a styled representation of the directory structure using nested unordered lists with CSS styling for colors and indentation.
+
         Args:
             output_path: Path where the HTML file will be saved
         """
 
         def _build_html_tree(structure: Dict[str, Any], path_prefix: str = "") -> str:
             html_content = ["<ul>"]
-
             if "_files" in structure:
                 for file_item in sort_files_by_type(structure["_files"]):
                     if self.show_full_path and isinstance(file_item, tuple):
@@ -200,16 +207,13 @@ class DirectoryExporter:
                         html_content.append(
                             f'<li class="file">📄 {html.escape(filename_str)}</li>'
                         )
-
             for name, content in sorted(structure.items()):
                 if name == "_files" or name == "_max_depth_reached":
                     continue
-
                 html_content.append(
                     f'<li class="directory">📁 <span class="dir-name">{html.escape(name)}</span>'
                 )
                 next_path = os.path.join(path_prefix, name) if path_prefix else name
-
                 if isinstance(content, dict):
                     if content.get("_max_depth_reached"):
                         html_content.append(
@@ -217,9 +221,7 @@ class DirectoryExporter:
                         )
                     else:
                         html_content.append(_build_html_tree(content, next_path))
-
                 html_content.append("</li>")
-
             html_content.append("</ul>")
             return "\n".join(html_content)
 
@@ -264,7 +266,6 @@ class DirectoryExporter:
         </body>
         </html>
         """
-
         try:
             with open(output_path, "w", encoding="utf-8") as f:
                 f.write(html_template)
@@ -275,6 +276,8 @@ class DirectoryExporter:
     def to_markdown(self, output_path: str) -> None:
         """Export directory structure to a Markdown file.
 
+        Creates a Markdown file with a structured representation of the directory hierarchy using headings, lists, and formatting to distinguish between files and directories.
+
         Args:
             output_path: Path where the Markdown file will be saved
         """
@@ -284,7 +287,6 @@ class DirectoryExporter:
         ) -> List[str]:
             lines = []
             indent = "    " * level
-
             if "_files" in structure:
                 for file_item in sort_files_by_type(structure["_files"]):
                     if self.show_full_path and isinstance(file_item, tuple):
@@ -292,30 +294,24 @@ class DirectoryExporter:
                         lines.append(f"{indent}- 📄 `{full_path}`")
                     else:
                         lines.append(f"{indent}- 📄 `{file_item}`")
-
             for name, content in sorted(structure.items()):
                 if name == "_files" or name == "_max_depth_reached":
                     continue
-
                 lines.append(f"{indent}- 📁 **{name}**")
                 next_path = os.path.join(path_prefix, name) if path_prefix else name
-
                 if isinstance(content, dict):
                     if content.get("_max_depth_reached"):
                         lines.append(f"{indent}    - ⋯ *(max depth reached)*")
                     else:
                         lines.extend(_build_md_tree(content, level + 1, next_path))
-
             return lines
 
         md_content = [f"# 📂 {self.root_name}", ""]
-
         md_content.extend(
             _build_md_tree(
                 self.structure, 0, self.root_name if self.show_full_path else ""
             )
         )
-
         try:
             with open(output_path, "w", encoding="utf-8") as f:
                 f.write("\n".join(md_content))
@@ -326,6 +322,8 @@ class DirectoryExporter:
     def to_jsx(self, output_path: str) -> None:
         """Export directory structure to a React component (JSX file).
 
+        Creates a JSX file containing a React component for interactive visualization of the directory structure with collapsible folders and styling.
+
         Args:
             output_path: Path where the React component file will be saved
         """
@@ -335,7 +333,6 @@ class DirectoryExporter:
                 self.root_name,
                 output_path,
                 self.show_full_path,
-                self.base_path,
             )
         except Exception as e:
             logger.error(f"Error exporting to React component: {e}")

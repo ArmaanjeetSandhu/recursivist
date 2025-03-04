@@ -32,28 +32,20 @@ def sample_directory(temp_dir):
     """
     with open(os.path.join(temp_dir, "file1.txt"), "w") as f:
         f.write("Sample content")
-
     with open(os.path.join(temp_dir, "file2.py"), "w") as f:
         f.write("print('Hello, world!')")
-
     with open(os.path.join(temp_dir, ".gitignore"), "w") as f:
         f.write("*.log\nnode_modules/\n")
-
     subdir = os.path.join(temp_dir, "subdir")
     os.makedirs(subdir, exist_ok=True)
-
     with open(os.path.join(subdir, "subfile1.md"), "w") as f:
         f.write("# Markdown file")
-
     with open(os.path.join(subdir, "subfile2.json"), "w") as f:
         f.write('{"key": "value"}')
-
     node_modules = os.path.join(temp_dir, "node_modules")
     os.makedirs(node_modules, exist_ok=True)
-
     with open(os.path.join(node_modules, "package.json"), "w") as f:
         f.write('{"name": "test-package"}')
-
     return temp_dir
 
 
@@ -63,7 +55,6 @@ def sample_with_logs(sample_directory):
     log_file = os.path.join(sample_directory, "app.log")
     with open(log_file, "w") as f:
         f.write("Some log content")
-
     return sample_directory
 
 

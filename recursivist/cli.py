@@ -3,9 +3,18 @@
 Recursivist CLI - A beautiful directory structure visualization tool.
 
 This module provides the command-line interface for the recursivist package,
-allowing users to visualize directory structures and export them in various formats.
-"""
+allowing users to visualize directory structures, export them in various formats,
+compare two directory structures side by side, and handle shell completion.
 
+The CLI is built with Typer and offers rich, colorful output through the Rich library.
+
+Main commands:
+- visualize: Display a directory structure in the terminal
+- export: Export a directory structure to various file formats
+- compare: Compare two directory structures with highlighted differences
+- version: Display the current version information
+- completion: Generate shell completion scripts
+"""
 import logging
 import sys
 from pathlib import Path
@@ -30,7 +39,6 @@ logging.basicConfig(
     handlers=[RichHandler(rich_tracebacks=True)],
 )
 logger = logging.getLogger("recursivist")
-
 app = typer.Typer(
     help="Recursivist: A beautiful directory structure visualization tool",
     add_completion=True,
@@ -43,12 +51,14 @@ def callback():
     """
     Recursivist CLI tool for directory visualization and export.
 
+    This callback provides general information about the available commands in the Recursivist CLI tool.
+
     Commands:
     - visualize: Display a directory structure in the terminal
     - export: Export a directory structure to various file formats
     - compare: Compare two directory structures side by side
     - version: Display the current version
-    - completion: Generate shell completion script
+    - completion: Generate shell completion script for various shells
     """
     pass
 
@@ -56,27 +66,20 @@ def callback():
 def parse_list_option(option_value: Optional[List[str]]) -> List[str]:
     """Parse a list option that may contain space-separated values.
 
-    This allows both multiple uses of the option flag and space-separated values:
-    --exclude dir1 dir2 dir3
-    --exclude dir1 --exclude dir2 --exclude dir3
+    Handles various input formats for CLI options, supporting both:
+    - Multiple uses of the option flag: --exclude dir1 --exclude dir2
+    - Space-separated values with a single flag: --exclude dir1 dir2 dir3
 
-    Also handles file extensions with or without the leading dot:
-    --exclude-ext py pyc log
-    --exclude-ext .py .pyc .log
-
-    And supports multiple export formats:
-    --export txt json md
-    --export txt --export json
+    Also normalizes file extensions with or without leading dots.
 
     Args:
         option_value: List of option values, potentially with space-separated items
 
     Returns:
-        List of individual items
+        List of individual items with each value separated
     """
     if not option_value:
         return []
-
     result = []
     for item in option_value:
         result.extend([x.strip() for x in item.split() if x.strip()])
@@ -134,7 +137,13 @@ def visualize(
     """
     Visualize a directory structure as a tree in the terminal.
 
-    This command displays the directory structure in the terminal.
+    Creates a rich, colorful tree visualization in the terminal with:
+    - Color-coding by file extension
+    - Flexible filtering options (directories, extensions, patterns)
+    - Support for .gitignore files and similar
+    - Depth limitation for large directories
+    - Full path display option
+    - Progress indicators for large directories
 
     Examples:
         recursivist visualize                          # Display current directory
@@ -150,22 +159,17 @@ def visualize(
     if verbose:
         logger.setLevel(logging.DEBUG)
         logger.debug("Verbose mode enabled")
-
     if not directory.exists() or not directory.is_dir():
         logger.error(f"Error: {directory} is not a valid directory")
         raise typer.Exit(1)
-
     if max_depth > 0:
         logger.info(f"Limiting depth to {max_depth} levels")
-
     if show_full_path:
         logger.info("Showing full paths instead of just filenames")
-
     parsed_exclude_dirs = parse_list_option(exclude_dirs)
     parsed_exclude_exts = parse_list_option(exclude_extensions)
     parsed_exclude_patterns = parse_list_option(exclude_patterns)
     parsed_include_patterns = parse_list_option(include_patterns)
-
     exclude_exts_set: Set[str] = set()
     if parsed_exclude_exts:
         exclude_exts_set = {
@@ -173,31 +177,25 @@ def visualize(
             for ext in parsed_exclude_exts
         }
         logger.debug(f"Excluding extensions: {exclude_exts_set}")
-
     if parsed_exclude_dirs:
         logger.debug(f"Excluding directories: {parsed_exclude_dirs}")
-
     if parsed_exclude_patterns:
         pattern_type = "regex" if use_regex else "glob"
         logger.debug(f"Excluding {pattern_type} patterns: {parsed_exclude_patterns}")
-
     if parsed_include_patterns:
         pattern_type = "regex" if use_regex else "glob"
         logger.debug(f"Including {pattern_type} patterns: {parsed_include_patterns}")
-
     if ignore_file:
         ignore_path = directory / ignore_file
         if ignore_path.exists():
             logger.debug(f"Using ignore file: {ignore_path}")
         else:
             logger.warning(f"Ignore file not found: {ignore_path}")
-
     try:
         with Progress() as progress:
             task_scan = progress.add_task(
                 "[cyan]Scanning directory structure...", total=None
             )
-
             if use_regex:
                 compiled_exclude = compile_regex_patterns(
                     parsed_exclude_patterns, use_regex
@@ -212,7 +210,6 @@ def visualize(
                 compiled_include = cast(
                     List[Union[str, Pattern[str]]], parsed_include_patterns
                 )
-
             structure, extensions = get_directory_structure(
                 str(directory),
                 parsed_exclude_dirs,
@@ -223,10 +220,8 @@ def visualize(
                 max_depth=max_depth,
                 show_full_path=show_full_path,
             )
-
             progress.update(task_scan, completed=True)
             logger.debug(f"Found {len(extensions)} unique file extensions")
-
         logger.info("Displaying directory tree:")
         display_tree(
             str(directory),
@@ -239,7 +234,6 @@ def visualize(
             max_depth,
             show_full_path,
         )
-
     except Exception as e:
         logger.error(f"Error: {e}", exc_info=verbose)
         raise typer.Exit(1)
@@ -308,10 +302,15 @@ def export(
     """
     Export a directory structure to various formats without displaying in the terminal.
 
-    This command exports the directory structure to specified formats. You can export to multiple formats at once by providing a space-separated list.
+    Supports multiple export formats simultaneously, with all the same
+    filtering options as the visualization command:
+    - Format options: txt, json, html, md, jsx
+    - Custom output directory and filename prefix
+    - Progress indicators for large directories
+    - Consistent styling across formats
 
     Examples:
-        recursivist export                             # Export current directory to TXT
+        recursivist export                             # Export current directory to MD
         recursivist export /path/to/project            # Export specific directory
         recursivist export -f "json md html"           # Export to multiple formats (quoted)
         recursivist export -f json -f md -f html       # Export to multiple formats (multiple flags)
@@ -327,22 +326,17 @@ def export(
     if verbose:
         logger.setLevel(logging.DEBUG)
         logger.debug("Verbose mode enabled")
-
     if not directory.exists() or not directory.is_dir():
         logger.error(f"Error: {directory} is not a valid directory")
         raise typer.Exit(1)
-
     if max_depth > 0:
         logger.info(f"Limiting depth to {max_depth} levels")
-
     if show_full_path:
         logger.info("Showing full paths instead of just filenames")
-
     parsed_exclude_dirs = parse_list_option(exclude_dirs)
     parsed_exclude_exts = parse_list_option(exclude_extensions)
     parsed_exclude_patterns = parse_list_option(exclude_patterns)
     parsed_include_patterns = parse_list_option(include_patterns)
-
     exclude_exts_set: Set[str] = set()
     if parsed_exclude_exts:
         exclude_exts_set = {
@@ -350,31 +344,25 @@ def export(
             for ext in parsed_exclude_exts
         }
         logger.debug(f"Excluding extensions: {exclude_exts_set}")
-
     if parsed_exclude_dirs:
         logger.debug(f"Excluding directories: {parsed_exclude_dirs}")
-
     if parsed_exclude_patterns:
         pattern_type = "regex" if use_regex else "glob"
         logger.debug(f"Excluding {pattern_type} patterns: {parsed_exclude_patterns}")
-
     if parsed_include_patterns:
         pattern_type = "regex" if use_regex else "glob"
         logger.debug(f"Including {pattern_type} patterns: {parsed_include_patterns}")
-
     if ignore_file:
         ignore_path = directory / ignore_file
         if ignore_path.exists():
             logger.debug(f"Using ignore file: {ignore_path}")
         else:
             logger.warning(f"Ignore file not found: {ignore_path}")
-
     try:
         with Progress() as progress:
             task_scan = progress.add_task(
                 "[cyan]Scanning directory structure...", total=None
             )
-
             if use_regex:
                 compiled_exclude = compile_regex_patterns(
                     parsed_exclude_patterns, use_regex
@@ -389,7 +377,6 @@ def export(
                 compiled_include = cast(
                     List[Union[str, Pattern[str]]], parsed_include_patterns
                 )
-
             structure, extensions = get_directory_structure(
                 str(directory),
                 parsed_exclude_dirs,
@@ -400,34 +387,26 @@ def export(
                 max_depth=max_depth,
                 show_full_path=show_full_path,
             )
-
             progress.update(task_scan, completed=True)
             logger.debug(f"Found {len(extensions)} unique file extensions")
-
         parsed_formats = []
         for fmt in formats:
             parsed_formats.extend([x.strip() for x in fmt.split(" ") if x.strip()])
-
         valid_formats = ["txt", "json", "html", "md", "jsx"]
         invalid_formats = [
             fmt for fmt in parsed_formats if fmt.lower() not in valid_formats
         ]
-
         if invalid_formats:
             logger.error(f"Unsupported export format(s): {', '.join(invalid_formats)}")
             logger.info(f"Supported formats: {', '.join(valid_formats)}")
             raise typer.Exit(1)
-
         if output_dir:
             output_dir.mkdir(parents=True, exist_ok=True)
         else:
             output_dir = Path(".")
-
         logger.info(f"Exporting to {len(parsed_formats)} format(s)")
-
         for fmt in parsed_formats:
             output_path = output_dir / f"{output_prefix}.{fmt.lower()}"
-
             try:
                 export_structure(
                     structure,
@@ -439,7 +418,6 @@ def export(
                 logger.info(f"Successfully exported to {output_path}")
             except Exception as e:
                 logger.error(f"Failed to export to {fmt}: {e}")
-
     except Exception as e:
         logger.error(f"Error: {e}", exc_info=verbose)
         raise typer.Exit(1)
@@ -452,8 +430,16 @@ def completion(
     """
     Generate shell completion script.
 
-    This command outputs a shell script that can be sourced to enable
-    command completion for the recursivist CLI.
+    Creates a shell-specific script that enables command completion for the recursivist CLI. The output script can be sourced to provide tab completion for commands, options, and arguments.
+
+    Supported shells:
+    - bash: Bash shell completion
+    - zsh: Z shell completion
+    - fish: Fish shell completion
+    - powershell: PowerShell completion
+
+    Args:
+        shell: Shell type to generate completion for ('bash', 'zsh', 'fish', 'powershell')
     """
     try:
         valid_shells = ["bash", "zsh", "fish", "powershell"]
@@ -461,7 +447,6 @@ def completion(
             logger.error(f"Unsupported shell: {shell}")
             logger.info(f"Supported shells: {', '.join(valid_shells)}")
             raise typer.Exit(1)
-
         completion_script = ""
         if shell == "bash":
             completion_script = f'eval "$({sys.argv[0]} --completion-script bash)"'
@@ -471,7 +456,6 @@ def completion(
             completion_script = f"{sys.argv[0]} --completion-script fish | source"
         elif shell == "powershell":
             completion_script = f"& {sys.argv[0]} --completion-script powershell | Out-String | Invoke-Expression"
-
         typer.echo(completion_script)
         logger.info(f"Generated completion script for {shell}")
     except Exception as e:
@@ -481,7 +465,10 @@ def completion(
 
 @app.command()
 def version():
-    """Display the current version of recursivist."""
+    """Display the current version of recursivist.
+
+    Reads and outputs the version information from the package metadata.
+    """
     from recursivist import __version__
 
     typer.echo(f"Recursivist version: {__version__}")
@@ -539,11 +526,11 @@ def compare(
     max_depth: int = typer.Option(
         0, "--depth", "-d", help="Maximum depth to display (0 for unlimited)"
     ),
-    save_formats: Optional[List[str]] = typer.Option(
-        None,
-        "--save-as",
+    save_as_html: bool = typer.Option(
+        False,
+        "--save",
         "-f",
-        help="Save comparison as format (space-separated or multiple flags): txt, html. When this option is used, the comparison will only be exported and not displayed in the terminal.",
+        help="Save comparison as HTML file instead of displaying in terminal",
     ),
     output_dir: Optional[Path] = typer.Option(
         None,
@@ -564,9 +551,11 @@ def compare(
     """
     Compare two directory structures side by side.
 
-    This command compares two directories and displays their structures side by side,
-    highlighting the differences between them. Files and directories that exist only
-    in one of the structures are highlighted.
+    Creates a side-by-side comparison of two directory structures with:
+    - Color highlighting for items unique to each directory
+    - Same filtering options as visualization (dirs, extensions, patterns)
+    - Optional export to HTML for better sharing and viewing
+    - Visual legend explaining the highlighting
 
     Examples:
         recursivist compare dir1 dir2                   # Compare two directories
@@ -577,27 +566,22 @@ def compare(
         recursivist compare dir1 dir2 -i "src/*"        # Include only src directory
         recursivist compare dir1 dir2 -d 2              # Limit directory depth to 2 levels
         recursivist compare dir1 dir2 -l                # Show full paths instead of just filenames
-        recursivist compare dir1 dir2 -f txt html       # Export comparison
+        recursivist compare dir1 dir2 -f                # Export comparison to HTML
     """
     if verbose:
         logger.setLevel(logging.DEBUG)
         logger.debug("Verbose mode enabled")
-
     from recursivist.compare import display_comparison, export_comparison
 
     logger.info(f"Comparing directories: {dir1} and {dir2}")
-
     if max_depth > 0:
         logger.info(f"Limiting depth to {max_depth} levels")
-
     if show_full_path:
         logger.info("Showing full paths instead of just filenames")
-
     parsed_exclude_dirs = parse_list_option(exclude_dirs)
     parsed_exclude_exts = parse_list_option(exclude_extensions)
     parsed_exclude_patterns = parse_list_option(exclude_patterns)
     parsed_include_patterns = parse_list_option(include_patterns)
-
     exclude_exts_set: Set[str] = set()
     if parsed_exclude_exts:
         exclude_exts_set = {
@@ -605,18 +589,14 @@ def compare(
             for ext in parsed_exclude_exts
         }
         logger.debug(f"Excluding extensions: {exclude_exts_set}")
-
     if parsed_exclude_dirs:
         logger.debug(f"Excluding directories: {parsed_exclude_dirs}")
-
     if parsed_exclude_patterns:
         pattern_type = "regex" if use_regex else "glob"
         logger.debug(f"Excluding {pattern_type} patterns: {parsed_exclude_patterns}")
-
     if parsed_include_patterns:
         pattern_type = "regex" if use_regex else "glob"
         logger.debug(f"Including {pattern_type} patterns: {parsed_include_patterns}")
-
     if ignore_file:
         for d in [dir1, dir2]:
             ignore_path = d / ignore_file
@@ -624,53 +604,33 @@ def compare(
                 logger.debug(f"Using ignore file from {d}: {ignore_path}")
             else:
                 logger.warning(f"Ignore file not found in {d}: {ignore_path}")
-
     try:
         actual_ignore_file = "" if ignore_file is None else ignore_file
-
-        if save_formats:
-            parsed_formats = parse_list_option(save_formats)
-            valid_formats = ["txt", "html"]
-
-            invalid_formats = [
-                fmt for fmt in parsed_formats if fmt.lower() not in valid_formats
-            ]
-            if invalid_formats:
-                logger.error(
-                    f"Unsupported export format(s): {', '.join(invalid_formats)}"
-                )
-                logger.info(f"Supported formats: {', '.join(valid_formats)}")
-                raise typer.Exit(1)
-
+        if save_as_html:
             if output_dir:
                 output_dir.mkdir(parents=True, exist_ok=True)
             else:
                 output_dir = Path(".")
-
-            logger.info(f"Exporting comparison to {len(parsed_formats)} format(s)")
-
-            for fmt in parsed_formats:
-                output_path = output_dir / f"{output_prefix}.{fmt.lower()}"
-
-                try:
-                    export_comparison(
-                        str(dir1),
-                        str(dir2),
-                        fmt.lower(),
-                        str(output_path),
-                        parsed_exclude_dirs,
-                        actual_ignore_file,
-                        exclude_exts_set,
-                        exclude_patterns=parsed_exclude_patterns,
-                        include_patterns=parsed_include_patterns,
-                        use_regex=use_regex,
-                        max_depth=max_depth,
-                        show_full_path=show_full_path,
-                    )
-                    logger.info(f"Successfully exported to {output_path}")
-                except Exception as e:
-                    logger.error(f"Failed to export to {fmt}: {e}")
-
+            logger.info("Exporting comparison to HTML format")
+            output_path = output_dir / f"{output_prefix}.html"
+            try:
+                export_comparison(
+                    str(dir1),
+                    str(dir2),
+                    "html",
+                    str(output_path),
+                    parsed_exclude_dirs,
+                    actual_ignore_file,
+                    exclude_exts_set,
+                    exclude_patterns=parsed_exclude_patterns,
+                    include_patterns=parsed_include_patterns,
+                    use_regex=use_regex,
+                    max_depth=max_depth,
+                    show_full_path=show_full_path,
+                )
+                logger.info(f"Successfully exported to {output_path}")
+            except Exception as e:
+                logger.error(f"Failed to export to HTML: {e}")
         else:
             display_comparison(
                 str(dir1),
@@ -684,14 +644,17 @@ def compare(
                 max_depth=max_depth,
                 show_full_path=show_full_path,
             )
-
     except Exception as e:
         logger.error(f"Error: {e}", exc_info=verbose)
         raise typer.Exit(1)
 
 
 def main():
-    """Entry point for the CLI."""
+    """Entry point for the CLI.
+
+    Invokes the Typer application to process command-line arguments
+    and execute the appropriate command.
+    """
     app()
 
 
