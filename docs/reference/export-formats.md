@@ -88,17 +88,13 @@ The JSON format provides a structured representation that can be easily parsed b
 {
   "root": "my-project",
   "structure": {
+    "_files": ["README.md", "requirements.txt", "setup.py"],
     "src": {
-      "main.py": null,
-      "utils.py": null,
+      "_files": ["main.py", "utils.py"],
       "tests": {
-        "test_main.py": null,
-        "test_utils.py": null
+        "_files": ["test_main.py", "test_utils.py"]
       }
-    },
-    "README.md": null,
-    "requirements.txt": null,
-    "setup.py": null
+    }
   }
 }
 ```
