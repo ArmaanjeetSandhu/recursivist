@@ -1,0 +1,149 @@
+site_name: Recursivist
+site_description: A beautiful directory structure visualization tool
+site_author: Armaanjeet Singh Sandhu
+repo_url: https://github.com/ArmaanjeetSandhu/recursivist
+repo_name: recursivist
+
+theme:
+  name: material
+  logo: assets/images/logo.svg
+  favicon: assets/images/logo.svg
+  icon:
+    repo: fontawesome/brands/github
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.path
+    - navigation.top
+    - navigation.tracking
+    - navigation.indexes
+    - search.suggest
+    - search.highlight
+    - search.share
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+    - content.tooltips
+    - header.autohide
+    - announce.dismiss
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: pink
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: pink
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+
+extra:
+  homepage: true
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/ArmaanjeetSandhu
+    - icon: fontawesome/brands/linkedin
+      link: https://linkedin.com/in/armaanjeetsandhu
+  version:
+    provider: mike
+  consent:
+    title: Cookie consent
+    description: >-
+      We use cookies to recognize your repeated visits and preferences, as well
+      as to measure the effectiveness of our documentation.
+
+markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - toc:
+      permalink: true
+
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.betterem:
+      smart_enable: all
+  - pymdownx.caret
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.magiclink:
+      repo_url_shorthand: true
+      user: ArmaanjeetSandhu
+      repo: recursivist
+  - pymdownx.mark
+  - pymdownx.smartsymbols
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tilde
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [.]
+          options:
+            show_source: true
+            show_root_heading: true
+  - minify:
+      minify_html: true
+  - glightbox
+  - tags
+
+extra_css:
+  - assets/css/extra.css
+
+extra_javascript:
+  - assets/js/extra.js
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Installation: getting-started/installation.md
+      - Quick Start: getting-started/quick-start.md
+  - User Guide:
+      - Basic Usage: user-guide/basic-usage.md
+      - Visualization: user-guide/visualization.md
+      - Export: user-guide/export.md
+      - Compare: user-guide/compare.md
+      - Pattern Filtering: user-guide/pattern-filtering.md
+      - Shell Completion: user-guide/shell-completion.md
+  - Reference:
+      - CLI Reference: reference/cli-reference.md
+      - API Reference: reference/api-reference.md
+      - Export Formats: reference/export-formats.md
+      - Pattern Matching: reference/pattern-matching.md
+  - Examples:
+      - Basic Examples: examples/basic.md
+      - Filtering Examples: examples/filtering.md
+      - Export Examples: examples/export.md
+      - Compare Examples: examples/compare.md
+      - Advanced Examples: examples/advanced.md
+  - Advanced:
+      - Integration: advanced/integration.md
+      - Development: advanced/development.md
+      - Testing: advanced/testing.md
+  - Contributing: contributing.md

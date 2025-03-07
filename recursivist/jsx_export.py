@@ -1,8 +1,7 @@
 """
 React component export functionality for the Recursivist directory visualization tool.
 
-This module generates a JSX file with a sophisticated, interactive directory viewer component
-with properly functioning folder toggling and breadcrumbs navigation.
+This module generates a JSX file with a sophisticated, interactive directory viewer component with properly functioning folder toggling and breadcrumbs navigation.
 """
 
 import html
@@ -39,7 +38,6 @@ def generate_jsx_component(
     ) -> str:
         jsx_content = []
 
-        # Process directories first
         for name, content in sorted(
             [
                 (k, v)
@@ -48,11 +46,9 @@ def generate_jsx_component(
             ],
             key=lambda x: x[0].lower(),
         ):
-            # Track the current path for this folder
             current_path = f"{path_prefix}/{name}" if path_prefix else name
             path_parts = current_path.split("/") if current_path else [name]
 
-            # Handle the case when root is already included
             if path_parts[0] == root_name and len(path_parts) > 1:
                 path_parts = [root_name] + [p for p in path_parts[1:] if p]
             else:
@@ -86,7 +82,6 @@ def generate_jsx_component(
                     )
             jsx_content.append("</DirectoryItem>")
 
-        # Process files
         if "_files" in structure:
             files = structure["_files"]
             for file_item in sorted(
@@ -96,10 +91,8 @@ def generate_jsx_component(
                     file_name, full_path = file_item
                     display_path = html.escape(full_path)
 
-                    # Fix path parts construction
                     if path_prefix:
                         path_parts = path_prefix.split("/")
-                        # Handle the case when root is already included
                         if path_parts and path_parts[0] == root_name:
                             path_parts = [root_name] + [p for p in path_parts[1:] if p]
                         else:
@@ -107,7 +100,7 @@ def generate_jsx_component(
                             if not path_parts or path_parts[0] != root_name:
                                 path_parts = [root_name] + path_parts
                     else:
-                        path_parts = [root_name]  # Ensure root is always included
+                        path_parts = [root_name]
 
                     path_parts.append(file_name)
                 else:
@@ -116,10 +109,8 @@ def generate_jsx_component(
                         file_name = file_name[0]
                     display_path = html.escape(file_name)
 
-                    # Fix path parts construction
                     if path_prefix:
                         path_parts = path_prefix.split("/")
-                        # Handle the case when root is already included
                         if path_parts and path_parts[0] == root_name:
                             path_parts = [root_name] + [p for p in path_parts[1:] if p]
                         else:
@@ -127,7 +118,7 @@ def generate_jsx_component(
                             if not path_parts or path_parts[0] != root_name:
                                 path_parts = [root_name] + path_parts
                     else:
-                        path_parts = [root_name]  # Ensure root is always included
+                        path_parts = [root_name]
 
                     path_parts.append(file_name)
 
