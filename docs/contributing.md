@@ -1,170 +1,308 @@
 # Contributing to Recursivist
 
-Thank you for your interest in contributing to Recursivist! This document provides guidelines and instructions for contributing.
+Thank you for your interest in contributing to Recursivist! This document provides guidelines and instructions for contributing to this project.
+
+## Table of Contents
+
+- [Code of Conduct](#code-of-conduct)
+- [Getting Started](#getting-started)
+  - [Setting Up Your Development Environment](#setting-up-your-development-environment)
+  - [Understanding the Project Structure](#understanding-the-project-structure)
+- [Development Workflow](#development-workflow)
+  - [Creating a Branch](#creating-a-branch)
+  - [Making Changes](#making-changes)
+  - [Testing Your Changes](#testing-your-changes)
+  - [Submitting a Pull Request](#submitting-a-pull-request)
+- [Coding Standards](#coding-standards)
+  - [Code Style](#code-style)
+  - [Documentation](#documentation)
+  - [Type Annotations](#type-annotations)
+- [Testing](#testing)
+  - [Running Tests](#running-tests)
+  - [Writing Tests](#writing-tests)
+- [Bug Reports and Feature Requests](#bug-reports-and-feature-requests)
+  - [Reporting Bugs](#reporting-bugs)
+  - [Suggesting Features](#suggesting-features)
+- [Release Process](#release-process)
+- [Community](#community)
 
 ## Code of Conduct
 
-Please be respectful and considerate of others when contributing to this project.
+By participating in this project, you agree to abide by our Code of Conduct. Please be respectful, inclusive, and considerate when interacting with other contributors.
 
 ## Getting Started
 
-### Development Environment
+### Setting Up Your Development Environment
 
-1. Fork the repository on GitHub
-2. Clone your fork locally:
+1. **Fork the repository**:
+
+   - Visit the [Recursivist repository](https://github.com/ArmaanjeetSandhu/recursivist) and click the "Fork" button to create your own copy.
+
+2. **Clone your fork**:
+
    ```bash
-   git clone https://github.com/your-username/recursivist.git
+   git clone https://github.com/ArmaanjeetSandhu/recursivist.git
    cd recursivist
    ```
-3. Create a virtual environment and install development dependencies:
+
+3. **Set up the upstream remote**:
+
+   ```bash
+   git remote add upstream https://github.com/ArmaanjeetSandhu/recursivist.git
+   ```
+
+4. **Create a virtual environment**:
+
    ```bash
    python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+   # Activate the virtual environment
+   # On Windows
+   venv\Scripts\activate
+   # On macOS/Linux
+   source venv/bin/activate
+   ```
+
+5. **Install development dependencies**:
+   ```bash
    pip install -e ".[dev]"
    ```
 
-This installs Recursivist in development mode, along with all the development tools.
+## Development Workflow
 
-### Running Tests
+### Creating a Branch
 
-Recursivist uses pytest for testing. To run all tests:
+1. **Make sure your fork is up to date**:
 
-```bash
-pytest
-```
+   ```bash
+   git checkout main
+   git pull upstream main
+   git push origin main
+   ```
 
-To run specific test files:
-
-```bash
-# Run only core tests
-pytest test_core.py
-
-# Run only export tests
-pytest test_exports.py
-```
-
-To generate a test coverage report:
-
-```bash
-pytest --cov=recursivist --cov-report=html
-```
-
-This creates an HTML coverage report in the `htmlcov` directory.
-
-## Making Changes
-
-### Branching Strategy
-
-1. Create a new branch for your changes:
+2. **Create a new branch for your feature or bugfix**:
    ```bash
    git checkout -b feature/your-feature-name
+   # or
+   git checkout -b fix/issue-description
    ```
-2. Make your changes and commit them with descriptive commit messages
-3. Push your branch to your fork:
+
+### Making Changes
+
+1. **Make your changes** to the codebase according to our [coding standards](#coding-standards).
+
+2. **Commit your changes** with clear and descriptive commit messages:
+
    ```bash
-   git push origin feature/your-feature-name
+   git add .
+   git commit -m "Add feature: description of what you added"
    ```
 
-### Style Guidelines
+3. **Keep your branch updated** with the upstream repository:
+   ```bash
+   git pull upstream main
+   ```
 
-Recursivist follows PEP 8 style guidelines for Python code. We use:
+### Testing Your Changes
 
-- Black for code formatting
-- Flake8 for linting
-- MyPy for type checking
-
-You can check your code style with:
-
-```bash
-# Format code
-black recursivist tests
-
-# Check style
-flake8 recursivist tests
-
-# Check types
-mypy recursivist
-```
-
-### Documentation
-
-When adding new features, please update the documentation accordingly:
-
-- Add docstrings to new functions and classes following Google-style format
-- Update command-line help text if you modify the CLI
-- Update the README if necessary
-- Consider adding examples for new features
-
-## Submitting Changes
-
-1. Make sure all tests pass:
+1. **Run the tests** to make sure your changes don't break existing functionality:
 
    ```bash
    pytest
    ```
 
-2. Push your changes to your fork:
+2. **Test the CLI** to verify it works as expected:
+   ```bash
+   python -m recursivist --help
+   ```
+
+### Submitting a Pull Request
+
+1. **Push your branch** to your fork:
 
    ```bash
    git push origin feature/your-feature-name
    ```
 
-3. Create a pull request on GitHub from your fork to the main repository
+2. **Create a Pull Request** from your fork to the main repository:
 
-4. In your pull request description, explain:
-   - What problems your changes solve
-   - How your changes address these problems
-   - Any additional context that might be helpful for review
+   - Go to the [Recursivist repository](https://github.com/ArmaanjeetSandhu/recursivist)
+   - Click "Pull Requests" > "New Pull Request"
+   - Select "compare across forks" and choose your fork and branch
+   - Click "Create Pull Request"
 
-## Pull Request Process
+3. **Describe your changes** in the PR:
 
-1. Ensure your code includes appropriate tests and documentation
-2. Update the README.md if needed, including examples for new features
-3. The pull request will be reviewed by maintainers, who may suggest changes
-4. Once approved, your pull request will be merged
+   - What problem does it solve?
+   - How can it be tested?
+   - Any dependencies or breaking changes?
 
-## Adding a New Feature
+4. **Address review feedback** if requested by maintainers.
 
-If you're adding a new feature to Recursivist:
+## Coding Standards
 
-1. First, open an issue to discuss the feature
-2. Once the feature is approved, create a branch and implement it
-3. Write tests to cover the new functionality
-4. Update documentation to explain the new feature
-5. Submit a pull request
+### Code Style
 
-## Reporting Bugs
+We follow PEP 8 and use the following tools to maintain code quality:
 
-If you find a bug in Recursivist:
+- **Black** for code formatting:
 
-1. Check if the bug has already been reported in the GitHub Issues
-2. If not, create a new issue with:
-   - A clear title that summarizes the issue
-   - A detailed description of the bug
-   - Steps to reproduce it
-   - Expected behavior
-   - Actual behavior
-   - Your environment (Python version, OS, etc.)
-   - If possible, a minimal code example that reproduces the issue
+  ```bash
+  pip install black
+  black recursivist/
+  ```
 
-## Feature Requests
+- **Flake8** for linting:
 
-If you have an idea for a new feature:
+  ```bash
+  pip install flake8
+  flake8 recursivist/
+  ```
 
-1. Check if the feature has already been requested in the GitHub Issues
-2. If not, create a new issue with:
-   - A clear title that summarizes the feature
-   - A detailed description of the feature
-   - Examples of how it would be used
-   - Any relevant context or use cases
+- **isort** for import sorting:
 
-## Questions and Feedback
+  ```bash
+  pip install isort
+  isort recursivist/
+  ```
 
-If you have questions or feedback:
+- **mypy** for type checking:
 
-- For general questions, create a GitHub Discussion
-- For specific issues, create a GitHub Issue
+  ```bash
+  pip install mypy
+  mypy recursivist/
+  ```
 
-## License
+### Documentation
 
-By contributing to Recursivist, you agree that your contributions will be licensed under the project's MIT License.
+- Write docstrings for all public modules, functions, classes, and methods.
+- Follow the Google docstring style as shown in existing code.
+
+Example docstring:
+
+```python
+def function(arg1: str, arg2: int) -> bool:
+    """A short description of the function.
+
+    A more detailed description explaining the behavior, edge cases, and implementation details if relevant.
+
+    Args:
+        arg1: Description of the first argument
+        arg2: Description of the second argument
+
+    Returns:
+        Description of the return value
+
+    Raises:
+        ValueError: When the input is invalid
+    """
+```
+
+### Type Annotations
+
+We use Python type hints for better code quality and IDE support:
+
+```python
+from typing import Dict, List, Optional, Set
+
+def process_data(data: Dict[str, List[str]],
+                 options: Optional[Set[str]] = None) -> bool:
+    # Function implementation
+    return True
+```
+
+## Testing
+
+### Running Tests
+
+We use pytest for testing:
+
+```bash
+# Run all tests
+pytest
+
+# Run with coverage report
+pytest --cov=recursivist
+
+# Run tests from a specific file
+pytest tests/test_core.py
+```
+
+### Writing Tests
+
+- Write tests for all new features and bug fixes.
+- Place tests in the `tests/` directory with a name that matches the module being tested.
+- Follow the test style used in existing tests.
+
+Example test:
+
+```python
+# tests/test_core.py
+from recursivist.core import generate_color_for_extension
+
+def test_generate_color_for_extension():
+    # Given
+    extension = ".py"
+
+    # When
+    color = generate_color_for_extension(extension)
+
+    # Then
+    assert isinstance(color, str)
+    assert color.startswith("#")
+    assert len(color) == 7
+```
+
+## Bug Reports and Feature Requests
+
+### Reporting Bugs
+
+Please report bugs by opening an issue on GitHub with the following information:
+
+- A clear and descriptive title
+- Steps to reproduce the issue
+- Expected behavior
+- Actual behavior
+- Environment details (OS, Python version, etc.)
+- Any relevant logs or screenshots
+
+### Suggesting Features
+
+We welcome feature requests! Please open an issue with:
+
+- A clear and descriptive title
+- A detailed description of the proposed feature
+- Any relevant examples or use cases
+- Information about why this feature would be useful
+
+## Release Process
+
+1. **Version bump**:
+
+   - Update version in `__init__.py` and `pyproject.toml`
+   - Update the changelog
+
+2. **Create a release commit**:
+
+   ```bash
+   git add .
+   git commit -m "Release v0.2.0"
+   git tag v0.2.0
+   git push origin main --tags
+   ```
+
+3. **Build and publish**:
+   ```bash
+   python -m build
+   python -m twine upload dist/*
+   ```
+
+## Community
+
+- **GitHub Discussions**: Use this for questions and general discussion.
+- **Issues**: Bug reports and feature requests.
+- **Pull Requests**: Submit changes to the codebase.
+
+---
+
+Thank you for contributing to Recursivist! Your efforts help make this project better for everyone.
