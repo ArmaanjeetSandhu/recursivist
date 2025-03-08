@@ -34,6 +34,7 @@ def export_structure(
     output_path: str,
     show_full_path: bool = False,
     sort_by_loc: bool = False,
+    sort_by_size: bool = False,
 ) -> None:
     """Export the directory structure to various formats.
 
@@ -46,6 +47,7 @@ def export_structure(
         output_path: Path where the export file will be saved
         show_full_path: Whether to show full paths instead of just filenames
         sort_by_loc: Whether to include lines of code counts in the export
+        sort_by_size: Whether to include file size information in the export
 
     Raises:
         ValueError: If the format_type is not supported
@@ -57,6 +59,7 @@ def export_structure(
         os.path.basename(root_dir),
         root_dir if show_full_path else None,
         sort_by_loc,
+        sort_by_size,
     )
     format_map = {
         "txt": exporter.to_txt,
@@ -231,10 +234,13 @@ def get_directory_structure(
     current_path: str = "",
     show_full_path: bool = False,
     sort_by_loc: bool = False,
+    sort_by_size: bool = False,
 ) -> Tuple[Dict[str, Any], Set[str]]:
     """Build a nested dictionary representing the directory structure.
 
-    Recursively traverses the file system starting at root_dir, applying filters and building a structured representation. When sort_by_loc is True, calculates lines of code for files and directories.
+    Recursively traverses the file system starting at root_dir, applying filters and building a structured representation.
+    When sort_by_loc is True, calculates lines of code for files and directories.
+    When sort_by_size is True, calculates file sizes for files and directories.
 
     Args:
         root_dir: Root directory path to start from
@@ -249,6 +255,7 @@ def get_directory_structure(
         current_path: Current path for full path display
         show_full_path: Whether to show full paths instead of just filenames
         sort_by_loc: Whether to calculate and display lines of code counts
+        sort_by_size: Whether to calculate and display file sizes
 
     Returns:
         Tuple of (structure dictionary, set of extensions found)
@@ -269,6 +276,7 @@ def get_directory_structure(
     structure: Dict[str, Any] = {}
     extensions_set: Set[str] = set()
     total_loc = 0
+    total_size = 0
     if max_depth > 0 and current_depth >= max_depth:
         return {"_max_depth_reached": True}, extensions_set
     try:
@@ -295,19 +303,33 @@ def get_directory_structure(
                 if "_files" not in structure:
                     structure["_files"] = []
                 file_loc = 0
+                file_size = 0
                 if sort_by_loc:
                     file_loc = count_lines_of_code(item_path)
                     total_loc += file_loc
+                if sort_by_size:
+                    file_size = get_file_size(item_path)
+                    total_size += file_size
                 if show_full_path:
                     abs_path = os.path.abspath(item_path)
                     abs_path = abs_path.replace(os.sep, "/")
-                    if sort_by_loc:
+                    if sort_by_loc and sort_by_size:
+                        structure["_files"].append(
+                            (item, abs_path, file_loc, file_size)
+                        )
+                    elif sort_by_loc:
                         structure["_files"].append((item, abs_path, file_loc))
+                    elif sort_by_size:
+                        structure["_files"].append((item, abs_path, file_size))
                     else:
                         structure["_files"].append((item, abs_path))
                 else:
-                    if sort_by_loc:
+                    if sort_by_loc and sort_by_size:
+                        structure["_files"].append((item, item, file_loc, file_size))
+                    elif sort_by_loc:
                         structure["_files"].append((item, item, file_loc))
+                    elif sort_by_size:
+                        structure["_files"].append((item, item, file_size))
                     else:
                         structure["_files"].append(item)
                 if ext:
@@ -337,44 +359,68 @@ def get_directory_structure(
                 next_path,
                 show_full_path,
                 sort_by_loc,
+                sort_by_size,
             )
             structure[item] = substructure
             extensions_set.update(sub_extensions)
             if sort_by_loc and "_loc" in substructure:
                 total_loc += substructure["_loc"]
+            if sort_by_size and "_size" in substructure:
+                total_size += substructure["_size"]
     if sort_by_loc:
         structure["_loc"] = total_loc
+    if sort_by_size:
+        structure["_size"] = total_size
     return structure, extensions_set
 
 
 def sort_files_by_type(
-    files: List[Union[str, Tuple[str, str], Tuple[str, str, int]]],
+    files: List[
+        Union[str, Tuple[str, str], Tuple[str, str, int], Tuple[str, str, int, int]]
+    ],
     sort_by_loc: bool = False,
-) -> List[Union[str, Tuple[str, str], Tuple[str, str, int]]]:
-    """Sort files by extension and then by name, or by LOC if requested.
-
-    Handles mixed input of both strings and tuples, ensuring correct sorting in either case. When sort_by_loc is True, files are sorted by lines of code (descending).
-
-    Args:
-        files: List of filenames or tuples to sort
-        sort_by_loc: Whether to sort by lines of code instead of file type
-
-    Returns:
-        Sorted list of filenames or tuples
-    """
+    sort_by_size: bool = False,
+) -> List[Union[str, Tuple[str, str], Tuple[str, str, int], Tuple[str, str, int, int]]]:
+    """Sort files by extension and then by name, or by LOC/size if requested."""
     if not files:
         return []
     has_loc = any(isinstance(item, tuple) and len(item) > 2 for item in files)
-    if sort_by_loc and has_loc:
-        return sorted(
-            files, key=lambda f: (-(f[2] if isinstance(f, tuple) and len(f) > 2 else 0))
-        )
+    has_size = any(isinstance(item, tuple) and len(item) > 3 for item in files)
+    has_simple_size = sort_by_size and not sort_by_loc and has_loc
+
+    def get_size(item):
+        if not isinstance(item, tuple):
+            return 0
+        if len(item) > 3:
+            return item[3]
+        elif sort_by_size and not sort_by_loc and len(item) > 2:
+            return item[2]
+        return 0
+
+    def get_loc(item):
+        if not isinstance(item, tuple) or len(item) <= 2:
+            return 0
+        return item[2]
+
+    if sort_by_size and sort_by_loc and (has_size or has_simple_size) and has_loc:
+        return sorted(files, key=lambda f: (-get_size(f), -get_loc(f)))
+    elif sort_by_size and (has_size or has_simple_size):
+        return sorted(files, key=lambda f: (-get_size(f)))
+    elif sort_by_loc and has_loc:
+        return sorted(files, key=lambda f: (-get_loc(f)))
     all_tuples = all(isinstance(item, tuple) for item in files)
     all_strings = all(isinstance(item, str) for item in files)
     if all_strings:
         files_as_strings = cast(List[str], files)
         return cast(
-            List[Union[str, Tuple[str, str], Tuple[str, str, int]]],
+            List[
+                Union[
+                    str,
+                    Tuple[str, str],
+                    Tuple[str, str, int],
+                    Tuple[str, str, int, int],
+                ]
+            ],
             sorted(
                 files_as_strings,
                 key=lambda f: (os.path.splitext(f)[1].lower(), f.lower()),
@@ -387,7 +433,9 @@ def sort_files_by_type(
         )
     else:
         str_items: List[str] = []
-        tuple_items: List[Union[Tuple[str, str], Tuple[str, str, int]]] = []
+        tuple_items: List[
+            Union[Tuple[str, str], Tuple[str, str, int], Tuple[str, str, int, int]]
+        ] = []
         for item in files:
             if isinstance(item, tuple):
                 tuple_items.append(item)
@@ -399,7 +447,9 @@ def sort_files_by_type(
         sorted_tuples = sorted(
             tuple_items, key=lambda t: (os.path.splitext(t[0])[1].lower(), t[0].lower())
         )
-        result: List[Union[str, Tuple[str, str], Tuple[str, str, int]]] = []
+        result: List[
+            Union[str, Tuple[str, str], Tuple[str, str, int], Tuple[str, str, int, int]]
+        ] = []
         result.extend(sorted_strings)
         result.extend(sorted_tuples)
         return result
@@ -412,10 +462,13 @@ def build_tree(
     parent_name: str = "Root",
     show_full_path: bool = False,
     sort_by_loc: bool = False,
+    sort_by_size: bool = False,
 ) -> None:
     """Build the tree structure with colored file names.
 
-    Recursively builds a rich.Tree representation of the directory structure with files color-coded by extension. When sort_by_loc is True, displays lines of code counts for files and directories.
+    Recursively builds a rich.Tree representation of the directory structure with files color-coded by extension.
+    When sort_by_loc is True, displays lines of code counts for files and directories.
+    When sort_by_size is True, displays file sizes for files and directories.
 
     Args:
         structure: Dictionary representation of the directory structure
@@ -424,18 +477,53 @@ def build_tree(
         parent_name: Name of the parent directory
         show_full_path: Whether to show full paths instead of just filenames
         sort_by_loc: Whether to display lines of code counts
+        sort_by_size: Whether to display file sizes
     """
     for folder, content in sorted(structure.items()):
         if folder == "_files":
-            for file_item in sort_files_by_type(content, sort_by_loc):
-                if sort_by_loc and isinstance(file_item, tuple) and len(file_item) > 2:
-                    file_name, display_path, loc = file_item
+            for file_item in sort_files_by_type(content, sort_by_loc, sort_by_size):
+                if (
+                    sort_by_loc
+                    and sort_by_size
+                    and isinstance(file_item, tuple)
+                    and len(file_item) > 3
+                ):
+                    file_name, display_path, loc, size = file_item
+                    ext = os.path.splitext(file_name)[1].lower()
+                    color = color_map.get(ext, "#FFFFFF")
+                    colored_text = Text(
+                        f"📄 {display_path} ({loc} lines, {format_size(size)})",
+                        style=color,
+                    )
+                    tree.add(colored_text)
+                elif (
+                    sort_by_size and isinstance(file_item, tuple) and len(file_item) > 2
+                ):
+                    if len(file_item) > 3:
+                        file_name, display_path, _, size = file_item
+                    else:
+                        file_name, display_path, size = file_item
+                    ext = os.path.splitext(file_name)[1].lower()
+                    color = color_map.get(ext, "#FFFFFF")
+                    colored_text = Text(
+                        f"📄 {display_path} ({format_size(size)})", style=color
+                    )
+                    tree.add(colored_text)
+                elif (
+                    sort_by_loc and isinstance(file_item, tuple) and len(file_item) > 2
+                ):
+                    if len(file_item) > 3:
+                        file_name, display_path, loc, _ = file_item
+                    else:
+                        file_name, display_path, loc = file_item
                     ext = os.path.splitext(file_name)[1].lower()
                     color = color_map.get(ext, "#FFFFFF")
                     colored_text = Text(f"📄 {display_path} ({loc} lines)", style=color)
                     tree.add(colored_text)
                 elif show_full_path and isinstance(file_item, tuple):
-                    if len(file_item) > 2:
+                    if len(file_item) > 3:
+                        file_name, full_path, _, _ = file_item
+                    elif len(file_item) > 2:
                         file_name, full_path, _ = file_item
                     else:
                         file_name, full_path = file_item
@@ -445,7 +533,9 @@ def build_tree(
                     tree.add(colored_text)
                 else:
                     if isinstance(file_item, tuple):
-                        if len(file_item) > 2:
+                        if len(file_item) > 3:
+                            file_name, _, _, _ = file_item
+                        elif len(file_item) > 2:
                             file_name, _, _ = file_item
                         else:
                             file_name, _ = file_item
@@ -455,19 +545,35 @@ def build_tree(
                     color = color_map.get(ext, "#FFFFFF")
                     colored_text = Text(f"📄 {file_name}", style=color)
                     tree.add(colored_text)
-        elif folder == "_loc" or folder == "_max_depth_reached":
+        elif folder == "_loc" or folder == "_size" or folder == "_max_depth_reached":
             pass
         else:
-            if sort_by_loc and isinstance(content, dict) and "_loc" in content:
+            folder_display = f"📁 {folder}"
+            if sort_by_loc and sort_by_size and isinstance(content, dict):
+                if "_loc" in content and "_size" in content:
+                    folder_loc = content["_loc"]
+                    folder_size = content["_size"]
+                    folder_display = (
+                        f"📁 {folder} ({folder_loc} lines, {format_size(folder_size)})"
+                    )
+            elif sort_by_loc and isinstance(content, dict) and "_loc" in content:
                 folder_loc = content["_loc"]
-                subtree = tree.add(f"📁 {folder} ({folder_loc} lines)")
-            else:
-                subtree = tree.add(f"📁 {folder}")
+                folder_display = f"📁 {folder} ({folder_loc} lines)"
+            elif sort_by_size and isinstance(content, dict) and "_size" in content:
+                folder_size = content["_size"]
+                folder_display = f"📁 {folder} ({format_size(folder_size)})"
+            subtree = tree.add(folder_display)
             if isinstance(content, dict) and content.get("_max_depth_reached"):
                 subtree.add(Text("⋯ (max depth reached)", style="dim"))
             else:
                 build_tree(
-                    content, subtree, color_map, folder, show_full_path, sort_by_loc
+                    content,
+                    subtree,
+                    color_map,
+                    folder,
+                    show_full_path,
+                    sort_by_loc,
+                    sort_by_size,
                 )
 
 
@@ -482,10 +588,13 @@ def display_tree(
     max_depth: int = 0,
     show_full_path: bool = False,
     sort_by_loc: bool = False,
+    sort_by_size: bool = False,
 ) -> None:
     """Display the directory tree with color-coded file types.
 
-    Prepares the directory structure with all filtering options applied, then builds and displays a Rich tree visualization with color-coding based on file extensions. When sort_by_loc is True, displays and sorts by lines of code counts.
+    Prepares the directory structure with all filtering options applied, then builds and displays a Rich tree visualization
+    with color-coding based on file extensions. When sort_by_loc is True, displays and sorts by lines of code counts.
+    When sort_by_size is True, displays and sorts by file sizes.
 
     Args:
         root_dir: Root directory path to display
@@ -498,6 +607,7 @@ def display_tree(
         max_depth: Maximum depth to display (0 for unlimited)
         show_full_path: Whether to show full paths instead of just filenames
         sort_by_loc: Whether to sort files by lines of code and display LOC counts
+        sort_by_size: Whether to sort files by size and display size information
     """
     if exclude_dirs is None:
         exclude_dirs = []
@@ -523,19 +633,27 @@ def display_tree(
         max_depth=max_depth,
         show_full_path=show_full_path,
         sort_by_loc=sort_by_loc,
+        sort_by_size=sort_by_size,
     )
     color_map = {ext: generate_color_for_extension(ext) for ext in extensions}
     console = Console()
-    if sort_by_loc and "_loc" in structure:
-        tree = Tree(f"📂 {os.path.basename(root_dir)} ({structure['_loc']} lines)")
-    else:
-        tree = Tree(f"📂 {os.path.basename(root_dir)}")
+    root_label = f"📂 {os.path.basename(root_dir)}"
+    if sort_by_loc and sort_by_size and "_loc" in structure and "_size" in structure:
+        root_label = f"📂 {os.path.basename(root_dir)} ({structure['_loc']} lines, {format_size(structure['_size'])})"
+    elif sort_by_loc and "_loc" in structure:
+        root_label = f"📂 {os.path.basename(root_dir)} ({structure['_loc']} lines)"
+    elif sort_by_size and "_size" in structure:
+        root_label = (
+            f"📂 {os.path.basename(root_dir)} ({format_size(structure['_size'])})"
+        )
+    tree = Tree(root_label)
     build_tree(
         structure,
         tree,
         color_map,
         show_full_path=show_full_path,
         sort_by_loc=sort_by_loc,
+        sort_by_size=sort_by_size,
     )
     console.print(tree)
 
@@ -562,3 +680,38 @@ def count_lines_of_code(file_path: str) -> int:
     except Exception as e:
         logger.debug(f"Could not count lines in {file_path}: {e}")
         return 0
+
+
+def get_file_size(file_path: str) -> int:
+    """Get the size of a file in bytes.
+
+    Args:
+        file_path: Path to the file
+
+    Returns:
+        Size of the file in bytes, or 0 if the file cannot be accessed
+    """
+    try:
+        return os.path.getsize(file_path)
+    except Exception as e:
+        logger.debug(f"Could not get size for {file_path}: {e}")
+        return 0
+
+
+def format_size(size_in_bytes: int) -> str:
+    """Format a size in bytes to a human-readable string.
+
+    Args:
+        size_in_bytes: Size in bytes
+
+    Returns:
+        Human-readable size string (e.g., "4.2 MB")
+    """
+    if size_in_bytes < 1024:
+        return f"{size_in_bytes} B"
+    elif size_in_bytes < 1024 * 1024:
+        return f"{size_in_bytes / 1024:.1f} KB"
+    elif size_in_bytes < 1024 * 1024 * 1024:
+        return f"{size_in_bytes / (1024 * 1024):.1f} MB"
+    else:
+        return f"{size_in_bytes / (1024 * 1024 * 1024):.1f} GB"

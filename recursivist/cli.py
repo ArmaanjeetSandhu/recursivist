@@ -135,6 +135,12 @@ def visualize(
         "-s",
         help="Sort files by lines of code and display LOC counts",
     ),
+    sort_by_size: bool = typer.Option(
+        False,
+        "--sort-by-size",
+        "-z",
+        help="Sort files by size and display file sizes",
+    ),
     verbose: bool = typer.Option(
         False, "--verbose", "-v", help="Enable verbose output"
     ),
@@ -175,6 +181,8 @@ def visualize(
         logger.info("Showing full paths instead of just filenames")
     if sort_by_loc:
         logger.info("Sorting files by lines of code and displaying LOC counts")
+    if sort_by_size:
+        logger.info("Sorting files by size and displaying file sizes")
     parsed_exclude_dirs = parse_list_option(exclude_dirs)
     parsed_exclude_exts = parse_list_option(exclude_extensions)
     parsed_exclude_patterns = parse_list_option(exclude_patterns)
@@ -229,6 +237,7 @@ def visualize(
                 max_depth=max_depth,
                 show_full_path=show_full_path,
                 sort_by_loc=sort_by_loc,
+                sort_by_size=sort_by_size,
             )
             progress.update(task_scan, completed=True)
             logger.debug(f"Found {len(extensions)} unique file extensions")
@@ -244,6 +253,7 @@ def visualize(
             max_depth,
             show_full_path,
             sort_by_loc,
+            sort_by_size,
         )
     except Exception as e:
         logger.error(f"Error: {e}", exc_info=verbose)
@@ -312,6 +322,12 @@ def export(
         "-s",
         help="Sort files by lines of code and display LOC counts",
     ),
+    sort_by_size: bool = typer.Option(
+        False,
+        "--sort-by-size",
+        "-z",
+        help="Sort files by size and display file sizes",
+    ),
     verbose: bool = typer.Option(
         False, "--verbose", "-v", help="Enable verbose output"
     ),
@@ -353,6 +369,8 @@ def export(
         logger.info("Showing full paths instead of just filenames")
     if sort_by_loc:
         logger.info("Sorting files by lines of code and displaying LOC counts")
+    if sort_by_size:
+        logger.info("Sorting files by size and displaying file sizes")
     parsed_exclude_dirs = parse_list_option(exclude_dirs)
     parsed_exclude_exts = parse_list_option(exclude_extensions)
     parsed_exclude_patterns = parse_list_option(exclude_patterns)
@@ -407,6 +425,7 @@ def export(
                 max_depth=max_depth,
                 show_full_path=show_full_path,
                 sort_by_loc=sort_by_loc,
+                sort_by_size=sort_by_size,
             )
             progress.update(task_scan, completed=True)
             logger.debug(f"Found {len(extensions)} unique file extensions")
@@ -436,6 +455,7 @@ def export(
                     str(output_path),
                     show_full_path,
                     sort_by_loc,
+                    sort_by_size,
                 )
                 logger.info(f"Successfully exported to {output_path}")
             except Exception as e:
@@ -572,6 +592,12 @@ def compare(
         "-s",
         help="Sort files by lines of code and display LOC counts",
     ),
+    sort_by_size: bool = typer.Option(
+        False,
+        "--sort-by-size",
+        "-z",
+        help="Sort files by size and display file sizes",
+    ),
     verbose: bool = typer.Option(
         False, "--verbose", "-v", help="Enable verbose output"
     ),
@@ -610,6 +636,8 @@ def compare(
         logger.info("Showing full paths instead of just filenames")
     if sort_by_loc:
         logger.info("Sorting files by lines of code and displaying LOC counts")
+    if sort_by_size:
+        logger.info("Sorting files by size and displaying file sizes")
     parsed_exclude_dirs = parse_list_option(exclude_dirs)
     parsed_exclude_exts = parse_list_option(exclude_extensions)
     parsed_exclude_patterns = parse_list_option(exclude_patterns)
@@ -659,6 +687,7 @@ def compare(
                     max_depth=max_depth,
                     show_full_path=show_full_path,
                     sort_by_loc=sort_by_loc,
+                    sort_by_size=sort_by_size,
                 )
                 logger.info(f"Successfully exported to {output_path}")
             except Exception as e:
@@ -676,6 +705,7 @@ def compare(
                 max_depth=max_depth,
                 show_full_path=show_full_path,
                 sort_by_loc=sort_by_loc,
+                sort_by_size=sort_by_size,
             )
     except Exception as e:
         logger.error(f"Error: {e}", exc_info=verbose)

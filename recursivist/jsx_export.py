@@ -8,6 +8,8 @@ import html
 import logging
 from typing import Any, Dict
 
+from recursivist.core import format_size
+
 logger = logging.getLogger(__name__)
 
 
@@ -17,6 +19,7 @@ def generate_jsx_component(
     output_path: str,
     show_full_path: bool = False,
     sort_by_loc: bool = False,
+    sort_by_size: bool = False,
 ) -> None:
     """
     Generate a React component file for directory structure visualization.
@@ -27,6 +30,7 @@ def generate_jsx_component(
     - Search functionality with highlighted matches
     - Dark mode toggle
     - Optional LOC count display and sorting
+    - Optional file size display and sorting
 
     Args:
         structure: Directory structure dictionary
@@ -34,6 +38,7 @@ def generate_jsx_component(
         output_path: Path where the React component file will be saved
         show_full_path: Whether to show full paths instead of just filenames
         sort_by_loc: Whether to show lines of code counts and sort by them
+        sort_by_size: Whether to show file sizes and sort by them
     """
 
     def _build_structure_jsx(
@@ -44,7 +49,10 @@ def generate_jsx_component(
             [
                 (k, v)
                 for k, v in structure.items()
-                if k != "_files" and k != "_max_depth_reached" and k != "_loc"
+                if k != "_files"
+                and k != "_max_depth_reached"
+                and k != "_loc"
+                and k != "_size"
             ],
             key=lambda x: x[0].lower(),
         ):
@@ -58,14 +66,17 @@ def generate_jsx_component(
                     path_parts = [root_name] + path_parts
             path_json = ",".join([f'"{html.escape(part)}"' for part in path_parts])
             loc_prop = ""
+            size_prop = ""
             if sort_by_loc and isinstance(content, dict) and "_loc" in content:
                 loc_prop = f' locCount={{{content["_loc"]}}}'
+            if sort_by_size and isinstance(content, dict) and "_size" in content:
+                size_prop = f' sizeCount={{{content["_size"]}}}'
             jsx_content.append(
                 f"<DirectoryItem "
                 f'name="{html.escape(name)}" '
                 f"level={{{level}}} "
                 f"path={{[{path_json}]}} "
-                f'type="directory"{loc_prop}>'
+                f'type="directory"{loc_prop}{size_prop}>'
             )
             next_path = current_path
             if isinstance(content, dict):
@@ -84,7 +95,19 @@ def generate_jsx_component(
             jsx_content.append("</DirectoryItem>")
         if "_files" in structure:
             files = structure["_files"]
-            if sort_by_loc:
+            if sort_by_size:
+                sorted_files = sorted(
+                    files,
+                    key=lambda f: (
+                        -(
+                            f[3]
+                            if isinstance(f, tuple) and len(f) > 3
+                            else (f[2] if isinstance(f, tuple) and len(f) > 2 else 0)
+                        ),
+                        f[0].lower() if isinstance(f, tuple) else f.lower(),
+                    ),
+                )
+            elif sort_by_loc:
                 sorted_files = sorted(
                     files,
                     key=lambda f: (
@@ -98,7 +121,70 @@ def generate_jsx_component(
                     key=lambda f: f[0].lower() if isinstance(f, tuple) else f.lower(),
                 )
             for file_item in sorted_files:
-                if sort_by_loc and isinstance(file_item, tuple) and len(file_item) > 2:
+                if (
+                    sort_by_loc
+                    and sort_by_size
+                    and isinstance(file_item, tuple)
+                    and len(file_item) > 3
+                ):
+                    file_name, display_path, loc, size = file_item
+                    if path_prefix:
+                        path_parts = path_prefix.split("/")
+                        if path_parts and path_parts[0] == root_name:
+                            path_parts = [root_name] + [p for p in path_parts[1:] if p]
+                        else:
+                            path_parts = [p for p in path_parts if p]
+                            if not path_parts or path_parts[0] != root_name:
+                                path_parts = [root_name] + path_parts
+                    else:
+                        path_parts = [root_name]
+                    path_parts.append(file_name)
+                    path_json = ",".join(
+                        [f'"{html.escape(part)}"' for part in path_parts if part]
+                    )
+                    jsx_content.append(
+                        f"<FileItem "
+                        f'name="{html.escape(file_name)}" '
+                        f'displayPath="{html.escape(display_path)}" '
+                        f"path={{[{path_json}]}} "
+                        f"level={{{level}}} "
+                        f"locCount={{{loc}}} "
+                        f"sizeCount={{{size}}} "
+                        f'sizeFormatted="{format_size(size)}" />'
+                    )
+                elif (
+                    sort_by_size and isinstance(file_item, tuple) and len(file_item) > 2
+                ):
+                    if len(file_item) > 3:
+                        file_name, display_path, _, size = file_item
+                    else:
+                        file_name, display_path, size = file_item
+                    if path_prefix:
+                        path_parts = path_prefix.split("/")
+                        if path_parts and path_parts[0] == root_name:
+                            path_parts = [root_name] + [p for p in path_parts[1:] if p]
+                        else:
+                            path_parts = [p for p in path_parts if p]
+                            if not path_parts or path_parts[0] != root_name:
+                                path_parts = [root_name] + path_parts
+                    else:
+                        path_parts = [root_name]
+                    path_parts.append(file_name)
+                    path_json = ",".join(
+                        [f'"{html.escape(part)}"' for part in path_parts if part]
+                    )
+                    jsx_content.append(
+                        f"<FileItem "
+                        f'name="{html.escape(file_name)}" '
+                        f'displayPath="{html.escape(display_path)}" '
+                        f"path={{[{path_json}]}} "
+                        f"level={{{level}}} "
+                        f"sizeCount={{{size}}} "
+                        f'sizeFormatted="{format_size(size)}" />'
+                    )
+                elif (
+                    sort_by_loc and isinstance(file_item, tuple) and len(file_item) > 2
+                ):
                     file_name, display_path, loc = file_item
                     if path_prefix:
                         path_parts = path_prefix.split("/")
@@ -180,6 +266,15 @@ def generate_jsx_component(
     loc_directory_prop = ""
     loc_file_display = ""
     loc_directory_display = ""
+    size_imports = ""
+    size_state = ""
+    size_sort_state = ""
+    size_toggle_function = ""
+    size_toggle_button = ""
+    size_file_prop = ""
+    size_directory_prop = ""
+    size_file_display = ""
+    size_directory_display = ""
     if sort_by_loc:
         loc_imports = """import { BarChart2 } from 'lucide-react';"""
         loc_state = """const [showLoc, setShowLoc] = useState(true);"""
@@ -221,9 +316,75 @@ def generate_jsx_component(
                   {props.locCount} lines
                 </span>
               )}"""
+    if sort_by_size:
+        size_imports = """import { Database } from 'lucide-react';"""
+        size_state = """const [showSize, setShowSize] = useState(true);"""
+        size_sort_state = """const [sortBySize, setSortBySize] = useState(true);"""
+        size_toggle_function = """
+  const toggleSizeDisplay = () => {
+    setShowSize(!showSize);
+  };
+  const toggleSizeSort = () => {
+    setSortBySize(!sortBySize);
+  };"""
+        size_toggle_button = """
+                  <button
+                    onClick={toggleSizeDisplay}
+                    className={`flex items-center px-3 py-1.5 text-sm rounded-md ${
+                      darkMode ? 'bg-gray-800 hover:bg-gray-700' : 'bg-gray-200 hover:bg-gray-300'
+                    }`}
+                  >
+                    <Database className="w-4 h-4 mr-1" />
+                    <span className="hidden sm:inline">{showSize ? 'Hide Size' : 'Show Size'}</span>
+                  </button>"""
+        size_file_prop = """
+  sizeCount: PropTypes.number,
+  sizeFormatted: PropTypes.string,"""
+        size_directory_prop = """
+  sizeCount: PropTypes.number,"""
+        size_file_display = """
+              {props.sizeCount !== undefined && showSize && (
+                <span className={`ml-2 text-xs px-1.5 py-0.5 rounded-full ${isSelected ?
+                  (darkMode ? 'bg-teal-800 text-teal-200' : 'bg-teal-200 text-teal-700') :
+                  (darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-700')}`}>
+                  {props.sizeFormatted}
+                </span>
+              )}"""
+        size_directory_display = """
+              {props.sizeCount !== undefined && showSize && (
+                <span className={`ml-2 text-xs px-1.5 py-0.5 rounded-full ${isCurrentPath ?
+                  (darkMode ? 'bg-teal-800 text-teal-200' : 'bg-teal-200 text-teal-700') :
+                  (darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-700')}`}>
+                  {format_size(props.sizeCount)}
+                </span>
+              )}"""
+    combined_imports = ""
+    if loc_imports and size_imports:
+        combined_imports = """import {{ BarChart2, Database }} from 'lucide-react';"""
+    elif loc_imports:
+        combined_imports = loc_imports
+    elif size_imports:
+        combined_imports = size_imports
     root_loc_prop = ""
+    root_size_prop = ""
     if sort_by_loc and "_loc" in structure:
         root_loc_prop = f" locCount={{{structure['_loc']}}}"
+    if sort_by_size and "_size" in structure:
+        root_size_prop = f" sizeCount={{{structure['_size']}}}"
+    format_size_function = ""
+    if sort_by_size:
+        format_size_function = """
+  const format_size = (size_in_bytes) => {
+    if (size_in_bytes < 1024) {
+      return `${size_in_bytes} B`;
+    } else if (size_in_bytes < 1024 * 1024) {
+      return `${(size_in_bytes / 1024).toFixed(1)} KB`;
+    } else if (size_in_bytes < 1024 * 1024 * 1024) {
+      return `${(size_in_bytes / (1024 * 1024)).toFixed(1)} MB`;
+    } else {
+      return `${(size_in_bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+    }
+  };"""
     component_template = f"""import React, {{ useState, useEffect, useRef }} from 'react';
     import {{
       ChevronDown,
@@ -241,7 +402,7 @@ def generate_jsx_component(
       Copy,
       Check
     }} from 'lucide-react';
-    {loc_imports}
+    {combined_imports}
     const AppContext = React.createContext();
     const highlightMatch = (text, searchTerm) => {{
       if (!searchTerm) return text;
@@ -354,7 +515,9 @@ def generate_jsx_component(
         setCurrentPath,
         currentPath,
         setSelectedItem,
-        showLoc
+        showLoc,
+        showSize,
+        format_size
       }} = React.useContext(AppContext);
       const {{ name, children, level = 0, path = [] }} = props;
       const folderId = path.join('/');
@@ -430,7 +593,7 @@ def generate_jsx_component(
               }}
               <span className={{`font-medium truncate ${{isCurrentPath ? (darkMode ? 'text-yellow-300' : 'text-blue-700') : ''}}`}}>
                 {{searchTerm ? highlightMatch(name, searchTerm) : name}}
-              </span>{loc_directory_display}
+              </span>{loc_directory_display}{size_directory_display}
             </div>
             <button
               className={{`p-1 rounded-full ${{darkMode ? 'hover:bg-gray-600' : 'hover:bg-gray-200'}}`}}
@@ -460,7 +623,8 @@ def generate_jsx_component(
         setCurrentPath,
         selectedItem,
         setSelectedItem,
-        showLoc
+        showLoc,
+        showSize
       }} = React.useContext(AppContext);
       const {{ name, displayPath, path = [], level = 0 }} = props;
       const matchesSearch = searchTerm && name.toLowerCase().includes(searchTerm.toLowerCase());
@@ -500,7 +664,7 @@ def generate_jsx_component(
             <div className="min-w-0 overflow-hidden">
               <span className={{`truncate block ${{isSelected ? (darkMode ? 'text-yellow-300 font-medium' : 'text-blue-700 font-medium') : ''}}`}}>
                 {{searchTerm ? highlightMatch(displayPath, searchTerm) : displayPath}}
-              </span>{loc_file_display}
+              </span>{loc_file_display}{size_file_display}
             </div>
           </div>
         </div>
@@ -547,6 +711,8 @@ def generate_jsx_component(
       const [collapseAll, setCollapseAll] = useState(false);
       {loc_state}
       {loc_sort_state}
+      {size_state}
+      {size_sort_state}
       const handleExpandAll = () => {{
         setExpandAll(true);
         setTimeout(() => setExpandAll(false), 100);
@@ -559,6 +725,8 @@ def generate_jsx_component(
         setDarkMode(!darkMode);
       }};
       {loc_toggle_function}
+      {size_toggle_function}
+      {format_size_function}
       useEffect(() => {{
         if (darkMode) {{
           document.body.classList.add('dark-mode');
@@ -580,7 +748,10 @@ def generate_jsx_component(
           selectedItem,
           setSelectedItem,
           showLoc,
-          sortByLoc
+          sortByLoc,
+          showSize,
+          sortBySize,
+          format_size
         }}}}>
           <div className={{`min-h-screen ${{darkMode ? 'bg-gray-900 text-gray-100' : 'bg-gray-50 text-gray-900'}}`}}>
             <style>{{`
@@ -623,7 +794,7 @@ def generate_jsx_component(
                   >
                     <Minimize2 className="w-4 h-4 mr-1" />
                     <span className="hidden sm:inline">Collapse All</span>
-                  </button>{loc_toggle_button}
+                  </button>{loc_toggle_button}{size_toggle_button}
                   <button
                     onClick={{toggleDarkMode}}
                     className={{`px-3 py-1.5 text-sm rounded-md ${{
@@ -639,7 +810,7 @@ def generate_jsx_component(
                 <DirectoryItem
                   name="{html.escape(root_name)}"
                   level={{0}}
-                  path={{["{html.escape(root_name)}"]}}{root_loc_prop}
+                  path={{["{html.escape(root_name)}"]}}{root_loc_prop}{root_size_prop}
                 >
     {_build_structure_jsx(structure, 1, root_name if show_full_path else "")}
                 </DirectoryItem>
@@ -659,18 +830,17 @@ def generate_jsx_component(
         </AppContext.Provider>
       );
     }};
-    // Add prop types
     DirectoryItem.propTypes = {{
       name: PropTypes.string.isRequired,
       children: PropTypes.node,
       level: PropTypes.number,
-      path: PropTypes.arrayOf(PropTypes.string){loc_directory_prop}
+      path: PropTypes.arrayOf(PropTypes.string){loc_directory_prop}{size_directory_prop}
     }};
     FileItem.propTypes = {{
       name: PropTypes.string.isRequired,
       displayPath: PropTypes.string.isRequired,
       path: PropTypes.arrayOf(PropTypes.string),
-      level: PropTypes.number{loc_file_prop}
+      level: PropTypes.number{loc_file_prop}{size_file_prop}
     }};
     export default DirectoryViewer;
     """

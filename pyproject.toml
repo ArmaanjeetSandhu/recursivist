@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "recursivist"
-version = "1.1.0"
+version = "1.2.0"
 description = "A command-line tool for visualizing directory structures"
 readme = "README.md"
 requires-python = ">=3.7"
@@ -36,9 +36,8 @@ dependencies = [
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/ArmaanjeetSandhu/recursivist"
+"Repository" = "https://github.com/ArmaanjeetSandhu/recursivist"
 "Documentation" = "https://armaanjeetsandhu.github.io/recursivist"
-"Bug Tracker" = "https://github.com/ArmaanjeetSandhu/recursivist/issues"
 
 [project.scripts]
 recursivist = "recursivist.cli:main"
