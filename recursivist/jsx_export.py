@@ -16,6 +16,7 @@ def generate_jsx_component(
     root_name: str,
     output_path: str,
     show_full_path: bool = False,
+    sort_by_loc: bool = False,
 ) -> None:
     """
     Generate a React component file for directory structure visualization.
@@ -25,47 +26,47 @@ def generate_jsx_component(
     - Breadcrumbs navigation
     - Search functionality with highlighted matches
     - Dark mode toggle
+    - Optional LOC count display and sorting
 
     Args:
         structure: Directory structure dictionary
         root_name: Root directory name
         output_path: Path where the React component file will be saved
         show_full_path: Whether to show full paths instead of just filenames
+        sort_by_loc: Whether to show lines of code counts and sort by them
     """
 
     def _build_structure_jsx(
         structure: Dict[str, Any], level: int = 0, path_prefix: str = ""
     ) -> str:
         jsx_content = []
-
         for name, content in sorted(
             [
                 (k, v)
                 for k, v in structure.items()
-                if k != "_files" and k != "_max_depth_reached"
+                if k != "_files" and k != "_max_depth_reached" and k != "_loc"
             ],
             key=lambda x: x[0].lower(),
         ):
             current_path = f"{path_prefix}/{name}" if path_prefix else name
             path_parts = current_path.split("/") if current_path else [name]
-
             if path_parts[0] == root_name and len(path_parts) > 1:
                 path_parts = [root_name] + [p for p in path_parts[1:] if p]
             else:
                 path_parts = [p for p in path_parts if p]
                 if not path_parts or path_parts[0] != root_name:
                     path_parts = [root_name] + path_parts
-
             path_json = ",".join([f'"{html.escape(part)}"' for part in path_parts])
-
+            loc_prop = ""
+            if sort_by_loc and isinstance(content, dict) and "_loc" in content:
+                loc_prop = f' locCount={{{content["_loc"]}}}'
             jsx_content.append(
                 f"<DirectoryItem "
                 f'name="{html.escape(name)}" '
                 f"level={{{level}}} "
                 f"path={{[{path_json}]}} "
-                f'type="directory">'
+                f'type="directory"{loc_prop}>'
             )
-
             next_path = current_path
             if isinstance(content, dict):
                 if content.get("_max_depth_reached"):
@@ -81,16 +82,24 @@ def generate_jsx_component(
                         _build_structure_jsx(content, level + 1, next_path)
                     )
             jsx_content.append("</DirectoryItem>")
-
         if "_files" in structure:
             files = structure["_files"]
-            for file_item in sorted(
-                files, key=lambda f: f[0].lower() if isinstance(f, tuple) else f.lower()
-            ):
-                if show_full_path and isinstance(file_item, tuple):
-                    file_name, full_path = file_item
-                    display_path = html.escape(full_path)
-
+            if sort_by_loc:
+                sorted_files = sorted(
+                    files,
+                    key=lambda f: (
+                        -(f[2] if isinstance(f, tuple) and len(f) > 2 else 0),
+                        f[0].lower() if isinstance(f, tuple) else f.lower(),
+                    ),
+                )
+            else:
+                sorted_files = sorted(
+                    files,
+                    key=lambda f: f[0].lower() if isinstance(f, tuple) else f.lower(),
+                )
+            for file_item in sorted_files:
+                if sort_by_loc and isinstance(file_item, tuple) and len(file_item) > 2:
+                    file_name, display_path, loc = file_item
                     if path_prefix:
                         path_parts = path_prefix.split("/")
                         if path_parts and path_parts[0] == root_name:
@@ -101,14 +110,44 @@ def generate_jsx_component(
                                 path_parts = [root_name] + path_parts
                     else:
                         path_parts = [root_name]
-
                     path_parts.append(file_name)
+                    path_json = ",".join(
+                        [f'"{html.escape(part)}"' for part in path_parts if part]
+                    )
+                    jsx_content.append(
+                        f"<FileItem "
+                        f'name="{html.escape(file_name)}" '
+                        f'displayPath="{html.escape(display_path)}" '
+                        f"path={{[{path_json}]}} "
+                        f"level={{{level}}} "
+                        f"locCount={{{loc}}} />"
+                    )
+                elif isinstance(file_item, tuple):
+                    file_name, display_path = file_item
+                    if path_prefix:
+                        path_parts = path_prefix.split("/")
+                        if path_parts and path_parts[0] == root_name:
+                            path_parts = [root_name] + [p for p in path_parts[1:] if p]
+                        else:
+                            path_parts = [p for p in path_parts if p]
+                            if not path_parts or path_parts[0] != root_name:
+                                path_parts = [root_name] + path_parts
+                    else:
+                        path_parts = [root_name]
+                    path_parts.append(file_name)
+                    path_json = ",".join(
+                        [f'"{html.escape(part)}"' for part in path_parts if part]
+                    )
+                    jsx_content.append(
+                        f"<FileItem "
+                        f'name="{html.escape(file_name)}" '
+                        f'displayPath="{html.escape(display_path)}" '
+                        f"path={{[{path_json}]}} "
+                        f"level={{{level}}} />"
+                    )
                 else:
                     file_name = file_item
-                    if isinstance(file_name, tuple):
-                        file_name = file_name[0]
                     display_path = html.escape(file_name)
-
                     if path_prefix:
                         path_parts = path_prefix.split("/")
                         if path_parts and path_parts[0] == root_name:
@@ -119,22 +158,72 @@ def generate_jsx_component(
                                 path_parts = [root_name] + path_parts
                     else:
                         path_parts = [root_name]
-
                     path_parts.append(file_name)
-
-                path_json = ",".join(
-                    [f'"{html.escape(part)}"' for part in path_parts if part]
-                )
-                jsx_content.append(
-                    f"<FileItem "
-                    f'name="{html.escape(file_name if isinstance(file_name, str) else file_name[0])}" '
-                    f'displayPath="{display_path}" '
-                    f"path={{[{path_json}]}} "
-                    f"level={{{level}}} />"
-                )
-
+                    path_json = ",".join(
+                        [f'"{html.escape(part)}"' for part in path_parts if part]
+                    )
+                    jsx_content.append(
+                        f"<FileItem "
+                        f'name="{html.escape(file_name)}" '
+                        f'displayPath="{display_path}" '
+                        f"path={{[{path_json}]}} "
+                        f"level={{{level}}} />"
+                    )
         return "\n".join(jsx_content)
 
+    loc_imports = ""
+    loc_state = ""
+    loc_sort_state = ""
+    loc_toggle_function = ""
+    loc_toggle_button = ""
+    loc_file_prop = ""
+    loc_directory_prop = ""
+    loc_file_display = ""
+    loc_directory_display = ""
+    if sort_by_loc:
+        loc_imports = """import { BarChart2 } from 'lucide-react';"""
+        loc_state = """const [showLoc, setShowLoc] = useState(true);"""
+        loc_sort_state = """const [sortByLoc, setSortByLoc] = useState(true);"""
+        loc_toggle_function = """
+  const toggleLocDisplay = () => {
+    setShowLoc(!showLoc);
+  };
+  const toggleLocSort = () => {
+    setSortByLoc(!sortByLoc);
+  };"""
+        loc_toggle_button = """
+                  <button
+                    onClick={toggleLocDisplay}
+                    className={`flex items-center px-3 py-1.5 text-sm rounded-md ${
+                      darkMode ? 'bg-gray-800 hover:bg-gray-700' : 'bg-gray-200 hover:bg-gray-300'
+                    }`}
+                  >
+                    <BarChart2 className="w-4 h-4 mr-1" />
+                    <span className="hidden sm:inline">{showLoc ? 'Hide LOC' : 'Show LOC'}</span>
+                  </button>"""
+        loc_file_prop = """
+  locCount: PropTypes.number,"""
+        loc_directory_prop = """
+  locCount: PropTypes.number,"""
+        loc_file_display = """
+              {props.locCount !== undefined && showLoc && (
+                <span className={`ml-2 text-xs px-1.5 py-0.5 rounded-full ${isSelected ?
+                  (darkMode ? 'bg-blue-800 text-blue-200' : 'bg-blue-200 text-blue-700') :
+                  (darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-700')}`}>
+                  {props.locCount} lines
+                </span>
+              )}"""
+        loc_directory_display = """
+              {props.locCount !== undefined && showLoc && (
+                <span className={`ml-2 text-xs px-1.5 py-0.5 rounded-full ${isCurrentPath ?
+                  (darkMode ? 'bg-blue-800 text-blue-200' : 'bg-blue-200 text-blue-700') :
+                  (darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-700')}`}>
+                  {props.locCount} lines
+                </span>
+              )}"""
+    root_loc_prop = ""
+    if sort_by_loc and "_loc" in structure:
+        root_loc_prop = f" locCount={{{structure['_loc']}}}"
     component_template = f"""import React, {{ useState, useEffect, useRef }} from 'react';
     import {{
       ChevronDown,
@@ -152,12 +241,10 @@ def generate_jsx_component(
       Copy,
       Check
     }} from 'lucide-react';
-
+    {loc_imports}
     const AppContext = React.createContext();
-
     const highlightMatch = (text, searchTerm) => {{
       if (!searchTerm) return text;
-
       const parts = text.split(new RegExp(`(${{searchTerm}})`, 'gi'));
       return (
         <>
@@ -169,7 +256,6 @@ def generate_jsx_component(
         </>
       );
     }};
-
     const Breadcrumbs = () => {{
       const {{
         currentPath,
@@ -177,10 +263,8 @@ def generate_jsx_component(
         selectedItem,
         darkMode
       }} = React.useContext(AppContext);
-
       const [copied, setCopied] = useState(false);
       const breadcrumbRef = useRef(null);
-
       const copyPath = () => {{
         let path = currentPath.join('/');
         if (selectedItem) {{
@@ -191,17 +275,14 @@ def generate_jsx_component(
           setTimeout(() => setCopied(false), 2000);
         }});
       }};
-
       const navigateTo = (index) => {{
         setCurrentPath(currentPath.slice(0, index + 1));
       }};
-
       useEffect(() => {{
         if (breadcrumbRef.current) {{
           breadcrumbRef.current.scrollLeft = breadcrumbRef.current.scrollWidth;
         }}
       }}, [currentPath, selectedItem]);
-
       return (
         <div className={{`sticky top-0 left-0 right-0 ${{darkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-800'}} p-3 shadow-md z-50 overflow-visible`}}>
           <div className="container mx-auto max-w-5xl flex items-center justify-between">
@@ -218,7 +299,6 @@ def generate_jsx_component(
                 <Home className="w-4 h-4 mr-1" />
                 <span className="font-medium">{{currentPath[0]}}</span>
               </button>
-
               {{currentPath.length > 1 && currentPath.slice(1).map((segment, index) => (
                 <React.Fragment key={{index}}>
                   <ChevronRight className={{`w-4 h-4 mx-1 ${{darkMode ? 'text-gray-500' : 'text-gray-400'}} flex-shrink-0`}} />
@@ -234,7 +314,6 @@ def generate_jsx_component(
                   </button>
                 </React.Fragment>
               ))}}
-
               {{selectedItem && (
                 <>
                   <ChevronRight className={{`w-4 h-4 mx-1 ${{darkMode ? 'text-gray-500' : 'text-gray-400'}} flex-shrink-0`}} />
@@ -244,7 +323,6 @@ def generate_jsx_component(
                 </>
               )}}
             </div>
-
             <div className="flex items-center space-x-2 flex-shrink-0">
               {{copied ? (
                 <span className={{`text-xs px-2 py-1 rounded ${{darkMode ? 'bg-green-800 text-green-200' : 'bg-green-100 text-green-800'}}`}}>
@@ -265,8 +343,7 @@ def generate_jsx_component(
         </div>
       );
     }};
-
-    const DirectoryItem = ({{ name, children, level = 0, path = [] }}) => {{
+    const DirectoryItem = (props) => {{
       const {{
         openFolders,
         setOpenFolders,
@@ -276,24 +353,19 @@ def generate_jsx_component(
         collapseAll,
         setCurrentPath,
         currentPath,
-        setSelectedItem
+        setSelectedItem,
+        showLoc
       }} = React.useContext(AppContext);
-
+      const {{ name, children, level = 0, path = [] }} = props;
       const folderId = path.join('/');
-
       const isOpen = openFolders.has(folderId);
-
       const isCurrentPath = currentPath.length === path.length &&
         path.every((segment, index) => segment === currentPath[index]);
-
       const isInCurrentPath = currentPath.length > path.length &&
         path.every((segment, index) => segment === currentPath[index]);
-
       const matchesSearch = searchTerm && name.toLowerCase().includes(searchTerm.toLowerCase());
-
       const toggleFolder = (e) => {{
         e.stopPropagation();
-
         const newOpenFolders = new Set(openFolders);
         if (isOpen) {{
           newOpenFolders.delete(folderId);
@@ -302,19 +374,16 @@ def generate_jsx_component(
         }}
         setOpenFolders(newOpenFolders);
       }};
-
       const navigateToFolder = (e) => {{
         e.stopPropagation();
         setCurrentPath(path);
         setSelectedItem(null);
       }};
-
       useEffect(() => {{
         if (expandAll) {{
           setOpenFolders(prev => new Set([...prev, folderId]));
         }}
       }}, [expandAll, folderId]);
-
       useEffect(() => {{
         if (collapseAll && folderId !== '{html.escape(root_name)}') {{
           setOpenFolders(prev => {{
@@ -324,21 +393,17 @@ def generate_jsx_component(
           }});
         }}
       }}, [collapseAll, folderId]);
-
       useEffect(() => {{
         if (searchTerm && matchesSearch) {{
           setOpenFolders(prev => new Set([...prev, folderId]));
         }}
       }}, [searchTerm, matchesSearch, folderId]);
-
       useEffect(() => {{
         if (isCurrentPath || isInCurrentPath) {{
           setOpenFolders(prev => new Set([...prev, folderId]));
         }}
       }}, [isCurrentPath, isInCurrentPath, folderId]);
-
       const indentClass = level === 0 ? '' : 'ml-4';
-
       const currentPathClass = isCurrentPath
         ? darkMode
           ? 'bg-blue-900 hover:bg-blue-800'
@@ -350,13 +415,11 @@ def generate_jsx_component(
           : darkMode
             ? 'bg-gray-800 hover:bg-gray-700'
             : 'bg-gray-50 hover:bg-gray-100';
-
       const searchMatchClass = matchesSearch
         ? darkMode
           ? 'ring-1 ring-yellow-500'
           : 'ring-1 ring-yellow-300'
         : '';
-
       return (
         <div className={{`w-full ${{indentClass}}`}} data-folder={{folderId}}>
           <div className={{`flex items-center justify-between p-2 mb-1 rounded-lg ${{currentPathClass}} ${{searchMatchClass}}`}}>
@@ -367,7 +430,7 @@ def generate_jsx_component(
               }}
               <span className={{`font-medium truncate ${{isCurrentPath ? (darkMode ? 'text-yellow-300' : 'text-blue-700') : ''}}`}}>
                 {{searchTerm ? highlightMatch(name, searchTerm) : name}}
-              </span>
+              </span>{loc_directory_display}
             </div>
             <button
               className={{`p-1 rounded-full ${{darkMode ? 'hover:bg-gray-600' : 'hover:bg-gray-200'}}`}}
@@ -381,7 +444,6 @@ def generate_jsx_component(
               )}}
             </button>
           </div>
-
           {{isOpen && (
             <div className="py-1">
               {{children}}
@@ -390,24 +452,22 @@ def generate_jsx_component(
         </div>
       );
     }};
-
-    const FileItem = ({{ name, displayPath, path = [], level = 0 }}) => {{
+    const FileItem = (props) => {{
       const {{
         searchTerm,
         darkMode,
         currentPath,
         setCurrentPath,
         selectedItem,
-        setSelectedItem
+        setSelectedItem,
+        showLoc
       }} = React.useContext(AppContext);
-
+      const {{ name, displayPath, path = [], level = 0 }} = props;
       const matchesSearch = searchTerm && name.toLowerCase().includes(searchTerm.toLowerCase());
-
       const isSelected = selectedItem &&
         selectedItem.path &&
         selectedItem.path.length === path.length &&
         selectedItem.path.every((segment, index) => segment === path[index]);
-
       const handleFileSelect = () => {{
         setCurrentPath(path.slice(0, -1));
         setSelectedItem({{
@@ -417,9 +477,7 @@ def generate_jsx_component(
           path
         }});
       }};
-
       const indentClass = 'ml-4';
-
       const selectedClass = isSelected
         ? darkMode
           ? 'bg-blue-900 hover:bg-blue-800'
@@ -427,13 +485,11 @@ def generate_jsx_component(
         : darkMode
           ? 'bg-gray-800 hover:bg-gray-700'
           : 'bg-white hover:bg-gray-50';
-
       const searchMatchClass = matchesSearch
         ? darkMode
           ? 'ring-1 ring-yellow-500'
           : 'ring-1 ring-yellow-300'
         : '';
-
       return (
         <div className={{`w-full ${{indentClass}}`}}>
           <div
@@ -444,16 +500,14 @@ def generate_jsx_component(
             <div className="min-w-0 overflow-hidden">
               <span className={{`truncate block ${{isSelected ? (darkMode ? 'text-yellow-300 font-medium' : 'text-blue-700 font-medium') : ''}}`}}>
                 {{searchTerm ? highlightMatch(displayPath, searchTerm) : displayPath}}
-              </span>
+              </span>{loc_file_display}
             </div>
           </div>
         </div>
       );
     }};
-
     const SearchBar = () => {{
       const {{ searchTerm, setSearchTerm, darkMode }} = React.useContext(AppContext);
-
       return (
         <div className="relative mb-4">
           <div className={{`flex items-center border rounded-lg overflow-hidden ${{
@@ -483,32 +537,28 @@ def generate_jsx_component(
         </div>
       );
     }};
-
     const DirectoryViewer = () => {{
       const [openFolders, setOpenFolders] = useState(new Set(['{html.escape(root_name)}']));
       const [searchTerm, setSearchTerm] = useState('');
       const [darkMode, setDarkMode] = useState(false);
-
       const [currentPath, setCurrentPath] = useState(['{html.escape(root_name)}']);
       const [selectedItem, setSelectedItem] = useState(null);
-
       const [expandAll, setExpandAll] = useState(false);
       const [collapseAll, setCollapseAll] = useState(false);
-
+      {loc_state}
+      {loc_sort_state}
       const handleExpandAll = () => {{
         setExpandAll(true);
         setTimeout(() => setExpandAll(false), 100);
       }};
-
       const handleCollapseAll = () => {{
         setCollapseAll(true);
         setTimeout(() => setCollapseAll(false), 100);
       }};
-
       const toggleDarkMode = () => {{
         setDarkMode(!darkMode);
       }};
-
+      {loc_toggle_function}
       useEffect(() => {{
         if (darkMode) {{
           document.body.classList.add('dark-mode');
@@ -516,7 +566,6 @@ def generate_jsx_component(
           document.body.classList.remove('dark-mode');
         }}
       }}, [darkMode]);
-
       return (
         <AppContext.Provider value={{{{
           openFolders,
@@ -529,7 +578,9 @@ def generate_jsx_component(
           currentPath,
           setCurrentPath,
           selectedItem,
-          setSelectedItem
+          setSelectedItem,
+          showLoc,
+          sortByLoc
         }}}}>
           <div className={{`min-h-screen ${{darkMode ? 'bg-gray-900 text-gray-100' : 'bg-gray-50 text-gray-900'}}`}}>
             <style>{{`
@@ -542,9 +593,7 @@ def generate_jsx_component(
                 white-space: nowrap;
               }}
             `}}</style>
-
             <Breadcrumbs />
-
             <div className="container mx-auto max-w-5xl p-4">
               <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6">
                 <div>
@@ -556,7 +605,6 @@ def generate_jsx_component(
                     Explore and navigate through the directory structure
                   </p>
                 </div>
-
                 <div className="flex mt-4 sm:mt-0 space-x-2">
                   <button
                     onClick={{handleExpandAll}}
@@ -575,7 +623,7 @@ def generate_jsx_component(
                   >
                     <Minimize2 className="w-4 h-4 mr-1" />
                     <span className="hidden sm:inline">Collapse All</span>
-                  </button>
+                  </button>{loc_toggle_button}
                   <button
                     onClick={{toggleDarkMode}}
                     className={{`px-3 py-1.5 text-sm rounded-md ${{
@@ -586,18 +634,15 @@ def generate_jsx_component(
                   </button>
                 </div>
               </div>
-
               <SearchBar />
-
               <div className={{`p-4 rounded-lg shadow ${{darkMode ? 'bg-gray-800' : 'bg-white'}}`}}>
                 <DirectoryItem
                   name="{html.escape(root_name)}"
                   level={{0}}
-                  path={{["{html.escape(root_name)}"]}}
+                  path={{["{html.escape(root_name)}"]}}{root_loc_prop}
                 >
     {_build_structure_jsx(structure, 1, root_name if show_full_path else "")}
                 </DirectoryItem>
-
                 {{/* Empty state for search */}}
                 {{searchTerm && openFolders.size <= 1 && (
                   <div className="py-8 text-center">
@@ -614,7 +659,19 @@ def generate_jsx_component(
         </AppContext.Provider>
       );
     }};
-
+    // Add prop types
+    DirectoryItem.propTypes = {{
+      name: PropTypes.string.isRequired,
+      children: PropTypes.node,
+      level: PropTypes.number,
+      path: PropTypes.arrayOf(PropTypes.string){loc_directory_prop}
+    }};
+    FileItem.propTypes = {{
+      name: PropTypes.string.isRequired,
+      displayPath: PropTypes.string.isRequired,
+      path: PropTypes.arrayOf(PropTypes.string),
+      level: PropTypes.number{loc_file_prop}
+    }};
     export default DirectoryViewer;
     """
     try:

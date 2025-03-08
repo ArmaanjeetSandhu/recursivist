@@ -18,46 +18,49 @@ logger = logging.getLogger(__name__)
 
 
 def sort_files_by_type(
-    files: List[Union[str, Tuple[str, str]]],
-) -> List[Union[str, Tuple[str, str]]]:
-    """Sort files by extension and then by name.
+    files: List[Union[str, Tuple[str, str], Tuple[str, str, int]]],
+    sort_by_loc: bool = False,
+) -> List[Union[str, Tuple[str, str], Tuple[str, str, int]]]:
+    """Sort files by extension and then by name, or by LOC if requested.
 
-    Handles mixed input of both strings and tuples, ensuring correct sorting in either case. The extension is the primary sort key, followed by the filename as a secondary key.
+    Handles mixed input of both strings and tuples, ensuring correct sorting in either case. When sort_by_loc is True, files are sorted by lines of code (descending).
 
     Args:
-        files: List of filenames or (filename, full_path) tuples to sort
+        files: List of filenames or tuples to sort
+        sort_by_loc: Whether to sort by lines of code instead of file type
 
     Returns:
         Sorted list of filenames or tuples
     """
     if not files:
         return []
+    has_loc = any(isinstance(item, tuple) and len(item) > 2 for item in files)
+    if sort_by_loc and has_loc:
+        return sorted(
+            files, key=lambda f: (-(f[2] if isinstance(f, tuple) and len(f) > 2 else 0))
+        )
     all_tuples = all(isinstance(item, tuple) for item in files)
     all_strings = all(isinstance(item, str) for item in files)
     if all_strings:
         files_as_strings = cast(List[str], files)
         return cast(
-            List[Union[str, Tuple[str, str]]],
+            List[Union[str, Tuple[str, str], Tuple[str, str, int]]],
             sorted(
                 files_as_strings,
                 key=lambda f: (os.path.splitext(f)[1].lower(), f.lower()),
             ),
         )
     elif all_tuples:
-        files_as_tuples = cast(List[Tuple[str, str]], files)
-        return cast(
-            List[Union[str, Tuple[str, str]]],
-            sorted(
-                files_as_tuples,
-                key=lambda t: (os.path.splitext(t[0])[1].lower(), t[0].lower()),
-            ),
+        return sorted(
+            files,
+            key=lambda t: (os.path.splitext(t[0])[1].lower(), t[0].lower()),
         )
     else:
         str_items: List[str] = []
-        tuple_items: List[Tuple[str, str]] = []
+        tuple_items: List[Union[Tuple[str, str], Tuple[str, str, int]]] = []
         for item in files:
             if isinstance(item, tuple):
-                tuple_items.append(cast(Tuple[str, str], item))
+                tuple_items.append(item)
             else:
                 str_items.append(cast(str, item))
         sorted_strings = sorted(
@@ -66,22 +69,26 @@ def sort_files_by_type(
         sorted_tuples = sorted(
             tuple_items, key=lambda t: (os.path.splitext(t[0])[1].lower(), t[0].lower())
         )
-        result: List[Union[str, Tuple[str, str]]] = []
-        for item in sorted_strings:
-            result.append(item)
-        for item in sorted_tuples:
-            result.append(item)
+        result: List[Union[str, Tuple[str, str], Tuple[str, str, int]]] = []
+        result.extend(sorted_strings)
+        result.extend(sorted_tuples)
         return result
 
 
 class DirectoryExporter:
     """Handles exporting directory structures to various formats.
 
-    Provides a unified interface for transforming directory structures into different output formats with consistent styling and organization. Supports text (ASCII tree), JSON, HTML, Markdown, and JSX (React component).
+    Provides a unified interface for transforming directory structures into different output formats
+    with consistent styling and organization. Supports text (ASCII tree), JSON, HTML, Markdown,
+    and JSX (React component).
     """
 
     def __init__(
-        self, structure: Dict[str, Any], root_name: str, base_path: Optional[str] = None
+        self,
+        structure: Dict[str, Any],
+        root_name: str,
+        base_path: Optional[str] = None,
+        sort_by_loc: bool = False,
     ):
         """Initialize the exporter with directory structure and root name.
 
@@ -89,16 +96,19 @@ class DirectoryExporter:
             structure: The directory structure dictionary
             root_name: Name of the root directory
             base_path: Base path for full path display (if None, only show filenames)
+            sort_by_loc: Whether to include lines of code counts in exports
         """
         self.structure = structure
         self.root_name = root_name
         self.base_path = base_path
         self.show_full_path = base_path is not None
+        self.sort_by_loc = sort_by_loc
 
     def to_txt(self, output_path: str) -> None:
         """Export directory structure to a text file with ASCII tree representation.
 
-        Creates a text file containing an ASCII tree representation of the directory structure using standard box-drawing characters and indentation.
+        Creates a text file containing an ASCII tree representation of the directory structure
+        using standard box-drawing characters and indentation.
 
         Args:
             output_path: Path where the txt file will be saved
@@ -111,16 +121,41 @@ class DirectoryExporter:
             items = sorted(structure.items())
             for i, (name, content) in enumerate(items):
                 if name == "_files":
-                    for file_item in sort_files_by_type(content):
-                        if self.show_full_path and isinstance(file_item, tuple):
-                            _, full_path = file_item
+                    for file_item in sort_files_by_type(content, self.sort_by_loc):
+                        if (
+                            self.sort_by_loc
+                            and isinstance(file_item, tuple)
+                            and len(file_item) > 2
+                        ):
+                            _, display_path, loc = file_item
+                            lines.append(f"{prefix}├── 📄 {display_path} ({loc} lines)")
+                        elif self.show_full_path and isinstance(file_item, tuple):
+                            if len(file_item) > 2:
+                                _, full_path, _ = file_item
+                            else:
+                                _, full_path = file_item
                             lines.append(f"{prefix}├── 📄 {full_path}")
                         else:
-                            lines.append(f"{prefix}├── 📄 {file_item}")
-                elif name == "_max_depth_reached":
+                            if isinstance(file_item, tuple):
+                                if len(file_item) > 2:
+                                    file_name, _, _ = file_item
+                                else:
+                                    file_name, _ = file_item
+                            else:
+                                file_name = file_item
+                            lines.append(f"{prefix}├── 📄 {file_name}")
+                elif name == "_loc" or name == "_max_depth_reached":
                     continue
                 else:
-                    lines.append(f"{prefix}├── 📁 {name}")
+                    if (
+                        self.sort_by_loc
+                        and isinstance(content, dict)
+                        and "_loc" in content
+                    ):
+                        loc_count = content["_loc"]
+                        lines.append(f"{prefix}├── 📁 {name} ({loc_count} lines)")
+                    else:
+                        lines.append(f"{prefix}├── 📁 {name}")
                     next_path = os.path.join(path_prefix, name) if path_prefix else name
                     if isinstance(content, dict):
                         if content.get("_max_depth_reached"):
@@ -131,7 +166,10 @@ class DirectoryExporter:
                             )
             return lines
 
-        tree_lines = [f"📂 {self.root_name}"]
+        if self.sort_by_loc and "_loc" in self.structure:
+            tree_lines = [f"📂 {self.root_name} ({self.structure['_loc']} lines)"]
+        else:
+            tree_lines = [f"📂 {self.root_name}"]
         tree_lines.extend(
             _build_txt_tree(
                 self.structure, "", self.root_name if self.show_full_path else ""
@@ -152,22 +190,57 @@ class DirectoryExporter:
         Args:
             output_path: Path where the JSON file will be saved
         """
-        if self.show_full_path:
+        if self.show_full_path or self.sort_by_loc:
 
-            def convert_tuples_to_paths(structure):
+            def convert_structure_for_json(structure):
                 result = {}
                 for k, v in structure.items():
                     if k == "_files":
-                        result[k] = [full_path for _, full_path in v]
+                        if self.sort_by_loc:
+                            result[k] = []
+                            for item in v:
+                                if isinstance(item, tuple):
+                                    if len(item) > 2:
+                                        file_name, full_path, loc = item
+                                        result[k].append(
+                                            {
+                                                "name": file_name,
+                                                "path": full_path,
+                                                "loc": loc,
+                                            }
+                                        )
+                                    else:
+                                        file_name, full_path = item
+                                        result[k].append(
+                                            full_path
+                                            if self.show_full_path
+                                            else file_name
+                                        )
+                                else:
+                                    result[k].append(item)
+                        else:
+                            result[k] = []
+                            for item in v:
+                                if isinstance(item, tuple):
+                                    if len(item) > 2:
+                                        _, full_path, _ = item
+                                    else:
+                                        _, full_path = item
+                                    result[k].append(full_path)
+                                else:
+                                    result[k].append(item)
+                    elif k == "_loc":
+                        if self.sort_by_loc:
+                            result[k] = v
                     elif k == "_max_depth_reached":
                         result[k] = v
                     elif isinstance(v, dict):
-                        result[k] = convert_tuples_to_paths(v)
+                        result[k] = convert_structure_for_json(v)
                     else:
                         result[k] = v
                 return result
 
-            export_structure = convert_tuples_to_paths(self.structure)
+            export_structure = convert_structure_for_json(self.structure)
         else:
             export_structure = self.structure
         try:
@@ -176,6 +249,7 @@ class DirectoryExporter:
                     {
                         "root": self.root_name,
                         "structure": export_structure,
+                        "show_loc": self.sort_by_loc,
                     },
                     f,
                     indent=2,
@@ -196,23 +270,50 @@ class DirectoryExporter:
         def _build_html_tree(structure: Dict[str, Any], path_prefix: str = "") -> str:
             html_content = ["<ul>"]
             if "_files" in structure:
-                for file_item in sort_files_by_type(structure["_files"]):
-                    if self.show_full_path and isinstance(file_item, tuple):
-                        _, full_path = file_item
+                for file_item in sort_files_by_type(
+                    structure["_files"], self.sort_by_loc
+                ):
+                    if (
+                        self.sort_by_loc
+                        and isinstance(file_item, tuple)
+                        and len(file_item) > 2
+                    ):
+                        _, display_path, loc = file_item
+                        html_content.append(
+                            f'<li class="file">📄 {html.escape(display_path)} ({loc} lines)</li>'
+                        )
+                    elif self.show_full_path and isinstance(file_item, tuple):
+                        if len(file_item) > 2:
+                            _, full_path, _ = file_item
+                        else:
+                            _, full_path = file_item
                         html_content.append(
                             f'<li class="file">📄 {html.escape(full_path)}</li>'
                         )
                     else:
-                        filename_str = cast(str, file_item)
+                        if isinstance(file_item, tuple):
+                            if len(file_item) > 2:
+                                filename_str, _, _ = file_item
+                            else:
+                                filename_str, _ = file_item
+                        else:
+                            filename_str = cast(str, file_item)
                         html_content.append(
                             f'<li class="file">📄 {html.escape(filename_str)}</li>'
                         )
             for name, content in sorted(structure.items()):
-                if name == "_files" or name == "_max_depth_reached":
+                if name == "_files" or name == "_max_depth_reached" or name == "_loc":
                     continue
-                html_content.append(
-                    f'<li class="directory">📁 <span class="dir-name">{html.escape(name)}</span>'
-                )
+                if self.sort_by_loc and isinstance(content, dict) and "_loc" in content:
+                    loc_count = content["_loc"]
+                    html_content.append(
+                        f'<li class="directory">📁 <span class="dir-name">{html.escape(name)}</span> '
+                        f'<span class="loc-count">({loc_count} lines)</span>'
+                    )
+                else:
+                    html_content.append(
+                        f'<li class="directory">📁 <span class="dir-name">{html.escape(name)}</span>'
+                    )
                 next_path = os.path.join(path_prefix, name) if path_prefix else name
                 if isinstance(content, dict):
                     if content.get("_max_depth_reached"):
@@ -225,6 +326,23 @@ class DirectoryExporter:
             html_content.append("</ul>")
             return "\n".join(html_content)
 
+        if self.sort_by_loc and "_loc" in self.structure:
+            title_with_loc = (
+                f"📂 {html.escape(self.root_name)} ({self.structure['_loc']} lines)"
+            )
+        else:
+            title_with_loc = f"📂 {html.escape(self.root_name)}"
+        loc_styles = (
+            """
+            .loc-count {
+                color: #666;
+                font-size: 0.9em;
+                font-weight: normal;
+            }
+        """
+            if self.sort_by_loc
+            else ""
+        )
         html_template = f"""
         <!DOCTYPE html>
         <html>
@@ -258,10 +376,11 @@ class DirectoryExporter:
                     font-style: italic;
                     color: #666;
                 }}
+                {loc_styles}
             </style>
         </head>
         <body>
-            <h1>📂 {html.escape(self.root_name)}</h1>
+            <h1>{title_with_loc}</h1>
             {_build_html_tree(self.structure, self.root_name if self.show_full_path else "")}
         </body>
         </html>
@@ -288,16 +407,39 @@ class DirectoryExporter:
             lines = []
             indent = "    " * level
             if "_files" in structure:
-                for file_item in sort_files_by_type(structure["_files"]):
-                    if self.show_full_path and isinstance(file_item, tuple):
-                        _, full_path = file_item
+                for file_item in sort_files_by_type(
+                    structure["_files"], self.sort_by_loc
+                ):
+                    if (
+                        self.sort_by_loc
+                        and isinstance(file_item, tuple)
+                        and len(file_item) > 2
+                    ):
+                        _, display_path, loc = file_item
+                        lines.append(f"{indent}- 📄 `{display_path}` ({loc} lines)")
+                    elif self.show_full_path and isinstance(file_item, tuple):
+                        if len(file_item) > 2:
+                            _, full_path, _ = file_item
+                        else:
+                            _, full_path = file_item
                         lines.append(f"{indent}- 📄 `{full_path}`")
                     else:
-                        lines.append(f"{indent}- 📄 `{file_item}`")
+                        if isinstance(file_item, tuple):
+                            if len(file_item) > 2:
+                                file_name, _, _ = file_item
+                            else:
+                                file_name, _ = file_item
+                        else:
+                            file_name = file_item
+                        lines.append(f"{indent}- 📄 `{file_name}`")
             for name, content in sorted(structure.items()):
-                if name == "_files" or name == "_max_depth_reached":
+                if name == "_files" or name == "_max_depth_reached" or name == "_loc":
                     continue
-                lines.append(f"{indent}- 📁 **{name}**")
+                if self.sort_by_loc and isinstance(content, dict) and "_loc" in content:
+                    loc_count = content["_loc"]
+                    lines.append(f"{indent}- 📁 **{name}** ({loc_count} lines)")
+                else:
+                    lines.append(f"{indent}- 📁 **{name}**")
                 next_path = os.path.join(path_prefix, name) if path_prefix else name
                 if isinstance(content, dict):
                     if content.get("_max_depth_reached"):
@@ -306,7 +448,10 @@ class DirectoryExporter:
                         lines.extend(_build_md_tree(content, level + 1, next_path))
             return lines
 
-        md_content = [f"# 📂 {self.root_name}", ""]
+        if self.sort_by_loc and "_loc" in self.structure:
+            md_content = [f"# 📂 {self.root_name} ({self.structure['_loc']} lines)", ""]
+        else:
+            md_content = [f"# 📂 {self.root_name}", ""]
         md_content.extend(
             _build_md_tree(
                 self.structure, 0, self.root_name if self.show_full_path else ""
@@ -333,6 +478,7 @@ class DirectoryExporter:
                 self.root_name,
                 output_path,
                 self.show_full_path,
+                self.sort_by_loc,
             )
         except Exception as e:
             logger.error(f"Error exporting to React component: {e}")

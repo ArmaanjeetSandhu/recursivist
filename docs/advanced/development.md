@@ -6,7 +6,7 @@ This guide provides information for developers who want to contribute to or exte
 
 ### Prerequisites
 
-- Python 3.6 or higher
+- Python 3.7 or higher
 - Git
 - pip (Python package manager)
 

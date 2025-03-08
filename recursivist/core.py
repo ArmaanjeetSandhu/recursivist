@@ -24,8 +24,6 @@ from rich.console import Console
 from rich.text import Text
 from rich.tree import Tree
 
-from recursivist.exports import DirectoryExporter
-
 logger = logging.getLogger(__name__)
 
 
@@ -35,6 +33,7 @@ def export_structure(
     format_type: str,
     output_path: str,
     show_full_path: bool = False,
+    sort_by_loc: bool = False,
 ) -> None:
     """Export the directory structure to various formats.
 
@@ -46,12 +45,18 @@ def export_structure(
         format_type: Export format ('txt', 'json', 'html', 'md', 'jsx')
         output_path: Path where the export file will be saved
         show_full_path: Whether to show full paths instead of just filenames
+        sort_by_loc: Whether to include lines of code counts in the export
 
     Raises:
         ValueError: If the format_type is not supported
     """
+    from recursivist.exports import DirectoryExporter
+
     exporter = DirectoryExporter(
-        structure, os.path.basename(root_dir), root_dir if show_full_path else None
+        structure,
+        os.path.basename(root_dir),
+        root_dir if show_full_path else None,
+        sort_by_loc,
     )
     format_map = {
         "txt": exporter.to_txt,
@@ -225,16 +230,11 @@ def get_directory_structure(
     current_depth: int = 0,
     current_path: str = "",
     show_full_path: bool = False,
+    sort_by_loc: bool = False,
 ) -> Tuple[Dict[str, Any], Set[str]]:
     """Build a nested dictionary representing the directory structure.
 
-    Recursively traverses the file system starting at root_dir, applying filters and building a structured representation. For files, handles both simple filenames and (filename, full_path) tuples based on show_full_path setting.
-
-    The returned dictionary has the following structure:
-    - Keys are directory names
-    - Values are either subdirectory dictionaries or special keys:
-      - '_files': List of files (either strings or tuples with full paths)
-      - '_max_depth_reached': Boolean flag when max_depth is reached
+    Recursively traverses the file system starting at root_dir, applying filters and building a structured representation. When sort_by_loc is True, calculates lines of code for files and directories.
 
     Args:
         root_dir: Root directory path to start from
@@ -248,6 +248,7 @@ def get_directory_structure(
         current_depth: Current depth in the directory tree
         current_path: Current path for full path display
         show_full_path: Whether to show full paths instead of just filenames
+        sort_by_loc: Whether to calculate and display lines of code counts
 
     Returns:
         Tuple of (structure dictionary, set of extensions found)
@@ -267,6 +268,7 @@ def get_directory_structure(
     ignore_context = {"patterns": ignore_patterns, "current_dir": root_dir}
     structure: Dict[str, Any] = {}
     extensions_set: Set[str] = set()
+    total_loc = 0
     if max_depth > 0 and current_depth >= max_depth:
         return {"_max_depth_reached": True}, extensions_set
     try:
@@ -292,12 +294,22 @@ def get_directory_structure(
             if ext.lower() not in exclude_extensions:
                 if "_files" not in structure:
                     structure["_files"] = []
+                file_loc = 0
+                if sort_by_loc:
+                    file_loc = count_lines_of_code(item_path)
+                    total_loc += file_loc
                 if show_full_path:
                     abs_path = os.path.abspath(item_path)
                     abs_path = abs_path.replace(os.sep, "/")
-                    structure["_files"].append((item, abs_path))
+                    if sort_by_loc:
+                        structure["_files"].append((item, abs_path, file_loc))
+                    else:
+                        structure["_files"].append((item, abs_path))
                 else:
-                    structure["_files"].append(item)
+                    if sort_by_loc:
+                        structure["_files"].append((item, item, file_loc))
+                    else:
+                        structure["_files"].append(item)
                 if ext:
                     extensions_set.add(ext.lower())
     for item in items:
@@ -324,53 +336,61 @@ def get_directory_structure(
                 current_depth + 1,
                 next_path,
                 show_full_path,
+                sort_by_loc,
             )
             structure[item] = substructure
             extensions_set.update(sub_extensions)
+            if sort_by_loc and "_loc" in substructure:
+                total_loc += substructure["_loc"]
+    if sort_by_loc:
+        structure["_loc"] = total_loc
     return structure, extensions_set
 
 
 def sort_files_by_type(
-    files: List[Union[str, Tuple[str, str]]],
-) -> List[Union[str, Tuple[str, str]]]:
-    """Sort files by extension and then by name.
+    files: List[Union[str, Tuple[str, str], Tuple[str, str, int]]],
+    sort_by_loc: bool = False,
+) -> List[Union[str, Tuple[str, str], Tuple[str, str, int]]]:
+    """Sort files by extension and then by name, or by LOC if requested.
 
-    Handles mixed input of both strings and tuples, ensuring correct sorting in either case. The extension is the primary sort key, followed by the filename as a secondary key.
+    Handles mixed input of both strings and tuples, ensuring correct sorting in either case. When sort_by_loc is True, files are sorted by lines of code (descending).
 
     Args:
-        files: List of filenames or (filename, full_path) tuples to sort
+        files: List of filenames or tuples to sort
+        sort_by_loc: Whether to sort by lines of code instead of file type
 
     Returns:
         Sorted list of filenames or tuples
     """
     if not files:
         return []
+    has_loc = any(isinstance(item, tuple) and len(item) > 2 for item in files)
+    if sort_by_loc and has_loc:
+        return sorted(
+            files, key=lambda f: (-(f[2] if isinstance(f, tuple) and len(f) > 2 else 0))
+        )
     all_tuples = all(isinstance(item, tuple) for item in files)
     all_strings = all(isinstance(item, str) for item in files)
     if all_strings:
         files_as_strings = cast(List[str], files)
         return cast(
-            List[Union[str, Tuple[str, str]]],
+            List[Union[str, Tuple[str, str], Tuple[str, str, int]]],
             sorted(
                 files_as_strings,
                 key=lambda f: (os.path.splitext(f)[1].lower(), f.lower()),
             ),
         )
     elif all_tuples:
-        files_as_tuples = cast(List[Tuple[str, str]], files)
-        return cast(
-            List[Union[str, Tuple[str, str]]],
-            sorted(
-                files_as_tuples,
-                key=lambda t: (os.path.splitext(t[0])[1].lower(), t[0].lower()),
-            ),
+        return sorted(
+            files,
+            key=lambda t: (os.path.splitext(t[0])[1].lower(), t[0].lower()),
         )
     else:
         str_items: List[str] = []
-        tuple_items: List[Tuple[str, str]] = []
+        tuple_items: List[Union[Tuple[str, str], Tuple[str, str, int]]] = []
         for item in files:
             if isinstance(item, tuple):
-                tuple_items.append(cast(Tuple[str, str], item))
+                tuple_items.append(item)
             else:
                 str_items.append(cast(str, item))
         sorted_strings = sorted(
@@ -379,11 +399,9 @@ def sort_files_by_type(
         sorted_tuples = sorted(
             tuple_items, key=lambda t: (os.path.splitext(t[0])[1].lower(), t[0].lower())
         )
-        result: List[Union[str, Tuple[str, str]]] = []
-        for item in sorted_strings:
-            result.append(item)
-        for item in sorted_tuples:
-            result.append(item)
+        result: List[Union[str, Tuple[str, str], Tuple[str, str, int]]] = []
+        result.extend(sorted_strings)
+        result.extend(sorted_tuples)
         return result
 
 
@@ -393,10 +411,11 @@ def build_tree(
     color_map: Dict[str, str],
     parent_name: str = "Root",
     show_full_path: bool = False,
+    sort_by_loc: bool = False,
 ) -> None:
     """Build the tree structure with colored file names.
 
-    Recursively builds a rich.Tree representation of the directory structure with files color-coded by extension. Handles both simple filenames and full paths based on show_full_path setting.
+    Recursively builds a rich.Tree representation of the directory structure with files color-coded by extension. When sort_by_loc is True, displays lines of code counts for files and directories.
 
     Args:
         structure: Dictionary representation of the directory structure
@@ -404,33 +423,52 @@ def build_tree(
         color_map: Mapping of file extensions to colors
         parent_name: Name of the parent directory
         show_full_path: Whether to show full paths instead of just filenames
+        sort_by_loc: Whether to display lines of code counts
     """
     for folder, content in sorted(structure.items()):
         if folder == "_files":
-            for file_item in sort_files_by_type(content):
-                if show_full_path and isinstance(file_item, tuple):
-                    file_name, full_path = file_item
+            for file_item in sort_files_by_type(content, sort_by_loc):
+                if sort_by_loc and isinstance(file_item, tuple) and len(file_item) > 2:
+                    file_name, display_path, loc = file_item
+                    ext = os.path.splitext(file_name)[1].lower()
+                    color = color_map.get(ext, "#FFFFFF")
+                    colored_text = Text(f"📄 {display_path} ({loc} lines)", style=color)
+                    tree.add(colored_text)
+                elif show_full_path and isinstance(file_item, tuple):
+                    if len(file_item) > 2:
+                        file_name, full_path, _ = file_item
+                    else:
+                        file_name, full_path = file_item
                     ext = os.path.splitext(file_name)[1].lower()
                     color = color_map.get(ext, "#FFFFFF")
                     colored_text = Text(f"📄 {full_path}", style=color)
                     tree.add(colored_text)
                 else:
                     if isinstance(file_item, tuple):
-                        file_name, _ = file_item
+                        if len(file_item) > 2:
+                            file_name, _, _ = file_item
+                        else:
+                            file_name, _ = file_item
                     else:
                         file_name = cast(str, file_item)
                     ext = os.path.splitext(file_name)[1].lower()
                     color = color_map.get(ext, "#FFFFFF")
                     colored_text = Text(f"📄 {file_name}", style=color)
                     tree.add(colored_text)
-        elif folder == "_max_depth_reached":
+        elif folder == "_loc" or folder == "_max_depth_reached":
             pass
         else:
-            subtree = tree.add(f"📁 {folder}")
+            if sort_by_loc and isinstance(content, dict) and "_loc" in content:
+                folder_loc = content["_loc"]
+                subtree = tree.add(f"📁 {folder} ({folder_loc} lines)")
+            else:
+                subtree = tree.add(f"📁 {folder}")
             if isinstance(content, dict) and content.get("_max_depth_reached"):
                 subtree.add(Text("⋯ (max depth reached)", style="dim"))
             else:
-                build_tree(content, subtree, color_map, folder, show_full_path)
+                build_tree(
+                    content, subtree, color_map, folder, show_full_path, sort_by_loc
+                )
 
 
 def display_tree(
@@ -443,10 +481,11 @@ def display_tree(
     use_regex: bool = False,
     max_depth: int = 0,
     show_full_path: bool = False,
+    sort_by_loc: bool = False,
 ) -> None:
     """Display the directory tree with color-coded file types.
 
-    Prepares the directory structure with all filtering options applied, then builds and displays a Rich tree visualization with color-coding based on file extensions.
+    Prepares the directory structure with all filtering options applied, then builds and displays a Rich tree visualization with color-coding based on file extensions. When sort_by_loc is True, displays and sorts by lines of code counts.
 
     Args:
         root_dir: Root directory path to display
@@ -458,6 +497,7 @@ def display_tree(
         use_regex: Whether to treat patterns as regex instead of glob patterns
         max_depth: Maximum depth to display (0 for unlimited)
         show_full_path: Whether to show full paths instead of just filenames
+        sort_by_loc: Whether to sort files by lines of code and display LOC counts
     """
     if exclude_dirs is None:
         exclude_dirs = []
@@ -482,9 +522,43 @@ def display_tree(
         include_patterns=compiled_include,
         max_depth=max_depth,
         show_full_path=show_full_path,
+        sort_by_loc=sort_by_loc,
     )
     color_map = {ext: generate_color_for_extension(ext) for ext in extensions}
     console = Console()
-    tree = Tree(f"📂 {os.path.basename(root_dir)}")
-    build_tree(structure, tree, color_map, show_full_path=show_full_path)
+    if sort_by_loc and "_loc" in structure:
+        tree = Tree(f"📂 {os.path.basename(root_dir)} ({structure['_loc']} lines)")
+    else:
+        tree = Tree(f"📂 {os.path.basename(root_dir)}")
+    build_tree(
+        structure,
+        tree,
+        color_map,
+        show_full_path=show_full_path,
+        sort_by_loc=sort_by_loc,
+    )
     console.print(tree)
+
+
+def count_lines_of_code(file_path: str) -> int:
+    """Count the number of lines of code in a file.
+
+    Attempts to read the file in UTF-8 encoding with fallback error handling. Skips binary files and handles various encoding issues gracefully.
+
+    Args:
+        file_path: Path to the file
+
+    Returns:
+        Number of lines in the file, or 0 if the file cannot be read or is binary
+    """
+    try:
+        with open(file_path, "rb") as f:
+            sample = f.read(1024)
+            if b"\0" in sample:
+                logger.debug(f"Skipping binary file: {file_path}")
+                return 0
+        with open(file_path, "r", encoding="utf-8", errors="replace") as f:
+            return sum(1 for _ in f)
+    except Exception as e:
+        logger.debug(f"Could not count lines in {file_path}: {e}")
+        return 0

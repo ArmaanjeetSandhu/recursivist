@@ -2,9 +2,7 @@
 """
 Recursivist CLI - A beautiful directory structure visualization tool.
 
-This module provides the command-line interface for the recursivist package,
-allowing users to visualize directory structures, export them in various formats,
-compare two directory structures side by side, and handle shell completion.
+This module provides the command-line interface for the recursivist package, allowing users to visualize directory structures, export them in various formats, compare two directory structures side by side, and handle shell completion.
 
 The CLI is built with Typer and offers rich, colorful output through the Rich library.
 
@@ -15,6 +13,7 @@ Main commands:
 - version: Display the current version information
 - completion: Generate shell completion scripts
 """
+
 import logging
 import sys
 from pathlib import Path
@@ -130,6 +129,12 @@ def visualize(
     show_full_path: bool = typer.Option(
         False, "--full-path", "-l", help="Show full paths instead of just filenames"
     ),
+    sort_by_loc: bool = typer.Option(
+        False,
+        "--sort-by-loc",
+        "-s",
+        help="Sort files by lines of code and display LOC counts",
+    ),
     verbose: bool = typer.Option(
         False, "--verbose", "-v", help="Enable verbose output"
     ),
@@ -143,18 +148,20 @@ def visualize(
     - Support for .gitignore files and similar
     - Depth limitation for large directories
     - Full path display option
+    - Lines of code counting and sorting
     - Progress indicators for large directories
 
     Examples:
-        recursivist visualize                          # Display current directory
-        recursivist visualize /path/to/project         # Display specific directory
-        recursivist visualize -e node_modules .git     # Exclude directories
-        recursivist visualize -x .pyc .log             # Exclude file extensions
-        recursivist visualize -p "*.test.js" "*.spec.js" # Exclude test files (glob pattern)
-        recursivist visualize -p ".*test.*" -r         # Exclude test files (regex pattern)
-        recursivist visualize -i "src/*" "*.md"        # Include only src dir and markdown files
-        recursivist visualize -d 2                     # Limit directory depth to 2 levels
-        recursivist visualize -l                       # Show full paths instead of just filenames
+        recursivist visualize                             # Display current directory
+        recursivist visualize /path/to/project            # Display specific directory
+        recursivist visualize -e node_modules .git        # Exclude directories
+        recursivist visualize -x .pyc .log                # Exclude file extensions
+        recursivist visualize -p "*.test.js" "*.spec.js"  # Exclude test files (glob pattern)
+        recursivist visualize -p ".*test.*" -r            # Exclude test files (regex pattern)
+        recursivist visualize -i "src/*" "*.md"           # Include only src dir and markdown files
+        recursivist visualize -d 2                        # Limit directory depth to 2 levels
+        recursivist visualize -l                          # Show full paths instead of just filenames
+        recursivist visualize -s                          # Sort by lines of code and show LOC counts
     """
     if verbose:
         logger.setLevel(logging.DEBUG)
@@ -166,6 +173,8 @@ def visualize(
         logger.info(f"Limiting depth to {max_depth} levels")
     if show_full_path:
         logger.info("Showing full paths instead of just filenames")
+    if sort_by_loc:
+        logger.info("Sorting files by lines of code and displaying LOC counts")
     parsed_exclude_dirs = parse_list_option(exclude_dirs)
     parsed_exclude_exts = parse_list_option(exclude_extensions)
     parsed_exclude_patterns = parse_list_option(exclude_patterns)
@@ -219,6 +228,7 @@ def visualize(
                 include_patterns=compiled_include,
                 max_depth=max_depth,
                 show_full_path=show_full_path,
+                sort_by_loc=sort_by_loc,
             )
             progress.update(task_scan, completed=True)
             logger.debug(f"Found {len(extensions)} unique file extensions")
@@ -233,6 +243,7 @@ def visualize(
             use_regex,
             max_depth,
             show_full_path,
+            sort_by_loc,
         )
     except Exception as e:
         logger.error(f"Error: {e}", exc_info=verbose)
@@ -295,6 +306,12 @@ def export(
     show_full_path: bool = typer.Option(
         False, "--full-path", "-l", help="Show full paths instead of just filenames"
     ),
+    sort_by_loc: bool = typer.Option(
+        False,
+        "--sort-by-loc",
+        "-s",
+        help="Sort files by lines of code and display LOC counts",
+    ),
     verbose: bool = typer.Option(
         False, "--verbose", "-v", help="Enable verbose output"
     ),
@@ -302,12 +319,12 @@ def export(
     """
     Export a directory structure to various formats without displaying in the terminal.
 
-    Supports multiple export formats simultaneously, with all the same
-    filtering options as the visualization command:
+    Supports multiple export formats simultaneously, with all the same filtering options as the visualization command:
     - Format options: txt, json, html, md, jsx
     - Custom output directory and filename prefix
     - Progress indicators for large directories
     - Consistent styling across formats
+    - Lines of code counting and sorting
 
     Examples:
         recursivist export                             # Export current directory to MD
@@ -322,6 +339,7 @@ def export(
         recursivist export -d 2                        # Limit directory depth to 2 levels
         recursivist export -l                          # Show full paths instead of just filenames
         recursivist export -o ./exports                # Export to custom directory
+        recursivist export -s                          # Sort by lines of code and show LOC counts
     """
     if verbose:
         logger.setLevel(logging.DEBUG)
@@ -333,6 +351,8 @@ def export(
         logger.info(f"Limiting depth to {max_depth} levels")
     if show_full_path:
         logger.info("Showing full paths instead of just filenames")
+    if sort_by_loc:
+        logger.info("Sorting files by lines of code and displaying LOC counts")
     parsed_exclude_dirs = parse_list_option(exclude_dirs)
     parsed_exclude_exts = parse_list_option(exclude_extensions)
     parsed_exclude_patterns = parse_list_option(exclude_patterns)
@@ -386,6 +406,7 @@ def export(
                 include_patterns=compiled_include,
                 max_depth=max_depth,
                 show_full_path=show_full_path,
+                sort_by_loc=sort_by_loc,
             )
             progress.update(task_scan, completed=True)
             logger.debug(f"Found {len(extensions)} unique file extensions")
@@ -414,6 +435,7 @@ def export(
                     fmt.lower(),
                     str(output_path),
                     show_full_path,
+                    sort_by_loc,
                 )
                 logger.info(f"Successfully exported to {output_path}")
             except Exception as e:
@@ -544,6 +566,12 @@ def compare(
     show_full_path: bool = typer.Option(
         False, "--full-path", "-l", help="Show full paths instead of just filenames"
     ),
+    sort_by_loc: bool = typer.Option(
+        False,
+        "--sort-by-loc",
+        "-s",
+        help="Sort files by lines of code and display LOC counts",
+    ),
     verbose: bool = typer.Option(
         False, "--verbose", "-v", help="Enable verbose output"
     ),
@@ -556,6 +584,7 @@ def compare(
     - Same filtering options as visualization (dirs, extensions, patterns)
     - Optional export to HTML for better sharing and viewing
     - Visual legend explaining the highlighting
+    - Optional sorting and display of lines of code counts
 
     Examples:
         recursivist compare dir1 dir2                   # Compare two directories
@@ -567,6 +596,7 @@ def compare(
         recursivist compare dir1 dir2 -d 2              # Limit directory depth to 2 levels
         recursivist compare dir1 dir2 -l                # Show full paths instead of just filenames
         recursivist compare dir1 dir2 -f                # Export comparison to HTML
+        recursivist compare dir1 dir2 -s                # Sort by lines of code and show LOC counts
     """
     if verbose:
         logger.setLevel(logging.DEBUG)
@@ -578,6 +608,8 @@ def compare(
         logger.info(f"Limiting depth to {max_depth} levels")
     if show_full_path:
         logger.info("Showing full paths instead of just filenames")
+    if sort_by_loc:
+        logger.info("Sorting files by lines of code and displaying LOC counts")
     parsed_exclude_dirs = parse_list_option(exclude_dirs)
     parsed_exclude_exts = parse_list_option(exclude_extensions)
     parsed_exclude_patterns = parse_list_option(exclude_patterns)
@@ -611,7 +643,6 @@ def compare(
                 output_dir.mkdir(parents=True, exist_ok=True)
             else:
                 output_dir = Path(".")
-            logger.info("Exporting comparison to HTML format")
             output_path = output_dir / f"{output_prefix}.html"
             try:
                 export_comparison(
@@ -627,6 +658,7 @@ def compare(
                     use_regex=use_regex,
                     max_depth=max_depth,
                     show_full_path=show_full_path,
+                    sort_by_loc=sort_by_loc,
                 )
                 logger.info(f"Successfully exported to {output_path}")
             except Exception as e:
@@ -643,6 +675,7 @@ def compare(
                 use_regex=use_regex,
                 max_depth=max_depth,
                 show_full_path=show_full_path,
+                sort_by_loc=sort_by_loc,
             )
     except Exception as e:
         logger.error(f"Error: {e}", exc_info=verbose)
