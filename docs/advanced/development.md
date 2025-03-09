@@ -13,7 +13,7 @@ This guide provides information for developers who want to contribute to or exte
 ### Clone the Repository
 
 ```bash
-git clone https://github.com/ArmaanjeetSandhu/recursivist.git
+git clone https://github.com/username/recursivist.git
 cd recursivist
 ```
 
@@ -41,13 +41,25 @@ This installs Recursivist in "editable" mode, so your changes to the source code
 
 ## Project Structure
 
-Recursivist is organized into several modules:
+Recursivist is organized into several key modules:
 
-- `cli.py`: Command-line interface using Typer
-- `core.py`: Core functionality for directory traversal and structure building
-- `exports.py`: Functionality for exporting directory structures
-- `compare.py`: Functionality for comparing directory structures
-- `jsx_export.py`: Specialized functionality for React component export
+```
+recursivist/
+├── __init__.py          # Package initialization, version info
+├── cli.py               # Command-line interface (Typer-based)
+├── core.py              # Core functionality (directory traversal, tree building)
+├── exports.py           # Export functionality (TXT, JSON, HTML, MD, JSX)
+├── compare.py           # Comparison functionality (side-by-side diff)
+└── jsx_export.py        # React component generation
+```
+
+### Module Responsibilities
+
+- **cli.py**: Defines the command-line interface using Typer, handles command-line arguments and option parsing, and invokes core functionality
+- **core.py**: Implements the core directory traversal, pattern matching, and tree building functionality
+- **exports.py**: Contains the `DirectoryExporter` class for exporting directory structures to various formats
+- **compare.py**: Implements functionality for comparing two directory structures side by side
+- **jsx_export.py**: Provides specialized functionality for generating React components
 
 ## Development Workflow
 
@@ -74,13 +86,13 @@ Recursivist is organized into several modules:
    git commit -m "Add your meaningful commit message here"
    ```
 
-5. Push your changes to your fork:
+5. Push your changes:
 
    ```bash
    git push origin feature/your-feature-name
    ```
 
-6. Create a pull request on GitHub.
+6. Create a pull request.
 
 ### Code Style
 
@@ -157,101 +169,56 @@ def to_your_format(self, output_path: str) -> None:
         raise
 ```
 
-3. Update the `export_structure` function in `core.py` to support your new format.
+3. Update the format map in the `export_structure` function in `core.py`:
+
+```python
+format_map = {
+    "txt": exporter.to_txt,
+    "json": exporter.to_json,
+    "html": exporter.to_html,
+    "md": exporter.to_markdown,
+    "jsx": exporter.to_jsx,
+    "your_format": exporter.to_your_format,  # Add your format here
+}
+```
+
 4. Add tests for your new export format.
+
+### Adding New File Statistics
+
+To add a new statistic (beyond LOC, size, and mtime):
+
+1. Update the `get_directory_structure` function in `core.py` to collect your new statistic.
+2. Add appropriate parameters to the function signature for enabling/sorting by the new statistic.
+3. Update the `build_tree` function to display the new statistic.
+4. Update export formats to include the new statistic.
+5. Add CLI options in `cli.py` to enable the new statistic.
 
 ## Testing
 
-### Running Tests
+For detailed information about testing, see the [Testing Guide](testing.md).
 
-To run all tests:
+### Basic Testing
 
 ```bash
+# Run all tests
 pytest
-```
 
-To run specific test files:
-
-```bash
-pytest tests/test_core.py
-```
-
-To generate a coverage report:
-
-```bash
+# Run tests with code coverage
 pytest --cov=recursivist --cov-report=html
-```
 
-This creates an HTML coverage report in the `htmlcov` directory.
+# Run specific test file
+pytest tests/test_core.py
 
-### Writing Tests
-
-Test files are located in the `tests` directory. We use pytest for testing.
-
-When writing tests, follow these guidelines:
-
-1. Structure your tests with clear, descriptive names.
-2. Test both normal and edge case behaviors.
-3. Use fixtures and parametrization where appropriate.
-4. Mock external dependencies when necessary.
-
-Example test:
-
-```python
-def test_get_directory_structure_with_exclude_dirs(tmp_path):
-    # Setup
-    root_dir = tmp_path / "root"
-    root_dir.mkdir()
-    (root_dir / "include_dir").mkdir()
-    (root_dir / "exclude_dir").mkdir()
-    (root_dir / "include_dir" / "file.txt").write_text("content")
-    (root_dir / "exclude_dir" / "file.txt").write_text("content")
-
-    # Execute
-    structure, _ = get_directory_structure(
-        str(root_dir), exclude_dirs=["exclude_dir"]
-    )
-
-    # Assert
-    assert "include_dir" in structure
-    assert "exclude_dir" not in structure
-    assert "_files" in structure["include_dir"]
-    assert "file.txt" in structure["include_dir"]["_files"]
-```
-
-## Building and Distribution
-
-### Building the Package
-
-To build the package:
-
-```bash
-# Install build tools if not already installed
-pip install build
-
-# Build the package
-python -m build
-```
-
-This creates distribution packages in the `dist` directory.
-
-### Running the CLI During Development
-
-While developing, you can run the CLI directly:
-
-```bash
-# Using Python
-python -m recursivist.cli visualize
-
-# Using the installed development version
-recursivist visualize
+# Run tests matching a pattern
+pytest -k "pattern"
 ```
 
 ## Debugging
 
 ### Verbose Output
 
-Use the `--verbose` flag to enable detailed logging:
+Use the `--verbose` flag during development to enable detailed logging:
 
 ```bash
 recursivist visualize --verbose
@@ -259,24 +226,16 @@ recursivist visualize --verbose
 
 This provides more information about what's happening during execution, which can be helpful for debugging.
 
-### Debugging Specific Modules
-
-You can set up logging for specific modules to get more detailed information:
-
-```python
-import logging
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger('recursivist.core')
-```
-
 ### Using a Debugger
 
-For more complex issues, you can use a debugger like `pdb` or an IDE debugger:
+For complex issues, you can use a debugger:
 
 ```python
 import pdb
 pdb.set_trace()  # Add this line at the point where you want to start debugging
 ```
+
+With modern IDEs like VSCode or PyCharm, you can also set breakpoints and use their built-in debuggers.
 
 ## Documentation
 
@@ -329,11 +288,11 @@ def your_command(
 
 ### Large Directory Structures
 
-When working with large directory structures:
+When working with large directories:
 
 1. Use generators and iterators where possible to minimize memory usage.
 2. Implement early filtering to reduce the number of files and directories processed.
-3. Consider adding progress indicators for long-running operations.
+3. Use progress indicators (like the `Progress` class from Rich) for long-running operations.
 4. Test with large directories to ensure acceptable performance.
 
 ### Profiling
@@ -350,24 +309,14 @@ p = pstats.Stats('profile_results')
 p.sort_stats('cumulative').print_stats(20)
 ```
 
-## Extending Recursivist
+## Extending Pattern Matching
 
-### Adding Support for New Pattern Types
+Recursivist currently supports glob patterns (default) and regular expressions. To add a new pattern type:
 
-To add a new pattern matching type:
-
-1. Update the `should_exclude` function in `core.py`.
-2. Add appropriate command-line options in `cli.py`.
-3. Add documentation for the new pattern type.
-4. Add tests for the new functionality.
-
-### Adding New Visualization Features
-
-To enhance the visualization:
-
-1. Modify the `build_tree` and `display_tree` functions in `core.py`.
-2. Ensure the visualization works well in different terminal environments.
-3. Update documentation and tests.
+1. Update the `should_exclude` function in `core.py` to handle the new pattern type.
+2. Add a new flag to the command-line arguments in `cli.py`.
+3. Add appropriate documentation for the new pattern type.
+4. Add tests specifically for the new pattern functionality.
 
 ## Release Process
 
@@ -406,11 +355,75 @@ Recursivist follows Semantic Versioning (SemVer):
    twine upload dist/*
    ```
 
-## Getting Help
+## Common Development Tasks
 
-If you need help with development:
+### Adding a New Command-Line Option
 
-1. Check the existing documentation and code comments
-2. Look at the test suite for examples of how components work
-3. Create an issue on GitHub for questions or problems
-4. Reach out to the maintainers directly
+1. Add the option to the appropriate command functions in `cli.py`:
+
+```python
+@app.command()
+def visualize(
+    # Existing options...
+    new_option: bool = typer.Option(
+        False, "--new-option", "-n", help="Description of the new option"
+    ),
+):
+    # Pass the new option to the core function
+    display_tree(
+        # Existing parameters...
+        new_option=new_option
+    )
+```
+
+2. Update the core function to handle the new option:
+
+```python
+def display_tree(
+    # Existing parameters...
+    new_option: bool = False,
+):
+    # Use the new option in your function
+    if new_option:
+        # Do something
+        pass
+```
+
+### Improving Colorization
+
+The file extension colorization is handled by the `generate_color_for_extension` function in `core.py`:
+
+```python
+def generate_color_for_extension(extension: str) -> str:
+    """Generate a consistent color for a file extension."""
+    # Current implementation uses hash-based approach
+    # You can modify this to use predefined colors for common extensions
+```
+
+If you want to add predefined colors for common file types:
+
+1. Create a mapping of extensions to colors:
+
+```python
+EXTENSION_COLORS = {
+    ".py": "#3776AB",  # Python blue
+    ".js": "#F7DF1E",  # JavaScript yellow
+    ".html": "#E34C26",  # HTML orange
+    ".css": "#264DE4",  # CSS blue
+    # Add more extensions and colors
+}
+```
+
+2. Update the `generate_color_for_extension` function to use this mapping:
+
+```python
+def generate_color_for_extension(extension: str) -> str:
+    """Generate a consistent color for a file extension."""
+    extension = extension.lower()
+    if extension in EXTENSION_COLORS:
+        return EXTENSION_COLORS[extension]
+    # Fall back to the hash-based approach for unknown extensions
+    # ...
+```
+
+This will give common file types consistent, recognizable colors while maintaining the existing behavior for other file types.

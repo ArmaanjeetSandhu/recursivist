@@ -1,128 +1,305 @@
 # Integration with Other Tools
 
-Recursivist can be integrated with other tools and workflows to enhance productivity. This page provides guidance on various integration options.
+Recursivist can be integrated with other tools and workflows to enhance productivity. This guide provides examples and guidance on various integration options.
 
 ## Using with Git Repositories
+
+### Gitignore Integration
 
 When working with Git repositories, you can use your existing `.gitignore` file to filter the directory structure:
 
 ```bash
-recursivist visualize \
---ignore-file .gitignore
+recursivist visualize --ignore-file .gitignore
 ```
 
 This is particularly useful for quickly visualizing the structure of a Git repository without the noise of ignored files.
 
-## Integration with Shell Scripts
+### Git Hooks
 
-You can use Recursivist in shell scripts to automate directory visualization and export tasks:
+You can use Recursivist in Git hooks to automatically document your project structure:
+
+```bash
+# .git/hooks/pre-commit
+#!/bin/bash
+
+# Update project structure documentation when committing
+if git diff --cached --name-only | grep -q -v "STRUCTURE.md"; then
+  echo "Updating project structure documentation..."
+
+  # Generate updated structure with LOC statistics
+  recursivist export --format md --prefix "STRUCTURE" --sort-by-loc
+
+  # Add to commit if changed
+  git add STRUCTURE.md
+fi
+```
+
+Make the hook executable:
+
+```bash
+chmod +x .git/hooks/pre-commit
+```
+
+### Git Workflow Scripts
+
+This script compares two Git branches:
 
 ```bash
 #!/bin/bash
 
-# Generate directory structure visualization for multiple projects
-for project in projects/*; do
-  if [ -d "$project" ]; then
-    echo "Processing $project..."
-    recursivist export "$project" --format md --output-dir ./reports --prefix "$(basename $project)"
-  fi
-done
+# Compare two Git branches
+current_branch=$(git rev-parse --abbrev-ref HEAD)
+compare_branch=${1:-main}
+
+# Create temporary directories
+mkdir -p .tmp/$current_branch .tmp/$compare_branch
+
+# Extract current branch files
+git archive --format=tar $current_branch | tar -xf - -C .tmp/$current_branch/
+
+# Extract comparison branch files
+git archive --format=tar $compare_branch | tar -xf - -C .tmp/$compare_branch/
+
+# Compare the branches with statistics
+recursivist compare .tmp/$current_branch .tmp/$compare_branch \
+  --save \
+  --prefix "branch-comparison" \
+  --sort-by-loc
+
+# Clean up
+rm -rf .tmp
+
+echo "Branch comparison saved to branch-comparison.html"
 ```
 
 ## Processing JSON Exports with jq
 
-The JSON export format is particularly useful for integration with other tools. You can use tools like [jq](https://stedolan.github.io/jq/) to process and analyze the exported JSON:
+The JSON export format works well with command-line data processors like [jq](https://stedolan.github.io/jq/). Here are some useful examples:
+
+### Count Files by Extension
 
 ```bash
-# Export to JSON
-recursivist export --format json --prefix myproject
+# Export structure to JSON with file statistics
+recursivist export --format json --prefix structure --sort-by-loc
 
-# Count the number of files in each directory
-cat myproject.json | jq '.structure | to_entries[] | select(.value | type == "object") | .key + ": " + (.value._files | length | tostring) + " files"'
+# Count files by extension and sort by count
+jq -r '.structure | .. | objects | select(has("_files")) | ._files[] |
+    select(type=="object") |
+    (.path | split(".") | .[-1]) |
+    ascii_downcase' structure.json | sort | uniq -c | sort -nr
+```
 
-# Find directories with the most files
-cat myproject.json | jq '.structure | to_entries[] | select(.value | type == "object" and has("_files")) | {dir: .key, count: (.value._files | length)} | select(.count > 0)' | jq -s 'sort_by(.count) | reverse | .[0:5]'
+### Find Largest Files
+
+```bash
+# Export with file size statistics
+recursivist export --format json --prefix structure --sort-by-size
+
+# Get the 10 largest files
+jq -r '.structure | .. | objects | select(has("_files")) | ._files[] |
+    select(type=="object" and has("size")) |
+    [.size, .path] | @tsv' structure.json | sort -nr | head -10
+```
+
+### Find Files with Most Lines of Code
+
+```bash
+# Export with LOC statistics
+recursivist export --format json --prefix structure --sort-by-loc
+
+# Get the 10 files with most lines of code
+jq -r '.structure | .. | objects | select(has("_files")) | ._files[] |
+    select(type=="object" and has("loc")) |
+    [.loc, .path] | @tsv' structure.json | sort -nr | head -10
+```
+
+### Analyze Code Distribution by Directory
+
+```bash
+# Get lines of code by directory
+jq -r '.structure | to_entries[] |
+    select(.value | type == "object" and has("_loc")) |
+    [.key, (.value._loc | tostring)] | @tsv' structure.json | sort -k2 -nr
 ```
 
 ## Programmatic Use with Python
 
-If you need more control or want to integrate Recursivist functionality directly into your Python applications, you can use the underlying Python API:
+You can integrate Recursivist directly into your Python applications:
+
+### Basic Directory Analysis
 
 ```python
-import recursivist.core as core
+from recursivist.core import get_directory_structure, export_structure
 
-# Get directory structure
-structure, extensions = core.get_directory_structure(
-    "/path/to/directory",
+# Get directory structure with statistics
+structure, extensions = get_directory_structure(
+    "path/to/directory",
     exclude_dirs=["node_modules", ".git"],
-    exclude_extensions=[".pyc", ".log"],
-    max_depth=3
+    exclude_extensions={".pyc", ".log"},
+    sort_by_loc=True,
+    sort_by_size=True
 )
 
-# Process the structure
-def count_files(directory_dict, path=""):
-    count = 0
-    for name, content in directory_dict.items():
-        if name == "_files":
-            count += len(content)
-        elif isinstance(content, dict) and name != "_max_depth_reached":
-            count += count_files(content, f"{path}/{name}")
-    return count
+# Export to multiple formats
+export_structure(structure, "path/to/directory", "md", "output.md", sort_by_loc=True, sort_by_size=True)
+export_structure(structure, "path/to/directory", "json", "output.json", sort_by_loc=True, sort_by_size=True)
 
-total_files = count_files(structure)
-print(f"Total files: {total_files}")
+# Calculate statistics
+total_loc = structure.get("_loc", 0)
+total_size = structure.get("_size", 0)
+print(f"Total lines of code: {total_loc}")
+print(f"Total size: {total_size} bytes")
 ```
 
-## Building Dashboards with React Export
+### Custom File Analysis
 
-The React component export feature allows you to integrate directory structure visualizations into your web applications and dashboards:
+```python
+from recursivist.core import get_directory_structure
 
-1. Export the directory structure as a React component:
+def analyze_file_types(directory):
+    """Analyze the distribution of file types in a directory."""
+    structure, extensions = get_directory_structure(
+        directory,
+        exclude_dirs=["node_modules", ".git"],
+        sort_by_loc=True
+    )
 
-   ```bash
-   recursivist export \
-   --format jsx \
-   --output-dir ./components
-   ```
+    # Extract all files with their extensions
+    files_by_ext = {}
 
-2. Import the component into your React application:
+    def process_directory(dir_struct, path=""):
+        if "_files" in dir_struct:
+            for file_item in dir_struct["_files"]:
+                if isinstance(file_item, tuple):
+                    filename = file_item[0]
+                else:
+                    filename = file_item
 
-   ```jsx
-   import DirectoryViewer from "./components/structure.jsx";
+                ext = filename.split(".")[-1] if "." in filename else "no_extension"
+                loc = file_item[2] if isinstance(file_item, tuple) and len(file_item) > 2 else 0
 
-   function App() {
-     return (
-       <div className="Dashboard">
-         <header>
-           <h1>Project Overview</h1>
-         </header>
-         <main>
-           <section>
-             <h2>Directory Structure</h2>
-             <DirectoryViewer />
-           </section>
-           {/* Other dashboard components */}
-         </main>
-       </div>
-     );
-   }
-   ```
+                if ext not in files_by_ext:
+                    files_by_ext[ext] = {"count": 0, "loc": 0}
+
+                files_by_ext[ext]["count"] += 1
+                files_by_ext[ext]["loc"] += loc
+
+        for name, content in dir_struct.items():
+            if isinstance(content, dict) and name not in ["_files", "_max_depth_reached", "_loc", "_size", "_mtime"]:
+                process_directory(content, f"{path}/{name}")
+
+    process_directory(structure)
+
+    # Print results
+    print(f"File type distribution in {directory}:")
+    print("-" * 50)
+    print(f"{'Extension':<12} {'Count':<8} {'Lines of Code':<14} {'Avg LOC/File':<12}")
+    print("-" * 50)
+
+    for ext, data in sorted(files_by_ext.items(), key=lambda x: x[1]["count"], reverse=True):
+        avg_loc = data["loc"] / data["count"] if data["count"] > 0 else 0
+        print(f"{ext:<12} {data['count']:<8} {data['loc']:<14} {avg_loc:<12.1f}")
+
+# Usage
+analyze_file_types("path/to/project")
+```
+
+## Web Application Integration
+
+### Using the React Component Export
+
+Recursivist can export a directory structure as a React component:
+
+```bash
+recursivist export --format jsx --output-dir ./src/components --prefix DirectoryViewer --sort-by-loc
+```
+
+Then import it into your React application:
+
+```jsx
+// src/App.js
+import React from "react";
+import DirectoryViewer from "./components/DirectoryViewer";
+
+function App() {
+  return (
+    <div className="App">
+      <header className="App-header">
+        <h1>Project Structure</h1>
+      </header>
+      <main>
+        <DirectoryViewer />
+      </main>
+    </div>
+  );
+}
+
+export default App;
+```
+
+The generated component includes:
+
+- Collapsible folder structure
+- Search functionality
+- Breadcrumb navigation
+- Dark/light mode toggle
+- Statistics display when enabled
+
+### Custom API with Flask
+
+You can build a simple API to serve directory structures:
+
+```python
+from flask import Flask, jsonify, request
+from recursivist.core import get_directory_structure
+
+app = Flask(__name__)
+
+@app.route('/api/directory-structure', methods=['GET'])
+def get_structure():
+    directory = request.args.get('directory', '.')
+    exclude_dirs = request.args.get('exclude_dirs', '').split(',') if request.args.get('exclude_dirs') else []
+    max_depth = int(request.args.get('max_depth', 0))
+
+    try:
+        structure, _ = get_directory_structure(
+            directory,
+            exclude_dirs=exclude_dirs,
+            max_depth=max_depth,
+            sort_by_loc='sort_by_loc' in request.args,
+            sort_by_size='sort_by_size' in request.args,
+            sort_by_mtime='sort_by_mtime' in request.args
+        )
+        return jsonify({
+            'directory': directory,
+            'structure': structure
+        })
+    except Exception as e:
+        return jsonify({
+            'error': str(e)
+        }), 500
+
+if __name__ == '__main__':
+    app.run(debug=True)
+```
 
 ## Continuous Integration Integration
 
-You can incorporate Recursivist into your CI/CD pipelines to document project structure as part of your build process:
+You can incorporate Recursivist into your CI/CD pipelines:
 
 ### GitHub Actions Example
 
 ```yaml
-name: Document Project Structure
+name: Generate Project Structure Documentation
 
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - "docs/structure.md"
 
 jobs:
-  document:
+  update-structure:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -137,30 +314,45 @@ jobs:
 
       - name: Generate structure documentation
         run: |
-          mkdir -p ./docs/structure
-          recursivist export --format md --output-dir ./docs/structure --prefix "project-structure"
-          recursivist export --format html --output-dir ./docs/structure --prefix "project-structure"
+          mkdir -p docs
+          recursivist export \
+            --format md \
+            --exclude "node_modules .git" \
+            --output-dir ./docs \
+            --prefix "structure" \
+            --sort-by-loc
 
-      - name: Commit and push changes
-        uses: stefanzweifel/git-auto-commit-action@v4
-        with:
-          commit_message: Update project structure documentation
-          file_pattern: docs/structure/*
+      - name: Commit and push if changed
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add docs/structure.md
+          git diff --quiet && git diff --staged --quiet || git commit -m "Update project structure documentation"
+          git push
 ```
 
-## Using with Documentation Tools
+### GitLab CI Example
 
-You can integrate Recursivist with documentation tools like Sphinx or MkDocs:
+```yaml
+generate-structure:
+  image: python:3.10-slim
+  script:
+    - pip install recursivist
+    - mkdir -p docs
+    - recursivist export --format md --exclude "node_modules .git" --output-dir ./docs --prefix "structure" --sort-by-loc
+  artifacts:
+    paths:
+      - docs/structure.md
+```
+
+## Documentation Tools Integration
 
 ### MkDocs Integration
 
-1. Generate a Markdown export of your project structure:
+1. Generate a Markdown export:
 
    ```bash
-   recursivist export \
-   --format md \
-   --output-dir ./docs \
-   --prefix "project-structure"
+   recursivist export --format md --output-dir ./docs --prefix "structure"
    ```
 
 2. Include it in your MkDocs navigation:
@@ -168,79 +360,161 @@ You can integrate Recursivist with documentation tools like Sphinx or MkDocs:
    # mkdocs.yml
    nav:
      - Home: index.md
-     - Project Structure: project-structure.md
+     - Project Structure: structure.md
      # Other pages...
    ```
 
 ### Sphinx Integration
 
-1. Generate a JSON export of your project structure:
+Add this to your Sphinx configuration to include the exported structure:
 
-   ```bash
-   recursivist export \
-   --format json \
-   --output-dir ./docs \
-   --prefix "project-structure"
-   ```
+```python
+# conf.py
+import os
+import subprocess
 
-2. Create a custom Sphinx extension to render the JSON as a directory tree:
+def setup(app):
+    app.connect('builder-inited', generate_structure_docs)
+    return {'version': '0.1'}
 
-   ```python
-   # _ext/directory_tree.py
-   import json
-   from docutils import nodes
-   from docutils.parsers.rst import Directive
-
-   class DirectoryTree(Directive):
-       def run(self):
-           with open('docs/project-structure.json', 'r') as f:
-               structure = json.load(f)
-
-           # Render structure as a tree
-           # ...
-
-           return [node]
-
-   def setup(app):
-       app.add_directive('directory-tree', DirectoryTree)
-       return {'version': '0.1'}
-   ```
-
-3. Use the directive in your documentation:
-
-   ```rst
-   Project Structure
-   ================
-
-   .. directory-tree::
-   ```
-
-## Command-Line Integration
-
-You can combine Recursivist with other command-line tools:
-
-### Combining with find and grep
-
-```bash
-# Find all Python files and visualize their directory structure
-find . -name "*.py" | xargs dirname | sort | uniq | xargs recursivist visualize
-
-# Export only directories containing test files
-find . -name "*test*.py" | xargs dirname | sort | uniq > test_dirs.txt
-cat test_dirs.txt | xargs -I {} recursivist export {} --format md --prefix "test-structure"
+def generate_structure_docs(app):
+    # Generate project structure documentation
+    subprocess.run([
+        'recursivist', 'export',
+        '--format', 'md',
+        '--exclude', 'node_modules .git _build',
+        '--output-dir', './source',
+        '--prefix', 'structure',
+        '--sort-by-loc'
+    ])
 ```
 
-### Integration with git-ls-files
+Then in your RST files:
 
-```bash
-# Visualize only tracked files in a Git repository
-git ls-files | xargs dirname | sort | uniq | xargs recursivist visualize
+```rst
+Project Structure
+================
+
+.. include:: structure.md
+   :parser: myst_parser.sphinx_
 ```
 
-## API Documentation
+## Shell Script Integration
 
-For more advanced integrations, refer to the API documentation of the core modules:
+Recursivist works well with shell scripts for automation:
 
-- `recursivist.core`: Core functionality for building, filtering, and displaying directory structures
-- `recursivist.exports`: Export functionality for various formats
-- `recursivist.compare`: Comparison functionality for two directory structures
+### Batch Processing Multiple Directories
+
+```bash
+#!/bin/bash
+
+# Process multiple directories
+for dir in projects/*/; do
+  if [ -d "$dir" ]; then
+    project_name=$(basename "$dir")
+    echo "Processing $project_name..."
+
+    # Export project structure with LOC stats
+    recursivist export "$dir" \
+      --format md \
+      --output-dir ./reports \
+      --prefix "$project_name" \
+      --sort-by-loc
+  fi
+done
+
+# Create an index file
+echo "# Project Reports" > reports/index.md
+echo "" >> reports/index.md
+echo "Generated on $(date)" >> reports/index.md
+echo "" >> reports/index.md
+
+for file in reports/*.md; do
+  if [ "$(basename "$file")" != "index.md" ]; then
+    project_name=$(basename "$file" .md)
+    echo "- [$project_name]($project_name.md)" >> reports/index.md
+  fi
+done
+
+echo "Processing complete. Reports are in the ./reports directory."
+```
+
+### Weekly Project Evolution Report
+
+```bash
+#!/bin/bash
+
+# Get date for filename
+date_str=$(date +%Y-%m-%d)
+
+# Create current snapshot
+mkdir -p snapshots/current
+recursivist export \
+  --format json \
+  --exclude "node_modules .git snapshots" \
+  --output-dir ./snapshots/current \
+  --prefix "structure" \
+  --sort-by-loc \
+  --sort-by-size
+
+# Compare with last week's snapshot if it exists
+if [ -f "snapshots/previous/structure.json" ]; then
+  echo "Comparing with previous snapshot..."
+
+  # Create comparison
+  recursivist compare \
+    snapshots/previous snapshots/current \
+    --exclude "node_modules .git" \
+    --save \
+    --output-dir ./reports \
+    --prefix "weekly-${date_str}" \
+    --sort-by-loc
+
+  echo "Comparison saved to reports/weekly-${date_str}.html"
+fi
+
+# Move current to previous for next time
+rm -rf snapshots/previous
+mv snapshots/current snapshots/previous
+```
+
+## Using with Static Analysis Tools
+
+Combine Recursivist with other static analysis tools for comprehensive project insights:
+
+```bash
+#!/bin/bash
+
+# Create output directory
+mkdir -p analysis
+
+# Generate directory structure with LOC stats
+recursivist export \
+  --format md \
+  --output-dir ./analysis \
+  --prefix "structure" \
+  --sort-by-loc
+
+# Run additional tools (examples)
+# 1. radon for code complexity metrics (Python)
+if command -v radon &> /dev/null; then
+  echo "Running complexity analysis..."
+  radon cc . -a -s > analysis/complexity.txt
+fi
+
+# 2. cloc for language statistics
+if command -v cloc &> /dev/null; then
+  echo "Running line count by language..."
+  cloc . --exclude-dir=node_modules,.git --md > analysis/language-stats.md
+fi
+
+# 3. SonarQube scanner (if configured)
+if command -v sonar-scanner &> /dev/null; then
+  echo "Running SonarQube scan..."
+  sonar-scanner
+fi
+
+echo "Analysis complete. Results in ./analysis directory."
+```
+
+By integrating Recursivist with other tools, you can build comprehensive project documentation, analysis, and visualization pipelines that provide valuable insights into your codebase.

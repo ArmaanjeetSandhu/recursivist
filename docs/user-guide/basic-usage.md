@@ -1,6 +1,6 @@
 # Basic Usage
 
-Recursivist is designed to be intuitive and easy to use. This guide covers the basic concepts and usage patterns.
+Recursivist is designed to be intuitive and easy to use while offering powerful capabilities. This guide covers the basic concepts and usage patterns.
 
 ## Command Structure
 
@@ -44,6 +44,24 @@ To visualize a different directory:
 recursivist visualize /path/to/directory
 ```
 
+### Visualizing with File Statistics
+
+Recursivist can display and sort by various file statistics:
+
+```bash
+# Show lines of code
+recursivist visualize --sort-by-loc
+
+# Show file sizes
+recursivist visualize --sort-by-size
+
+# Show modification times
+recursivist visualize --sort-by-mtime
+
+# Combine multiple statistics
+recursivist visualize --sort-by-loc --sort-by-size
+```
+
 ### Getting Help
 
 To see all available commands:
@@ -81,8 +99,7 @@ These options work with most Recursivist commands:
 To exclude specific directories:
 
 ```bash
-recursivist visualize \
---exclude "node_modules .git"
+recursivist visualize --exclude "node_modules .git"
 ```
 
 ### Excluding File Extensions
@@ -90,8 +107,7 @@ recursivist visualize \
 To exclude files with specific extensions:
 
 ```bash
-recursivist visualize \
---exclude-ext ".pyc .log"
+recursivist visualize --exclude-ext ".pyc .log"
 ```
 
 ### Limiting Depth
@@ -99,8 +115,7 @@ recursivist visualize \
 To limit how deep the directory tree goes:
 
 ```bash
-recursivist visualize \
---depth 3
+recursivist visualize --depth 3
 ```
 
 ### Showing Full Paths
@@ -108,8 +123,7 @@ recursivist visualize \
 To show full file paths instead of just names:
 
 ```bash
-recursivist visualize \
---full-path
+recursivist visualize --full-path
 ```
 
 ### Using Verbose Mode
@@ -117,8 +131,84 @@ recursivist visualize \
 For more detailed output and logging:
 
 ```bash
-recursivist visualize \
---verbose
+recursivist visualize --verbose
+```
+
+## Pattern Filtering
+
+Recursivist offers powerful pattern-based filtering options:
+
+### Glob Patterns (Default)
+
+```bash
+# Exclude test files
+recursivist visualize --exclude-pattern "*.test.js" "*.spec.js"
+```
+
+### Regular Expressions
+
+```bash
+# Exclude test files using regex
+recursivist visualize --exclude-pattern "^test_.*\.py$" --regex
+```
+
+### Include Patterns (Override Exclusions)
+
+```bash
+# Only include specific files/directories
+recursivist visualize --include-pattern "src/**/*.js" "*.md"
+```
+
+### Gitignore Integration
+
+```bash
+# Use patterns from a gitignore-style file
+recursivist visualize --ignore-file .gitignore
+```
+
+## Export Formats
+
+Export directory structures to various formats:
+
+```bash
+# Export to Markdown
+recursivist export --format md
+
+# Export to JSON
+recursivist export --format json
+
+# Export to HTML
+recursivist export --format html
+
+# Export to plain text
+recursivist export --format txt
+
+# Export to React component
+recursivist export --format jsx
+```
+
+## Directory Comparison
+
+Compare two directory structures:
+
+```bash
+# Basic comparison
+recursivist compare dir1 dir2
+
+# Save comparison as HTML
+recursivist compare dir1 dir2 --save
+```
+
+## Shell Completion
+
+Generate shell completion scripts:
+
+```bash
+# For Bash
+recursivist completion bash > ~/.bash_completion.d/recursivist
+
+# For Zsh, Fish, or PowerShell
+recursivist completion zsh|fish|powershell
 ```
 
 ## Exit Codes

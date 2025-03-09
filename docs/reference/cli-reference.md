@@ -28,6 +28,9 @@ The following options apply to most Recursivist commands:
 | `--ignore-file`     | `-g`  | Ignore file to use (e.g., .gitignore)                          |
 | `--depth`           | `-d`  | Maximum depth to display (0 for unlimited)                     |
 | `--full-path`       | `-l`  | Show full paths instead of just filenames                      |
+| `--sort-by-loc`     | `-s`  | Sort files by lines of code and display LOC counts             |
+| `--sort-by-size`    | `-z`  | Sort files by size and display file sizes                      |
+| `--sort-by-mtime`   | `-m`  | Sort files by modification time and display timestamps         |
 | `--verbose`         | `-v`  | Enable verbose output                                          |
 
 ## `visualize` Command
@@ -58,6 +61,9 @@ recursivist visualize [OPTIONS] [DIRECTORY]
 | `--ignore-file`     | `-g`  | Ignore file to use (e.g., .gitignore)                          |
 | `--depth`           | `-d`  | Maximum depth to display (0 for unlimited)                     |
 | `--full-path`       | `-l`  | Show full paths instead of just filenames                      |
+| `--sort-by-loc`     | `-s`  | Sort files by lines of code and display LOC counts             |
+| `--sort-by-size`    | `-z`  | Sort files by size and display file sizes                      |
+| `--sort-by-mtime`   | `-m`  | Sort files by modification time and display timestamps         |
 | `--verbose`         | `-v`  | Enable verbose output                                          |
 
 ### Examples
@@ -70,37 +76,40 @@ recursivist visualize
 recursivist visualize /path/to/directory
 
 # Exclude directories
-recursivist visualize \
---exclude "node_modules .git venv"
+recursivist visualize --exclude "node_modules .git venv"
 
 # Exclude file extensions
-recursivist visualize \
---exclude-ext ".pyc .log .cache"
+recursivist visualize --exclude-ext ".pyc .log .cache"
 
 # Use a gitignore-style file
-recursivist visualize \
---ignore-file .gitignore
+recursivist visualize --ignore-file .gitignore
 
 # Use glob patterns
-recursivist visualize \
---exclude-pattern "*.test.js" "*.spec.js"
+recursivist visualize --exclude-pattern "*.test.js" "*.spec.js"
 
 # Use regex patterns
-recursivist visualize \
---exclude-pattern "^test_.*\.py$" ".*_test\.js$" \
---regex
+recursivist visualize --exclude-pattern "^test_.*\.py$" ".*_test\.js$" --regex
 
 # Include only specific patterns
-recursivist visualize \
---include-pattern "src/*" "*.md"
+recursivist visualize --include-pattern "src/*" "*.md"
 
 # Limit directory depth
-recursivist visualize \
---depth 3
+recursivist visualize --depth 3
 
 # Show full file paths
-recursivist visualize \
---full-path
+recursivist visualize --full-path
+
+# Show lines of code
+recursivist visualize --sort-by-loc
+
+# Show file sizes
+recursivist visualize --sort-by-size
+
+# Show modification times
+recursivist visualize --sort-by-mtime
+
+# Combine statistics
+recursivist visualize --sort-by-loc --sort-by-size
 ```
 
 ## `export` Command
@@ -134,33 +143,31 @@ recursivist export [OPTIONS] [DIRECTORY]
 | `--ignore-file`     | `-g`  | Ignore file to use (e.g., .gitignore)                          |
 | `--depth`           | `-d`  | Maximum depth to display (0 for unlimited)                     |
 | `--full-path`       | `-l`  | Show full paths instead of just filenames                      |
+| `--sort-by-loc`     | `-s`  | Sort files by lines of code and display LOC counts             |
+| `--sort-by-size`    | `-z`  | Sort files by size and display file sizes                      |
+| `--sort-by-mtime`   | `-m`  | Sort files by modification time and display timestamps         |
 | `--verbose`         | `-v`  | Enable verbose output                                          |
 
 ### Examples
 
 ```bash
 # Export to Markdown format
-recursivist export \
---format md
+recursivist export --format md
 
 # Export to multiple formats
-recursivist export \
---format "json html md"
+recursivist export --format "json html md"
 
 # Export to a specific directory
-recursivist export \
---format txt \
---output-dir ./exports
+recursivist export --format txt --output-dir ./exports
 
 # Custom filename prefix
-recursivist export \
---format json \
---prefix my-project
+recursivist export --format json --prefix my-project
 
 # Export with exclusions
-recursivist export \
---exclude node_modules \
---exclude-ext .pyc
+recursivist export --exclude node_modules --exclude-ext .pyc
+
+# Export with file statistics
+recursivist export --format html --sort-by-loc --sort-by-size
 ```
 
 ## `compare` Command
@@ -195,6 +202,9 @@ recursivist compare [OPTIONS] DIR1 DIR2
 | `--save`            | `-f`  | Save comparison result to HTML file                            |
 | `--output-dir`      | `-o`  | Output directory for exports                                   |
 | `--prefix`          | `-n`  | Prefix for exported filenames                                  |
+| `--sort-by-loc`     | `-s`  | Sort files by lines of code and display LOC counts             |
+| `--sort-by-size`    | `-z`  | Sort files by size and display file sizes                      |
+| `--sort-by-mtime`   | `-m`  | Sort files by modification time and display timestamps         |
 | `--verbose`         | `-v`  | Enable verbose output                                          |
 
 ### Examples
@@ -204,17 +214,16 @@ recursivist compare [OPTIONS] DIR1 DIR2
 recursivist compare dir1 dir2
 
 # Compare with exclusions
-recursivist compare dir1 dir2 \
---exclude "node_modules .git"
+recursivist compare dir1 dir2 --exclude "node_modules .git"
 
 # Compare with depth limit
-recursivist compare dir1 dir2 \
---depth 2
+recursivist compare dir1 dir2 --depth 2
 
 # Export comparison to HTML
-recursivist compare dir1 dir2 \
---save \
---output-dir ./reports
+recursivist compare dir1 dir2 --save --output-dir ./reports
+
+# Compare with file statistics
+recursivist compare dir1 dir2 --sort-by-loc --sort-by-size
 ```
 
 ## `completion` Command

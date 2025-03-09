@@ -40,10 +40,8 @@ By default, Recursivist uses glob patterns for matching files and directories.
 Glob patterns are used with the `--exclude-pattern` and `--include-pattern` options:
 
 ```bash
-recursivist visualize \
---exclude-pattern "*.test.js" "*.spec.js"
-recursivist visualize \
---include-pattern "src/**/*.js" "docs/*.md"
+recursivist visualize --exclude-pattern "*.test.js" "*.spec.js"
+recursivist visualize --include-pattern "src/**/*.js" "docs/*.md"
 ```
 
 ## Regular Expressions
@@ -180,6 +178,28 @@ recursivist visualize \
 --regex
 ```
 
+### Pattern Matching with File Statistics
+
+To focus on important code metrics, combine pattern matching with file statistics:
+
+```bash
+# Find large source files
+recursivist visualize \
+--include-pattern "src/**/*.js" \
+--sort-by-size
+
+# Identify complex modules
+recursivist visualize \
+--include-pattern "src/**/*.py" \
+--exclude-pattern "**/*test*.py" \
+--sort-by-loc
+
+# See recent changes to specific areas
+recursivist visualize \
+--include-pattern "src/components/**/*.jsx" \
+--sort-by-mtime
+```
+
 ### Filter Based on File Contents (Gitignore Style)
 
 When using a gitignore-style file with the `--ignore-file` option, you can use patterns that work similarly to `.gitignore` files:
@@ -237,3 +257,15 @@ recursivist visualize \
 --include-pattern "**/*.py" "**/*.go" "**/*.java" \
 --exclude-pattern "**/*_test.py" "**/*_test.go" "**/*Test.java"
 ```
+
+## Troubleshooting Pattern Matching
+
+If your patterns aren't working as expected:
+
+1. **Use verbose mode**: Run with `--verbose` to see detailed logging about pattern matching
+2. **Test simpler patterns first**: Start with basic patterns and build up complexity
+3. **Check pattern syntax**: Ensure you're using the correct syntax for glob or regex
+4. **Remember path conventions**: Patterns match against relative paths from the root directory
+5. **Check precedence**: Remember that include patterns override exclude patterns
+
+For debugging complex regex patterns, consider testing them in a regex tool like [regex101.com](https://regex101.com/) before using them in Recursivist.

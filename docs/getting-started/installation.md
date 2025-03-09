@@ -17,7 +17,7 @@ pip install recursivist
 
 This will install Recursivist and all of its dependencies, including:
 
-- [Rich](https://github.com/Textualize/rich) - For beautiful terminal formatting
+- [Rich](https://github.com/Textualize/rich) - For beautiful terminal formatting and colored output
 - [Typer](https://github.com/tiangolo/typer) - For the intuitive CLI interface
 
 ## Installing from Source
@@ -66,6 +66,8 @@ python -m venv venv
 pip install recursivist
 ```
 
+For the best experience on Windows, use a terminal that supports Unicode and ANSI colors, such as Windows Terminal.
+
 ### macOS
 
 On macOS, if you're using Homebrew's Python, you might need to use:
@@ -87,6 +89,36 @@ sudo dnf install python3-devel
 
 # Then install Recursivist
 pip3 install recursivist
+```
+
+## Troubleshooting Installation Issues
+
+### Unicode Display Problems
+
+If you see squares or question marks instead of emoji icons in the output:
+
+1. Ensure your terminal supports Unicode
+2. Check that you're using a font that includes emoji characters
+3. On Windows, make sure you're using Windows Terminal or another modern terminal
+
+### Color Display Issues
+
+If colors aren't displaying correctly:
+
+1. Ensure your terminal supports ANSI colors
+2. Check if you need to enable color support in your terminal settings
+3. Try running with the `TERM=xterm-256color` environment variable
+
+### Missing Dependencies
+
+If you encounter missing dependency errors:
+
+```bash
+# Try reinstalling with the --force-reinstall flag
+pip install --force-reinstall recursivist
+
+# Or specify the dependencies explicitly
+pip install rich typer
 ```
 
 ## Next Steps

@@ -132,6 +132,7 @@ Recursivist's completion system provides:
 - Option name completion (both long and short forms)
 - Option value completion for some options
 - File and directory path completion
+- Contextual help for available options
 
 ## Troubleshooting
 
@@ -208,3 +209,33 @@ sudo recursivist completion zsh > /usr/local/share/zsh/site-functions/_recursivi
 ```bash
 sudo recursivist completion fish > /usr/share/fish/vendor_completions.d/recursivist.fish
 ```
+
+## Command Completion Options
+
+The tab completion for Recursivist is particularly helpful for:
+
+### Complex Options
+
+```bash
+# Tab completion suggests available options
+recursivist visualize --sort-by-[Tab]
+# Shows: --sort-by-loc --sort-by-size --sort-by-mtime
+```
+
+### Format Selection
+
+```bash
+# Tab completion suggests available formats
+recursivist export --format [Tab]
+# Shows: txt json html md jsx
+```
+
+### Shell Selection
+
+```bash
+# Tab completion suggests available shells
+recursivist completion [Tab]
+# Shows: bash zsh fish powershell
+```
+
+This makes it much easier to use Recursivist's more advanced features without needing to remember all the available options.

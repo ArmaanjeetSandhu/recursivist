@@ -22,13 +22,32 @@ The comparison output uses color highlighting to show differences:
 
 A legend explains the color coding at the top of the output.
 
+## Including File Statistics
+
+You can include file statistics in the comparison:
+
+```bash
+# Include lines of code
+recursivist compare dir1 dir2 --sort-by-loc
+
+# Include file sizes
+recursivist compare dir1 dir2 --sort-by-size
+
+# Include modification times
+recursivist compare dir1 dir2 --sort-by-mtime
+
+# Combine multiple statistics
+recursivist compare dir1 dir2 --sort-by-loc --sort-by-size
+```
+
+This makes it easy to see not just structural differences but also differences in file content size, modification time, or other metrics.
+
 ## Exporting Comparison Results
 
 By default, the comparison is displayed in the terminal. To save it as an HTML file:
 
 ```bash
-recursivist compare dir1 dir2 \
---save
+recursivist compare dir1 dir2 --save
 ```
 
 This creates an HTML file named `comparison.html` in the current directory.
@@ -36,17 +55,13 @@ This creates an HTML file named `comparison.html` in the current directory.
 To specify a different output directory:
 
 ```bash
-recursivist compare dir1 dir2 \
---save \
---output-dir ./reports
+recursivist compare dir1 dir2 --save --output-dir ./reports
 ```
 
 To customize the filename prefix:
 
 ```bash
-recursivist compare dir1 dir2 \
---save \
---prefix project-diff
+recursivist compare dir1 dir2 --save --prefix project-diff
 ```
 
 This creates a file named `project-diff.html`.
@@ -58,32 +73,26 @@ All of the filtering options available for other Recursivist commands also work 
 ### Excluding Directories
 
 ```bash
-recursivist compare dir1 dir2 \
---exclude "node_modules .git"
+recursivist compare dir1 dir2 --exclude "node_modules .git"
 ```
 
 ### Excluding File Extensions
 
 ```bash
-recursivist compare dir1 dir2 \
---exclude-ext ".pyc .log"
+recursivist compare dir1 dir2 --exclude-ext ".pyc .log"
 ```
 
 ### Pattern-Based Filtering
 
 ```bash
 # Exclude with glob patterns (default)
-recursivist compare dir1 dir2 \
---exclude-pattern "*.test.js"
+recursivist compare dir1 dir2 --exclude-pattern "*.test.js"
 
 # Exclude with regex patterns
-recursivist compare dir1 dir2 \
---exclude-pattern "^test_.*\.py$" \
---regex
+recursivist compare dir1 dir2 --exclude-pattern "^test_.*\.py$" --regex
 
 # Include only specific patterns
-recursivist compare dir1 dir2 \
---include-pattern "src/*" "*.md"
+recursivist compare dir1 dir2 --include-pattern "src/*" "*.md"
 ```
 
 See the [Pattern Filtering](pattern-filtering.md) guide for more details.
@@ -91,8 +100,7 @@ See the [Pattern Filtering](pattern-filtering.md) guide for more details.
 ### Using Gitignore Files
 
 ```bash
-recursivist compare dir1 dir2 \
---ignore-file .gitignore
+recursivist compare dir1 dir2 --ignore-file .gitignore
 ```
 
 ## Depth Control
@@ -100,8 +108,7 @@ recursivist compare dir1 dir2 \
 For large directories, limit the comparison depth:
 
 ```bash
-recursivist compare dir1 dir2 \
---depth 3
+recursivist compare dir1 dir2 --depth 3
 ```
 
 ## Full Path Display
@@ -109,8 +116,7 @@ recursivist compare dir1 dir2 \
 To show full paths instead of just filenames:
 
 ```bash
-recursivist compare dir1 dir2 \
---full-path
+recursivist compare dir1 dir2 --full-path
 ```
 
 ## Use Cases
@@ -187,15 +193,25 @@ recursivist compare project-v1/src project-v2/src \
 --include-pattern "*.js" "*.css" "*.jsx"
 ```
 
+### Compare with File Statistics
+
+```bash
+recursivist compare project-v1 project-v2 \
+--sort-by-loc \
+--sort-by-size
+```
+
 ## HTML Output Features
 
 When exporting to HTML (`--save` option), the generated file includes:
 
 - Interactive, side-by-side comparison
+- Color-coded highlighting of differences
 - Responsive layout that works on different screen sizes
 - Proper styling for directories and files
-- Highlighted differences with a clear legend
-- Metadata about the comparison settings
+- File statistics display when enabled
+- Detailed metadata about the comparison settings
+- Visual legend explaining the highlighting scheme
 
 This is useful for sharing comparison results with team members or keeping records of structural changes.
 
