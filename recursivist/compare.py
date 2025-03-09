@@ -1,11 +1,15 @@
 """
 Comparison functionality for the Recursivist directory visualization tool.
 
-This module contains functions to compare two directory structures and display them side by side with highlighting of differences. It supports:
-- Side-by-side tree visualization with highlighted unique items
-- Visual indicators for files/directories that exist in only one structure
-- Export of comparison results to HTML for easier sharing and review
-- Consistent filtering options with the main visualization features
+This module implements side-by-side directory structure comparison with visual highlighting of differences. It provides terminal output with colored indicators and HTML export for sharing and documentation.
+
+Key features:
+- Visual highlighting of items unique to each directory
+- Consistent color coding for file extensions
+- Support for all the same filtering options as visualization
+- Export to HTML with interactive features
+- Optional display of statistics (LOC, size, modification times)
+- Legend explaining the highlighting scheme
 """
 
 import html

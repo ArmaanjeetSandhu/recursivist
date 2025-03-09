@@ -1,15 +1,17 @@
 """
 Core functionality for the Recursivist directory visualization tool.
 
-This module provides the fundamental components for building, filtering, displaying, and exporting directory structures. It handles directory traversal, pattern matching, color coding, and tree construction for visual representation.
+This module provides the fundamental components for building, filtering, displaying, and exporting directory structures. It handles directory traversal, pattern matching, color coding, file statistics calculation, and tree construction.
 
-Key features include:
+Key components:
 - Directory structure parsing and representation
-- Flexible pattern-based filtering (glob/regex)
-- Customizable depth limits and path displays
-- Color-coding by file extension
-- Support for ignore files (like .gitignore)
+- Pattern-based filtering (gitignore, glob, regex)
+- File extension color coding
 - Tree visualization with rich formatting
+- Lines of code counting
+- File size calculation and formatting
+- Modification time retrieval and formatting
+- Maximum depth limiting
 """
 
 import colorsys

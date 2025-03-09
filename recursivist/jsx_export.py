@@ -1,7 +1,19 @@
 """
 React component export functionality for the Recursivist directory visualization tool.
 
-This module generates a JSX file with a sophisticated, interactive directory viewer component with properly functioning folder toggling and breadcrumbs navigation.
+This module generates a JSX file containing a sophisticated, interactive directory viewer React component with advanced features:
+
+- Folder expansion/collapse functionality
+- Breadcrumb navigation
+- Search with highlighted matches
+- Dark mode toggle
+- Optional file statistics display
+- Sorting by different metrics
+- Path copying
+- Mobile-responsive design
+
+The generated component is standalone and can be integrated into React applications
+with minimal dependencies.
 """
 
 import html

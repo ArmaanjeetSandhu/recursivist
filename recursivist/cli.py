@@ -2,16 +2,22 @@
 """
 Recursivist CLI - A beautiful directory structure visualization tool.
 
-This module provides the command-line interface for the recursivist package, allowing users to visualize directory structures, export them in various formats, compare two directory structures side by side, and handle shell completion.
-
-The CLI is built with Typer and offers rich, colorful output through the Rich library.
+This module provides the command-line interface for the recursivist package, allowing users to visualize directory structures, export them in various formats, compare structures side by side, and generate shell completion scripts.
 
 Main commands:
-- visualize: Display a directory structure in the terminal
-- export: Export a directory structure to various file formats
+- visualize: Display a directory structure in the terminal with rich formatting
+- export: Export a directory structure to TXT, JSON, HTML, MD, or JSX
 - compare: Compare two directory structures with highlighted differences
 - version: Display the current version information
-- completion: Generate shell completion scripts
+- completion: Generate shell completion scripts for various shells
+
+All commands support a consistent set of filtering and display options:
+- Exclude directories, file extensions, glob, or regex patterns
+- Include specific patterns (overriding exclusions)
+- Support for .gitignore and similar ignore files
+- Depth limitation for large directories
+- Full path display option
+- File statistics with sorting by lines of code, size, or modification time
 """
 
 import logging

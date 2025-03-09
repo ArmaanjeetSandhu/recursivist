@@ -1,9 +1,17 @@
 """
 Export functionality for the Recursivist directory visualization tool.
 
-This module handles the export of directory structures to various formats including text (ASCII tree), JSON, HTML, Markdown, and JSX (React component).
+This module handles the export of directory structures to various formats through the DirectoryExporter class, which provides a unified interface for transforming directory structures into different output formats.
 
-The DirectoryExporter class provides a unified interface for transforming the directory structure dictionary into different output formats with consistent styling and organization.
+Supported export formats:
+- TXT: ASCII tree representation
+- JSON: Structured data for programmatic use
+- HTML: Interactive web page with styling
+- Markdown: Clean representation for documentation
+- JSX: React component for web integration
+
+Each format maintains consistent styling and organization, with support for
+showing lines of code, file sizes, and modification times.
 """
 
 import html
