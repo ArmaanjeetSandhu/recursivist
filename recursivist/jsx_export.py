@@ -8,7 +8,7 @@ import html
 import logging
 from typing import Any, Dict
 
-from recursivist.core import format_size
+from recursivist.core import format_size, format_timestamp
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +20,7 @@ def generate_jsx_component(
     show_full_path: bool = False,
     sort_by_loc: bool = False,
     sort_by_size: bool = False,
+    sort_by_mtime: bool = False,
 ) -> None:
     """
     Generate a React component file for directory structure visualization.
@@ -31,6 +32,7 @@ def generate_jsx_component(
     - Dark mode toggle
     - Optional LOC count display and sorting
     - Optional file size display and sorting
+    - Optional file modification time display and sorting
 
     Args:
         structure: Directory structure dictionary
@@ -39,6 +41,7 @@ def generate_jsx_component(
         show_full_path: Whether to show full paths instead of just filenames
         sort_by_loc: Whether to show lines of code counts and sort by them
         sort_by_size: Whether to show file sizes and sort by them
+        sort_by_mtime: Whether to show file modification times and sort by them
     """
 
     def _build_structure_jsx(
@@ -53,6 +56,7 @@ def generate_jsx_component(
                 and k != "_max_depth_reached"
                 and k != "_loc"
                 and k != "_size"
+                and k != "_mtime"
             ],
             key=lambda x: x[0].lower(),
         ):
@@ -67,16 +71,19 @@ def generate_jsx_component(
             path_json = ",".join([f'"{html.escape(part)}"' for part in path_parts])
             loc_prop = ""
             size_prop = ""
+            mtime_prop = ""
             if sort_by_loc and isinstance(content, dict) and "_loc" in content:
                 loc_prop = f' locCount={{{content["_loc"]}}}'
             if sort_by_size and isinstance(content, dict) and "_size" in content:
                 size_prop = f' sizeCount={{{content["_size"]}}}'
+            if sort_by_mtime and isinstance(content, dict) and "_mtime" in content:
+                mtime_prop = f' mtimeCount={{{content["_mtime"]}}}'
             jsx_content.append(
                 f"<DirectoryItem "
                 f'name="{html.escape(name)}" '
                 f"level={{{level}}} "
                 f"path={{[{path_json}]}} "
-                f'type="directory"{loc_prop}{size_prop}>'
+                f'type="directory"{loc_prop}{size_prop}{mtime_prop}>'
             )
             next_path = current_path
             if isinstance(content, dict):
@@ -95,7 +102,74 @@ def generate_jsx_component(
             jsx_content.append("</DirectoryItem>")
         if "_files" in structure:
             files = structure["_files"]
-            if sort_by_size:
+            if sort_by_loc and sort_by_size and sort_by_mtime:
+                sorted_files = sorted(
+                    files,
+                    key=lambda f: (
+                        -(f[2] if isinstance(f, tuple) and len(f) > 2 else 0),
+                        -(f[3] if isinstance(f, tuple) and len(f) > 3 else 0),
+                        -(f[4] if isinstance(f, tuple) and len(f) > 4 else 0),
+                        f[0].lower() if isinstance(f, tuple) else f.lower(),
+                    ),
+                )
+            elif sort_by_loc and sort_by_size:
+                sorted_files = sorted(
+                    files,
+                    key=lambda f: (
+                        -(f[2] if isinstance(f, tuple) and len(f) > 2 else 0),
+                        -(f[3] if isinstance(f, tuple) and len(f) > 3 else 0),
+                        f[0].lower() if isinstance(f, tuple) else f.lower(),
+                    ),
+                )
+            elif sort_by_loc and sort_by_mtime:
+                sorted_files = sorted(
+                    files,
+                    key=lambda f: (
+                        -(f[2] if isinstance(f, tuple) and len(f) > 2 else 0),
+                        -(
+                            f[4]
+                            if isinstance(f, tuple) and len(f) > 4
+                            else (f[3] if isinstance(f, tuple) and len(f) > 3 else 0)
+                        ),
+                        f[0].lower() if isinstance(f, tuple) else f.lower(),
+                    ),
+                )
+            elif sort_by_size and sort_by_mtime:
+                sorted_files = sorted(
+                    files,
+                    key=lambda f: (
+                        -(
+                            f[3]
+                            if isinstance(f, tuple) and len(f) > 3
+                            else (f[2] if isinstance(f, tuple) and len(f) > 2 else 0)
+                        ),
+                        -(
+                            f[4]
+                            if isinstance(f, tuple) and len(f) > 4
+                            else (f[3] if isinstance(f, tuple) and len(f) > 3 else 0)
+                        ),
+                        f[0].lower() if isinstance(f, tuple) else f.lower(),
+                    ),
+                )
+            elif sort_by_mtime:
+                sorted_files = sorted(
+                    files,
+                    key=lambda f: (
+                        -(
+                            f[4]
+                            if isinstance(f, tuple) and len(f) > 4
+                            else (
+                                f[3]
+                                if isinstance(f, tuple) and len(f) > 3
+                                else (
+                                    f[2] if isinstance(f, tuple) and len(f) > 2 else 0
+                                )
+                            )
+                        ),
+                        f[0].lower() if isinstance(f, tuple) else f.lower(),
+                    ),
+                )
+            elif sort_by_size:
                 sorted_files = sorted(
                     files,
                     key=lambda f: (
@@ -122,6 +196,103 @@ def generate_jsx_component(
                 )
             for file_item in sorted_files:
                 if (
+                    sort_by_loc
+                    and sort_by_size
+                    and sort_by_mtime
+                    and isinstance(file_item, tuple)
+                    and len(file_item) > 4
+                ):
+                    file_name, display_path, loc, size, mtime = file_item
+                    if path_prefix:
+                        path_parts = path_prefix.split("/")
+                        if path_parts and path_parts[0] == root_name:
+                            path_parts = [root_name] + [p for p in path_parts[1:] if p]
+                        else:
+                            path_parts = [p for p in path_parts if p]
+                            if not path_parts or path_parts[0] != root_name:
+                                path_parts = [root_name] + path_parts
+                    else:
+                        path_parts = [root_name]
+                    path_parts.append(file_name)
+                    path_json = ",".join(
+                        [f'"{html.escape(part)}"' for part in path_parts if part]
+                    )
+                    jsx_content.append(
+                        f"<FileItem "
+                        f'name="{html.escape(file_name)}" '
+                        f'displayPath="{html.escape(display_path)}" '
+                        f"path={{[{path_json}]}} "
+                        f"level={{{level}}} "
+                        f"locCount={{{loc}}} "
+                        f"sizeCount={{{size}}} "
+                        f"mtimeCount={{{mtime}}} "
+                        f'mtimeFormatted="{format_timestamp(mtime)}" '
+                        f'sizeFormatted="{format_size(size)}" />'
+                    )
+                elif (
+                    sort_by_loc
+                    and sort_by_mtime
+                    and isinstance(file_item, tuple)
+                    and len(file_item) > 3
+                ):
+                    file_name, display_path, loc, _, mtime = file_item
+                    if path_prefix:
+                        path_parts = path_prefix.split("/")
+                        if path_parts and path_parts[0] == root_name:
+                            path_parts = [root_name] + [p for p in path_parts[1:] if p]
+                        else:
+                            path_parts = [p for p in path_parts if p]
+                            if not path_parts or path_parts[0] != root_name:
+                                path_parts = [root_name] + path_parts
+                    else:
+                        path_parts = [root_name]
+                    path_parts.append(file_name)
+                    path_json = ",".join(
+                        [f'"{html.escape(part)}"' for part in path_parts if part]
+                    )
+                    jsx_content.append(
+                        f"<FileItem "
+                        f'name="{html.escape(file_name)}" '
+                        f'displayPath="{html.escape(display_path)}" '
+                        f"path={{[{path_json}]}} "
+                        f"level={{{level}}} "
+                        f"locCount={{{loc}}} "
+                        f"mtimeCount={{{mtime}}} "
+                        f'mtimeFormatted="{format_timestamp(mtime)}" />'
+                    )
+                elif (
+                    sort_by_size
+                    and sort_by_mtime
+                    and isinstance(file_item, tuple)
+                    and len(file_item) > 3
+                ):
+                    file_name, display_path, _, size, mtime = file_item
+                    if path_prefix:
+                        path_parts = path_prefix.split("/")
+                        if path_parts and path_parts[0] == root_name:
+                            path_parts = [root_name] + [p for p in path_parts[1:] if p]
+                        else:
+                            path_parts = [p for p in path_parts if p]
+                            if not path_parts or path_parts[0] != root_name:
+                                path_parts = [root_name] + path_parts
+                    else:
+                        path_parts = [root_name]
+                    path_parts.append(file_name)
+                    path_json = ",".join(
+                        [f'"{html.escape(part)}"' for part in path_parts if part]
+                    )
+                    jsx_content.append(
+                        f"<FileItem "
+                        f'name="{html.escape(file_name)}" '
+                        f'displayPath="{html.escape(display_path)}" '
+                        f"path={{[{path_json}]}} "
+                        f"level={{{level}}} "
+                        f"sizeCount={{{size}}} "
+                        f"mtimeCount={{{mtime}}} "
+                        f'mtimeFormatted="{format_timestamp(mtime)}" '
+                        f'sizeFormatted="{format_size(size)}" />'
+                    )
+                elif (
                     sort_by_loc
                     and sort_by_size
                     and isinstance(file_item, tuple)
@@ -151,6 +322,40 @@ def generate_jsx_component(
                         f"locCount={{{loc}}} "
                         f"sizeCount={{{size}}} "
                         f'sizeFormatted="{format_size(size)}" />'
+                    )
+                elif (
+                    sort_by_mtime
+                    and isinstance(file_item, tuple)
+                    and len(file_item) > 2
+                ):
+                    if len(file_item) > 4:
+                        file_name, display_path, _, _, mtime = file_item
+                    elif len(file_item) > 3:
+                        file_name, display_path, _, mtime = file_item
+                    else:
+                        file_name, display_path, mtime = file_item
+                    if path_prefix:
+                        path_parts = path_prefix.split("/")
+                        if path_parts and path_parts[0] == root_name:
+                            path_parts = [root_name] + [p for p in path_parts[1:] if p]
+                        else:
+                            path_parts = [p for p in path_parts if p]
+                            if not path_parts or path_parts[0] != root_name:
+                                path_parts = [root_name] + path_parts
+                    else:
+                        path_parts = [root_name]
+                    path_parts.append(file_name)
+                    path_json = ",".join(
+                        [f'"{html.escape(part)}"' for part in path_parts if part]
+                    )
+                    jsx_content.append(
+                        f"<FileItem "
+                        f'name="{html.escape(file_name)}" '
+                        f'displayPath="{html.escape(display_path)}" '
+                        f"path={{[{path_json}]}} "
+                        f"level={{{level}}} "
+                        f"mtimeCount={{{mtime}}} "
+                        f'mtimeFormatted="{format_timestamp(mtime)}" />'
                     )
                 elif (
                     sort_by_size and isinstance(file_item, tuple) and len(file_item) > 2
@@ -185,7 +390,10 @@ def generate_jsx_component(
                 elif (
                     sort_by_loc and isinstance(file_item, tuple) and len(file_item) > 2
                 ):
-                    file_name, display_path, loc = file_item
+                    if len(file_item) > 3:
+                        file_name, display_path, loc, _ = file_item
+                    else:
+                        file_name, display_path, loc = file_item
                     if path_prefix:
                         path_parts = path_prefix.split("/")
                         if path_parts and path_parts[0] == root_name:
@@ -275,6 +483,15 @@ def generate_jsx_component(
     size_directory_prop = ""
     size_file_display = ""
     size_directory_display = ""
+    mtime_imports = ""
+    mtime_state = ""
+    mtime_sort_state = ""
+    mtime_toggle_function = ""
+    mtime_toggle_button = ""
+    mtime_file_prop = ""
+    mtime_directory_prop = ""
+    mtime_file_display = ""
+    mtime_directory_display = ""
     if sort_by_loc:
         loc_imports = """import { BarChart2 } from 'lucide-react';"""
         loc_state = """const [showLoc, setShowLoc] = useState(true);"""
@@ -358,19 +575,74 @@ def generate_jsx_component(
                   {format_size(props.sizeCount)}
                 </span>
               )}"""
+    if sort_by_mtime:
+        mtime_imports = """import { Clock } from 'lucide-react';"""
+        mtime_state = """const [showMtime, setShowMtime] = useState(true);"""
+        mtime_sort_state = """const [sortByMtime, setSortByMtime] = useState(true);"""
+        mtime_toggle_function = """
+  const toggleMtimeDisplay = () => {
+    setShowMtime(!showMtime);
+  };
+  const toggleMtimeSort = () => {
+    setSortByMtime(!sortByMtime);
+  };"""
+        mtime_toggle_button = """
+                  <button
+                    onClick={toggleMtimeDisplay}
+                    className={`flex items-center px-3 py-1.5 text-sm rounded-md ${
+                      darkMode ? 'bg-gray-800 hover:bg-gray-700' : 'bg-gray-200 hover:bg-gray-300'
+                    }`}
+                  >
+                    <Clock className="w-4 h-4 mr-1" />
+                    <span className="hidden sm:inline">{showMtime ? 'Hide Time' : 'Show Time'}</span>
+                  </button>"""
+        mtime_file_prop = """
+  mtimeCount: PropTypes.number,
+  mtimeFormatted: PropTypes.string,"""
+        mtime_directory_prop = """
+  mtimeCount: PropTypes.number,"""
+        mtime_file_display = """
+              {props.mtimeCount !== undefined && showMtime && (
+                <span className={`ml-2 text-xs px-1.5 py-0.5 rounded-full ${isSelected ?
+                  (darkMode ? 'bg-purple-800 text-purple-200' : 'bg-purple-200 text-purple-700') :
+                  (darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-700')}`}>
+                  {props.mtimeFormatted}
+                </span>
+              )}"""
+        mtime_directory_display = """
+              {props.mtimeCount !== undefined && showMtime && (
+                <span className={`ml-2 text-xs px-1.5 py-0.5 rounded-full ${isCurrentPath ?
+                  (darkMode ? 'bg-purple-800 text-purple-200' : 'bg-purple-200 text-purple-700') :
+                  (darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-700')}`}>
+                  {format_timestamp(props.mtimeCount)}
+                </span>
+              )}"""
     combined_imports = ""
-    if loc_imports and size_imports:
-        combined_imports = """import {{ BarChart2, Database }} from 'lucide-react';"""
-    elif loc_imports:
+    if sort_by_loc and sort_by_size and sort_by_mtime:
+        combined_imports = (
+            """import { BarChart2, Database, Clock } from 'lucide-react';"""
+        )
+    elif sort_by_loc and sort_by_size:
+        combined_imports = """import { BarChart2, Database } from 'lucide-react';"""
+    elif sort_by_loc and sort_by_mtime:
+        combined_imports = """import { BarChart2, Clock } from 'lucide-react';"""
+    elif sort_by_size and sort_by_mtime:
+        combined_imports = """import { Database, Clock } from 'lucide-react';"""
+    elif sort_by_loc:
         combined_imports = loc_imports
-    elif size_imports:
+    elif sort_by_size:
         combined_imports = size_imports
+    elif sort_by_mtime:
+        combined_imports = mtime_imports
     root_loc_prop = ""
     root_size_prop = ""
+    root_mtime_prop = ""
     if sort_by_loc and "_loc" in structure:
         root_loc_prop = f" locCount={{{structure['_loc']}}}"
     if sort_by_size and "_size" in structure:
         root_size_prop = f" sizeCount={{{structure['_size']}}}"
+    if sort_by_mtime and "_mtime" in structure:
+        root_mtime_prop = f" mtimeCount={{{structure['_mtime']}}}"
     format_size_function = ""
     if sort_by_size:
         format_size_function = """
@@ -383,6 +655,33 @@ def generate_jsx_component(
       return `${(size_in_bytes / (1024 * 1024)).toFixed(1)} MB`;
     } else {
       return `${(size_in_bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+    }
+  };"""
+    format_timestamp_function = ""
+    if sort_by_mtime:
+        format_timestamp_function = """
+  const format_timestamp = (timestamp) => {
+    const dt = new Date(timestamp * 1000);
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    if (dt >= today) {
+      return `Today ${dt.getHours().toString().padStart(2, '0')}:${dt.getMinutes().toString().padStart(2, '0')}`;
+    }
+    else if (dt >= yesterday) {
+      return `Yesterday ${dt.getHours().toString().padStart(2, '0')}:${dt.getMinutes().toString().padStart(2, '0')}`;
+    }
+    else if ((today - dt) / (1000 * 60 * 60 * 24) < 7) {
+      const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      return `${days[dt.getDay()]} ${dt.getHours().toString().padStart(2, '0')}:${dt.getMinutes().toString().padStart(2, '0')}`;
+    }
+    else if (dt.getFullYear() === now.getFullYear()) {
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      return `${months[dt.getMonth()]} ${dt.getDate()}`;
+    }
+    else {
+      return `${dt.getFullYear()}-${(dt.getMonth() + 1).toString().padStart(2, '0')}-${dt.getDate().toString().padStart(2, '0')}`;
     }
   };"""
     component_template = f"""import React, {{ useState, useEffect, useRef }} from 'react';
@@ -517,7 +816,9 @@ def generate_jsx_component(
         setSelectedItem,
         showLoc,
         showSize,
-        format_size
+        showMtime,
+        format_size,
+        format_timestamp
       }} = React.useContext(AppContext);
       const {{ name, children, level = 0, path = [] }} = props;
       const folderId = path.join('/');
@@ -593,7 +894,7 @@ def generate_jsx_component(
               }}
               <span className={{`font-medium truncate ${{isCurrentPath ? (darkMode ? 'text-yellow-300' : 'text-blue-700') : ''}}`}}>
                 {{searchTerm ? highlightMatch(name, searchTerm) : name}}
-              </span>{loc_directory_display}{size_directory_display}
+              </span>{loc_directory_display}{size_directory_display}{mtime_directory_display}
             </div>
             <button
               className={{`p-1 rounded-full ${{darkMode ? 'hover:bg-gray-600' : 'hover:bg-gray-200'}}`}}
@@ -624,7 +925,8 @@ def generate_jsx_component(
         selectedItem,
         setSelectedItem,
         showLoc,
-        showSize
+        showSize,
+        showMtime
       }} = React.useContext(AppContext);
       const {{ name, displayPath, path = [], level = 0 }} = props;
       const matchesSearch = searchTerm && name.toLowerCase().includes(searchTerm.toLowerCase());
@@ -664,7 +966,7 @@ def generate_jsx_component(
             <div className="min-w-0 overflow-hidden">
               <span className={{`truncate block ${{isSelected ? (darkMode ? 'text-yellow-300 font-medium' : 'text-blue-700 font-medium') : ''}}`}}>
                 {{searchTerm ? highlightMatch(displayPath, searchTerm) : displayPath}}
-              </span>{loc_file_display}{size_file_display}
+              </span>{loc_file_display}{size_file_display}{mtime_file_display}
             </div>
           </div>
         </div>
@@ -713,6 +1015,8 @@ def generate_jsx_component(
       {loc_sort_state}
       {size_state}
       {size_sort_state}
+      {mtime_state}
+      {mtime_sort_state}
       const handleExpandAll = () => {{
         setExpandAll(true);
         setTimeout(() => setExpandAll(false), 100);
@@ -726,7 +1030,9 @@ def generate_jsx_component(
       }};
       {loc_toggle_function}
       {size_toggle_function}
+      {mtime_toggle_function}
       {format_size_function}
+      {format_timestamp_function}
       useEffect(() => {{
         if (darkMode) {{
           document.body.classList.add('dark-mode');
@@ -751,7 +1057,10 @@ def generate_jsx_component(
           sortByLoc,
           showSize,
           sortBySize,
-          format_size
+          showMtime,
+          sortByMtime,
+          format_size,
+          format_timestamp
         }}}}>
           <div className={{`min-h-screen ${{darkMode ? 'bg-gray-900 text-gray-100' : 'bg-gray-50 text-gray-900'}}`}}>
             <style>{{`
@@ -794,7 +1103,7 @@ def generate_jsx_component(
                   >
                     <Minimize2 className="w-4 h-4 mr-1" />
                     <span className="hidden sm:inline">Collapse All</span>
-                  </button>{loc_toggle_button}{size_toggle_button}
+                  </button>{loc_toggle_button}{size_toggle_button}{mtime_toggle_button}
                   <button
                     onClick={{toggleDarkMode}}
                     className={{`px-3 py-1.5 text-sm rounded-md ${{
@@ -810,7 +1119,7 @@ def generate_jsx_component(
                 <DirectoryItem
                   name="{html.escape(root_name)}"
                   level={{0}}
-                  path={{["{html.escape(root_name)}"]}}{root_loc_prop}{root_size_prop}
+                  path={{["{html.escape(root_name)}"]}}{root_loc_prop}{root_size_prop}{root_mtime_prop}
                 >
     {_build_structure_jsx(structure, 1, root_name if show_full_path else "")}
                 </DirectoryItem>
@@ -834,13 +1143,13 @@ def generate_jsx_component(
       name: PropTypes.string.isRequired,
       children: PropTypes.node,
       level: PropTypes.number,
-      path: PropTypes.arrayOf(PropTypes.string){loc_directory_prop}{size_directory_prop}
+      path: PropTypes.arrayOf(PropTypes.string){loc_directory_prop}{size_directory_prop}{mtime_directory_prop}
     }};
     FileItem.propTypes = {{
       name: PropTypes.string.isRequired,
       displayPath: PropTypes.string.isRequired,
       path: PropTypes.arrayOf(PropTypes.string),
-      level: PropTypes.number{loc_file_prop}{size_file_prop}
+      level: PropTypes.number{loc_file_prop}{size_file_prop}{mtime_file_prop}
     }};
     export default DirectoryViewer;
     """

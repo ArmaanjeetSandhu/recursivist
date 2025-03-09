@@ -24,6 +24,10 @@ from rich.console import Console
 from rich.logging import RichHandler
 from rich.progress import Progress
 
+from recursivist.compare import (
+    display_comparison,
+    export_comparison,
+)
 from recursivist.core import (
     compile_regex_patterns,
     display_tree,
@@ -141,6 +145,12 @@ def visualize(
         "-z",
         help="Sort files by size and display file sizes",
     ),
+    sort_by_mtime: bool = typer.Option(
+        False,
+        "--sort-by-mtime",
+        "-m",
+        help="Sort files by modification time and display timestamps",
+    ),
     verbose: bool = typer.Option(
         False, "--verbose", "-v", help="Enable verbose output"
     ),
@@ -168,6 +178,8 @@ def visualize(
         recursivist visualize -d 2                        # Limit directory depth to 2 levels
         recursivist visualize -l                          # Show full paths instead of just filenames
         recursivist visualize -s                          # Sort by lines of code and show LOC counts
+        recursivist visualize -z                          # Sort by size and show file sizes
+        recursivist visualize -m                          # Sort by modification time
     """
     if verbose:
         logger.setLevel(logging.DEBUG)
@@ -183,6 +195,10 @@ def visualize(
         logger.info("Sorting files by lines of code and displaying LOC counts")
     if sort_by_size:
         logger.info("Sorting files by size and displaying file sizes")
+    if sort_by_mtime:
+        logger.info(
+            "Sorting files by modification time and displaying timestamps"
+        )
     parsed_exclude_dirs = parse_list_option(exclude_dirs)
     parsed_exclude_exts = parse_list_option(exclude_extensions)
     parsed_exclude_patterns = parse_list_option(exclude_patterns)
@@ -238,6 +254,7 @@ def visualize(
                 show_full_path=show_full_path,
                 sort_by_loc=sort_by_loc,
                 sort_by_size=sort_by_size,
+                sort_by_mtime=sort_by_mtime,
             )
             progress.update(task_scan, completed=True)
             logger.debug(f"Found {len(extensions)} unique file extensions")
@@ -254,6 +271,7 @@ def visualize(
             show_full_path,
             sort_by_loc,
             sort_by_size,
+            sort_by_mtime,
         )
     except Exception as e:
         logger.error(f"Error: {e}", exc_info=verbose)
@@ -328,6 +346,12 @@ def export(
         "-z",
         help="Sort files by size and display file sizes",
     ),
+    sort_by_mtime: bool = typer.Option(
+        False,
+        "--sort-by-mtime",
+        "-m",
+        help="Sort files by modification time and display timestamps",
+    ),
     verbose: bool = typer.Option(
         False, "--verbose", "-v", help="Enable verbose output"
     ),
@@ -356,6 +380,8 @@ def export(
         recursivist export -l                          # Show full paths instead of just filenames
         recursivist export -o ./exports                # Export to custom directory
         recursivist export -s                          # Sort by lines of code and show LOC counts
+        recursivist export -z                          # Sort by file size and show file sizes
+        recursivist export -m                          # Sort by modification time
     """
     if verbose:
         logger.setLevel(logging.DEBUG)
@@ -371,6 +397,10 @@ def export(
         logger.info("Sorting files by lines of code and displaying LOC counts")
     if sort_by_size:
         logger.info("Sorting files by size and displaying file sizes")
+    if sort_by_mtime:
+        logger.info(
+            "Sorting files by modification time and displaying timestamps"
+        )
     parsed_exclude_dirs = parse_list_option(exclude_dirs)
     parsed_exclude_exts = parse_list_option(exclude_extensions)
     parsed_exclude_patterns = parse_list_option(exclude_patterns)
@@ -426,6 +456,7 @@ def export(
                 show_full_path=show_full_path,
                 sort_by_loc=sort_by_loc,
                 sort_by_size=sort_by_size,
+                sort_by_mtime=sort_by_mtime,
             )
             progress.update(task_scan, completed=True)
             logger.debug(f"Found {len(extensions)} unique file extensions")
@@ -456,6 +487,7 @@ def export(
                     show_full_path,
                     sort_by_loc,
                     sort_by_size,
+                    sort_by_mtime,
                 )
                 logger.info(f"Successfully exported to {output_path}")
             except Exception as e:
@@ -598,6 +630,12 @@ def compare(
         "-z",
         help="Sort files by size and display file sizes",
     ),
+    sort_by_mtime: bool = typer.Option(
+        False,
+        "--sort-by-mtime",
+        "-m",
+        help="Sort files by modification time and display timestamps",
+    ),
     verbose: bool = typer.Option(
         False, "--verbose", "-v", help="Enable verbose output"
     ),
@@ -623,12 +661,12 @@ def compare(
         recursivist compare dir1 dir2 -l                # Show full paths instead of just filenames
         recursivist compare dir1 dir2 -f                # Export comparison to HTML
         recursivist compare dir1 dir2 -s                # Sort by lines of code and show LOC counts
+        recursivist compare dir1 dir2 -z                # Sort by file size and show file sizes
+        recursivist compare dir1 dir2 -m                # Sort by modification time
     """
     if verbose:
         logger.setLevel(logging.DEBUG)
         logger.debug("Verbose mode enabled")
-    from recursivist.compare import display_comparison, export_comparison
-
     logger.info(f"Comparing directories: {dir1} and {dir2}")
     if max_depth > 0:
         logger.info(f"Limiting depth to {max_depth} levels")
@@ -638,6 +676,10 @@ def compare(
         logger.info("Sorting files by lines of code and displaying LOC counts")
     if sort_by_size:
         logger.info("Sorting files by size and displaying file sizes")
+    if sort_by_mtime:
+        logger.info(
+            "Sorting files by modification time and displaying timestamps"
+        )
     parsed_exclude_dirs = parse_list_option(exclude_dirs)
     parsed_exclude_exts = parse_list_option(exclude_extensions)
     parsed_exclude_patterns = parse_list_option(exclude_patterns)
@@ -688,6 +730,7 @@ def compare(
                     show_full_path=show_full_path,
                     sort_by_loc=sort_by_loc,
                     sort_by_size=sort_by_size,
+                    sort_by_mtime=sort_by_mtime,
                 )
                 logger.info(f"Successfully exported to {output_path}")
             except Exception as e:
@@ -706,6 +749,7 @@ def compare(
                 show_full_path=show_full_path,
                 sort_by_loc=sort_by_loc,
                 sort_by_size=sort_by_size,
+                sort_by_mtime=sort_by_mtime,
             )
     except Exception as e:
         logger.error(f"Error: {e}", exc_info=verbose)

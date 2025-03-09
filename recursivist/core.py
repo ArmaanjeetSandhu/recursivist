@@ -13,11 +13,13 @@ Key features include:
 """
 
 import colorsys
+import datetime
 import fnmatch
 import hashlib
 import logging
 import os
 import re
+from datetime import datetime as dt
 from typing import Any, Dict, List, Optional, Pattern, Set, Tuple, Union, cast
 
 from rich.console import Console
@@ -35,6 +37,7 @@ def export_structure(
     show_full_path: bool = False,
     sort_by_loc: bool = False,
     sort_by_size: bool = False,
+    sort_by_mtime: bool = False,
 ) -> None:
     """Export the directory structure to various formats.
 
@@ -48,6 +51,7 @@ def export_structure(
         show_full_path: Whether to show full paths instead of just filenames
         sort_by_loc: Whether to include lines of code counts in the export
         sort_by_size: Whether to include file size information in the export
+        sort_by_mtime: Whether to include file modification times in the export
 
     Raises:
         ValueError: If the format_type is not supported
@@ -60,6 +64,7 @@ def export_structure(
         root_dir if show_full_path else None,
         sort_by_loc,
         sort_by_size,
+        sort_by_mtime,
     )
     format_map = {
         "txt": exporter.to_txt,
@@ -235,12 +240,14 @@ def get_directory_structure(
     show_full_path: bool = False,
     sort_by_loc: bool = False,
     sort_by_size: bool = False,
+    sort_by_mtime: bool = False,
 ) -> Tuple[Dict[str, Any], Set[str]]:
     """Build a nested dictionary representing the directory structure.
 
     Recursively traverses the file system starting at root_dir, applying filters and building a structured representation.
     When sort_by_loc is True, calculates lines of code for files and directories.
     When sort_by_size is True, calculates file sizes for files and directories.
+    When sort_by_mtime is True, retrieves file modification times and sorts by newest first.
 
     Args:
         root_dir: Root directory path to start from
@@ -256,6 +263,7 @@ def get_directory_structure(
         show_full_path: Whether to show full paths instead of just filenames
         sort_by_loc: Whether to calculate and display lines of code counts
         sort_by_size: Whether to calculate and display file sizes
+        sort_by_mtime: Whether to retrieve and display file modification times
 
     Returns:
         Tuple of (structure dictionary, set of extensions found)
@@ -277,6 +285,7 @@ def get_directory_structure(
     extensions_set: Set[str] = set()
     total_loc = 0
     total_size = 0
+    latest_mtime = 0.0
     if max_depth > 0 and current_depth >= max_depth:
         return {"_max_depth_reached": True}, extensions_set
     try:
@@ -304,32 +313,64 @@ def get_directory_structure(
                     structure["_files"] = []
                 file_loc = 0
                 file_size = 0
+                file_mtime = 0.0
                 if sort_by_loc:
                     file_loc = count_lines_of_code(item_path)
                     total_loc += file_loc
                 if sort_by_size:
                     file_size = get_file_size(item_path)
                     total_size += file_size
+                if sort_by_mtime:
+                    file_mtime = get_file_mtime(item_path)
+                    latest_mtime = max(latest_mtime, file_mtime)
                 if show_full_path:
                     abs_path = os.path.abspath(item_path)
                     abs_path = abs_path.replace(os.sep, "/")
-                    if sort_by_loc and sort_by_size:
+                    if sort_by_loc and sort_by_size and sort_by_mtime:
+                        structure["_files"].append(
+                            (item, abs_path, file_loc, file_size, file_mtime)
+                        )
+                    elif sort_by_loc and sort_by_size:
                         structure["_files"].append(
                             (item, abs_path, file_loc, file_size)
+                        )
+                    elif sort_by_loc and sort_by_mtime:
+                        structure["_files"].append(
+                            (item, abs_path, file_loc, 0, file_mtime)
+                        )
+                    elif sort_by_size and sort_by_mtime:
+                        structure["_files"].append(
+                            (item, abs_path, 0, file_size, file_mtime)
                         )
                     elif sort_by_loc:
                         structure["_files"].append((item, abs_path, file_loc))
                     elif sort_by_size:
                         structure["_files"].append((item, abs_path, file_size))
+                    elif sort_by_mtime:
+                        structure["_files"].append((item, abs_path, file_mtime))
                     else:
                         structure["_files"].append((item, abs_path))
                 else:
-                    if sort_by_loc and sort_by_size:
+                    if sort_by_loc and sort_by_size and sort_by_mtime:
+                        structure["_files"].append(
+                            (item, item, file_loc, file_size, file_mtime)
+                        )
+                    elif sort_by_loc and sort_by_size:
                         structure["_files"].append((item, item, file_loc, file_size))
+                    elif sort_by_loc and sort_by_mtime:
+                        structure["_files"].append(
+                            (item, item, file_loc, 0, file_mtime)
+                        )
+                    elif sort_by_size and sort_by_mtime:
+                        structure["_files"].append(
+                            (item, item, 0, file_size, file_mtime)
+                        )
                     elif sort_by_loc:
                         structure["_files"].append((item, item, file_loc))
                     elif sort_by_size:
                         structure["_files"].append((item, item, file_size))
+                    elif sort_by_mtime:
+                        structure["_files"].append((item, item, file_mtime))
                     else:
                         structure["_files"].append(item)
                 if ext:
@@ -360,6 +401,7 @@ def get_directory_structure(
                 show_full_path,
                 sort_by_loc,
                 sort_by_size,
+                sort_by_mtime,
             )
             structure[item] = substructure
             extensions_set.update(sub_extensions)
@@ -367,47 +409,105 @@ def get_directory_structure(
                 total_loc += substructure["_loc"]
             if sort_by_size and "_size" in substructure:
                 total_size += substructure["_size"]
+            if sort_by_mtime and "_mtime" in substructure:
+                latest_mtime = max(latest_mtime, substructure["_mtime"])
     if sort_by_loc:
         structure["_loc"] = total_loc
     if sort_by_size:
         structure["_size"] = total_size
+    if sort_by_mtime:
+        structure["_mtime"] = latest_mtime
     return structure, extensions_set
 
 
 def sort_files_by_type(
     files: List[
-        Union[str, Tuple[str, str], Tuple[str, str, int], Tuple[str, str, int, int]]
+        Union[
+            str,
+            Tuple[str, str],
+            Tuple[str, str, int],
+            Tuple[str, str, int, int],
+            Tuple[str, str, int, int, float],
+        ]
     ],
     sort_by_loc: bool = False,
     sort_by_size: bool = False,
-) -> List[Union[str, Tuple[str, str], Tuple[str, str, int], Tuple[str, str, int, int]]]:
-    """Sort files by extension and then by name, or by LOC/size if requested."""
+    sort_by_mtime: bool = False,
+) -> List[
+    Union[
+        str,
+        Tuple[str, str],
+        Tuple[str, str, int],
+        Tuple[str, str, int, int],
+        Tuple[str, str, int, int, float],
+    ]
+]:
+    """Sort files by extension and then by name, or by LOC/size/mtime if requested.
+
+    The sort precedence follows: LOC > size > mtime > extension/name
+
+    Args:
+        files: List of file items, which can be strings or tuples of various forms
+        sort_by_loc: Whether to sort by lines of code
+        sort_by_size: Whether to sort by file size
+        sort_by_mtime: Whether to sort by modification time
+
+    Returns:
+        Sorted list of file items
+    """
     if not files:
         return []
     has_loc = any(isinstance(item, tuple) and len(item) > 2 for item in files)
     has_size = any(isinstance(item, tuple) and len(item) > 3 for item in files)
+    has_mtime = any(isinstance(item, tuple) and len(item) > 4 for item in files)
     has_simple_size = sort_by_size and not sort_by_loc and has_loc
+    has_simple_mtime = (
+        sort_by_mtime and not sort_by_loc and not sort_by_size and (has_loc or has_size)
+    )
 
     def get_size(item):
         if not isinstance(item, tuple):
             return 0
         if len(item) > 3:
-            return item[3]
-        elif sort_by_size and not sort_by_loc and len(item) > 2:
-            return item[2]
+            if sort_by_loc and sort_by_size:
+                return item[3]
+            elif sort_by_size and not sort_by_loc:
+                return item[2]
         return 0
 
     def get_loc(item):
         if not isinstance(item, tuple) or len(item) <= 2:
             return 0
-        return item[2]
+        return item[2] if sort_by_loc else 0
 
-    if sort_by_size and sort_by_loc and (has_size or has_simple_size) and has_loc:
-        return sorted(files, key=lambda f: (-get_size(f), -get_loc(f)))
-    elif sort_by_size and (has_size or has_simple_size):
-        return sorted(files, key=lambda f: (-get_size(f)))
+    def get_mtime(item):
+        if not isinstance(item, tuple):
+            return 0
+        if len(item) > 4 and sort_by_loc and sort_by_size and sort_by_mtime:
+            return item[4]
+        elif len(item) > 3 and (
+            (sort_by_loc and sort_by_mtime and not sort_by_size)
+            or (sort_by_size and sort_by_mtime and not sort_by_loc)
+        ):
+            return item[3]
+        elif len(item) > 2 and sort_by_mtime and not sort_by_loc and not sort_by_size:
+            return item[2]
+        return 0
+
+    if sort_by_loc and sort_by_size and sort_by_mtime and has_mtime:
+        return sorted(files, key=lambda f: (-get_loc(f), -get_size(f), -get_mtime(f)))
+    elif sort_by_loc and sort_by_size and (has_size or has_simple_size) and has_loc:
+        return sorted(files, key=lambda f: (-get_loc(f), -get_size(f)))
+    elif sort_by_loc and sort_by_mtime and has_mtime:
+        return sorted(files, key=lambda f: (-get_loc(f), -get_mtime(f)))
+    elif sort_by_size and sort_by_mtime and has_mtime:
+        return sorted(files, key=lambda f: (-get_size(f), -get_mtime(f)))
     elif sort_by_loc and has_loc:
         return sorted(files, key=lambda f: (-get_loc(f)))
+    elif sort_by_size and (has_size or has_simple_size):
+        return sorted(files, key=lambda f: (-get_size(f)))
+    elif sort_by_mtime and (has_mtime or has_simple_mtime):
+        return sorted(files, key=lambda f: (-get_mtime(f)))
     all_tuples = all(isinstance(item, tuple) for item in files)
     all_strings = all(isinstance(item, str) for item in files)
     if all_strings:
@@ -419,6 +519,7 @@ def sort_files_by_type(
                     Tuple[str, str],
                     Tuple[str, str, int],
                     Tuple[str, str, int, int],
+                    Tuple[str, str, int, int, float],
                 ]
             ],
             sorted(
@@ -434,7 +535,12 @@ def sort_files_by_type(
     else:
         str_items: List[str] = []
         tuple_items: List[
-            Union[Tuple[str, str], Tuple[str, str, int], Tuple[str, str, int, int]]
+            Union[
+                Tuple[str, str],
+                Tuple[str, str, int],
+                Tuple[str, str, int, int],
+                Tuple[str, str, int, int, float],
+            ]
         ] = []
         for item in files:
             if isinstance(item, tuple):
@@ -448,7 +554,13 @@ def sort_files_by_type(
             tuple_items, key=lambda t: (os.path.splitext(t[0])[1].lower(), t[0].lower())
         )
         result: List[
-            Union[str, Tuple[str, str], Tuple[str, str, int], Tuple[str, str, int, int]]
+            Union[
+                str,
+                Tuple[str, str],
+                Tuple[str, str, int],
+                Tuple[str, str, int, int],
+                Tuple[str, str, int, int, float],
+            ]
         ] = []
         result.extend(sorted_strings)
         result.extend(sorted_tuples)
@@ -463,12 +575,14 @@ def build_tree(
     show_full_path: bool = False,
     sort_by_loc: bool = False,
     sort_by_size: bool = False,
+    sort_by_mtime: bool = False,
 ) -> None:
     """Build the tree structure with colored file names.
 
     Recursively builds a rich.Tree representation of the directory structure with files color-coded by extension.
     When sort_by_loc is True, displays lines of code counts for files and directories.
     When sort_by_size is True, displays file sizes for files and directories.
+    When sort_by_mtime is True, displays file modification times.
 
     Args:
         structure: Dictionary representation of the directory structure
@@ -478,17 +592,72 @@ def build_tree(
         show_full_path: Whether to show full paths instead of just filenames
         sort_by_loc: Whether to display lines of code counts
         sort_by_size: Whether to display file sizes
+        sort_by_mtime: Whether to display file modification times
     """
     for folder, content in sorted(structure.items()):
         if folder == "_files":
-            for file_item in sort_files_by_type(content, sort_by_loc, sort_by_size):
+            for file_item in sort_files_by_type(
+                content, sort_by_loc, sort_by_size, sort_by_mtime
+            ):
                 if (
+                    sort_by_loc
+                    and sort_by_size
+                    and sort_by_mtime
+                    and isinstance(file_item, tuple)
+                    and len(file_item) > 4
+                ):
+                    file_name, display_path, loc, size, mtime = file_item
+                    ext = os.path.splitext(file_name)[1].lower()
+                    color = color_map.get(ext, "#FFFFFF")
+                    colored_text = Text(
+                        f"📄 {display_path} ({loc} lines, {format_size(size)}, {format_timestamp(mtime)})",
+                        style=color,
+                    )
+                    tree.add(colored_text)
+                elif (
+                    sort_by_loc
+                    and sort_by_mtime
+                    and isinstance(file_item, tuple)
+                    and len(file_item) > 3
+                ):
+                    if len(file_item) > 4:
+                        file_name, display_path, loc, _, mtime = file_item
+                    else:
+                        file_name, display_path, loc, mtime = file_item
+                    ext = os.path.splitext(file_name)[1].lower()
+                    color = color_map.get(ext, "#FFFFFF")
+                    colored_text = Text(
+                        f"📄 {display_path} ({loc} lines, {format_timestamp(mtime)})",
+                        style=color,
+                    )
+                    tree.add(colored_text)
+                elif (
+                    sort_by_size
+                    and sort_by_mtime
+                    and isinstance(file_item, tuple)
+                    and len(file_item) > 3
+                ):
+                    if len(file_item) > 4:
+                        file_name, display_path, _, size, mtime = file_item
+                    else:
+                        file_name, display_path, size, mtime = file_item
+                    ext = os.path.splitext(file_name)[1].lower()
+                    color = color_map.get(ext, "#FFFFFF")
+                    colored_text = Text(
+                        f"📄 {display_path} ({format_size(size)}, {format_timestamp(mtime)})",
+                        style=color,
+                    )
+                    tree.add(colored_text)
+                elif (
                     sort_by_loc
                     and sort_by_size
                     and isinstance(file_item, tuple)
                     and len(file_item) > 3
                 ):
-                    file_name, display_path, loc, size = file_item
+                    if len(file_item) > 4:
+                        file_name, display_path, loc, size, _ = file_item
+                    else:
+                        file_name, display_path, loc, size = file_item
                     ext = os.path.splitext(file_name)[1].lower()
                     color = color_map.get(ext, "#FFFFFF")
                     colored_text = Text(
@@ -497,31 +666,59 @@ def build_tree(
                     )
                     tree.add(colored_text)
                 elif (
+                    sort_by_mtime
+                    and isinstance(file_item, tuple)
+                    and len(file_item) > 2
+                ):
+                    if len(file_item) > 4:
+                        file_name, display_path, _, _, mtime = file_item
+                    elif len(file_item) > 3:
+                        file_name, display_path, _, mtime = file_item
+                    else:
+                        file_name, display_path, mtime = file_item
+                    ext = os.path.splitext(file_name)[1].lower()
+                    color = color_map.get(ext, "#FFFFFF")
+                    colored_text = Text(
+                        f"📄 {display_path} ({format_timestamp(mtime)})",
+                        style=color,
+                    )
+                    tree.add(colored_text)
+                elif (
                     sort_by_size and isinstance(file_item, tuple) and len(file_item) > 2
                 ):
-                    if len(file_item) > 3:
+                    if len(file_item) > 4:
+                        file_name, display_path, _, size, _ = file_item
+                    elif len(file_item) > 3:
                         file_name, display_path, _, size = file_item
                     else:
                         file_name, display_path, size = file_item
                     ext = os.path.splitext(file_name)[1].lower()
                     color = color_map.get(ext, "#FFFFFF")
                     colored_text = Text(
-                        f"📄 {display_path} ({format_size(size)})", style=color
+                        f"📄 {display_path} ({format_size(size)})",
+                        style=color,
                     )
                     tree.add(colored_text)
                 elif (
                     sort_by_loc and isinstance(file_item, tuple) and len(file_item) > 2
                 ):
-                    if len(file_item) > 3:
+                    if len(file_item) > 4:
+                        file_name, display_path, loc, _, _ = file_item
+                    elif len(file_item) > 3:
                         file_name, display_path, loc, _ = file_item
                     else:
                         file_name, display_path, loc = file_item
                     ext = os.path.splitext(file_name)[1].lower()
                     color = color_map.get(ext, "#FFFFFF")
-                    colored_text = Text(f"📄 {display_path} ({loc} lines)", style=color)
+                    colored_text = Text(
+                        f"📄 {display_path} ({loc} lines)",
+                        style=color,
+                    )
                     tree.add(colored_text)
                 elif show_full_path and isinstance(file_item, tuple):
-                    if len(file_item) > 3:
+                    if len(file_item) > 4:
+                        file_name, full_path, _, _, _ = file_item
+                    elif len(file_item) > 3:
                         file_name, full_path, _, _ = file_item
                     elif len(file_item) > 2:
                         file_name, full_path, _ = file_item
@@ -533,7 +730,9 @@ def build_tree(
                     tree.add(colored_text)
                 else:
                     if isinstance(file_item, tuple):
-                        if len(file_item) > 3:
+                        if len(file_item) > 4:
+                            file_name, _, _, _, _ = file_item
+                        elif len(file_item) > 3:
                             file_name, _, _, _ = file_item
                         elif len(file_item) > 2:
                             file_name, _, _ = file_item
@@ -545,23 +744,52 @@ def build_tree(
                     color = color_map.get(ext, "#FFFFFF")
                     colored_text = Text(f"📄 {file_name}", style=color)
                     tree.add(colored_text)
-        elif folder == "_loc" or folder == "_size" or folder == "_max_depth_reached":
+        elif (
+            folder == "_loc"
+            or folder == "_size"
+            or folder == "_mtime"
+            or folder == "_max_depth_reached"
+        ):
             pass
         else:
             folder_display = f"📁 {folder}"
-            if sort_by_loc and sort_by_size and isinstance(content, dict):
+            if (
+                sort_by_loc
+                and sort_by_size
+                and sort_by_mtime
+                and isinstance(content, dict)
+            ):
+                if "_loc" in content and "_size" in content and "_mtime" in content:
+                    folder_loc = content["_loc"]
+                    folder_size = content["_size"]
+                    folder_mtime = content["_mtime"]
+                    folder_display = f"📁 {folder} ({folder_loc} lines, {format_size(folder_size)}, {format_timestamp(folder_mtime)})"
+            elif sort_by_loc and sort_by_size and isinstance(content, dict):
                 if "_loc" in content and "_size" in content:
                     folder_loc = content["_loc"]
                     folder_size = content["_size"]
                     folder_display = (
                         f"📁 {folder} ({folder_loc} lines, {format_size(folder_size)})"
                     )
+            elif sort_by_loc and sort_by_mtime and isinstance(content, dict):
+                if "_loc" in content and "_mtime" in content:
+                    folder_loc = content["_loc"]
+                    folder_mtime = content["_mtime"]
+                    folder_display = f"📁 {folder} ({folder_loc} lines, {format_timestamp(folder_mtime)})"
+            elif sort_by_size and sort_by_mtime and isinstance(content, dict):
+                if "_size" in content and "_mtime" in content:
+                    folder_size = content["_size"]
+                    folder_mtime = content["_mtime"]
+                    folder_display = f"📁 {folder} ({format_size(folder_size)}, {format_timestamp(folder_mtime)})"
             elif sort_by_loc and isinstance(content, dict) and "_loc" in content:
                 folder_loc = content["_loc"]
                 folder_display = f"📁 {folder} ({folder_loc} lines)"
             elif sort_by_size and isinstance(content, dict) and "_size" in content:
                 folder_size = content["_size"]
                 folder_display = f"📁 {folder} ({format_size(folder_size)})"
+            elif sort_by_mtime and isinstance(content, dict) and "_mtime" in content:
+                folder_mtime = content["_mtime"]
+                folder_display = f"📁 {folder} ({format_timestamp(folder_mtime)})"
             subtree = tree.add(folder_display)
             if isinstance(content, dict) and content.get("_max_depth_reached"):
                 subtree.add(Text("⋯ (max depth reached)", style="dim"))
@@ -574,6 +802,7 @@ def build_tree(
                     show_full_path,
                     sort_by_loc,
                     sort_by_size,
+                    sort_by_mtime,
                 )
 
 
@@ -589,12 +818,14 @@ def display_tree(
     show_full_path: bool = False,
     sort_by_loc: bool = False,
     sort_by_size: bool = False,
+    sort_by_mtime: bool = False,
 ) -> None:
     """Display the directory tree with color-coded file types.
 
     Prepares the directory structure with all filtering options applied, then builds and displays a Rich tree visualization
     with color-coding based on file extensions. When sort_by_loc is True, displays and sorts by lines of code counts.
     When sort_by_size is True, displays and sorts by file sizes.
+    When sort_by_mtime is True, displays and sorts by file modification times.
 
     Args:
         root_dir: Root directory path to display
@@ -608,6 +839,7 @@ def display_tree(
         show_full_path: Whether to show full paths instead of just filenames
         sort_by_loc: Whether to sort files by lines of code and display LOC counts
         sort_by_size: Whether to sort files by size and display size information
+        sort_by_mtime: Whether to sort files by modification time and display timestamps
     """
     if exclude_dirs is None:
         exclude_dirs = []
@@ -634,17 +866,42 @@ def display_tree(
         show_full_path=show_full_path,
         sort_by_loc=sort_by_loc,
         sort_by_size=sort_by_size,
+        sort_by_mtime=sort_by_mtime,
     )
     color_map = {ext: generate_color_for_extension(ext) for ext in extensions}
     console = Console()
     root_label = f"📂 {os.path.basename(root_dir)}"
-    if sort_by_loc and sort_by_size and "_loc" in structure and "_size" in structure:
+    if (
+        sort_by_loc
+        and sort_by_size
+        and sort_by_mtime
+        and "_loc" in structure
+        and "_size" in structure
+        and "_mtime" in structure
+    ):
+        root_label = f"📂 {os.path.basename(root_dir)} ({structure['_loc']} lines, {format_size(structure['_size'])}, {format_timestamp(structure['_mtime'])})"
+    elif sort_by_loc and sort_by_size and "_loc" in structure and "_size" in structure:
         root_label = f"📂 {os.path.basename(root_dir)} ({structure['_loc']} lines, {format_size(structure['_size'])})"
+    elif (
+        sort_by_loc and sort_by_mtime and "_loc" in structure and "_mtime" in structure
+    ):
+        root_label = f"📂 {os.path.basename(root_dir)} ({structure['_loc']} lines, {format_timestamp(structure['_mtime'])})"
+    elif (
+        sort_by_size
+        and sort_by_mtime
+        and "_size" in structure
+        and "_mtime" in structure
+    ):
+        root_label = f"📂 {os.path.basename(root_dir)} ({format_size(structure['_size'])}, {format_timestamp(structure['_mtime'])})"
     elif sort_by_loc and "_loc" in structure:
         root_label = f"📂 {os.path.basename(root_dir)} ({structure['_loc']} lines)"
     elif sort_by_size and "_size" in structure:
         root_label = (
             f"📂 {os.path.basename(root_dir)} ({format_size(structure['_size'])})"
+        )
+    elif sort_by_mtime and "_mtime" in structure:
+        root_label = (
+            f"📂 {os.path.basename(root_dir)} ({format_timestamp(structure['_mtime'])})"
         )
     tree = Tree(root_label)
     build_tree(
@@ -654,6 +911,7 @@ def display_tree(
         show_full_path=show_full_path,
         sort_by_loc=sort_by_loc,
         sort_by_size=sort_by_size,
+        sort_by_mtime=sort_by_mtime,
     )
     console.print(tree)
 
@@ -715,3 +973,43 @@ def format_size(size_in_bytes: int) -> str:
         return f"{size_in_bytes / (1024 * 1024):.1f} MB"
     else:
         return f"{size_in_bytes / (1024 * 1024 * 1024):.1f} GB"
+
+
+def get_file_mtime(file_path: str) -> float:
+    """Get the modification time of a file in seconds since epoch.
+
+    Args:
+        file_path: Path to the file
+
+    Returns:
+        Modification time as a float (seconds since epoch), or 0 if the file cannot be accessed
+    """
+    try:
+        return os.path.getmtime(file_path)
+    except Exception as e:
+        logger.debug(f"Could not get modification time for {file_path}: {e}")
+        return 0.0
+
+
+def format_timestamp(timestamp: float) -> str:
+    """Format a timestamp to a human-readable date and time string.
+
+    Args:
+        timestamp: Unix timestamp (seconds since epoch)
+
+    Returns:
+        Human-readable date/time string (e.g., "2023-05-15 13:45")
+    """
+    dt_object = dt.fromtimestamp(timestamp)
+    current_dt = dt.now()
+    current_date = current_dt.date()
+    if dt_object.date() == current_date:
+        return f"Today {dt_object.strftime('%H:%M')}"
+    elif dt_object.date() == current_date - datetime.timedelta(days=1):
+        return f"Yesterday {dt_object.strftime('%H:%M')}"
+    elif current_date - dt_object.date() < datetime.timedelta(days=7):
+        return dt_object.strftime("%a %H:%M")
+    elif dt_object.year == current_dt.year:
+        return dt_object.strftime("%b %d")
+    else:
+        return dt_object.strftime("%Y-%m-%d")
