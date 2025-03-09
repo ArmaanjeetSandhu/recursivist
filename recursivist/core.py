@@ -58,6 +58,7 @@ def export_structure(
     Raises:
         ValueError: If the format_type is not supported
     """
+    
     from recursivist.exports import DirectoryExporter
 
     exporter = DirectoryExporter(
@@ -92,6 +93,7 @@ def parse_ignore_file(ignore_file_path: str) -> List[str]:
     Returns:
         List of patterns to ignore
     """
+
     if not os.path.exists(ignore_file_path):
         return []
     patterns = []
@@ -108,17 +110,19 @@ def parse_ignore_file(ignore_file_path: str) -> List[str]:
 def compile_regex_patterns(
     patterns: List[str], is_regex: bool = False
 ) -> List[Union[str, Pattern[str]]]:
-    """Compile regex patterns if needed.
+    """Convert patterns to compiled regex objects when appropriate.
 
-    Converts string patterns to compiled regex patterns when is_regex is True. For invalid regex patterns, logs a warning and keeps them as strings.
+    When is_regex is True, compiles string patterns into regex pattern objects for efficient matching.
+    For invalid regex patterns, logs a warning and keeps them as strings.
 
     Args:
         patterns: List of patterns to compile
-        is_regex: Whether the patterns should be treated as regex or glob patterns
+        is_regex: Whether the patterns should be treated as regex (True) or glob patterns (False)
 
     Returns:
-        List of patterns (either strings for glob patterns or compiled regex patterns)
+        List of patterns (strings for glob patterns or compiled regex objects)
     """
+
     if not is_regex:
         return cast(List[Union[str, Pattern[str]]], patterns)
     compiled_patterns: List[Union[str, Pattern[str]]] = []
@@ -138,24 +142,25 @@ def should_exclude(
     exclude_patterns: Optional[List[Union[str, Pattern[str]]]] = None,
     include_patterns: Optional[List[Union[str, Pattern[str]]]] = None,
 ) -> bool:
-    """Check if a path should be excluded based on ignore patterns, extensions, and regex patterns.
+    """Determine if a path should be excluded based on filtering rules.
 
-    Decision hierarchy:
+    Applies a hierarchical filtering logic:
     1. If include_patterns match, INCLUDE the path (overrides all exclusions)
     2. If exclude_patterns match, EXCLUDE the path
     3. If file extension is in exclude_extensions, EXCLUDE the path
-    4. If gitignore-style patterns match, use their rules
+    4. If gitignore-style patterns match, follow their rules (including negations)
 
     Args:
-        path: Path to check
+        path: Path to check for exclusion
         ignore_context: Dictionary with 'patterns' and 'current_dir' keys
         exclude_extensions: Set of file extensions to exclude
-        exclude_patterns: List of regex patterns to exclude
-        include_patterns: List of regex patterns to include (overrides exclusions)
+        exclude_patterns: List of patterns (glob or regex) to exclude
+        include_patterns: List of patterns (glob or regex) to include (overrides exclusions)
 
     Returns:
-        True if path should be excluded
+        True if path should be excluded, False otherwise
     """
+
     patterns = ignore_context.get("patterns", [])
     current_dir = ignore_context.get("current_dir", os.path.dirname(path))
     if exclude_extensions and os.path.isfile(path):
@@ -206,16 +211,18 @@ def should_exclude(
 
 
 def generate_color_for_extension(extension: str) -> str:
-    """Generate a consistent color for a given file extension.
+    """Generate a consistent color for a file extension.
 
-    Uses a hash function to derive a consistent color for each extension, ensuring the same extension always gets the same color within a session. Colors are in the HSV color space with fixed saturation and value but varying hue based on the hash.
+    Creates a deterministic color based on the extension string using a hash function.
+    The same extension will always get the same color within a session, ensuring visual consistency.
 
     Args:
         extension: File extension (with or without leading dot)
 
     Returns:
-        Hex color code
+        Hex color code (e.g., "#FF5733")
     """
+
     if not extension:
         return "#FFFFFF"
     hash_value = int(hashlib.md5(extension.encode()).hexdigest(), 16)
@@ -244,32 +251,41 @@ def get_directory_structure(
     sort_by_size: bool = False,
     sort_by_mtime: bool = False,
 ) -> Tuple[Dict[str, Any], Set[str]]:
-    """Build a nested dictionary representing the directory structure.
+    """Build a nested dictionary representing a directory structure.
 
-    Recursively traverses the file system starting at root_dir, applying filters and building a structured representation.
-    When sort_by_loc is True, calculates lines of code for files and directories.
-    When sort_by_size is True, calculates file sizes for files and directories.
-    When sort_by_mtime is True, retrieves file modification times and sorts by newest first.
+    Recursively traverses the file system applying filters and collecting statistics.
+    The resulting structure contains:
+    - Hierarchical representation of directories and files
+    - Optional statistics (lines of code, sizes, modification times)
+    - Filtered entries based on various exclusion patterns
+
+    Special dictionary keys:
+    - "_files": List of files in the directory
+    - "_loc": Total lines of code (if sort_by_loc is True)
+    - "_size": Total size in bytes (if sort_by_size is True)
+    - "_mtime": Latest modification timestamp (if sort_by_mtime is True)
+    - "_max_depth_reached": Flag indicating max depth was reached
 
     Args:
         root_dir: Root directory path to start from
         exclude_dirs: List of directory names to exclude
         ignore_file: Name of ignore file (like .gitignore)
         exclude_extensions: Set of file extensions to exclude
-        parent_ignore_patterns: Patterns from parent directories
-        exclude_patterns: List of regex patterns to exclude
-        include_patterns: List of regex patterns to include (overrides exclusions)
+        parent_ignore_patterns: Patterns from parent directories' ignore files
+        exclude_patterns: List of patterns (glob or regex) to exclude
+        include_patterns: List of patterns (glob or regex) to include (overrides exclusions)
         max_depth: Maximum depth to traverse (0 for unlimited)
-        current_depth: Current depth in the directory tree
-        current_path: Current path for full path display
+        current_depth: Current depth in the directory tree (for internal recursion)
+        current_path: Current path for full path display (for internal recursion)
         show_full_path: Whether to show full paths instead of just filenames
-        sort_by_loc: Whether to calculate and display lines of code counts
-        sort_by_size: Whether to calculate and display file sizes
-        sort_by_mtime: Whether to retrieve and display file modification times
+        sort_by_loc: Whether to calculate and track lines of code counts
+        sort_by_size: Whether to calculate and track file sizes
+        sort_by_mtime: Whether to track file modification times
 
     Returns:
-        Tuple of (structure dictionary, set of extensions found)
+        Tuple of (structure dictionary, set of file extensions found)
     """
+
     if exclude_dirs is None:
         exclude_dirs = []
     if exclude_extensions is None:
@@ -457,6 +473,7 @@ def sort_files_by_type(
     Returns:
         Sorted list of file items
     """
+
     if not files:
         return []
     has_loc = any(isinstance(item, tuple) and len(item) > 2 for item in files)
@@ -596,6 +613,7 @@ def build_tree(
         sort_by_size: Whether to display file sizes
         sort_by_mtime: Whether to display file modification times
     """
+
     for folder, content in sorted(structure.items()):
         if folder == "_files":
             for file_item in sort_files_by_type(
@@ -822,27 +840,31 @@ def display_tree(
     sort_by_size: bool = False,
     sort_by_mtime: bool = False,
 ) -> None:
-    """Display the directory tree with color-coded file types.
+    """Display a directory tree in the terminal with rich formatting.
 
-    Prepares the directory structure with all filtering options applied, then builds and displays a Rich tree visualization
-    with color-coding based on file extensions. When sort_by_loc is True, displays and sorts by lines of code counts.
-    When sort_by_size is True, displays and sorts by file sizes.
-    When sort_by_mtime is True, displays and sorts by file modification times.
+    Presents a directory structure as a tree with:
+    - Color-coded file extensions
+    - Optional statistics (lines of code, sizes, modification times)
+    - Filtered content based on exclusion patterns
+    - Depth limitations if specified
+
+    This function handles the entire process from scanning the directory to displaying the final tree visualization.
 
     Args:
         root_dir: Root directory path to display
-        exclude_dirs: List of directory names to exclude from the tree
+        exclude_dirs: List of directory names to exclude
         ignore_file: Name of ignore file (like .gitignore)
-        exclude_extensions: Set of file extensions to exclude (e.g., {'.pyc', '.log'})
+        exclude_extensions: Set of file extensions to exclude
         exclude_patterns: List of patterns to exclude
         include_patterns: List of patterns to include (overrides exclusions)
         use_regex: Whether to treat patterns as regex instead of glob patterns
         max_depth: Maximum depth to display (0 for unlimited)
         show_full_path: Whether to show full paths instead of just filenames
-        sort_by_loc: Whether to sort files by lines of code and display LOC counts
-        sort_by_size: Whether to sort files by size and display size information
-        sort_by_mtime: Whether to sort files by modification time and display timestamps
+        sort_by_loc: Whether to show and sort by lines of code
+        sort_by_size: Whether to show and sort by file size
+        sort_by_mtime: Whether to show and sort by modification time
     """
+
     if exclude_dirs is None:
         exclude_dirs = []
     if exclude_extensions is None:
@@ -919,9 +941,9 @@ def display_tree(
 
 
 def count_lines_of_code(file_path: str) -> int:
-    """Count the number of lines of code in a file.
+    """Count the number of lines in a file.
 
-    Attempts to read the file in UTF-8 encoding with fallback error handling. Skips binary files and handles various encoding issues gracefully.
+    Counts lines in text files while handling encoding issues and skipping binary files.
 
     Args:
         file_path: Path to the file
@@ -929,6 +951,7 @@ def count_lines_of_code(file_path: str) -> int:
     Returns:
         Number of lines in the file, or 0 if the file cannot be read or is binary
     """
+
     try:
         with open(file_path, "rb") as f:
             sample = f.read(1024)
@@ -951,6 +974,7 @@ def get_file_size(file_path: str) -> int:
     Returns:
         Size of the file in bytes, or 0 if the file cannot be accessed
     """
+
     try:
         return os.path.getsize(file_path)
     except Exception as e:
@@ -961,12 +985,15 @@ def get_file_size(file_path: str) -> int:
 def format_size(size_in_bytes: int) -> str:
     """Format a size in bytes to a human-readable string.
 
+    Converts raw byte counts to appropriate units (B, KB, MB, GB) with consistent formatting.
+
     Args:
         size_in_bytes: Size in bytes
 
     Returns:
         Human-readable size string (e.g., "4.2 MB")
     """
+
     if size_in_bytes < 1024:
         return f"{size_in_bytes} B"
     elif size_in_bytes < 1024 * 1024:
@@ -986,6 +1013,7 @@ def get_file_mtime(file_path: str) -> float:
     Returns:
         Modification time as a float (seconds since epoch), or 0 if the file cannot be accessed
     """
+
     try:
         return os.path.getmtime(file_path)
     except Exception as e:
@@ -994,14 +1022,22 @@ def get_file_mtime(file_path: str) -> float:
 
 
 def format_timestamp(timestamp: float) -> str:
-    """Format a timestamp to a human-readable date and time string.
+    """Format a Unix timestamp to a human-readable string.
+
+    Intelligently formats timestamps with different representations based on recency:
+    - Today: "Today HH:MM"
+    - Yesterday: "Yesterday HH:MM"
+    - Last week: "Day HH:MM" (e.g., "Mon 14:30")
+    - This year: "Month Day" (e.g., "Mar 15")
+    - Older: "YYYY-MM-DD"
 
     Args:
         timestamp: Unix timestamp (seconds since epoch)
 
     Returns:
-        Human-readable date/time string (e.g., "2023-05-15 13:45")
+        Human-readable date/time string
     """
+
     dt_object = dt.fromtimestamp(timestamp)
     current_dt = dt.now()
     current_date = current_dt.date()

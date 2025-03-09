@@ -162,9 +162,21 @@ def sort_files_by_type(
 
 
 class DirectoryExporter:
-    """Handles exporting directory structures to various formats.
+    """Export directory structures to various formats.
 
-    Provides a unified interface for transforming directory structures into different output formats with consistent styling and organization. Supports text (ASCII tree), JSON, HTML, Markdown, and JSX (React component).
+    Provides a unified interface for transforming directory structures into different output formats with consistent styling and organization.
+
+    Supported formats:
+    - TXT: ASCII tree representation
+    - JSON: Structured data for programmatic use
+    - HTML: Interactive web page with styling
+    - Markdown: Clean representation for documentation
+    - JSX: React component for web integration
+
+    Each format maintains consistent features for:
+    - Directory and file hierarchical representation
+    - Optional statistics (lines of code, sizes, modification times)
+    - Path display options (full or relative paths)
     """
 
     def __init__(
@@ -186,6 +198,7 @@ class DirectoryExporter:
             sort_by_size: Whether to include file size information in exports
             sort_by_mtime: Whether to include modification time information in exports
         """
+        
         self.structure = structure
         self.root_name = root_name
         self.base_path = base_path
@@ -406,6 +419,7 @@ class DirectoryExporter:
         Args:
             output_path: Path where the JSON file will be saved
         """
+
         if (
             self.show_full_path
             or self.sort_by_loc
@@ -964,6 +978,7 @@ class DirectoryExporter:
         </body>
         </html>
         """
+
         try:
             with open(output_path, "w", encoding="utf-8") as f:
                 f.write(html_template)
@@ -1276,6 +1291,7 @@ class DirectoryExporter:
         Args:
             output_path: Path where the React component file will be saved
         """
+
         try:
             generate_jsx_component(
                 self.structure,

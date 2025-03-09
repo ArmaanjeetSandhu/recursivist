@@ -49,10 +49,9 @@ def compare_directory_structures(
     sort_by_size: bool = False,
     sort_by_mtime: bool = False,
 ) -> Tuple[Dict, Dict, Set[str]]:
-    """
-    Compare two directory structures and return both structures and a combined set of extensions.
+    """Compare two directory structures and return both structures with a combined set of extensions.
 
-    Performs the initial comparison by generating directory structures for both directories using the same filtering options, then combines their file extensions for consistent color mapping.
+    Retrieves the directory structures for both directories using the same filtering options, then combines their file extensions for consistent color mapping in visualizations.
 
     Args:
         dir1: Path to the first directory
@@ -71,6 +70,7 @@ def compare_directory_structures(
     Returns:
         Tuple of (structure1, structure2, combined_extensions)
     """
+
     structure1, extensions1 = get_directory_structure(
         dir1,
         exclude_dirs,
@@ -135,6 +135,7 @@ def build_comparison_tree(
         sort_by_size: Whether to display file sizes
         sort_by_mtime: Whether to display file modification times
     """
+
     if "_files" in structure:
         files_in_other = other_structure.get("_files", []) if other_structure else []
         files_in_other_names = []
@@ -785,17 +786,14 @@ def display_comparison(
     sort_by_size: bool = False,
     sort_by_mtime: bool = False,
 ) -> None:
-    """
-    Display two directory trees side by side with highlighted differences.
+    """Display two directory trees side by side with highlighted differences.
 
-    Creates a side-by-side terminal display with:
+    Creates a side-by-side terminal visualization with:
     - Two panel layout with labeled directory trees
-    - Color-coded highlighting for unique items
+    - Color-coded highlighting for unique items (green/red background)
     - Informative legend explaining the highlighting
-    - Support for all filtering options
-    - Optional display of lines of code counts
-    - Optional display of file sizes
-    - Optional display of file modification times
+    - Support for all standard filtering options
+    - Optional statistics display (LOC, size, modification time)
 
     Args:
         dir1: Path to the first directory
@@ -808,10 +806,11 @@ def display_comparison(
         use_regex: Whether to treat patterns as regex instead of glob patterns
         max_depth: Maximum depth to display (0 for unlimited)
         show_full_path: Whether to show full paths instead of just filenames
-        sort_by_loc: Whether to sort by lines of code and display LOC counts
-        sort_by_size: Whether to sort by file size and display size information
-        sort_by_mtime: Whether to sort files by modification time and display timestamps
+        sort_by_loc: Whether to show and sort by lines of code
+        sort_by_size: Whether to show and sort by file size
+        sort_by_mtime: Whether to show and sort by modification time
     """
+
     if exclude_dirs is None:
         exclude_dirs = []
     if exclude_extensions is None:
@@ -1084,17 +1083,14 @@ def export_comparison(
     sort_by_size: bool = False,
     sort_by_mtime: bool = False,
 ) -> None:
-    """
-    Export directory comparison to HTML format.
+    """Export directory comparison to HTML format.
 
     Creates an HTML file containing the side-by-side comparison with:
     - Highlighted differences between directories
     - Interactive, responsive layout
     - Detailed metadata about the comparison settings
     - Visual legend explaining the highlighting
-    - Optional lines of code counts and sorting
-    - Optional file size display and sorting
-    - Optional file modification time display and sorting
+    - Optional statistics display
 
     Currently only supports HTML export format.
 
@@ -1111,13 +1107,14 @@ def export_comparison(
         use_regex: Whether to treat patterns as regex instead of glob patterns
         max_depth: Maximum depth to display (0 for unlimited)
         show_full_path: Whether to show full paths instead of just filenames
-        sort_by_loc: Whether to sort by lines of code and display LOC counts
-        sort_by_size: Whether to sort by file size and display size information
-        sort_by_mtime: Whether to sort files by modification time and display timestamps
+        sort_by_loc: Whether to show and sort by lines of code
+        sort_by_size: Whether to show and sort by file size
+        sort_by_mtime: Whether to show and sort by modification time
 
     Raises:
         ValueError: If the format_type is not supported
     """
+
     if exclude_dirs is None:
         exclude_dirs = []
     if exclude_extensions is None:
@@ -1196,6 +1193,7 @@ def _export_comparison_to_html(
         Returns:
             HTML string representing the directory tree
         """
+
         html_content = ["<ul>"]
         show_full_path = comparison_data.get("metadata", {}).get(
             "show_full_path", False

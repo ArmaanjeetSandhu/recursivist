@@ -34,17 +34,17 @@ def generate_jsx_component(
     sort_by_size: bool = False,
     sort_by_mtime: bool = False,
 ) -> None:
-    """
-    Generate a React component file for directory structure visualization.
+    """Generate a React component file for directory structure visualization.
 
-    The component includes:
+    Creates a standalone JSX file containing a sophisticated directory viewer component with:
     - Reliable folder expand/collapse functionality
     - Breadcrumbs navigation
     - Search functionality with highlighted matches
     - Dark mode toggle
-    - Optional LOC count display and sorting
-    - Optional file size display and sorting
-    - Optional file modification time display and sorting
+    - Path copying
+    - Expand/collapse all buttons
+    - Optional statistics display (LOC, size, modification times)
+    - Mobile-responsive design
 
     Args:
         structure: Directory structure dictionary
