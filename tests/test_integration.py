@@ -7,6 +7,7 @@ This module contains tests that verify multiple features working together correc
 import json
 import os
 import re
+from pathlib import Path
 
 import pytest
 from typer.testing import CliRunner
@@ -65,6 +66,7 @@ def complex_directory(temp_dir):
         ├── project-1.0.0.tar.gz
         └── project-1.0.0-py3-none-any.whl
     """
+
     with open(os.path.join(temp_dir, ".gitignore"), "w") as f:
         f.write("*.pyc\n__pycache__/\n*.so\n*.tmp\nbuild/\ndist/\n")
     with open(os.path.join(temp_dir, ".env"), "w") as f:
@@ -172,6 +174,7 @@ def test_cli_with_complex_structure(runner, complex_directory, output_dir):
 
     This test verifies that the CLI can handle a complex directory structure with various filtering options and export formats.
     """
+
     result = runner.invoke(
         app,
         [
@@ -229,6 +232,7 @@ def test_regex_filtering_with_complex_directory(complex_directory):
 
     This test ensures that regex patterns are correctly applied when filtering a complex directory structure.
     """
+
     include_patterns = [re.compile(r"\.py$")]
     structure, extensions = get_directory_structure(
         complex_directory,
@@ -267,6 +271,7 @@ def test_comparison_with_complex_directories(
 
     This test verifies that the comparison functionality correctly identifies differences between two complex directory structures.
     """
+
     structure1, structure2, extensions = compare_directory_structures(
         complex_directory,
         complex_directory_clone,
@@ -312,6 +317,7 @@ def test_full_path_display_with_complex_directory(complex_directory, output_dir)
 
     This test verifies that the full path display functionality works correctly with a complex directory structure.
     """
+
     structure, _ = get_directory_structure(
         complex_directory,
         show_full_path=True,
@@ -337,8 +343,16 @@ def test_full_path_display_with_complex_directory(complex_directory, output_dir)
         assert "_files" in data["structure"]
         paths = data["structure"]["_files"]
         for path in paths:
-            assert os.path.isabs(path.replace("/", os.sep))
-            assert complex_directory.replace(os.sep, "/") in path.replace(os.sep, "/")
+            if isinstance(path, dict) and "path" in path:
+                assert os.path.isabs(path["path"].replace("/", os.sep))
+                assert complex_directory.replace(os.sep, "/") in path["path"].replace(
+                    os.sep, "/"
+                )
+            elif isinstance(path, str):
+                assert os.path.isabs(path.replace("/", os.sep))
+                assert complex_directory.replace(os.sep, "/") in path.replace(
+                    os.sep, "/"
+                )
 
 
 def test_depth_limit_with_complex_directory(complex_directory):
@@ -347,6 +361,7 @@ def test_depth_limit_with_complex_directory(complex_directory):
 
     This test verifies that the depth limit functionality correctly limits the depth of the directory structure.
     """
+
     for depth in [1, 2, 3]:
         structure, _ = get_directory_structure(
             complex_directory,
@@ -377,7 +392,7 @@ def test_depth_limit_with_complex_directory(complex_directory):
 
 
 def test_cli_with_regex_patterns(runner, temp_dir):
-    """Minimal test for CLI regex functionality."""
+    """Test CLI with regex patterns for file filtering."""
     with open(os.path.join(temp_dir, "test.txt"), "w") as f:
         f.write("Test file")
     with open(os.path.join(temp_dir, "test.py"), "w") as f:
@@ -386,9 +401,12 @@ def test_cli_with_regex_patterns(runner, temp_dir):
     assert result.exit_code == 0
     assert "test.txt" in result.stdout
     assert "test.py" in result.stdout
-    result = runner.invoke(app, ["visualize", temp_dir, "--exclude-pattern", "*.py"])
+    result = runner.invoke(
+        app, ["visualize", temp_dir, "--exclude-pattern", ".*\\.py$", "--regex"]
+    )
     assert result.exit_code == 0
     assert "test.txt" in result.stdout
+    assert "test.py" not in result.stdout
 
 
 def test_gitignore_pattern_with_complex_directory(complex_directory):
@@ -397,6 +415,7 @@ def test_gitignore_pattern_with_complex_directory(complex_directory):
 
     This test verifies that the .gitignore patterns are correctly applied when filtering directory structures.
     """
+
     structure, _ = get_directory_structure(
         complex_directory,
         ignore_file=".gitignore",
@@ -416,3 +435,152 @@ def test_gitignore_pattern_with_complex_directory(complex_directory):
                 check_extensions(value)
 
     check_extensions(structure)
+
+
+def test_statistics_integration(temp_dir):
+    """
+    Test integration of statistics features (LOC, size, mtime).
+
+    This test verifies that the statistics features work correctly together with
+    other functionality like directory structure generation and filtering.
+    """
+
+    src_dir = os.path.join(temp_dir, "src")
+    os.makedirs(src_dir, exist_ok=True)
+    with open(os.path.join(src_dir, "small.py"), "w") as f:
+        f.write("print('Small file')")
+    with open(os.path.join(src_dir, "medium.py"), "w") as f:
+        f.write("def test_func():\n    print('Medium file')\n\ntest_func()")
+    with open(os.path.join(src_dir, "large.py"), "w") as f:
+        f.write("\n".join([f"print('Line {i}')" for i in range(10)]))
+    structure, _ = get_directory_structure(
+        temp_dir, sort_by_loc=True, sort_by_size=True, sort_by_mtime=True
+    )
+    assert "_loc" in structure
+    assert "_size" in structure
+    assert "_mtime" in structure
+    assert "_loc" in structure["src"]
+    assert "_size" in structure["src"]
+    assert "_mtime" in structure["src"]
+    if "_files" in structure["src"]:
+        for file_item in structure["src"]["_files"]:
+            if isinstance(file_item, tuple) and len(file_item) > 4:
+                _, _, loc, size, mtime = file_item
+                assert isinstance(loc, int)
+                assert isinstance(size, int)
+                assert isinstance(mtime, float)
+
+
+def test_export_formats_with_statistics(temp_dir, output_dir):
+    """
+    Test export formats with statistics options.
+
+    This test verifies that statistics information is correctly included in exported files.
+    """
+
+    with open(os.path.join(temp_dir, "test1.py"), "w") as f:
+        f.write("def main():\n    print('Test 1')\n\nmain()")
+    with open(os.path.join(temp_dir, "test2.py"), "w") as f:
+        f.write("\n".join([f"print('Line {i}')" for i in range(5)]))
+    structure, _ = get_directory_structure(
+        temp_dir, sort_by_loc=True, sort_by_size=True, sort_by_mtime=True
+    )
+    formats = ["json", "txt", "md", "html"]
+    for fmt in formats:
+        output_path = os.path.join(output_dir, f"stats_export.{fmt}")
+        export_structure(
+            structure,
+            temp_dir,
+            fmt,
+            output_path,
+            sort_by_loc=True,
+            sort_by_size=True,
+            sort_by_mtime=True,
+        )
+        assert os.path.exists(output_path)
+        with open(output_path, "r", encoding="utf-8") as f:
+            content = f.read()
+            if fmt == "json":
+                assert '"show_loc": true' in content
+                assert '"show_size": true' in content
+                assert '"show_mtime": true' in content
+            elif fmt == "txt" or fmt == "md" or fmt == "html":
+                has_stats = False
+                for indicator in ["lines", "B", "KB", "MB", "Today", "Yesterday"]:
+                    if indicator in content:
+                        has_stats = True
+                        break
+                assert has_stats, f"No statistics found in {fmt} export"
+
+
+def test_comparison_with_statistics(temp_dir, output_dir):
+    """
+    Test comparison with statistics options.
+
+    This test verifies that statistics are correctly handled when comparing directories.
+    """
+
+    dir1 = os.path.join(temp_dir, "dir1")
+    dir2 = os.path.join(temp_dir, "dir2")
+    os.makedirs(dir1, exist_ok=True)
+    os.makedirs(dir2, exist_ok=True)
+    with open(os.path.join(dir1, "file1.py"), "w") as f:
+        f.write("print('Dir 1 content')")
+    with open(os.path.join(dir2, "file1.py"), "w") as f:
+        f.write("print('Dir 2 different content with more lines')\nprint('Extra line')")
+    structure1, structure2, extensions = compare_directory_structures(
+        dir1, dir2, sort_by_loc=True, sort_by_size=True, sort_by_mtime=True
+    )
+    assert "_loc" in structure1
+    assert "_size" in structure1
+    assert "_mtime" in structure1
+    assert "_loc" in structure2
+    assert "_size" in structure2
+    assert "_mtime" in structure2
+    output_path = os.path.join(output_dir, "comparison_with_stats.html")
+    export_comparison(
+        dir1,
+        dir2,
+        "html",
+        output_path,
+        sort_by_loc=True,
+        sort_by_size=True,
+        sort_by_mtime=True,
+    )
+    assert os.path.exists(output_path)
+    with open(output_path, "r", encoding="utf-8") as f:
+        content = f.read()
+        for indicator in ["lines", "B", "KB", "MB", "Today", "Yesterday"]:
+            if indicator in content:
+                has_stats = True
+                break
+        assert has_stats, "No statistics found in comparison export"
+
+
+def test_pathlib_compatibility(temp_dir, output_dir):
+    """
+    Test compatibility with pathlib.Path objects.
+
+    This test verifies that the library works correctly with both string paths and Path objects.
+    """
+
+    test_file = os.path.join(temp_dir, "test.txt")
+    with open(test_file, "w") as f:
+        f.write("Test content")
+    path_obj = Path(temp_dir)
+    structure, extensions = get_directory_structure(path_obj)
+    assert "_files" in structure
+    file_found = False
+    for file_item in structure["_files"]:
+        file_name = file_item if isinstance(file_item, str) else file_item[0]
+        if file_name == "test.txt":
+            file_found = True
+    assert file_found, "File not found when using pathlib.Path"
+    output_path = Path(output_dir) / "pathlib_test.json"
+    export_structure(structure, path_obj, "json", output_path)
+    assert output_path.exists()
+    with open(output_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+        assert "root" in data
+        assert "structure" in data
+        assert "_files" in data["structure"]

@@ -11,6 +11,7 @@ This module contains tests that verify the depth limiting capabilities:
 
 import json
 import os
+from typing import Any
 
 import pytest
 from typer.testing import CliRunner
@@ -26,7 +27,7 @@ def runner():
 
 
 @pytest.fixture
-def deeply_nested_directory(temp_dir):
+def deeply_nested_directory(temp_dir: str):
     """
     Create a deeply nested directory structure for testing depth limits.
 
@@ -84,7 +85,7 @@ def deeply_nested_directory(temp_dir):
     return temp_dir
 
 
-def test_get_directory_structure_with_no_depth_limit(deeply_nested_directory):
+def test_get_directory_structure_with_no_depth_limit(deeply_nested_directory: Any):
     """Test the directory structure function with no depth limit."""
     structure, _ = get_directory_structure(deeply_nested_directory, max_depth=0)
     assert "level1" in structure
@@ -99,7 +100,7 @@ def test_get_directory_structure_with_no_depth_limit(deeply_nested_directory):
     assert "_max_depth_reached" not in structure["level1"]["level2"]
 
 
-def test_get_directory_structure_with_depth_limits(deeply_nested_directory):
+def test_get_directory_structure_with_depth_limits(deeply_nested_directory: Any):
     """Test the directory structure function with various depth limits."""
     structure, _ = get_directory_structure(deeply_nested_directory, max_depth=1)
     assert "level1" in structure
@@ -112,7 +113,7 @@ def test_get_directory_structure_with_depth_limits(deeply_nested_directory):
         assert "_max_depth_reached" in structure["level1"]["level1_dir1"]
 
 
-def test_get_directory_structure_with_zero_depth(deeply_nested_directory):
+def test_get_directory_structure_with_zero_depth(deeply_nested_directory: Any):
     """Test the directory structure function with zero depth limit (meaning unlimited)."""
     structure, _ = get_directory_structure(deeply_nested_directory, max_depth=0)
     assert "level1" in structure
@@ -132,7 +133,7 @@ def test_get_directory_structure_with_zero_depth(deeply_nested_directory):
     check_no_max_depth_flags(structure)
 
 
-def test_get_directory_structure_with_depth_1(deeply_nested_directory):
+def test_get_directory_structure_with_depth_1(deeply_nested_directory: Any):
     """Test the directory structure function with depth limit 1."""
     structure, _ = get_directory_structure(deeply_nested_directory, max_depth=1)
     assert "level1" in structure
@@ -141,8 +142,10 @@ def test_get_directory_structure_with_depth_1(deeply_nested_directory):
     assert "level1_dir1" not in structure["level1"]
 
 
-def test_visualize_command_with_depth_limit(runner, deeply_nested_directory):
-    """Test the visualize command with depth limit, adjusted for actual behavior."""
+def test_visualize_command_with_depth_limit(
+    runner: CliRunner, deeply_nested_directory: Any
+):
+    """Test the visualize command with depth limit."""
     result = runner.invoke(app, ["visualize", deeply_nested_directory, "--depth", "1"])
     assert result.exit_code == 0
     assert "level1" in result.stdout
@@ -154,7 +157,9 @@ def test_visualize_command_with_depth_limit(runner, deeply_nested_directory):
     assert "(max depth reached)" in result.stdout
 
 
-def test_export_command_with_depth_limit(runner, deeply_nested_directory, output_dir):
+def test_export_command_with_depth_limit(
+    runner: CliRunner, deeply_nested_directory: Any, output_dir: str
+):
     """Test the export command with depth limit."""
     result = runner.invoke(
         app,
@@ -182,7 +187,9 @@ def test_export_command_with_depth_limit(runner, deeply_nested_directory, output
         assert "_max_depth_reached" in data["structure"]["level1"]["level2"]
 
 
-def test_compare_command_with_depth_limit(runner, deeply_nested_directory, temp_dir):
+def test_compare_command_with_depth_limit(
+    runner: CliRunner, deeply_nested_directory: Any, temp_dir: str
+):
     """Test the compare command with depth limit."""
     compare_dir = os.path.join(os.path.dirname(temp_dir), "compare_dir")
     if os.path.exists(compare_dir):
@@ -218,7 +225,7 @@ def test_compare_command_with_depth_limit(runner, deeply_nested_directory, temp_
 
 
 def test_compare_export_with_depth_limit(
-    runner, deeply_nested_directory, temp_dir, output_dir
+    runner: CliRunner, deeply_nested_directory: Any, temp_dir: str, output_dir: str
 ):
     """Test comparison export with depth limit."""
     compare_dir = os.path.join(os.path.dirname(temp_dir), "compare_export_dir")
@@ -272,7 +279,7 @@ def test_compare_export_with_depth_limit(
         assert "(max depth reached)" in content
 
 
-def test_depth_combined_with_filters(runner, deeply_nested_directory):
+def test_depth_combined_with_filters(runner: CliRunner, deeply_nested_directory: Any):
     """Test depth limiting combined with other filtering options."""
     excluded_dir = os.path.join(deeply_nested_directory, "excluded")
     os.makedirs(excluded_dir, exist_ok=True)
@@ -302,7 +309,7 @@ def test_depth_combined_with_filters(runner, deeply_nested_directory):
 
 
 def test_export_with_different_depth_limits(
-    runner, deeply_nested_directory, output_dir
+    runner: CliRunner, deeply_nested_directory: Any, output_dir: str
 ):
     """Test exporting with various depth limits to verify indicator behavior."""
     for depth in [1, 2, 3, 4]:
@@ -349,7 +356,7 @@ def test_export_with_different_depth_limits(
                 continue
 
 
-def test_unlimited_depth(runner, deeply_nested_directory):
+def test_unlimited_depth(runner: CliRunner, deeply_nested_directory: Any):
     """Test explicitly setting unlimited depth with --depth 0."""
     level1 = os.path.join(deeply_nested_directory, "level1")
     level2 = os.path.join(level1, "level2")

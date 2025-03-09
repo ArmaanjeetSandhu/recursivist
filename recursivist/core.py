@@ -22,7 +22,7 @@ import logging
 import os
 import re
 from datetime import datetime as dt
-from typing import Any, Dict, List, Optional, Pattern, Set, Tuple, Union, cast
+from typing import Any, Dict, List, Optional, Pattern, Sequence, Set, Tuple, Union, cast
 
 from rich.console import Console
 from rich.text import Text
@@ -58,7 +58,7 @@ def export_structure(
     Raises:
         ValueError: If the format_type is not supported
     """
-    
+
     from recursivist.exports import DirectoryExporter
 
     exporter = DirectoryExporter(
@@ -108,7 +108,7 @@ def parse_ignore_file(ignore_file_path: str) -> List[str]:
 
 
 def compile_regex_patterns(
-    patterns: List[str], is_regex: bool = False
+    patterns: Sequence[str], is_regex: bool = False
 ) -> List[Union[str, Pattern[str]]]:
     """Convert patterns to compiled regex objects when appropriate.
 
@@ -139,8 +139,8 @@ def should_exclude(
     path: str,
     ignore_context: Dict,
     exclude_extensions: Optional[Set[str]] = None,
-    exclude_patterns: Optional[List[Union[str, Pattern[str]]]] = None,
-    include_patterns: Optional[List[Union[str, Pattern[str]]]] = None,
+    exclude_patterns: Optional[Sequence[Union[str, Pattern[str]]]] = None,
+    include_patterns: Optional[Sequence[Union[str, Pattern[str]]]] = None,
 ) -> bool:
     """Determine if a path should be excluded based on filtering rules.
 
@@ -201,11 +201,12 @@ def should_exclude(
     if not patterns:
         return False
     for pattern in patterns:
-        if isinstance(pattern, str):
-            if pattern.startswith("!"):
-                if fnmatch.fnmatch(rel_path, pattern[1:]):
-                    return False
-            elif fnmatch.fnmatch(rel_path, pattern):
+        if isinstance(pattern, str) and pattern.startswith("!"):
+            if fnmatch.fnmatch(rel_path, pattern[1:]):
+                return False
+    for pattern in patterns:
+        if isinstance(pattern, str) and not pattern.startswith("!"):
+            if fnmatch.fnmatch(rel_path, pattern):
                 return True
     return False
 
@@ -237,12 +238,12 @@ def generate_color_for_extension(extension: str) -> str:
 
 def get_directory_structure(
     root_dir: str,
-    exclude_dirs: Optional[List[str]] = None,
+    exclude_dirs: Optional[Sequence[str]] = None,
     ignore_file: Optional[str] = None,
     exclude_extensions: Optional[Set[str]] = None,
-    parent_ignore_patterns: Optional[List[str]] = None,
-    exclude_patterns: Optional[List[Union[str, Pattern[str]]]] = None,
-    include_patterns: Optional[List[Union[str, Pattern[str]]]] = None,
+    parent_ignore_patterns: Optional[Sequence[str]] = None,
+    exclude_patterns: Optional[Sequence[Union[str, Pattern[str]]]] = None,
+    include_patterns: Optional[Sequence[Union[str, Pattern[str]]]] = None,
     max_depth: int = 0,
     current_depth: int = 0,
     current_path: str = "",
@@ -294,7 +295,7 @@ def get_directory_structure(
         exclude_patterns = []
     if include_patterns is None:
         include_patterns = []
-    ignore_patterns = parent_ignore_patterns.copy() if parent_ignore_patterns else []
+    ignore_patterns = list(parent_ignore_patterns) if parent_ignore_patterns else []
     if ignore_file and os.path.exists(os.path.join(root_dir, ignore_file)):
         current_ignore_patterns = parse_ignore_file(os.path.join(root_dir, ignore_file))
         ignore_patterns.extend(current_ignore_patterns)
@@ -439,7 +440,7 @@ def get_directory_structure(
 
 
 def sort_files_by_type(
-    files: List[
+    files: Sequence[
         Union[
             str,
             Tuple[str, str],
@@ -492,6 +493,8 @@ def sort_files_by_type(
                 return item[3]
             elif sort_by_size and not sort_by_loc:
                 return item[2]
+        elif len(item) == 3 and sort_by_size:
+            return item[2]
         return 0
 
     def get_loc(item):

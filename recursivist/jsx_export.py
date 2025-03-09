@@ -697,22 +697,7 @@ def generate_jsx_component(
     }
   };"""
     component_template = f"""import React, {{ useState, useEffect, useRef }} from 'react';
-    import {{
-      ChevronDown,
-      ChevronUp,
-      Folder,
-      FolderOpen,
-      File,
-      Maximize2,
-      Minimize2,
-      Search,
-      X,
-      Info,
-      Home,
-      ChevronRight,
-      Copy,
-      Check
-    }} from 'lucide-react';
+    import {{ ChevronDown, ChevronUp, Folder, FolderOpen, File, Maximize2, Minimize2, Search, X, Info, Home, ChevronRight, Copy, Check }} from 'lucide-react';
     {combined_imports}
     const AppContext = React.createContext();
     const highlightMatch = (text, searchTerm) => {{

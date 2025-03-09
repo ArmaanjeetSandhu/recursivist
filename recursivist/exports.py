@@ -18,7 +18,7 @@ import html
 import json
 import logging
 import os
-from typing import Any, Dict, List, Optional, Tuple, Union, cast
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union, cast
 
 from recursivist.core import format_size, format_timestamp
 from recursivist.jsx_export import generate_jsx_component
@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 
 def sort_files_by_type(
-    files: List[
+    files: Sequence[
         Union[
             str,
             Tuple[str, str],
@@ -67,6 +67,8 @@ def sort_files_by_type(
                 return item[3]
             elif sort_by_size and not sort_by_loc:
                 return item[2]
+        elif len(item) == 3 and sort_by_size:
+            return item[2]
         return 0
 
     def get_loc(item):
@@ -198,7 +200,7 @@ class DirectoryExporter:
             sort_by_size: Whether to include file size information in exports
             sort_by_mtime: Whether to include modification time information in exports
         """
-        
+
         self.structure = structure
         self.root_name = root_name
         self.base_path = base_path
@@ -225,9 +227,13 @@ class DirectoryExporter:
             items = sorted(structure.items())
             for i, (name, content) in enumerate(items):
                 if name == "_files":
-                    for file_item in sort_files_by_type(
+                    file_items = sort_files_by_type(
                         content, self.sort_by_loc, self.sort_by_size, self.sort_by_mtime
-                    ):
+                    )
+                    for j, file_item in enumerate(file_items):
+                        is_last_file = j == len(file_items) - 1
+                        is_last_item = is_last_file and i == len(items) - 1
+                        item_prefix = prefix + ("└── " if is_last_item else "├── ")
                         if (
                             self.sort_by_loc
                             and self.sort_by_size
@@ -237,7 +243,7 @@ class DirectoryExporter:
                         ):
                             _, display_path, loc, size, mtime = file_item
                             lines.append(
-                                f"{prefix}├── 📄 {display_path} ({loc} lines, {format_size(size)}, {format_timestamp(mtime)})"
+                                f"{item_prefix}📄 {display_path} ({loc} lines, {format_size(size)}, {format_timestamp(mtime)})"
                             )
                         elif (
                             self.sort_by_loc
@@ -250,7 +256,7 @@ class DirectoryExporter:
                             else:
                                 _, display_path, loc, mtime = file_item
                             lines.append(
-                                f"{prefix}├── 📄 {display_path} ({loc} lines, {format_timestamp(mtime)})"
+                                f"{item_prefix}📄 {display_path} ({loc} lines, {format_timestamp(mtime)})"
                             )
                         elif (
                             self.sort_by_size
@@ -263,7 +269,7 @@ class DirectoryExporter:
                             else:
                                 _, display_path, size, mtime = file_item
                             lines.append(
-                                f"{prefix}├── 📄 {display_path} ({format_size(size)}, {format_timestamp(mtime)})"
+                                f"{item_prefix}📄 {display_path} ({format_size(size)}, {format_timestamp(mtime)})"
                             )
                         elif (
                             self.sort_by_loc
@@ -276,7 +282,7 @@ class DirectoryExporter:
                             else:
                                 _, display_path, loc, size = file_item
                             lines.append(
-                                f"{prefix}├── 📄 {display_path} ({loc} lines, {format_size(size)})"
+                                f"{item_prefix}📄 {display_path} ({loc} lines, {format_size(size)})"
                             )
                         elif (
                             self.sort_by_mtime
@@ -290,7 +296,7 @@ class DirectoryExporter:
                             else:
                                 _, display_path, mtime = file_item
                             lines.append(
-                                f"{prefix}├── 📄 {display_path} ({format_timestamp(mtime)})"
+                                f"{item_prefix}📄 {display_path} ({format_timestamp(mtime)})"
                             )
                         elif (
                             self.sort_by_size
@@ -304,7 +310,7 @@ class DirectoryExporter:
                             else:
                                 _, display_path, size = file_item
                             lines.append(
-                                f"{prefix}├── 📄 {display_path} ({format_size(size)})"
+                                f"{item_prefix}📄 {display_path} ({format_size(size)})"
                             )
                         elif (
                             self.sort_by_loc
@@ -317,7 +323,9 @@ class DirectoryExporter:
                                 _, display_path, loc, _ = file_item
                             else:
                                 _, display_path, loc = file_item
-                            lines.append(f"{prefix}├── 📄 {display_path} ({loc} lines)")
+                            lines.append(
+                                f"{item_prefix}📄 {display_path} ({loc} lines)"
+                            )
                         elif self.show_full_path and isinstance(file_item, tuple):
                             if len(file_item) > 4:
                                 _, full_path, _, _, _ = file_item
@@ -327,7 +335,7 @@ class DirectoryExporter:
                                 _, full_path, _ = file_item
                             else:
                                 _, full_path = file_item
-                            lines.append(f"{prefix}├── 📄 {full_path}")
+                            lines.append(f"{item_prefix}📄 {full_path}")
                         else:
                             if isinstance(file_item, tuple):
                                 if len(file_item) > 4:
@@ -340,7 +348,11 @@ class DirectoryExporter:
                                     file_name, _ = file_item
                             else:
                                 file_name = file_item
-                            lines.append(f"{prefix}├── 📄 {file_name}")
+                            lines.append(f"{item_prefix}📄 {file_name}")
+                        if not is_last_item:
+                            next_prefix = prefix + "│   "
+                        else:
+                            next_prefix = prefix + "    "
                 elif (
                     name == "_loc"
                     or name == "_size"
@@ -349,14 +361,106 @@ class DirectoryExporter:
                 ):
                     continue
                 else:
+                    is_last_dir = True
+                    for j in range(i + 1, len(items)):
+                        next_name, next_content = items[j]
+                        if next_name not in [
+                            "_files",
+                            "_max_depth_reached",
+                            "_loc",
+                            "_size",
+                            "_mtime",
+                        ]:
+                            is_last_dir = False
+                            break
+                    is_last_item = is_last_dir and (
+                        i == len(items) - 1
+                        or all(
+                            key
+                            in [
+                                "_files",
+                                "_max_depth_reached",
+                                "_loc",
+                                "_size",
+                                "_mtime",
+                            ]
+                            for key, _ in items[i + 1 :]
+                        )
+                    )
+                    item_prefix = prefix + ("└── " if is_last_item else "├── ")
                     next_path = os.path.join(path_prefix, name) if path_prefix else name
                     if isinstance(content, dict):
-                        if content.get("_max_depth_reached"):
-                            lines.append(f"{prefix}│   ├── ⋯ (max depth reached)")
-                        else:
-                            lines.extend(
-                                _build_txt_tree(content, prefix + "│   ", next_path)
+                        if (
+                            self.sort_by_loc
+                            and self.sort_by_size
+                            and self.sort_by_mtime
+                            and "_loc" in content
+                            and "_size" in content
+                            and "_mtime" in content
+                        ):
+                            folder_loc = content["_loc"]
+                            folder_size = content["_size"]
+                            folder_mtime = content["_mtime"]
+                            lines.append(
+                                f"{item_prefix}📁 {name} ({folder_loc} lines, {format_size(folder_size)}, {format_timestamp(folder_mtime)})"
                             )
+                        elif (
+                            self.sort_by_loc
+                            and self.sort_by_size
+                            and "_loc" in content
+                            and "_size" in content
+                        ):
+                            folder_loc = content["_loc"]
+                            folder_size = content["_size"]
+                            lines.append(
+                                f"{item_prefix}📁 {name} ({folder_loc} lines, {format_size(folder_size)})"
+                            )
+                        elif (
+                            self.sort_by_loc
+                            and self.sort_by_mtime
+                            and "_loc" in content
+                            and "_mtime" in content
+                        ):
+                            folder_loc = content["_loc"]
+                            folder_mtime = content["_mtime"]
+                            lines.append(
+                                f"{item_prefix}📁 {name} ({folder_loc} lines, {format_timestamp(folder_mtime)})"
+                            )
+                        elif (
+                            self.sort_by_size
+                            and self.sort_by_mtime
+                            and "_size" in content
+                            and "_mtime" in content
+                        ):
+                            folder_size = content["_size"]
+                            folder_mtime = content["_mtime"]
+                            lines.append(
+                                f"{item_prefix}📁 {name} ({format_size(folder_size)}, {format_timestamp(folder_mtime)})"
+                            )
+                        elif self.sort_by_loc and "_loc" in content:
+                            folder_loc = content["_loc"]
+                            lines.append(f"{item_prefix}📁 {name} ({folder_loc} lines)")
+                        elif self.sort_by_size and "_size" in content:
+                            folder_size = content["_size"]
+                            lines.append(
+                                f"{item_prefix}📁 {name} ({format_size(folder_size)})"
+                            )
+                        elif self.sort_by_mtime and "_mtime" in content:
+                            folder_mtime = content["_mtime"]
+                            lines.append(
+                                f"{item_prefix}📁 {name} ({format_timestamp(folder_mtime)})"
+                            )
+                        else:
+                            lines.append(f"{item_prefix}📁 {name}")
+                        if content.get("_max_depth_reached"):
+                            next_prefix = prefix + ("    " if is_last_item else "│   ")
+                            lines.append(f"{next_prefix}└── ⋯ (max depth reached)")
+                        else:
+                            next_prefix = prefix + ("    " if is_last_item else "│   ")
+                            sublines = _build_txt_tree(content, next_prefix, next_path)
+                            lines.extend(sublines)
+                    else:
+                        lines.append(f"{item_prefix}📁 {name}")
             return lines
 
         root_label = f"📂 {self.root_name}"

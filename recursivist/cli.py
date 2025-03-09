@@ -69,6 +69,7 @@ def callback():
     - version: Display the current version
     - completion: Generate shell completion script for various shells
     """
+
     pass
 
 
@@ -87,6 +88,7 @@ def parse_list_option(option_value: Optional[List[str]]) -> List[str]:
     Returns:
         List of individual items with each value separated
     """
+
     if not option_value:
         return []
     result = []
@@ -187,6 +189,7 @@ def visualize(
         recursivist visualize -z                          # Sort by size and show file sizes
         recursivist visualize -m                          # Sort by modification time
     """
+
     if verbose:
         logger.setLevel(logging.DEBUG)
         logger.debug("Verbose mode enabled")
@@ -202,9 +205,7 @@ def visualize(
     if sort_by_size:
         logger.info("Sorting files by size and displaying file sizes")
     if sort_by_mtime:
-        logger.info(
-            "Sorting files by modification time and displaying timestamps"
-        )
+        logger.info("Sorting files by modification time and displaying timestamps")
     parsed_exclude_dirs = parse_list_option(exclude_dirs)
     parsed_exclude_exts = parse_list_option(exclude_extensions)
     parsed_exclude_patterns = parse_list_option(exclude_patterns)
@@ -389,6 +390,7 @@ def export(
         recursivist export -z                          # Sort by file size and show file sizes
         recursivist export -m                          # Sort by modification time
     """
+
     if verbose:
         logger.setLevel(logging.DEBUG)
         logger.debug("Verbose mode enabled")
@@ -404,9 +406,7 @@ def export(
     if sort_by_size:
         logger.info("Sorting files by size and displaying file sizes")
     if sort_by_mtime:
-        logger.info(
-            "Sorting files by modification time and displaying timestamps"
-        )
+        logger.info("Sorting files by modification time and displaying timestamps")
     parsed_exclude_dirs = parse_list_option(exclude_dirs)
     parsed_exclude_exts = parse_list_option(exclude_extensions)
     parsed_exclude_patterns = parse_list_option(exclude_patterns)
@@ -521,6 +521,7 @@ def completion(
     Args:
         shell: Shell type to generate completion for ('bash', 'zsh', 'fish', 'powershell')
     """
+
     try:
         valid_shells = ["bash", "zsh", "fish", "powershell"]
         if shell.lower() not in valid_shells:
@@ -549,6 +550,7 @@ def version():
 
     Reads and outputs the version information from the package metadata.
     """
+
     from recursivist import __version__
 
     typer.echo(f"Recursivist version: {__version__}")
@@ -670,6 +672,7 @@ def compare(
         recursivist compare dir1 dir2 -z                # Sort by file size and show file sizes
         recursivist compare dir1 dir2 -m                # Sort by modification time
     """
+
     if verbose:
         logger.setLevel(logging.DEBUG)
         logger.debug("Verbose mode enabled")
@@ -683,9 +686,7 @@ def compare(
     if sort_by_size:
         logger.info("Sorting files by size and displaying file sizes")
     if sort_by_mtime:
-        logger.info(
-            "Sorting files by modification time and displaying timestamps"
-        )
+        logger.info("Sorting files by modification time and displaying timestamps")
     parsed_exclude_dirs = parse_list_option(exclude_dirs)
     parsed_exclude_exts = parse_list_option(exclude_extensions)
     parsed_exclude_patterns = parse_list_option(exclude_patterns)
@@ -765,9 +766,9 @@ def compare(
 def main():
     """Entry point for the CLI.
 
-    Invokes the Typer application to process command-line arguments
-    and execute the appropriate command.
+    Invokes the Typer application to process command-line arguments and execute the appropriate command.
     """
+
     app()
 
 

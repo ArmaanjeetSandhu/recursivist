@@ -7,12 +7,15 @@ This module contains comprehensive tests for pattern matching, including:
 - Include patterns that override exclusions
 - Complex regular expressions for advanced filtering
 - Integration with directory structure generation
+- Error handling for invalid regex patterns
 """
 
 import os
 import re
+from pathlib import Path
 
 import pytest
+from pytest_mock import MockerFixture
 from typer.testing import CliRunner
 
 from recursivist.cli import app
@@ -40,7 +43,7 @@ def pattern_test_directory(temp_dir):
     ├── test_file1.py
     ├── test_file2.js
     ├── spec.file.js
-    ├── hidden.file
+    ├── .hidden.file
     ├── config.json
     ├── data_20230101.csv
     ├── data_20230102.csv
@@ -54,6 +57,7 @@ def pattern_test_directory(temp_dir):
         └── integration/
             └── test_integration.py
     """
+
     os.makedirs(os.path.join(temp_dir, "logs"), exist_ok=True)
     os.makedirs(os.path.join(temp_dir, "tests", "unit"), exist_ok=True)
     os.makedirs(os.path.join(temp_dir, "tests", "integration"), exist_ok=True)
@@ -97,10 +101,11 @@ def test_compile_regex_patterns():
     compiled = compile_regex_patterns(patterns, is_regex=True)
     assert len(compiled) == 2
     for pattern in compiled:
-        if isinstance(pattern, re.Pattern):
-            assert isinstance(pattern, re.Pattern)
-        else:
-            assert pattern in patterns
+        assert isinstance(pattern, re.Pattern)
+    assert compiled[0].search("file.py")
+    assert not compiled[0].search("file.txt")
+    assert compiled[1].search("test_file.py")
+    assert not compiled[1].search("file_test.py")
 
 
 def test_compile_regex_patterns_empty():
@@ -109,6 +114,16 @@ def test_compile_regex_patterns_empty():
     assert compiled == []
     compiled = compile_regex_patterns([], is_regex=True)
     assert compiled == []
+
+
+def test_compile_regex_patterns_invalid():
+    """Test compiling invalid regex patterns."""
+    patterns = [r"[invalid", r"(unclosed"]
+    compiled = compile_regex_patterns(patterns, is_regex=True)
+    assert len(compiled) == 2
+    for pattern in compiled:
+        assert isinstance(pattern, str)
+    assert compiled == patterns
 
 
 def test_compile_regex_patterns_complex():
@@ -134,7 +149,7 @@ def test_compile_regex_patterns_complex():
     assert not compiled[3].match("regular.js")
 
 
-def test_should_exclude_with_regex(mocker):
+def test_should_exclude_with_regex(mocker: MockerFixture):
     """Test the exclude logic with regex patterns."""
     mocker.patch("os.path.isfile", return_value=True)
     ignore_context = {"patterns": [], "current_dir": "/test"}
@@ -175,7 +190,24 @@ def test_should_exclude_with_regex(mocker):
     )
 
 
-def test_should_exclude_with_extensions(mocker):
+def test_should_exclude_with_basename_matching(mocker: MockerFixture):
+    """Test the exclude logic with basename matching for regex patterns."""
+    mocker.patch("os.path.isfile", return_value=True)
+    ignore_context = {"patterns": [], "current_dir": "/test"}
+    exclude_patterns = [re.compile(r"file\.txt$")]
+    assert should_exclude(
+        "/test/path/to/file.txt", ignore_context, exclude_patterns=exclude_patterns
+    )
+    assert not should_exclude(
+        "/test/path/to/other.txt", ignore_context, exclude_patterns=exclude_patterns
+    )
+    exclude_patterns = [re.compile(r"file\+\[\]\.txt$")]
+    assert should_exclude(
+        "/test/path/to/file+[].txt", ignore_context, exclude_patterns=exclude_patterns
+    )
+
+
+def test_should_exclude_with_extensions(mocker: MockerFixture):
     """Test the exclude logic with file extensions."""
     mocker.patch("os.path.isfile", return_value=True)
     ignore_context = {"patterns": [], "current_dir": "/test"}
@@ -194,11 +226,42 @@ def test_should_exclude_with_extensions(mocker):
     )
 
 
-def test_should_exclude_with_ignore_patterns(mocker):
-    """Minimal test for ignore patterns."""
+def test_should_exclude_case_sensitivity(mocker: MockerFixture):
+    """Test case sensitivity in pattern matching."""
     mocker.patch("os.path.isfile", return_value=True)
-    ignore_context = {"patterns": ["*.txt"], "current_dir": "/test"}
+    ignore_context = {"patterns": [], "current_dir": "/test"}
+    exclude_patterns = [re.compile(r"\.py$", re.IGNORECASE)]
+    assert should_exclude(
+        "/test/script.py", ignore_context, exclude_patterns=exclude_patterns
+    )
+    assert should_exclude(
+        "/test/script.PY", ignore_context, exclude_patterns=exclude_patterns
+    )
+    assert should_exclude(
+        "/test/script.Py", ignore_context, exclude_patterns=exclude_patterns
+    )
+    exclude_patterns = [re.compile(r"\.py$")]
+    assert should_exclude(
+        "/test/script.py", ignore_context, exclude_patterns=exclude_patterns
+    )
+    assert not should_exclude(
+        "/test/script.PY", ignore_context, exclude_patterns=exclude_patterns
+    )
+    exclude_extensions = {".py"}
+    assert should_exclude(
+        "/test/script.py", ignore_context, exclude_extensions=exclude_extensions
+    )
+    assert should_exclude(
+        "/test/script.PY", ignore_context, exclude_extensions=exclude_extensions
+    )
+
+
+def test_should_exclude_with_ignore_patterns(mocker: MockerFixture):
+    """Test exclude logic with ignore patterns."""
+    mocker.patch("os.path.isfile", return_value=True)
+    ignore_context = {"patterns": ["*.txt", "!important.txt"], "current_dir": "/test"}
     assert should_exclude("/test/file.txt", ignore_context)
+    assert not should_exclude("/test/important.txt", ignore_context)
     assert not should_exclude("/test/file.py", ignore_context)
 
 
@@ -210,7 +273,7 @@ def test_get_directory_structure_with_regex_patterns(pattern_test_directory):
     )
     assert "_files" in structure
     py_files_found = False
-    for file in structure["_files"]:
+    for file in structure.get("_files", []):
         file_name = file if isinstance(file, str) else file[0]
         if file_name.endswith(".py"):
             py_files_found = True
@@ -236,20 +299,31 @@ def test_get_directory_structure_with_regex_patterns(pattern_test_directory):
 
 def test_get_directory_structure_with_include_patterns(pattern_test_directory):
     """Test directory structure generation with include patterns for filtering."""
-    with open(os.path.join(pattern_test_directory, "include_this.md"), "w") as f:
-        f.write("# Include this file")
-    with open(os.path.join(pattern_test_directory, "exclude_this.txt"), "w") as f:
-        f.write("Exclude this file")
-    include_patterns = ["*.md"]
+    include_patterns = [re.compile(r"\.json$")]
     structure, extensions = get_directory_structure(
         pattern_test_directory, include_patterns=include_patterns
     )
     if "_files" in structure:
-        files = [f if isinstance(f, str) else f[0] for f in structure["_files"]]
-        assert "include_this.md" in files
-        assert "exclude_this.txt" not in files
-    else:
-        assert structure == {} or "_files" not in structure
+        for file in structure["_files"]:
+            file_name = file if isinstance(file, str) else file[0]
+            assert file_name.endswith(
+                ".json"
+            ), f"Non-JSON file {file_name} was included"
+    assert ".json" in extensions
+    assert len(extensions) == 1, "Only JSON extension should be included"
+
+    def check_subdirs_for_non_json(structure):
+        for key, value in structure.items():
+            if key != "_files" and isinstance(value, dict):
+                if "_files" in value:
+                    for file in value["_files"]:
+                        file_name = file if isinstance(file, str) else file[0]
+                        assert file_name.endswith(
+                            ".json"
+                        ), f"Non-JSON file {file_name} was included"
+                check_subdirs_for_non_json(value)
+
+    check_subdirs_for_non_json(structure)
 
 
 def test_get_directory_structure_complex_regex(pattern_test_directory):
@@ -270,15 +344,16 @@ def test_get_directory_structure_complex_regex(pattern_test_directory):
 def test_both_include_and_exclude_patterns(pattern_test_directory):
     """
     Test directory structure with both include and exclude patterns.
+
+    The include patterns take precedence over exclude patterns in the actual implementation.
     """
+
     with open(os.path.join(pattern_test_directory, "include_me.py"), "w") as f:
         f.write("This should be included")
-    with open(os.path.join(pattern_test_directory, "test_exclude.py"), "w") as f:
+    with open(os.path.join(pattern_test_directory, "exclude_me.py"), "w") as f:
         f.write("This should be excluded")
-    with open(os.path.join(pattern_test_directory, "regular.txt"), "w") as f:
-        f.write("Regular text file")
-    include_patterns = ["*.py"]
-    exclude_patterns = ["test_*"]
+    include_patterns = [re.compile(r"\.py$")]
+    exclude_patterns = [re.compile(r"^exclude_.*\.py$")]
     structure, extensions = get_directory_structure(
         pattern_test_directory,
         include_patterns=include_patterns,
@@ -291,10 +366,11 @@ def test_both_include_and_exclude_patterns(pattern_test_directory):
                 file_names.append(file_item[0])
             else:
                 file_names.append(file_item)
-    if "include_me.py" in file_names:
-        assert "regular.txt" not in file_names
-    else:
-        assert len(file_names) == 0 or all(not f.endswith(".py") for f in file_names)
+    assert "test_file1.py" in file_names
+    assert "include_me.py" in file_names
+    assert "exclude_me.py" in file_names
+    assert "regular_file.txt" not in file_names
+    assert "config.json" not in file_names
 
 
 def test_cli_with_regex_patterns(runner, pattern_test_directory):
@@ -359,28 +435,137 @@ def test_glob_patterns(pattern_test_directory):
     assert not log_files_found, "Log files were found despite glob exclude pattern"
 
 
-def test_mixed_regex_and_glob_patterns(runner, pattern_test_directory):
-    """Test mix of regex and glob patterns in CLI, but adapted to actual behavior."""
-    log_dir = os.path.join(pattern_test_directory, "logs")
-    os.makedirs(log_dir, exist_ok=True)
-    with open(os.path.join(log_dir, "app.log"), "w") as f:
-        f.write("App log content")
-    result_glob = runner.invoke(
-        app, ["visualize", pattern_test_directory, "--exclude-pattern", "*.log"]
+def test_regex_with_statistics(pattern_test_directory):
+    """Test regex pattern filtering with statistics options."""
+    include_patterns = [re.compile(r"\.py$")]
+    structure, extensions = get_directory_structure(
+        pattern_test_directory,
+        include_patterns=include_patterns,
+        sort_by_loc=True,
+        sort_by_size=True,
+        sort_by_mtime=True,
     )
-    assert result_glob.exit_code == 0
-    if "app.log" not in result_glob.stdout:
-        assert "app.log" not in result_glob.stdout
-    result_regex = runner.invoke(
+    assert "_loc" in structure
+    assert "_size" in structure
+    assert "_mtime" in structure
+    if "_files" in structure:
+        for file_item in structure["_files"]:
+            assert isinstance(file_item, tuple)
+            assert len(file_item) > 4, "File item doesn't include statistics"
+            _, _, loc, size, mtime = file_item
+            assert isinstance(loc, int)
+            assert isinstance(size, int)
+            assert isinstance(mtime, float)
+    for key, value in structure.items():
+        if (
+            key != "_files"
+            and key != "_loc"
+            and key != "_size"
+            and key != "_mtime"
+            and isinstance(value, dict)
+        ):
+            assert "_loc" in value
+            assert "_size" in value
+            assert "_mtime" in value
+
+
+def test_mixed_regex_and_glob_patterns(runner, pattern_test_directory):
+    """Test mixing regex and glob patterns in the CLI."""
+    with open(os.path.join(pattern_test_directory, "glob_match.txt"), "w") as f:
+        f.write("Should match glob pattern")
+    with open(os.path.join(pattern_test_directory, "regex_match.txt"), "w") as f:
+        f.write("Should match regex pattern")
+    result = runner.invoke(
+        app, ["visualize", pattern_test_directory, "--exclude-pattern", "glob_*"]
+    )
+    assert result.exit_code == 0
+    assert "glob_match.txt" not in result.stdout
+    assert "regex_match.txt" in result.stdout
+    result = runner.invoke(
         app,
         [
             "visualize",
             pattern_test_directory,
             "--exclude-pattern",
-            "\\.log$",
+            r"regex_.*\.txt$",
             "--regex",
         ],
     )
-    assert result_regex.exit_code == 0
-    if "app.log" not in result_regex.stdout:
-        assert "app.log" not in result_regex.stdout
+    assert result.exit_code == 0
+    assert "regex_match.txt" not in result.stdout
+    assert "glob_match.txt" in result.stdout
+
+
+def test_regex_pattern_escaping(pattern_test_directory):
+    """Test regex pattern escaping for special characters."""
+    special_file = os.path.join(pattern_test_directory, "file+[special].txt")
+    with open(special_file, "w") as f:
+        f.write("Special characters in filename")
+    include_patterns = [re.compile(r"file\+\[special\]\.txt$")]
+    structure, _ = get_directory_structure(
+        pattern_test_directory, include_patterns=include_patterns
+    )
+    found = False
+    if "_files" in structure:
+        for file_item in structure["_files"]:
+            file_name = file_item if isinstance(file_item, str) else file_item[0]
+            if file_name == "file+[special].txt":
+                found = True
+                break
+    assert found, "File with special characters not found with escaped regex pattern"
+
+
+def test_regex_nested_directory_patterns(pattern_test_directory):
+    """Test regex patterns for filtering files at different directory levels."""
+    structure, _ = get_directory_structure(pattern_test_directory)
+    assert "tests" in structure, "Base structure doesn't have tests directory"
+    assert "unit" in structure["tests"], "Base structure doesn't have unit directory"
+    assert (
+        "integration" in structure["tests"]
+    ), "Base structure doesn't have integration directory"
+    include_patterns = [re.compile(r"test_.*\.py$")]
+    structure, _ = get_directory_structure(
+        pattern_test_directory, include_patterns=include_patterns
+    )
+    files_at_root = [
+        f if isinstance(f, str) else f[0] for f in structure.get("_files", [])
+    ]
+    assert "test_file1.py" in files_at_root, "Root test_file1.py should be included"
+    assert (
+        "regular_file.txt" not in files_at_root
+    ), "Non-matching files should be excluded"
+    include_patterns = [re.compile(r"regular_file\.txt$")]
+    structure, _ = get_directory_structure(
+        pattern_test_directory, include_patterns=include_patterns
+    )
+    if "_files" in structure:
+        files_at_root = [
+            f if isinstance(f, str) else f[0] for f in structure.get("_files", [])
+        ]
+        assert "regular_file.txt" in files_at_root, "Regular file should be included"
+        assert "test_file1.py" not in files_at_root, "Test file should be excluded"
+    with open(os.path.join(pattern_test_directory, "unique_test_pattern.py"), "w") as f:
+        f.write("# Unique test file")
+    include_patterns = [re.compile(r"unique_test_pattern\.py$")]
+    structure, _ = get_directory_structure(
+        pattern_test_directory, include_patterns=include_patterns
+    )
+    if "_files" in structure:
+        files = [f if isinstance(f, str) else f[0] for f in structure["_files"]]
+        assert "unique_test_pattern.py" in files, "Unique test file should be included"
+
+
+def test_pathlib_compatibility(pattern_test_directory):
+    """Test compatibility with pathlib.Path objects for regex filtering."""
+    path_obj = Path(pattern_test_directory)
+    include_patterns = [re.compile(r"\.py$")]
+    structure, extensions = get_directory_structure(
+        path_obj, include_patterns=include_patterns
+    )
+    assert ".py" in extensions
+    if "_files" in structure:
+        for file_item in structure["_files"]:
+            file_name = file_item if isinstance(file_item, str) else file_item[0]
+            assert file_name.endswith(
+                ".py"
+            ), f"Non-Python file {file_name} was included"

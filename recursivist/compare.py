@@ -15,7 +15,7 @@ Key features:
 import html
 import logging
 import os
-from typing import Any, Dict, List, Optional, Pattern, Set, Tuple, Union, cast
+from typing import Any, Dict, List, Optional, Pattern, Sequence, Set, Tuple, Union, cast
 
 from rich.columns import Columns
 from rich.console import Console
@@ -38,11 +38,11 @@ logger = logging.getLogger(__name__)
 def compare_directory_structures(
     dir1: str,
     dir2: str,
-    exclude_dirs: Optional[List[str]] = None,
+    exclude_dirs: Optional[Sequence[str]] = None,
     ignore_file: Optional[str] = None,
     exclude_extensions: Optional[Set[str]] = None,
-    exclude_patterns: Optional[List[Union[str, Pattern]]] = None,
-    include_patterns: Optional[List[Union[str, Pattern]]] = None,
+    exclude_patterns: Optional[Sequence[Union[str, Pattern]]] = None,
+    include_patterns: Optional[Sequence[Union[str, Pattern]]] = None,
     max_depth: int = 0,
     show_full_path: bool = False,
     sort_by_loc: bool = False,
@@ -1740,6 +1740,7 @@ def _export_comparison_to_html(
                 </dl>
             </div>
             """
+
     dir1_title = dir1_name
     dir2_title = dir2_name
     if (
@@ -1935,5 +1936,6 @@ def _export_comparison_to_html(
     </body>
     </html>
     """
+
     with open(output_path, "w", encoding="utf-8") as f:
         f.write(html_template)

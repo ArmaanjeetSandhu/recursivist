@@ -14,10 +14,13 @@ import os
 import re
 
 import pytest
+from pytest_mock import MockerFixture
+from rich.text import Text
 from typer.testing import CliRunner
 
 from recursivist.cli import app
 from recursivist.compare import (
+    build_comparison_tree,
     compare_directory_structures,
     display_comparison,
     export_comparison,
@@ -31,7 +34,7 @@ def runner():
 
 
 @pytest.fixture
-def comparison_directories(temp_dir):
+def comparison_directories(temp_dir: str):
     """Create two sample directories with some differences for comparison."""
     dir1 = os.path.join(temp_dir, "dir1")
     dir2 = os.path.join(temp_dir, "dir2")
@@ -59,7 +62,7 @@ def comparison_directories(temp_dir):
 
 
 @pytest.fixture
-def complex_comparison_directories(temp_dir):
+def complex_comparison_directories(temp_dir: str):
     """
     Create two more complex directories for advanced comparison testing.
 
@@ -140,7 +143,7 @@ def complex_comparison_directories(temp_dir):
     return dir1, dir2
 
 
-def test_compare_directory_structures(comparison_directories):
+def test_compare_directory_structures(comparison_directories: tuple[str, str]):
     """Test that directory structures are correctly compared."""
     dir1, dir2 = comparison_directories
     structure1, structure2, extensions = compare_directory_structures(dir1, dir2)
@@ -162,7 +165,9 @@ def test_compare_directory_structures(comparison_directories):
     assert ".py" in extensions
 
 
-def test_compare_directory_structures_with_full_path(comparison_directories):
+def test_compare_directory_structures_with_full_path(
+    comparison_directories: tuple[str, str],
+):
     """Test that directory structures are correctly compared with full paths."""
     dir1, dir2 = comparison_directories
     structure1, structure2, extensions = compare_directory_structures(
@@ -183,7 +188,9 @@ def test_compare_directory_structures_with_full_path(comparison_directories):
     assert found, "Could not find file1.txt with full path in structure1"
 
 
-def test_compare_directory_structures_with_exclusions(comparison_directories):
+def test_compare_directory_structures_with_exclusions(
+    comparison_directories: tuple[str, str],
+):
     """Test comparison with directory exclusions."""
     dir1, dir2 = comparison_directories
     exclude_dir_path1 = os.path.join(dir1, "exclude_me")
@@ -201,7 +208,9 @@ def test_compare_directory_structures_with_exclusions(comparison_directories):
     assert "exclude_me" not in structure2
 
 
-def test_compare_directory_structures_with_patterns(comparison_directories):
+def test_compare_directory_structures_with_patterns(
+    comparison_directories: tuple[str, str],
+):
     """Test comparison with pattern exclusions."""
     dir1, dir2 = comparison_directories
     with open(os.path.join(dir1, "test_exclude1.py"), "w") as f:
@@ -216,7 +225,9 @@ def test_compare_directory_structures_with_patterns(comparison_directories):
     assert "test_exclude2.py" not in structure2.get("_files", [])
 
 
-def test_compare_directory_structures_with_regex_patterns(comparison_directories):
+def test_compare_directory_structures_with_regex_patterns(
+    comparison_directories: tuple[str, str],
+):
     """Test comparison with regex pattern exclusions."""
     dir1, dir2 = comparison_directories
     with open(os.path.join(dir1, "test_exclude1.py"), "w") as f:
@@ -231,7 +242,9 @@ def test_compare_directory_structures_with_regex_patterns(comparison_directories
     assert "test_exclude2.py" not in structure2.get("_files", [])
 
 
-def test_compare_directory_structures_with_include_patterns(comparison_directories):
+def test_compare_directory_structures_with_include_patterns(
+    comparison_directories: tuple[str, str],
+):
     """Test comparison with include patterns."""
     dir1, dir2 = comparison_directories
     with open(os.path.join(dir1, "include_me.txt"), "w") as f:
@@ -266,7 +279,29 @@ def test_compare_directory_structures_with_include_patterns(comparison_directori
     ]
 
 
-def test_display_comparison(comparison_directories, capsys):
+def test_compare_directory_structures_with_statistics(
+    comparison_directories: tuple[str, str],
+):
+    """Test comparison with statistics options."""
+    dir1, dir2 = comparison_directories
+    structure1, structure2, extensions = compare_directory_structures(
+        dir1, dir2, sort_by_loc=True, sort_by_size=True, sort_by_mtime=True
+    )
+    assert "_loc" in structure1
+    assert "_size" in structure1
+    assert "_mtime" in structure1
+    assert "_loc" in structure2
+    assert "_size" in structure2
+    assert "_mtime" in structure2
+    if "_files" in structure1 and structure1["_files"]:
+        file_item = structure1["_files"][0]
+        if isinstance(file_item, tuple):
+            assert len(file_item) > 4
+
+
+def test_display_comparison(
+    comparison_directories: tuple[str, str], capsys: pytest.CaptureFixture[str]
+):
     """Test that comparison display works without errors."""
     dir1, dir2 = comparison_directories
     display_comparison(dir1, dir2)
@@ -276,7 +311,9 @@ def test_display_comparison(comparison_directories, capsys):
     assert "Legend" in captured.out
 
 
-def test_display_comparison_with_full_path(comparison_directories, capsys):
+def test_display_comparison_with_full_path(
+    comparison_directories: tuple[str, str], capsys: pytest.CaptureFixture[str]
+):
     """Test that comparison display works with full path option."""
     dir1, dir2 = comparison_directories
     display_comparison(dir1, dir2, show_full_path=True)
@@ -287,7 +324,9 @@ def test_display_comparison_with_full_path(comparison_directories, capsys):
     assert "Full file paths are shown" in captured.out
 
 
-def test_display_comparison_with_filters(comparison_directories, capsys):
+def test_display_comparison_with_filters(
+    comparison_directories: tuple[str, str], capsys: pytest.CaptureFixture[str]
+):
     """Test that comparison display works with filtering options."""
     dir1, dir2 = comparison_directories
     exclude_dir1 = os.path.join(dir1, "exclude_me")
@@ -307,7 +346,25 @@ def test_display_comparison_with_filters(comparison_directories, capsys):
     assert "test_pattern.log" not in captured.out
 
 
-def test_export_comparison_txt(comparison_directories, output_dir):
+def test_display_comparison_with_statistics(
+    comparison_directories: tuple[str, str], capsys: pytest.CaptureFixture[str]
+):
+    """Test that comparison display works with statistics options."""
+    dir1, dir2 = comparison_directories
+    display_comparison(
+        dir1, dir2, sort_by_loc=True, sort_by_size=True, sort_by_mtime=True
+    )
+    captured = capsys.readouterr()
+    assert "lines" in captured.out or "B" in captured.out
+    assert any(
+        re.search(r"Today|Yesterday|\d{4}-\d{2}-\d{2}", line)
+        for line in captured.out.split("\n")
+    )
+
+
+def test_export_comparison_txt(
+    comparison_directories: tuple[str, str], output_dir: str
+):
     """Test HTML export of directory comparison but renamed to txt."""
     dir1, dir2 = comparison_directories
     output_path = os.path.join(output_dir, "comparison.txt")
@@ -316,16 +373,9 @@ def test_export_comparison_txt(comparison_directories, output_dir):
     assert "Only HTML format is supported for comparison export" in str(excinfo.value)
 
 
-def test_export_comparison_txt_with_full_path(comparison_directories, output_dir):
-    """Test HTML export of directory comparison with full paths but renamed to txt."""
-    dir1, dir2 = comparison_directories
-    output_path = os.path.join(output_dir, "comparison_full_path.txt")
-    with pytest.raises(ValueError) as excinfo:
-        export_comparison(dir1, dir2, "txt", output_path, show_full_path=True)
-    assert "Only HTML format is supported for comparison export" in str(excinfo.value)
-
-
-def test_export_comparison_html(comparison_directories, output_dir):
+def test_export_comparison_html(
+    comparison_directories: tuple[str, str], output_dir: str
+):
     """Test HTML export of directory comparison."""
     dir1, dir2 = comparison_directories
     output_path = os.path.join(output_dir, "comparison.html")
@@ -342,7 +392,9 @@ def test_export_comparison_html(comparison_directories, output_dir):
     assert "dir2_only" in content
 
 
-def test_export_comparison_html_with_full_path(comparison_directories, output_dir):
+def test_export_comparison_html_with_full_path(
+    comparison_directories: tuple[str, str], output_dir: str
+):
     """Test HTML export of directory comparison with full paths."""
     dir1, dir2 = comparison_directories
     output_path = os.path.join(output_dir, "comparison_full_path.html")
@@ -378,7 +430,9 @@ def test_export_comparison_html_with_full_path(comparison_directories, output_di
     assert found_at_least_one_full_path, "No full paths found in the HTML export"
 
 
-def test_export_comparison_with_filters(comparison_directories, output_dir):
+def test_export_comparison_with_filters(
+    comparison_directories: tuple[str, str], output_dir: str
+):
     """Test export of directory comparison with filtering options."""
     dir1, dir2 = comparison_directories
     exclude_dir1 = os.path.join(dir1, "exclude_me")
@@ -406,7 +460,9 @@ def test_export_comparison_with_filters(comparison_directories, output_dir):
     assert "test_pattern.log" not in content
 
 
-def test_export_comparison_unsupported_format(comparison_directories, output_dir):
+def test_export_comparison_unsupported_format(
+    comparison_directories: tuple[str, str], output_dir: str
+):
     """Test error handling for unsupported export format."""
     dir1, dir2 = comparison_directories
     output_path = os.path.join(output_dir, "comparison.unsupported")
@@ -415,7 +471,9 @@ def test_export_comparison_unsupported_format(comparison_directories, output_dir
     assert "Only HTML format is supported for comparison export" in str(excinfo.value)
 
 
-def test_complex_comparison(complex_comparison_directories, output_dir):
+def test_complex_comparison(
+    complex_comparison_directories: tuple[str, str], output_dir: str
+):
     """Test comparison of complex directory structures."""
     dir1, dir2 = complex_comparison_directories
     structure1, structure2, extensions = compare_directory_structures(dir1, dir2)
@@ -452,7 +510,30 @@ def test_complex_comparison(complex_comparison_directories, output_dir):
     assert "examples.md" in content
 
 
-def test_cli_command(runner, comparison_directories):
+def test_build_comparison_tree(
+    comparison_directories: tuple[str, str],
+    mocker: MockerFixture,
+):
+    """Test building a comparison tree."""
+    dir1, dir2 = comparison_directories
+    structure1, structure2, extensions = compare_directory_structures(dir1, dir2)
+    color_map = {ext: f"#{i:06x}" for i, ext in enumerate(extensions)}
+    mock_tree = mocker.MagicMock()
+    build_comparison_tree(structure1, structure2, mock_tree, color_map)
+    assert mock_tree.add.called
+    calls = [
+        call for call in mock_tree.add.call_args_list if isinstance(call.args[0], Text)
+    ]
+    has_green_highlight = False
+    for call in calls:
+        text = call.args[0]
+        if hasattr(text.style, "__contains__") and "on green" in text.style:
+            has_green_highlight = True
+            break
+    assert has_green_highlight, "No green highlighting found for unique items"
+
+
+def test_cli_command(runner: CliRunner, comparison_directories: tuple[str, str]):
     """Test the compare CLI command."""
     dir1, dir2 = comparison_directories
     result = runner.invoke(app, ["compare", dir1, dir2])
@@ -462,7 +543,9 @@ def test_cli_command(runner, comparison_directories):
     assert "Legend" in result.stdout
 
 
-def test_cli_command_with_filters(runner, complex_comparison_directories):
+def test_cli_command_with_filters(
+    runner: CliRunner, complex_comparison_directories: tuple[str, str]
+):
     """Test the compare CLI command with filter options."""
     dir1, dir2 = complex_comparison_directories
     result = runner.invoke(
@@ -481,7 +564,9 @@ def test_cli_command_with_filters(runner, complex_comparison_directories):
     assert "new_module.py" in result.stdout
 
 
-def test_cli_command_with_export(runner, comparison_directories, output_dir):
+def test_cli_command_with_export(
+    runner: CliRunner, comparison_directories: tuple[str, str], output_dir: str
+):
     """Test the compare CLI command with export option."""
     dir1, dir2 = comparison_directories
     result = runner.invoke(
@@ -502,7 +587,9 @@ def test_cli_command_with_export(runner, comparison_directories, output_dir):
     assert os.path.exists(output_file)
 
 
-def test_cli_command_with_export_full_path(runner, comparison_directories, output_dir):
+def test_cli_command_with_export_full_path(
+    runner: CliRunner, comparison_directories: tuple[str, str], output_dir: str
+):
     """Test the compare CLI command with export option and full path display."""
     dir1, dir2 = comparison_directories
     result = runner.invoke(
@@ -532,3 +619,29 @@ def test_cli_command_with_export_full_path(runner, comparison_directories, outpu
             found_full_path = True
             break
     assert found_full_path, "No full paths found in the exported file"
+
+
+def test_comparison_with_statistics(
+    comparison_directories: tuple[str, str], output_dir: str
+):
+    """Test comparison with statistics options."""
+    dir1, dir2 = comparison_directories
+    output_path = os.path.join(output_dir, "comparison_with_stats.html")
+    export_comparison(
+        dir1,
+        dir2,
+        "html",
+        output_path,
+        sort_by_loc=True,
+        sort_by_size=True,
+        sort_by_mtime=True,
+    )
+    assert os.path.exists(output_path)
+    with open(output_path, "r", encoding="utf-8") as f:
+        content = f.read()
+    assert "lines" in content
+    assert "B" in content or "KB" in content
+    has_time_indicator = False
+    if re.search(r"Today|Yesterday|\d{4}-\d{2}-\d{2}|format_timestamp", content):
+        has_time_indicator = True
+    assert has_time_indicator, "No time indicators found in the comparison"
