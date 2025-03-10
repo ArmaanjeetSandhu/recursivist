@@ -247,7 +247,10 @@ def generate_jsx_component(
                     and isinstance(file_item, tuple)
                     and len(file_item) > 3
                 ):
-                    file_name, display_path, loc, _, mtime = file_item
+                    file_name, display_path, loc, mtime = file_item
+                    if len(file_item) > 4:
+                        _, _, _, _, mtime = file_item
+
                     if path_prefix:
                         path_parts = path_prefix.split("/")
                         if path_parts and path_parts[0] == root_name:
@@ -278,7 +281,10 @@ def generate_jsx_component(
                     and isinstance(file_item, tuple)
                     and len(file_item) > 3
                 ):
-                    file_name, display_path, _, size, mtime = file_item
+                    if len(file_item) > 4:
+                        file_name, display_path, _, size, mtime = file_item
+                    else:
+                        file_name, display_path, size, mtime = file_item
                     if path_prefix:
                         path_parts = path_prefix.split("/")
                         if path_parts and path_parts[0] == root_name:
@@ -310,7 +316,10 @@ def generate_jsx_component(
                     and isinstance(file_item, tuple)
                     and len(file_item) > 3
                 ):
-                    file_name, display_path, loc, size = file_item
+                    if len(file_item) > 4:
+                        file_name, display_path, loc, size, _ = file_item
+                    else:
+                        file_name, display_path, loc, size = file_item
                     if path_prefix:
                         path_parts = path_prefix.split("/")
                         if path_parts and path_parts[0] == root_name:
@@ -477,158 +486,6 @@ def generate_jsx_component(
                     )
         return "\n".join(jsx_content)
 
-    loc_imports = ""
-    loc_state = ""
-    loc_sort_state = ""
-    loc_toggle_function = ""
-    loc_toggle_button = ""
-    loc_file_prop = ""
-    loc_directory_prop = ""
-    loc_file_display = ""
-    loc_directory_display = ""
-    size_imports = ""
-    size_state = ""
-    size_sort_state = ""
-    size_toggle_function = ""
-    size_toggle_button = ""
-    size_file_prop = ""
-    size_directory_prop = ""
-    size_file_display = ""
-    size_directory_display = ""
-    mtime_imports = ""
-    mtime_state = ""
-    mtime_sort_state = ""
-    mtime_toggle_function = ""
-    mtime_toggle_button = ""
-    mtime_file_prop = ""
-    mtime_directory_prop = ""
-    mtime_file_display = ""
-    mtime_directory_display = ""
-    if sort_by_loc:
-        loc_imports = """import { BarChart2 } from 'lucide-react';"""
-        loc_state = """const [showLoc, setShowLoc] = useState(true);"""
-        loc_sort_state = """const [sortByLoc, setSortByLoc] = useState(true);"""
-        loc_toggle_function = """
-  const toggleLocDisplay = () => {
-    setShowLoc(!showLoc);
-  };
-  const toggleLocSort = () => {
-    setSortByLoc(!sortByLoc);
-  };"""
-        loc_toggle_button = """
-                  <button
-                    onClick={toggleLocDisplay}
-                    className={`flex items-center px-3 py-1.5 text-sm rounded-md ${
-                      darkMode ? 'bg-gray-800 hover:bg-gray-700' : 'bg-gray-200 hover:bg-gray-300'
-                    }`}
-                  >
-                    <BarChart2 className="w-4 h-4 mr-1" />
-                    <span className="hidden sm:inline">{showLoc ? 'Hide LOC' : 'Show LOC'}</span>
-                  </button>"""
-        loc_file_prop = """
-  locCount: PropTypes.number,"""
-        loc_directory_prop = """
-  locCount: PropTypes.number,"""
-        loc_file_display = """
-              {props.locCount !== undefined && showLoc && (
-                <span className={`ml-2 text-xs px-1.5 py-0.5 rounded-full ${isSelected ?
-                  (darkMode ? 'bg-blue-800 text-blue-200' : 'bg-blue-200 text-blue-700') :
-                  (darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-700')}`}>
-                  {props.locCount} lines
-                </span>
-              )}"""
-        loc_directory_display = """
-              {props.locCount !== undefined && showLoc && (
-                <span className={`ml-2 text-xs px-1.5 py-0.5 rounded-full ${isCurrentPath ?
-                  (darkMode ? 'bg-blue-800 text-blue-200' : 'bg-blue-200 text-blue-700') :
-                  (darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-700')}`}>
-                  {props.locCount} lines
-                </span>
-              )}"""
-    if sort_by_size:
-        size_imports = """import { Database } from 'lucide-react';"""
-        size_state = """const [showSize, setShowSize] = useState(true);"""
-        size_sort_state = """const [sortBySize, setSortBySize] = useState(true);"""
-        size_toggle_function = """
-  const toggleSizeDisplay = () => {
-    setShowSize(!showSize);
-  };
-  const toggleSizeSort = () => {
-    setSortBySize(!sortBySize);
-  };"""
-        size_toggle_button = """
-                  <button
-                    onClick={toggleSizeDisplay}
-                    className={`flex items-center px-3 py-1.5 text-sm rounded-md ${
-                      darkMode ? 'bg-gray-800 hover:bg-gray-700' : 'bg-gray-200 hover:bg-gray-300'
-                    }`}
-                  >
-                    <Database className="w-4 h-4 mr-1" />
-                    <span className="hidden sm:inline">{showSize ? 'Hide Size' : 'Show Size'}</span>
-                  </button>"""
-        size_file_prop = """
-  sizeCount: PropTypes.number,
-  sizeFormatted: PropTypes.string,"""
-        size_directory_prop = """
-  sizeCount: PropTypes.number,"""
-        size_file_display = """
-              {props.sizeCount !== undefined && showSize && (
-                <span className={`ml-2 text-xs px-1.5 py-0.5 rounded-full ${isSelected ?
-                  (darkMode ? 'bg-teal-800 text-teal-200' : 'bg-teal-200 text-teal-700') :
-                  (darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-700')}`}>
-                  {props.sizeFormatted}
-                </span>
-              )}"""
-        size_directory_display = """
-              {props.sizeCount !== undefined && showSize && (
-                <span className={`ml-2 text-xs px-1.5 py-0.5 rounded-full ${isCurrentPath ?
-                  (darkMode ? 'bg-teal-800 text-teal-200' : 'bg-teal-200 text-teal-700') :
-                  (darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-700')}`}>
-                  {format_size(props.sizeCount)}
-                </span>
-              )}"""
-    if sort_by_mtime:
-        mtime_imports = """import { Clock } from 'lucide-react';"""
-        mtime_state = """const [showMtime, setShowMtime] = useState(true);"""
-        mtime_sort_state = """const [sortByMtime, setSortByMtime] = useState(true);"""
-        mtime_toggle_function = """
-  const toggleMtimeDisplay = () => {
-    setShowMtime(!showMtime);
-  };
-  const toggleMtimeSort = () => {
-    setSortByMtime(!sortByMtime);
-  };"""
-        mtime_toggle_button = """
-                  <button
-                    onClick={toggleMtimeDisplay}
-                    className={`flex items-center px-3 py-1.5 text-sm rounded-md ${
-                      darkMode ? 'bg-gray-800 hover:bg-gray-700' : 'bg-gray-200 hover:bg-gray-300'
-                    }`}
-                  >
-                    <Clock className="w-4 h-4 mr-1" />
-                    <span className="hidden sm:inline">{showMtime ? 'Hide Time' : 'Show Time'}</span>
-                  </button>"""
-        mtime_file_prop = """
-  mtimeCount: PropTypes.number,
-  mtimeFormatted: PropTypes.string,"""
-        mtime_directory_prop = """
-  mtimeCount: PropTypes.number,"""
-        mtime_file_display = """
-              {props.mtimeCount !== undefined && showMtime && (
-                <span className={`ml-2 text-xs px-1.5 py-0.5 rounded-full ${isSelected ?
-                  (darkMode ? 'bg-purple-800 text-purple-200' : 'bg-purple-200 text-purple-700') :
-                  (darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-700')}`}>
-                  {props.mtimeFormatted}
-                </span>
-              )}"""
-        mtime_directory_display = """
-              {props.mtimeCount !== undefined && showMtime && (
-                <span className={`ml-2 text-xs px-1.5 py-0.5 rounded-full ${isCurrentPath ?
-                  (darkMode ? 'bg-purple-800 text-purple-200' : 'bg-purple-200 text-purple-700') :
-                  (darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-700')}`}>
-                  {format_timestamp(props.mtimeCount)}
-                </span>
-              )}"""
     combined_imports = ""
     if sort_by_loc and sort_by_size and sort_by_mtime:
         combined_imports = (
@@ -641,11 +498,41 @@ def generate_jsx_component(
     elif sort_by_size and sort_by_mtime:
         combined_imports = """import { Database, Clock } from 'lucide-react';"""
     elif sort_by_loc:
-        combined_imports = loc_imports
+        combined_imports = """import { BarChart2 } from 'lucide-react';"""
     elif sort_by_size:
-        combined_imports = size_imports
+        combined_imports = """import { Database } from 'lucide-react';"""
     elif sort_by_mtime:
-        combined_imports = mtime_imports
+        combined_imports = """import { Clock } from 'lucide-react';"""
+    loc_state = (
+        """const showLoc = true;""" if sort_by_loc else """const showLoc = false;"""
+    )
+    size_state = (
+        """const showSize = true;""" if sort_by_size else """const showSize = false;"""
+    )
+    mtime_state = (
+        """const showMtime = true;"""
+        if sort_by_mtime
+        else """const showMtime = false;"""
+    )
+    loc_sort_state = (
+        """const sortByLoc = true;""" if sort_by_loc else """const sortByLoc = false;"""
+    )
+    size_sort_state = (
+        """const sortBySize = true;"""
+        if sort_by_size
+        else """const sortBySize = false;"""
+    )
+    mtime_sort_state = (
+        """const sortByMtime = true;"""
+        if sort_by_mtime
+        else """const sortByMtime = false;"""
+    )
+    loc_toggle_function = ""
+    size_toggle_function = ""
+    mtime_toggle_function = ""
+    loc_toggle_button = ""
+    size_toggle_button = ""
+    mtime_toggle_button = ""
     root_loc_prop = ""
     root_size_prop = ""
     root_mtime_prop = ""
@@ -697,6 +584,7 @@ def generate_jsx_component(
     }
   };"""
     component_template = f"""import React, {{ useState, useEffect, useRef }} from 'react';
+    import PropTypes from 'prop-types';
     import {{ ChevronDown, ChevronUp, Folder, FolderOpen, File, Maximize2, Minimize2, Search, X, Info, Home, ChevronRight, Copy, Check }} from 'lucide-react';
     {combined_imports}
     const AppContext = React.createContext();
@@ -844,7 +732,7 @@ def generate_jsx_component(
         if (expandAll) {{
           setOpenFolders(prev => new Set([...prev, folderId]));
         }}
-      }}, [expandAll, folderId]);
+      }}, [expandAll, folderId, setOpenFolders]);
       useEffect(() => {{
         if (collapseAll && folderId !== '{html.escape(root_name)}') {{
           setOpenFolders(prev => {{
@@ -853,17 +741,17 @@ def generate_jsx_component(
             return newFolders;
           }});
         }}
-      }}, [collapseAll, folderId]);
+      }}, [collapseAll, folderId, setOpenFolders]);
       useEffect(() => {{
         if (searchTerm && matchesSearch) {{
           setOpenFolders(prev => new Set([...prev, folderId]));
         }}
-      }}, [searchTerm, matchesSearch, folderId]);
+      }}, [searchTerm, matchesSearch, folderId, setOpenFolders]);
       useEffect(() => {{
         if (isCurrentPath || isInCurrentPath) {{
           setOpenFolders(prev => new Set([...prev, folderId]));
         }}
-      }}, [isCurrentPath, isInCurrentPath, folderId]);
+      }}, [isCurrentPath, isInCurrentPath, folderId, setOpenFolders]);
       const indentClass = level === 0 ? '' : 'ml-4';
       const currentPathClass = isCurrentPath
         ? darkMode
@@ -891,7 +779,28 @@ def generate_jsx_component(
               }}
               <span className={{`font-medium truncate ${{isCurrentPath ? (darkMode ? 'text-yellow-300' : 'text-blue-700') : ''}}`}}>
                 {{searchTerm ? highlightMatch(name, searchTerm) : name}}
-              </span>{loc_directory_display}{size_directory_display}{mtime_directory_display}
+              </span>
+              {{props.locCount !== undefined && showLoc && (
+                <span className={{`ml-2 text-xs px-1.5 py-0.5 rounded-full ${{isCurrentPath ?
+                  (darkMode ? 'bg-blue-800 text-blue-200' : 'bg-blue-200 text-blue-700') :
+                  (darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-700')}}`}}>
+                  {{props.locCount}} lines
+                </span>
+              )}}
+              {{props.sizeCount !== undefined && showSize && (
+                <span className={{`ml-2 text-xs px-1.5 py-0.5 rounded-full ${{isCurrentPath ?
+                  (darkMode ? 'bg-teal-800 text-teal-200' : 'bg-teal-200 text-teal-700') :
+                  (darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-700')}}`}}>
+                  {{format_size(props.sizeCount)}}
+                </span>
+              )}}
+              {{props.mtimeCount !== undefined && showMtime && (
+                <span className={{`ml-2 text-xs px-1.5 py-0.5 rounded-full ${{isCurrentPath ?
+                  (darkMode ? 'bg-purple-800 text-purple-200' : 'bg-purple-200 text-purple-700') :
+                  (darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-700')}}`}}>
+                  {{format_timestamp(props.mtimeCount)}}
+                </span>
+              )}}
             </div>
             <button
               className={{`p-1 rounded-full ${{darkMode ? 'hover:bg-gray-600' : 'hover:bg-gray-200'}}`}}
@@ -925,7 +834,9 @@ def generate_jsx_component(
         showSize,
         showMtime
       }} = React.useContext(AppContext);
-      const {{ name, displayPath, path = [], level = 0 }} = props;
+      const {{ name, displayPath, path = [] }} = props;
+      useEffect(() => {{
+      }}, [currentPath, path]);
       const matchesSearch = searchTerm && name.toLowerCase().includes(searchTerm.toLowerCase());
       const isSelected = selectedItem &&
         selectedItem.path &&
@@ -963,7 +874,28 @@ def generate_jsx_component(
             <div className="min-w-0 overflow-hidden">
               <span className={{`truncate block ${{isSelected ? (darkMode ? 'text-yellow-300 font-medium' : 'text-blue-700 font-medium') : ''}}`}}>
                 {{searchTerm ? highlightMatch(displayPath, searchTerm) : displayPath}}
-              </span>{loc_file_display}{size_file_display}{mtime_file_display}
+              </span>
+              {{props.locCount !== undefined && showLoc && (
+                <span className={{`ml-2 text-xs px-1.5 py-0.5 rounded-full ${{isSelected ?
+                  (darkMode ? 'bg-blue-800 text-blue-200' : 'bg-blue-200 text-blue-700') :
+                  (darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-700')}}`}}>
+                  {{props.locCount}} lines
+                </span>
+              )}}
+              {{props.sizeCount !== undefined && showSize && (
+                <span className={{`ml-2 text-xs px-1.5 py-0.5 rounded-full ${{isSelected ?
+                  (darkMode ? 'bg-teal-800 text-teal-200' : 'bg-teal-200 text-teal-700') :
+                  (darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-700')}}`}}>
+                  {{props.sizeFormatted}}
+                </span>
+              )}}
+              {{props.mtimeCount !== undefined && showMtime && (
+                <span className={{`ml-2 text-xs px-1.5 py-0.5 rounded-full ${{isSelected ?
+                  (darkMode ? 'bg-purple-800 text-purple-200' : 'bg-purple-200 text-purple-700') :
+                  (darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-700')}}`}}>
+                  {{props.mtimeFormatted}}
+                </span>
+              )}}
             </div>
           </div>
         </div>
@@ -1028,8 +960,16 @@ def generate_jsx_component(
       {loc_toggle_function}
       {size_toggle_function}
       {mtime_toggle_function}
-      {format_size_function}
-      {format_timestamp_function}
+      {format_size_function if format_size_function else '''
+  const format_size = () => {
+    return '0 B';
+  };'''}
+
+      {format_timestamp_function if format_timestamp_function else '''
+  const format_timestamp = () => {
+    return '';
+  };'''}
+
       useEffect(() => {{
         if (darkMode) {{
           document.body.classList.add('dark-mode');
@@ -1140,13 +1080,21 @@ def generate_jsx_component(
       name: PropTypes.string.isRequired,
       children: PropTypes.node,
       level: PropTypes.number,
-      path: PropTypes.arrayOf(PropTypes.string){loc_directory_prop}{size_directory_prop}{mtime_directory_prop}
+      path: PropTypes.arrayOf(PropTypes.string),
+      locCount: PropTypes.number,
+      sizeCount: PropTypes.number,
+      mtimeCount: PropTypes.number
     }};
     FileItem.propTypes = {{
       name: PropTypes.string.isRequired,
       displayPath: PropTypes.string.isRequired,
       path: PropTypes.arrayOf(PropTypes.string),
-      level: PropTypes.number{loc_file_prop}{size_file_prop}{mtime_file_prop}
+      level: PropTypes.number,
+      locCount: PropTypes.number,
+      sizeCount: PropTypes.number,
+      sizeFormatted: PropTypes.string,
+      mtimeCount: PropTypes.number,
+      mtimeFormatted: PropTypes.string
     }};
     export default DirectoryViewer;
     """

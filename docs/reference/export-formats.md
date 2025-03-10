@@ -250,9 +250,9 @@ recursivist export --format jsx
 To use the exported React component in your project:
 
 1. Copy the generated `.jsx` file to your React project's components directory
-2. Install the required dependency:
+2. Install the required dependencies:
    ```
-   npm install lucide-react
+   npm install lucide-react prop-types
    ```
 3. Import and use the component in your application:
 

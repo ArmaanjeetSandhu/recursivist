@@ -25,8 +25,8 @@
     </div>
     <div style="height: 6px;"></div>
     <div class="terminal-output">
-      <pre>📂 my-project (4328 lines)
-├── 📁 src (3851 lines)
+      <pre>📂 my-project (1262 lines)
+├── 📁 src (1055 lines)
 │   ├── 📄 <span style="color: #83e43d;">main.py</span> (245 lines)
 │   ├── 📄 <span style="color: #83e43d;">utils.py</span> (157 lines)
 │   └── 📁 tests (653 lines)
