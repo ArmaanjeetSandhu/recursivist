@@ -101,7 +101,7 @@ def generate_jsx_component(
             if isinstance(content, dict):
                 if content.get("_max_depth_reached"):
                     jsx_content.append(
-                        '<div className="p-3 bg-gray-50 rounded-lg border border-gray-100 ml-4 my-1">'
+                        '<div className="max-depth p-3 bg-gray-50 rounded-lg border border-gray-100 ml-4 my-1">'
                     )
                     jsx_content.append(
                         '<p className="text-gray-500">⋯ (max depth reached)</p>'
@@ -207,283 +207,90 @@ def generate_jsx_component(
                     key=lambda f: f[0].lower() if isinstance(f, tuple) else f.lower(),
                 )
             for file_item in sorted_files:
-                if (
-                    sort_by_loc
-                    and sort_by_size
-                    and sort_by_mtime
-                    and isinstance(file_item, tuple)
-                    and len(file_item) > 4
-                ):
-                    file_name, display_path, loc, size, mtime = file_item
-                    if path_prefix:
-                        path_parts = path_prefix.split("/")
-                        if path_parts and path_parts[0] == root_name:
-                            path_parts = [root_name] + [p for p in path_parts[1:] if p]
-                        else:
-                            path_parts = [p for p in path_parts if p]
-                            if not path_parts or path_parts[0] != root_name:
-                                path_parts = [root_name] + path_parts
-                    else:
-                        path_parts = [root_name]
-                    path_parts.append(file_name)
-                    path_json = ",".join(
-                        [f'"{html.escape(part)}"' for part in path_parts if part]
-                    )
-                    jsx_content.append(
-                        f"<FileItem "
-                        f'name="{html.escape(file_name)}" '
-                        f'displayPath="{html.escape(display_path)}" '
-                        f"path={{[{path_json}]}} "
-                        f"level={{{level}}} "
-                        f"locCount={{{loc}}} "
-                        f"sizeCount={{{size}}} "
-                        f"mtimeCount={{{mtime}}} "
-                        f'mtimeFormatted="{format_timestamp(mtime)}" '
-                        f'sizeFormatted="{format_size(size)}" />'
-                    )
-                elif (
-                    sort_by_loc
-                    and sort_by_mtime
-                    and isinstance(file_item, tuple)
-                    and len(file_item) > 3
-                ):
-                    file_name, display_path, loc, mtime = file_item
-                    if len(file_item) > 4:
-                        _, _, _, _, mtime = file_item
+                # Handle different tuple formats carefully
+                if isinstance(file_item, tuple):
+                    # Extract file_name and display_path first
+                    file_name = file_item[0]
+                    display_path = file_item[1] if len(file_item) > 1 else file_name
 
-                    if path_prefix:
-                        path_parts = path_prefix.split("/")
-                        if path_parts and path_parts[0] == root_name:
-                            path_parts = [root_name] + [p for p in path_parts[1:] if p]
-                        else:
-                            path_parts = [p for p in path_parts if p]
-                            if not path_parts or path_parts[0] != root_name:
-                                path_parts = [root_name] + path_parts
-                    else:
-                        path_parts = [root_name]
-                    path_parts.append(file_name)
-                    path_json = ",".join(
-                        [f'"{html.escape(part)}"' for part in path_parts if part]
-                    )
-                    jsx_content.append(
-                        f"<FileItem "
-                        f'name="{html.escape(file_name)}" '
-                        f'displayPath="{html.escape(display_path)}" '
-                        f"path={{[{path_json}]}} "
-                        f"level={{{level}}} "
-                        f"locCount={{{loc}}} "
-                        f"mtimeCount={{{mtime}}} "
-                        f'mtimeFormatted="{format_timestamp(mtime)}" />'
-                    )
-                elif (
-                    sort_by_size
-                    and sort_by_mtime
-                    and isinstance(file_item, tuple)
-                    and len(file_item) > 3
-                ):
-                    if len(file_item) > 4:
-                        file_name, display_path, _, size, mtime = file_item
-                    else:
-                        file_name, display_path, size, mtime = file_item
-                    if path_prefix:
-                        path_parts = path_prefix.split("/")
-                        if path_parts and path_parts[0] == root_name:
-                            path_parts = [root_name] + [p for p in path_parts[1:] if p]
-                        else:
-                            path_parts = [p for p in path_parts if p]
-                            if not path_parts or path_parts[0] != root_name:
-                                path_parts = [root_name] + path_parts
-                    else:
-                        path_parts = [root_name]
-                    path_parts.append(file_name)
-                    path_json = ",".join(
-                        [f'"{html.escape(part)}"' for part in path_parts if part]
-                    )
-                    jsx_content.append(
-                        f"<FileItem "
-                        f'name="{html.escape(file_name)}" '
-                        f'displayPath="{html.escape(display_path)}" '
-                        f"path={{[{path_json}]}} "
-                        f"level={{{level}}} "
-                        f"sizeCount={{{size}}} "
-                        f"mtimeCount={{{mtime}}} "
-                        f'mtimeFormatted="{format_timestamp(mtime)}" '
-                        f'sizeFormatted="{format_size(size)}" />'
-                    )
-                elif (
-                    sort_by_loc
-                    and sort_by_size
-                    and isinstance(file_item, tuple)
-                    and len(file_item) > 3
-                ):
-                    if len(file_item) > 4:
-                        file_name, display_path, loc, size, _ = file_item
-                    else:
-                        file_name, display_path, loc, size = file_item
-                    if path_prefix:
-                        path_parts = path_prefix.split("/")
-                        if path_parts and path_parts[0] == root_name:
-                            path_parts = [root_name] + [p for p in path_parts[1:] if p]
-                        else:
-                            path_parts = [p for p in path_parts if p]
-                            if not path_parts or path_parts[0] != root_name:
-                                path_parts = [root_name] + path_parts
-                    else:
-                        path_parts = [root_name]
-                    path_parts.append(file_name)
-                    path_json = ",".join(
-                        [f'"{html.escape(part)}"' for part in path_parts if part]
-                    )
-                    jsx_content.append(
-                        f"<FileItem "
-                        f'name="{html.escape(file_name)}" '
-                        f'displayPath="{html.escape(display_path)}" '
-                        f"path={{[{path_json}]}} "
-                        f"level={{{level}}} "
-                        f"locCount={{{loc}}} "
-                        f"sizeCount={{{size}}} "
-                        f'sizeFormatted="{format_size(size)}" />'
-                    )
-                elif (
-                    sort_by_mtime
-                    and isinstance(file_item, tuple)
-                    and len(file_item) > 2
-                ):
-                    if len(file_item) > 4:
-                        file_name, display_path, _, _, mtime = file_item
-                    elif len(file_item) > 3:
-                        file_name, display_path, _, mtime = file_item
-                    else:
-                        file_name, display_path, mtime = file_item
-                    if path_prefix:
-                        path_parts = path_prefix.split("/")
-                        if path_parts and path_parts[0] == root_name:
-                            path_parts = [root_name] + [p for p in path_parts[1:] if p]
-                        else:
-                            path_parts = [p for p in path_parts if p]
-                            if not path_parts or path_parts[0] != root_name:
-                                path_parts = [root_name] + path_parts
-                    else:
-                        path_parts = [root_name]
-                    path_parts.append(file_name)
-                    path_json = ",".join(
-                        [f'"{html.escape(part)}"' for part in path_parts if part]
-                    )
-                    jsx_content.append(
-                        f"<FileItem "
-                        f'name="{html.escape(file_name)}" '
-                        f'displayPath="{html.escape(display_path)}" '
-                        f"path={{[{path_json}]}} "
-                        f"level={{{level}}} "
-                        f"mtimeCount={{{mtime}}} "
-                        f'mtimeFormatted="{format_timestamp(mtime)}" />'
-                    )
-                elif (
-                    sort_by_size and isinstance(file_item, tuple) and len(file_item) > 2
-                ):
-                    if len(file_item) > 3:
-                        file_name, display_path, _, size = file_item
-                    else:
-                        file_name, display_path, size = file_item
-                    if path_prefix:
-                        path_parts = path_prefix.split("/")
-                        if path_parts and path_parts[0] == root_name:
-                            path_parts = [root_name] + [p for p in path_parts[1:] if p]
-                        else:
-                            path_parts = [p for p in path_parts if p]
-                            if not path_parts or path_parts[0] != root_name:
-                                path_parts = [root_name] + path_parts
-                    else:
-                        path_parts = [root_name]
-                    path_parts.append(file_name)
-                    path_json = ",".join(
-                        [f'"{html.escape(part)}"' for part in path_parts if part]
-                    )
-                    jsx_content.append(
-                        f"<FileItem "
-                        f'name="{html.escape(file_name)}" '
-                        f'displayPath="{html.escape(display_path)}" '
-                        f"path={{[{path_json}]}} "
-                        f"level={{{level}}} "
-                        f"sizeCount={{{size}}} "
-                        f'sizeFormatted="{format_size(size)}" />'
-                    )
-                elif (
-                    sort_by_loc and isinstance(file_item, tuple) and len(file_item) > 2
-                ):
-                    if len(file_item) > 3:
-                        file_name, display_path, loc, _ = file_item
-                    else:
-                        file_name, display_path, loc = file_item
-                    if path_prefix:
-                        path_parts = path_prefix.split("/")
-                        if path_parts and path_parts[0] == root_name:
-                            path_parts = [root_name] + [p for p in path_parts[1:] if p]
-                        else:
-                            path_parts = [p for p in path_parts if p]
-                            if not path_parts or path_parts[0] != root_name:
-                                path_parts = [root_name] + path_parts
-                    else:
-                        path_parts = [root_name]
-                    path_parts.append(file_name)
-                    path_json = ",".join(
-                        [f'"{html.escape(part)}"' for part in path_parts if part]
-                    )
-                    jsx_content.append(
-                        f"<FileItem "
-                        f'name="{html.escape(file_name)}" '
-                        f'displayPath="{html.escape(display_path)}" '
-                        f"path={{[{path_json}]}} "
-                        f"level={{{level}}} "
-                        f"locCount={{{loc}}} />"
-                    )
-                elif isinstance(file_item, tuple):
-                    file_name, display_path = file_item
-                    if path_prefix:
-                        path_parts = path_prefix.split("/")
-                        if path_parts and path_parts[0] == root_name:
-                            path_parts = [root_name] + [p for p in path_parts[1:] if p]
-                        else:
-                            path_parts = [p for p in path_parts if p]
-                            if not path_parts or path_parts[0] != root_name:
-                                path_parts = [root_name] + path_parts
-                    else:
-                        path_parts = [root_name]
-                    path_parts.append(file_name)
-                    path_json = ",".join(
-                        [f'"{html.escape(part)}"' for part in path_parts if part]
-                    )
-                    jsx_content.append(
-                        f"<FileItem "
-                        f'name="{html.escape(file_name)}" '
-                        f'displayPath="{html.escape(display_path)}" '
-                        f"path={{[{path_json}]}} "
-                        f"level={{{level}}} />"
-                    )
+                    # Initialize optional properties
+                    loc = 0
+                    size = 0
+                    mtime = 0
+
+                    # Extract additional properties based on tuple size and sorting options
+                    if len(file_item) > 2:
+                        if (
+                            sort_by_loc
+                            and sort_by_size
+                            and sort_by_mtime
+                            and len(file_item) > 4
+                        ):
+                            loc = file_item[2]
+                            size = file_item[3]
+                            mtime = file_item[4]
+                        elif sort_by_loc and sort_by_size and len(file_item) > 3:
+                            loc = file_item[2]
+                            size = file_item[3]
+                        elif sort_by_loc and sort_by_mtime and len(file_item) > 3:
+                            loc = file_item[2]
+                            mtime = file_item[3]
+                        elif sort_by_size and sort_by_mtime and len(file_item) > 3:
+                            size = file_item[2]
+                            mtime = file_item[3]
+                        elif sort_by_loc:
+                            loc = file_item[2]
+                        elif sort_by_size:
+                            size = file_item[2]
+                        elif sort_by_mtime:
+                            mtime = file_item[2]
                 else:
+                    # Handle string case
                     file_name = file_item
-                    display_path = html.escape(file_name)
-                    if path_prefix:
-                        path_parts = path_prefix.split("/")
-                        if path_parts and path_parts[0] == root_name:
-                            path_parts = [root_name] + [p for p in path_parts[1:] if p]
-                        else:
-                            path_parts = [p for p in path_parts if p]
-                            if not path_parts or path_parts[0] != root_name:
-                                path_parts = [root_name] + path_parts
+                    display_path = file_name
+                    loc = 0
+                    size = 0
+                    mtime = 0
+
+                # Prepare path parts
+                if path_prefix:
+                    path_parts = path_prefix.split("/")
+                    if path_parts and path_parts[0] == root_name:
+                        path_parts = [root_name] + [p for p in path_parts[1:] if p]
                     else:
-                        path_parts = [root_name]
-                    path_parts.append(file_name)
-                    path_json = ",".join(
-                        [f'"{html.escape(part)}"' for part in path_parts if part]
-                    )
-                    jsx_content.append(
-                        f"<FileItem "
-                        f'name="{html.escape(file_name)}" '
-                        f'displayPath="{display_path}" '
-                        f"path={{[{path_json}]}} "
-                        f"level={{{level}}} />"
-                    )
+                        path_parts = [p for p in path_parts if p]
+                        if not path_parts or path_parts[0] != root_name:
+                            path_parts = [root_name] + path_parts
+                else:
+                    path_parts = [root_name]
+                path_parts.append(file_name)
+                path_json = ",".join(
+                    [f'"{html.escape(part)}"' for part in path_parts if part]
+                )
+
+                # Build properties based on what's available
+                props = [
+                    f'name="{html.escape(file_name)}"',
+                    f'displayPath="{html.escape(display_path)}"',
+                    f"path={{[{path_json}]}}",
+                    f"level={{{level}}}",
+                ]
+
+                # Add optional properties
+                if sort_by_loc:
+                    props.append(f"locCount={{{loc}}}")
+
+                if sort_by_size:
+                    props.append(f"sizeCount={{{size}}}")
+                    props.append(f'sizeFormatted="{format_size(size)}"')
+
+                if sort_by_mtime:
+                    props.append(f"mtimeCount={{{mtime}}}")
+                    props.append(f'mtimeFormatted="{format_timestamp(mtime)}"')
+
+                # Build final JSX element
+                jsx_content.append(f"<FileItem {' '.join(props)} />")
+
         return "\n".join(jsx_content)
 
     combined_imports = ""
@@ -1101,6 +908,7 @@ def generate_jsx_component(
     try:
         with open(output_path, "w", encoding="utf-8") as f:
             f.write(component_template)
+        logger.info(f"Successfully exported to React component: {output_path}")
     except Exception as e:
         logger.error(f"Error exporting to React component: {e}")
         raise

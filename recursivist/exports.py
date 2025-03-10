@@ -20,7 +20,7 @@ import logging
 import os
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union, cast
 
-from recursivist.core import format_size, format_timestamp
+from recursivist.core import format_size, format_timestamp, generate_color_for_extension
 from recursivist.jsx_export import generate_jsx_component
 
 logger = logging.getLogger(__name__)
@@ -66,7 +66,7 @@ def sort_files_by_type(
             if sort_by_loc and sort_by_size:
                 return item[3]
             elif sort_by_size and not sort_by_loc:
-                return item[2]
+                return item[3]
         elif len(item) == 3 and sort_by_size:
             return item[2]
         return 0
@@ -79,14 +79,11 @@ def sort_files_by_type(
     def get_mtime(item):
         if not isinstance(item, tuple):
             return 0
-        if len(item) > 4 and sort_by_loc and sort_by_size and sort_by_mtime:
+        if len(item) > 4:
             return item[4]
-        elif len(item) > 3 and (
-            (sort_by_loc and sort_by_mtime and not sort_by_size)
-            or (sort_by_size and sort_by_mtime and not sort_by_loc)
-        ):
+        elif len(item) > 3:
             return item[3]
-        elif len(item) > 2 and sort_by_mtime and not sort_by_loc and not sort_by_size:
+        elif len(item) > 2:
             return item[2]
         return 0
 
@@ -728,6 +725,29 @@ class DirectoryExporter:
                     self.sort_by_size,
                     self.sort_by_mtime,
                 ):
+                    if isinstance(file_item, tuple):
+                        if len(file_item) > 4:
+                            file_name, display_path, loc, size, mtime = file_item
+                        elif len(file_item) > 3:
+                            file_name, display_path, loc, size = file_item
+                            mtime = 0
+                        elif len(file_item) > 2:
+                            file_name, display_path, loc = file_item
+                            size = 0
+                            mtime = 0
+                        else:
+                            file_name, display_path = file_item
+                            loc = 0
+                            size = 0
+                            mtime = 0
+                    else:
+                        file_name = cast(str, file_item)
+                        display_path = file_name
+                        loc = 0
+                        size = 0
+                        mtime = 0
+                    ext = os.path.splitext(file_name)[1].lower()
+                    color = generate_color_for_extension(ext)
                     if (
                         self.sort_by_loc
                         and self.sort_by_size
@@ -735,9 +755,8 @@ class DirectoryExporter:
                         and isinstance(file_item, tuple)
                         and len(file_item) > 4
                     ):
-                        _, display_path, loc, size, mtime = file_item
                         html_content.append(
-                            f'<li class="file">📄 {html.escape(display_path)} ({loc} lines, {format_size(size)}, {format_timestamp(mtime)})</li>'
+                            f'<li class="file" style="color: {color};">📄 {html.escape(display_path)} ({loc} lines, {format_size(size)}, {format_timestamp(mtime)})</li>'
                         )
                     elif (
                         self.sort_by_loc
@@ -750,7 +769,7 @@ class DirectoryExporter:
                         else:
                             _, display_path, loc, mtime = file_item
                         html_content.append(
-                            f'<li class="file">📄 {html.escape(display_path)} ({loc} lines, {format_timestamp(mtime)})</li>'
+                            f'<li class="file" style="color: {color};">📄 {html.escape(display_path)} ({loc} lines, {format_timestamp(mtime)})</li>'
                         )
                     elif (
                         self.sort_by_size
@@ -763,7 +782,7 @@ class DirectoryExporter:
                         else:
                             _, display_path, size, mtime = file_item
                         html_content.append(
-                            f'<li class="file">📄 {html.escape(display_path)} ({format_size(size)}, {format_timestamp(mtime)})</li>'
+                            f'<li class="file" style="color: {color};">📄 {html.escape(display_path)} ({format_size(size)}, {format_timestamp(mtime)})</li>'
                         )
                     elif (
                         self.sort_by_loc
@@ -776,7 +795,7 @@ class DirectoryExporter:
                         else:
                             _, display_path, loc, size = file_item
                         html_content.append(
-                            f'<li class="file">📄 {html.escape(display_path)} ({loc} lines, {format_size(size)})</li>'
+                            f'<li class="file" style="color: {color};">📄 {html.escape(display_path)} ({loc} lines, {format_size(size)})</li>'
                         )
                     elif (
                         self.sort_by_mtime
@@ -790,7 +809,7 @@ class DirectoryExporter:
                         else:
                             _, display_path, mtime = file_item
                         html_content.append(
-                            f'<li class="file">📄 {html.escape(display_path)} ({format_timestamp(mtime)})</li>'
+                            f'<li class="file" style="color: {color};">📄 {html.escape(display_path)} ({format_timestamp(mtime)})</li>'
                         )
                     elif (
                         self.sort_by_size
@@ -804,7 +823,7 @@ class DirectoryExporter:
                         else:
                             _, display_path, size = file_item
                         html_content.append(
-                            f'<li class="file">📄 {html.escape(display_path)} ({format_size(size)})</li>'
+                            f'<li class="file" style="color: {color};">📄 {html.escape(display_path)} ({format_size(size)})</li>'
                         )
                     elif (
                         self.sort_by_loc
@@ -818,7 +837,7 @@ class DirectoryExporter:
                         else:
                             _, display_path, loc = file_item
                         html_content.append(
-                            f'<li class="file">📄 {html.escape(display_path)} ({loc} lines)</li>'
+                            f'<li class="file" style="color: {color};">📄 {html.escape(display_path)} ({loc} lines)</li>'
                         )
                     elif self.show_full_path and isinstance(file_item, tuple):
                         if len(file_item) > 4:
@@ -830,7 +849,7 @@ class DirectoryExporter:
                         else:
                             _, full_path = file_item
                         html_content.append(
-                            f'<li class="file">📄 {html.escape(full_path)}</li>'
+                            f'<li class="file" style="color: {color};">📄 {html.escape(full_path)}</li>'
                         )
                     else:
                         if isinstance(file_item, tuple):
@@ -845,7 +864,7 @@ class DirectoryExporter:
                         else:
                             filename_str = cast(str, file_item)
                         html_content.append(
-                            f'<li class="file">📄 {html.escape(filename_str)}</li>'
+                            f'<li class="file" style="color: {color};">📄 {html.escape(filename_str)}</li>'
                         )
             for name, content in sorted(structure.items()):
                 if (
