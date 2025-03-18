@@ -19,6 +19,7 @@ import datetime
 import fnmatch
 import hashlib
 import logging
+import math
 import os
 import re
 from datetime import datetime as dt
@@ -211,11 +212,43 @@ def should_exclude(
     return False
 
 
+_EXTENSION_COLORS: Dict[str, str] = {}
+
+
+def color_distance(color1, color2):
+    """
+    Calculate perceptual distance between two colors in RGB space.
+    Using a weighted Euclidean distance that accounts for human perception.
+
+    Args:
+        color1: First color as (r, g, b) tuple with values 0-255
+        color2: Second color as (r, g, b) tuple with values 0-255
+
+    Returns:
+        Float representing perceptual distance
+    """
+    r1, g1, b1 = [x / 255 for x in color1]
+    r2, g2, b2 = [x / 255 for x in color2]
+    r_weight, g_weight, b_weight = 0.3, 0.59, 0.11
+    dist = math.sqrt(
+        r_weight * (r1 - r2) ** 2
+        + g_weight * (g1 - g2) ** 2
+        + b_weight * (b1 - b2) ** 2
+    )
+    return dist
+
+
+def hex_to_rgb(hex_color):
+    """Convert hex color to RGB tuple."""
+    hex_color = hex_color.lstrip("#")
+    return tuple(int(hex_color[i : i + 2], 16) for i in (0, 2, 4))
+
+
 def generate_color_for_extension(extension: str) -> str:
-    """Generate a consistent color for a file extension.
+    """Generate a consistent color for a file extension with collision detection.
 
     Creates a deterministic color based on the extension string using a hash function.
-    The same extension will always get the same color within a session, ensuring visual consistency.
+    The same extension will always get the same color within a session, and different extensions get visually distinct colors.
 
     Args:
         extension: File extension (with or without leading dot)
@@ -223,17 +256,47 @@ def generate_color_for_extension(extension: str) -> str:
     Returns:
         Hex color code (e.g., "#FF5733")
     """
-
+    global _EXTENSION_COLORS
     if not extension:
         return "#FFFFFF"
-    hash_value = int(hashlib.md5(extension.encode()).hexdigest(), 16)
-    hue = hash_value % 360 / 360.0
-    saturation = 0.7
-    value = 0.95
+    if extension in _EXTENSION_COLORS:
+        return _EXTENSION_COLORS[extension]
+    hash_bytes = hashlib.md5(extension.encode()).digest()
+    hue_int = int.from_bytes(hash_bytes[0:4], byteorder="big")
+    hue = (hue_int % 360) / 360.0
+    sat_int = hash_bytes[4]
+    saturation = 0.65 + (sat_int % 26) / 100.0
+    val_int = hash_bytes[5]
+    value = 0.85 + (val_int % 16) / 100.0
+    min_acceptable_distance = 0.15
+    max_attempts = 15
     rgb = colorsys.hsv_to_rgb(hue, saturation, value)
-    return "#{:02x}{:02x}{:02x}".format(
-        int(rgb[0] * 255), int(rgb[1] * 255), int(rgb[2] * 255)
-    )
+    initial_color = (int(rgb[0] * 255), int(rgb[1] * 255), int(rgb[2] * 255))
+    if not _EXTENSION_COLORS:
+        hex_color = "#{:02x}{:02x}{:02x}".format(*initial_color)
+        _EXTENSION_COLORS[extension] = hex_color
+        return hex_color
+    best_color = initial_color
+    best_min_distance = 0
+    for attempt in range(max_attempts):
+        test_hue = (hue + (attempt * 0.1)) % 1.0
+        test_sat = min(1.0, saturation + (attempt * 0.02))
+        test_val = max(0.8, value - (attempt * 0.01))
+        rgb = colorsys.hsv_to_rgb(test_hue, test_sat, test_val)
+        test_color = (int(rgb[0] * 255), int(rgb[1] * 255), int(rgb[2] * 255))
+        min_distance = float("inf")
+        for existing_color in _EXTENSION_COLORS.values():
+            existing_rgb = hex_to_rgb(existing_color)
+            distance = color_distance(test_color, existing_rgb)
+            min_distance = min(min_distance, distance)
+        if min_distance > best_min_distance:
+            best_min_distance = int(min_distance)
+            best_color = test_color
+        if min_distance >= min_acceptable_distance:
+            break
+    hex_color = "#{:02x}{:02x}{:02x}".format(*best_color)
+    _EXTENSION_COLORS[extension] = hex_color
+    return hex_color
 
 
 def get_directory_structure(
