@@ -123,7 +123,11 @@ def sort_files_by_type(
     elif all_tuples:
         return sorted(
             files,
-            key=lambda t: (os.path.splitext(t[0])[1].lower(), t[0].lower()),
+            key=lambda t: (
+                (os.path.splitext(t[0])[1].lower(), t[0].lower())
+                if len(t) > 0
+                else ("", "")
+            ),
         )
     else:
         str_items: List[str] = []
@@ -139,12 +143,17 @@ def sort_files_by_type(
             if isinstance(item, tuple):
                 tuple_items.append(item)
             else:
-                str_items.append(cast(str, item))
+                str_items.append(item)
         sorted_strings = sorted(
             str_items, key=lambda f: (os.path.splitext(f)[1].lower(), f.lower())
         )
         sorted_tuples = sorted(
-            tuple_items, key=lambda t: (os.path.splitext(t[0])[1].lower(), t[0].lower())
+            tuple_items,
+            key=lambda t: (
+                (os.path.splitext(t[0])[1].lower(), t[0].lower())
+                if len(t) > 0
+                else ("", "")
+            ),
         )
         result: List[
             Union[
@@ -246,12 +255,9 @@ class DirectoryExporter:
                             self.sort_by_loc
                             and self.sort_by_mtime
                             and isinstance(file_item, tuple)
-                            and len(file_item) > 3
+                            and len(file_item) > 4
                         ):
-                            if len(file_item) > 4:
-                                _, display_path, loc, _, mtime = file_item
-                            else:
-                                _, display_path, loc, mtime = file_item
+                            _, display_path, loc, _, mtime = file_item
                             lines.append(
                                 f"{item_prefix}📄 {display_path} ({loc} lines, {format_timestamp(mtime)})"
                             )
@@ -259,12 +265,9 @@ class DirectoryExporter:
                             self.sort_by_size
                             and self.sort_by_mtime
                             and isinstance(file_item, tuple)
-                            and len(file_item) > 3
+                            and len(file_item) > 4
                         ):
-                            if len(file_item) > 4:
-                                _, display_path, _, size, mtime = file_item
-                            else:
-                                _, display_path, size, mtime = file_item
+                            _, display_path, _, size, mtime = file_item
                             lines.append(
                                 f"{item_prefix}📄 {display_path} ({format_size(size)}, {format_timestamp(mtime)})"
                             )
@@ -330,19 +333,18 @@ class DirectoryExporter:
                                 _, full_path, _, _ = file_item
                             elif len(file_item) > 2:
                                 _, full_path, _ = file_item
-                            else:
+                            elif len(file_item) > 1:
                                 _, full_path = file_item
+                            else:
+                                full_path = (
+                                    file_item[0] if len(file_item) > 0 else "unknown"
+                                )
                             lines.append(f"{item_prefix}📄 {full_path}")
                         else:
                             if isinstance(file_item, tuple):
-                                if len(file_item) > 4:
-                                    file_name, _, _, _, _ = file_item
-                                elif len(file_item) > 3:
-                                    file_name, _, _, _ = file_item
-                                elif len(file_item) > 2:
-                                    file_name, _, _ = file_item
-                                else:
-                                    file_name, _ = file_item
+                                file_name = (
+                                    file_item[0] if len(file_item) > 0 else "unknown"
+                                )
                             else:
                                 file_name = file_item
                             lines.append(f"{item_prefix}📄 {file_name}")
@@ -360,7 +362,7 @@ class DirectoryExporter:
                 else:
                     is_last_dir = True
                     for j in range(i + 1, len(items)):
-                        next_name, next_content = items[j]
+                        next_name, _ = items[j]
                         if next_name not in [
                             "_files",
                             "_max_depth_reached",
@@ -534,14 +536,30 @@ class DirectoryExporter:
                     if k == "_files":
                         result[k] = []
                         for item in v:
+                            if not isinstance(item, tuple):
+                                result[k].append(item)
+                                continue
+
+                            file_name = "unknown"
+                            full_path = ""
+                            loc = 0
+                            size = 0
+                            mtime = 0
+
+                            if len(item) > 0:
+                                file_name = item[0]
+                            if len(item) > 1:
+                                full_path = item[1]
+
                             if (
                                 self.sort_by_loc
                                 and self.sort_by_size
                                 and self.sort_by_mtime
-                                and isinstance(item, tuple)
                                 and len(item) > 4
                             ):
-                                file_name, full_path, loc, size, mtime = item
+                                loc = item[2]
+                                size = item[3]
+                                mtime = item[4]
                                 result[k].append(
                                     {
                                         "name": file_name,
@@ -556,10 +574,10 @@ class DirectoryExporter:
                             elif (
                                 self.sort_by_loc
                                 and self.sort_by_mtime
-                                and isinstance(item, tuple)
                                 and len(item) > 4
                             ):
-                                file_name, full_path, loc, _, mtime = item
+                                loc = item[2]
+                                mtime = item[4]
                                 result[k].append(
                                     {
                                         "name": file_name,
@@ -572,10 +590,10 @@ class DirectoryExporter:
                             elif (
                                 self.sort_by_size
                                 and self.sort_by_mtime
-                                and isinstance(item, tuple)
                                 and len(item) > 4
                             ):
-                                file_name, full_path, _, size, mtime = item
+                                size = item[3]
+                                mtime = item[4]
                                 result[k].append(
                                     {
                                         "name": file_name,
@@ -587,12 +605,10 @@ class DirectoryExporter:
                                     }
                                 )
                             elif (
-                                self.sort_by_loc
-                                and self.sort_by_size
-                                and isinstance(item, tuple)
-                                and len(item) > 3
+                                self.sort_by_loc and self.sort_by_size and len(item) > 3
                             ):
-                                file_name, full_path, loc, size = item
+                                loc = item[2] if len(item) > 2 else 0
+                                size = item[3] if len(item) > 3 else 0
                                 result[k].append(
                                     {
                                         "name": file_name,
@@ -602,13 +618,8 @@ class DirectoryExporter:
                                         "size_formatted": format_size(size),
                                     }
                                 )
-                            elif self.sort_by_mtime and isinstance(item, tuple):
-                                if len(item) > 4:
-                                    file_name, full_path, _, _, mtime = item
-                                elif len(item) > 3:
-                                    file_name, full_path, _, mtime = item
-                                else:
-                                    file_name, full_path, mtime = item
+                            elif self.sort_by_mtime and len(item) > 2:
+                                mtime = item[2] if len(item) > 2 else 0
                                 result[k].append(
                                     {
                                         "name": file_name,
@@ -617,53 +628,25 @@ class DirectoryExporter:
                                         "mtime_formatted": format_timestamp(mtime),
                                     }
                                 )
-                            elif self.sort_by_size and isinstance(item, tuple):
-                                if len(item) > 3:
-                                    file_name, full_path, _, size = item
-                                    result[k].append(
-                                        {
-                                            "name": file_name,
-                                            "path": full_path,
-                                            "size": size,
-                                            "size_formatted": format_size(size),
-                                        }
-                                    )
-                                elif len(item) > 2:
-                                    file_name, full_path, size = item
-                                    result[k].append(
-                                        {
-                                            "name": file_name,
-                                            "path": full_path,
-                                            "size": size,
-                                            "size_formatted": format_size(size),
-                                        }
-                                    )
-                                else:
-                                    file_name, full_path = item
-                                    result[k].append(
-                                        full_path if self.show_full_path else file_name
-                                    )
-                            elif (
-                                self.sort_by_loc
-                                and isinstance(item, tuple)
-                                and len(item) > 2
-                            ):
-                                file_name, full_path, loc = item
+                            elif self.sort_by_size and len(item) > 2:
+                                size = item[2] if len(item) > 2 else 0
+                                result[k].append(
+                                    {
+                                        "name": file_name,
+                                        "path": full_path,
+                                        "size": size,
+                                        "size_formatted": format_size(size),
+                                    }
+                                )
+                            elif self.sort_by_loc and len(item) > 2:
+                                loc = item[2] if len(item) > 2 else 0
                                 result[k].append(
                                     {"name": file_name, "path": full_path, "loc": loc}
                                 )
-                            elif isinstance(item, tuple):
-                                if len(item) > 4:
-                                    _, full_path, _, _, _ = item
-                                elif len(item) > 3:
-                                    _, full_path, _, _ = item
-                                elif len(item) > 2:
-                                    _, full_path, _ = item
-                                else:
-                                    _, full_path = item
+                            elif len(item) > 1:
                                 result[k].append(full_path)
                             else:
-                                result[k].append(item)
+                                result[k].append(file_name)
                     elif k == "_loc":
                         if self.sort_by_loc:
                             result[k] = v
@@ -706,8 +689,7 @@ class DirectoryExporter:
     def to_html(self, output_path: str) -> None:
         """Export directory structure to an HTML file.
 
-        Creates a standalone HTML file with a styled representation of the directory structure using
-        nested unordered lists with CSS styling for colors and indentation.
+        Creates a standalone HTML file with a styled representation of the directory structure using nested unordered lists with CSS styling for colors and indentation.
 
         Args:
             output_path: Path where the HTML file will be saved
@@ -725,146 +707,94 @@ class DirectoryExporter:
                     self.sort_by_size,
                     self.sort_by_mtime,
                 ):
+                    file_name = "unknown"
+                    display_path = "unknown"
+                    loc = 0
+                    size = 0
+                    mtime = 0
+
                     if isinstance(file_item, tuple):
-                        if len(file_item) > 4:
-                            file_name, display_path, loc, size, mtime = file_item
-                        elif len(file_item) > 3:
-                            file_name, display_path, loc, size = file_item
-                            mtime = 0
-                        elif len(file_item) > 2:
-                            file_name, display_path, loc = file_item
-                            size = 0
-                            mtime = 0
+                        if len(file_item) > 0:
+                            file_name = file_item[0]
+                        if len(file_item) > 1:
+                            display_path = file_item[1]
                         else:
-                            file_name, display_path = file_item
-                            loc = 0
-                            size = 0
-                            mtime = 0
+                            display_path = file_name
+
+                        if (
+                            self.sort_by_loc
+                            and self.sort_by_size
+                            and self.sort_by_mtime
+                            and len(file_item) > 4
+                        ):
+                            loc = file_item[2]
+                            size = file_item[3]
+                            mtime = int(file_item[4])
+                        elif (
+                            self.sort_by_loc
+                            and self.sort_by_mtime
+                            and len(file_item) > 4
+                        ):
+                            loc = file_item[2]
+                            mtime = int(file_item[4])
+                        elif (
+                            self.sort_by_size
+                            and self.sort_by_mtime
+                            and len(file_item) > 4
+                        ):
+                            size = file_item[3]
+                            mtime = int(file_item[4])
+                        elif (
+                            self.sort_by_loc
+                            and self.sort_by_size
+                            and len(file_item) > 3
+                        ):
+                            loc = file_item[2]
+                            size = file_item[3]
+                        elif self.sort_by_loc and len(file_item) > 2:
+                            loc = file_item[2]
+                        elif self.sort_by_size and len(file_item) > 2:
+                            size = file_item[2]
+                        elif self.sort_by_mtime and len(file_item) > 2:
+                            mtime = file_item[2]
                     else:
-                        file_name = cast(str, file_item)
+                        file_name = file_item
                         display_path = file_name
-                        loc = 0
-                        size = 0
-                        mtime = 0
+
                     ext = os.path.splitext(file_name)[1].lower()
                     color = generate_color_for_extension(ext)
-                    if (
-                        self.sort_by_loc
-                        and self.sort_by_size
-                        and self.sort_by_mtime
-                        and isinstance(file_item, tuple)
-                        and len(file_item) > 4
-                    ):
+
+                    if self.sort_by_loc and self.sort_by_size and self.sort_by_mtime:
                         html_content.append(
                             f'<li class="file" style="color: {color};">📄 {html.escape(display_path)} ({loc} lines, {format_size(size)}, {format_timestamp(mtime)})</li>'
                         )
-                    elif (
-                        self.sort_by_loc
-                        and self.sort_by_mtime
-                        and isinstance(file_item, tuple)
-                        and len(file_item) > 3
-                    ):
-                        if len(file_item) > 4:
-                            _, display_path, loc, _, mtime = file_item
-                        else:
-                            _, display_path, loc, mtime = file_item
+                    elif self.sort_by_loc and self.sort_by_mtime:
                         html_content.append(
                             f'<li class="file" style="color: {color};">📄 {html.escape(display_path)} ({loc} lines, {format_timestamp(mtime)})</li>'
                         )
-                    elif (
-                        self.sort_by_size
-                        and self.sort_by_mtime
-                        and isinstance(file_item, tuple)
-                        and len(file_item) > 3
-                    ):
-                        if len(file_item) > 4:
-                            _, display_path, _, size, mtime = file_item
-                        else:
-                            _, display_path, size, mtime = file_item
+                    elif self.sort_by_size and self.sort_by_mtime:
                         html_content.append(
                             f'<li class="file" style="color: {color};">📄 {html.escape(display_path)} ({format_size(size)}, {format_timestamp(mtime)})</li>'
                         )
-                    elif (
-                        self.sort_by_loc
-                        and self.sort_by_size
-                        and isinstance(file_item, tuple)
-                        and len(file_item) > 3
-                    ):
-                        if len(file_item) > 4:
-                            _, display_path, loc, size, _ = file_item
-                        else:
-                            _, display_path, loc, size = file_item
+                    elif self.sort_by_loc and self.sort_by_size:
                         html_content.append(
                             f'<li class="file" style="color: {color};">📄 {html.escape(display_path)} ({loc} lines, {format_size(size)})</li>'
                         )
-                    elif (
-                        self.sort_by_mtime
-                        and isinstance(file_item, tuple)
-                        and len(file_item) > 2
-                    ):
-                        if len(file_item) > 4:
-                            _, display_path, _, _, mtime = file_item
-                        elif len(file_item) > 3:
-                            _, display_path, _, mtime = file_item
-                        else:
-                            _, display_path, mtime = file_item
+                    elif self.sort_by_mtime:
                         html_content.append(
                             f'<li class="file" style="color: {color};">📄 {html.escape(display_path)} ({format_timestamp(mtime)})</li>'
                         )
-                    elif (
-                        self.sort_by_size
-                        and isinstance(file_item, tuple)
-                        and len(file_item) > 2
-                    ):
-                        if len(file_item) > 4:
-                            _, display_path, _, size, _ = file_item
-                        elif len(file_item) > 3:
-                            _, display_path, _, size = file_item
-                        else:
-                            _, display_path, size = file_item
+                    elif self.sort_by_size:
                         html_content.append(
                             f'<li class="file" style="color: {color};">📄 {html.escape(display_path)} ({format_size(size)})</li>'
                         )
-                    elif (
-                        self.sort_by_loc
-                        and isinstance(file_item, tuple)
-                        and len(file_item) > 2
-                    ):
-                        if len(file_item) > 4:
-                            _, display_path, loc, _, _ = file_item
-                        elif len(file_item) > 3:
-                            _, display_path, loc, _ = file_item
-                        else:
-                            _, display_path, loc = file_item
+                    elif self.sort_by_loc:
                         html_content.append(
                             f'<li class="file" style="color: {color};">📄 {html.escape(display_path)} ({loc} lines)</li>'
                         )
-                    elif self.show_full_path and isinstance(file_item, tuple):
-                        if len(file_item) > 4:
-                            _, full_path, _, _, _ = file_item
-                        elif len(file_item) > 3:
-                            _, full_path, _, _ = file_item
-                        elif len(file_item) > 2:
-                            _, full_path, _ = file_item
-                        else:
-                            _, full_path = file_item
-                        html_content.append(
-                            f'<li class="file" style="color: {color};">📄 {html.escape(full_path)}</li>'
-                        )
                     else:
-                        if isinstance(file_item, tuple):
-                            if len(file_item) > 4:
-                                filename_str, _, _, _, _ = file_item
-                            elif len(file_item) > 3:
-                                filename_str, _, _, _ = file_item
-                            elif len(file_item) > 2:
-                                filename_str, _, _ = file_item
-                            else:
-                                filename_str, _ = file_item
-                        else:
-                            filename_str = cast(str, file_item)
                         html_content.append(
-                            f'<li class="file" style="color: {color};">📄 {html.escape(filename_str)}</li>'
+                            f'<li class="file" style="color: {color};">📄 {html.escape(display_path)}</li>'
                         )
             for name, content in sorted(structure.items()):
                 if (
@@ -1112,8 +1042,7 @@ class DirectoryExporter:
     def to_markdown(self, output_path: str) -> None:
         """Export directory structure to a Markdown file.
 
-        Creates a Markdown file with a structured representation of the directory hierarchy using
-        headings, lists, and formatting to distinguish between files and directories.
+        Creates a Markdown file with a structured representation of the directory hierarchy using headings, lists, and formatting to distinguish between files and directories.
 
         Args:
             output_path: Path where the Markdown file will be saved
@@ -1133,119 +1062,87 @@ class DirectoryExporter:
                     self.sort_by_size,
                     self.sort_by_mtime,
                 ):
-                    if (
-                        self.sort_by_loc
-                        and self.sort_by_size
-                        and self.sort_by_mtime
-                        and isinstance(file_item, tuple)
-                        and len(file_item) > 4
-                    ):
-                        _, display_path, loc, size, mtime = file_item
+                    display_path = ""
+                    loc = 0
+                    size = 0
+                    mtime = 0
+
+                    if isinstance(file_item, tuple):
+                        if len(file_item) <= 0:
+                            continue
+
+                        if len(file_item) > 1:
+                            display_path = file_item[1]
+                        else:
+                            display_path = file_item[0]
+
+                        if (
+                            self.sort_by_loc
+                            and self.sort_by_size
+                            and self.sort_by_mtime
+                            and len(file_item) > 4
+                        ):
+                            loc = file_item[2]
+                            size = file_item[3]
+                            mtime = int(file_item[4])
+                        elif (
+                            self.sort_by_loc
+                            and self.sort_by_mtime
+                            and len(file_item) > 4
+                        ):
+                            loc = file_item[2]
+                            mtime = int(file_item[4])
+                        elif (
+                            self.sort_by_size
+                            and self.sort_by_mtime
+                            and len(file_item) > 4
+                        ):
+                            size = file_item[3]
+                            mtime = int(file_item[4])
+                        elif (
+                            self.sort_by_loc
+                            and self.sort_by_size
+                            and len(file_item) > 3
+                        ):
+                            loc = file_item[2]
+                            size = file_item[3]
+                        elif self.sort_by_loc and len(file_item) > 2:
+                            loc = file_item[2]
+                        elif self.sort_by_size and len(file_item) > 2:
+                            size = file_item[2]
+                        elif self.sort_by_mtime and len(file_item) > 2:
+                            mtime = file_item[2]
+                    else:
+                        display_path = file_item
+
+                    if self.sort_by_loc and self.sort_by_size and self.sort_by_mtime:
                         lines.append(
                             f"{indent}- 📄 `{display_path}` ({loc} lines, {format_size(size)}, {format_timestamp(mtime)})"
                         )
-                    elif (
-                        self.sort_by_loc
-                        and self.sort_by_mtime
-                        and isinstance(file_item, tuple)
-                        and len(file_item) > 3
-                    ):
-                        if len(file_item) > 4:
-                            _, display_path, loc, _, mtime = file_item
-                        else:
-                            _, display_path, loc, mtime = file_item
+                    elif self.sort_by_loc and self.sort_by_mtime:
                         lines.append(
                             f"{indent}- 📄 `{display_path}` ({loc} lines, {format_timestamp(mtime)})"
                         )
-                    elif (
-                        self.sort_by_size
-                        and self.sort_by_mtime
-                        and isinstance(file_item, tuple)
-                        and len(file_item) > 3
-                    ):
-                        if len(file_item) > 4:
-                            _, display_path, _, size, mtime = file_item
-                        else:
-                            _, display_path, size, mtime = file_item
+                    elif self.sort_by_size and self.sort_by_mtime:
                         lines.append(
                             f"{indent}- 📄 `{display_path}` ({format_size(size)}, {format_timestamp(mtime)})"
                         )
-                    elif (
-                        self.sort_by_loc
-                        and self.sort_by_size
-                        and isinstance(file_item, tuple)
-                        and len(file_item) > 3
-                    ):
-                        if len(file_item) > 4:
-                            _, display_path, loc, size, _ = file_item
-                        else:
-                            _, display_path, loc, size = file_item
+                    elif self.sort_by_loc and self.sort_by_size:
                         lines.append(
                             f"{indent}- 📄 `{display_path}` ({loc} lines, {format_size(size)})"
                         )
-                    elif (
-                        self.sort_by_mtime
-                        and isinstance(file_item, tuple)
-                        and len(file_item) > 2
-                    ):
-                        if len(file_item) > 4:
-                            _, display_path, _, _, mtime = file_item
-                        elif len(file_item) > 3:
-                            _, display_path, _, mtime = file_item
-                        else:
-                            _, display_path, mtime = file_item
+                    elif self.sort_by_mtime:
                         lines.append(
                             f"{indent}- 📄 `{display_path}` ({format_timestamp(mtime)})"
                         )
-                    elif (
-                        self.sort_by_size
-                        and isinstance(file_item, tuple)
-                        and len(file_item) > 2
-                    ):
-                        if len(file_item) > 4:
-                            _, display_path, _, size, _ = file_item
-                        elif len(file_item) > 3:
-                            _, display_path, _, size = file_item
-                        else:
-                            _, display_path, size = file_item
+                    elif self.sort_by_size:
                         lines.append(
                             f"{indent}- 📄 `{display_path}` ({format_size(size)})"
                         )
-                    elif (
-                        self.sort_by_loc
-                        and isinstance(file_item, tuple)
-                        and len(file_item) > 2
-                    ):
-                        if len(file_item) > 4:
-                            _, display_path, loc, _, _ = file_item
-                        elif len(file_item) > 3:
-                            _, display_path, loc, _ = file_item
-                        else:
-                            _, display_path, loc = file_item
+                    elif self.sort_by_loc:
                         lines.append(f"{indent}- 📄 `{display_path}` ({loc} lines)")
-                    elif self.show_full_path and isinstance(file_item, tuple):
-                        if len(file_item) > 4:
-                            _, full_path, _, _, _ = file_item
-                        elif len(file_item) > 3:
-                            _, full_path, _, _ = file_item
-                        elif len(file_item) > 2:
-                            _, full_path, _ = file_item
-                        else:
-                            _, full_path = file_item
-                        lines.append(f"{indent}- 📄 `{full_path}`")
                     else:
-                        if isinstance(file_item, tuple):
-                            if len(file_item) > 4:
-                                file_name, _, _, _, _ = file_item
-                            elif len(file_item) > 3:
-                                file_name, _, _, _ = file_item
-                            elif len(file_item) > 2:
-                                file_name, _, _ = file_item
-                            else:
-                                file_name, _ = file_item
-                        else:
-                            file_name = file_item
-                        lines.append(f"{indent}- 📄 `{file_name}`")
+                        lines.append(f"{indent}- 📄 `{display_path}`")
             for name, content in sorted(structure.items()):
                 if (
                     name == "_files"
@@ -1408,8 +1305,7 @@ class DirectoryExporter:
     def to_jsx(self, output_path: str) -> None:
         """Export directory structure to a React component (JSX file).
 
-        Creates a JSX file containing a React component for interactive visualization
-        of the directory structure with collapsible folders and styling.
+        Creates a JSX file containing a React component for interactive visualization of the directory structure with collapsible folders and styling.
 
         Args:
             output_path: Path where the React component file will be saved

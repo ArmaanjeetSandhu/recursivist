@@ -568,7 +568,7 @@ def sort_files_by_type(
             if isinstance(item, tuple):
                 tuple_items.append(item)
             else:
-                str_items.append(cast(str, item))
+                str_items.append(item)
         sorted_strings = sorted(
             str_items, key=lambda f: (os.path.splitext(f)[1].lower(), f.lower())
         )
@@ -622,151 +622,92 @@ def build_tree(
             for file_item in sort_files_by_type(
                 content, sort_by_loc, sort_by_size, sort_by_mtime
             ):
-                if (
-                    sort_by_loc
-                    and sort_by_size
-                    and sort_by_mtime
-                    and isinstance(file_item, tuple)
-                    and len(file_item) > 4
-                ):
-                    file_name, display_path, loc, size, mtime = file_item
-                    ext = os.path.splitext(file_name)[1].lower()
-                    color = color_map.get(ext, "#FFFFFF")
+                file_name = ""
+                full_path = ""
+                loc = 0
+                size = 0
+                mtime = 0.0
+
+                if isinstance(file_item, tuple):
+                    file_name = file_item[0]
+                    if len(file_item) > 1:
+                        full_path = file_item[1]
+                    else:
+                        full_path = file_name
+
+                    if len(file_item) > 2:
+                        if (
+                            sort_by_loc
+                            and sort_by_size
+                            and sort_by_mtime
+                            and len(file_item) > 4
+                        ):
+                            loc = file_item[2]
+                            size = file_item[3]
+                            mtime = file_item[4]
+                        elif sort_by_loc and sort_by_size and len(file_item) > 3:
+                            loc = file_item[2]
+                            size = file_item[3]
+                        elif sort_by_loc and sort_by_mtime and len(file_item) > 4:
+                            loc = file_item[2]
+                            mtime = file_item[4]
+                        elif sort_by_size and sort_by_mtime and len(file_item) > 4:
+                            size = file_item[3]
+                            mtime = file_item[4]
+                        elif sort_by_loc and len(file_item) > 2:
+                            loc = file_item[2]
+                        elif sort_by_size and len(file_item) > 2:
+                            size = file_item[2]
+                        elif sort_by_mtime and len(file_item) > 2:
+                            mtime = file_item[2]
+                else:
+                    file_name = file_item
+                    full_path = file_name
+
+                display_path = full_path if show_full_path else file_name
+
+                ext = os.path.splitext(file_name)[1].lower()
+                color = color_map.get(ext, "#FFFFFF")
+
+                if sort_by_loc and sort_by_size and sort_by_mtime and loc > 0:
                     colored_text = Text(
                         f"📄 {display_path} ({loc} lines, {format_size(size)}, {format_timestamp(mtime)})",
                         style=color,
                     )
-                    tree.add(colored_text)
-                elif (
-                    sort_by_loc
-                    and sort_by_mtime
-                    and isinstance(file_item, tuple)
-                    and len(file_item) > 3
-                ):
-                    if len(file_item) > 4:
-                        file_name, display_path, loc, _, mtime = file_item
-                    else:
-                        file_name, display_path, loc, mtime = file_item
-                    ext = os.path.splitext(file_name)[1].lower()
-                    color = color_map.get(ext, "#FFFFFF")
+                elif sort_by_loc and sort_by_mtime and loc > 0:
                     colored_text = Text(
                         f"📄 {display_path} ({loc} lines, {format_timestamp(mtime)})",
                         style=color,
                     )
-                    tree.add(colored_text)
-                elif (
-                    sort_by_size
-                    and sort_by_mtime
-                    and isinstance(file_item, tuple)
-                    and len(file_item) > 3
-                ):
-                    if len(file_item) > 4:
-                        file_name, display_path, _, size, mtime = file_item
-                    else:
-                        file_name, display_path, size, mtime = file_item
-                    ext = os.path.splitext(file_name)[1].lower()
-                    color = color_map.get(ext, "#FFFFFF")
+                elif sort_by_size and sort_by_mtime and size > 0:
                     colored_text = Text(
                         f"📄 {display_path} ({format_size(size)}, {format_timestamp(mtime)})",
                         style=color,
                     )
-                    tree.add(colored_text)
-                elif (
-                    sort_by_loc
-                    and sort_by_size
-                    and isinstance(file_item, tuple)
-                    and len(file_item) > 3
-                ):
-                    if len(file_item) > 4:
-                        file_name, display_path, loc, size, _ = file_item
-                    else:
-                        file_name, display_path, loc, size = file_item
-                    ext = os.path.splitext(file_name)[1].lower()
-                    color = color_map.get(ext, "#FFFFFF")
+                elif sort_by_loc and sort_by_size and loc > 0:
                     colored_text = Text(
                         f"📄 {display_path} ({loc} lines, {format_size(size)})",
                         style=color,
                     )
-                    tree.add(colored_text)
-                elif (
-                    sort_by_mtime
-                    and isinstance(file_item, tuple)
-                    and len(file_item) > 2
-                ):
-                    if len(file_item) > 4:
-                        file_name, display_path, _, _, mtime = file_item
-                    elif len(file_item) > 3:
-                        file_name, display_path, _, mtime = file_item
-                    else:
-                        file_name, display_path, mtime = file_item
-                    ext = os.path.splitext(file_name)[1].lower()
-                    color = color_map.get(ext, "#FFFFFF")
-                    colored_text = Text(
-                        f"📄 {display_path} ({format_timestamp(mtime)})",
-                        style=color,
-                    )
-                    tree.add(colored_text)
-                elif (
-                    sort_by_size and isinstance(file_item, tuple) and len(file_item) > 2
-                ):
-                    if len(file_item) > 4:
-                        file_name, display_path, _, size, _ = file_item
-                    elif len(file_item) > 3:
-                        file_name, display_path, _, size = file_item
-                    else:
-                        file_name, display_path, size = file_item
-                    ext = os.path.splitext(file_name)[1].lower()
-                    color = color_map.get(ext, "#FFFFFF")
-                    colored_text = Text(
-                        f"📄 {display_path} ({format_size(size)})",
-                        style=color,
-                    )
-                    tree.add(colored_text)
-                elif (
-                    sort_by_loc and isinstance(file_item, tuple) and len(file_item) > 2
-                ):
-                    if len(file_item) > 4:
-                        file_name, display_path, loc, _, _ = file_item
-                    elif len(file_item) > 3:
-                        file_name, display_path, loc, _ = file_item
-                    else:
-                        file_name, display_path, loc = file_item
-                    ext = os.path.splitext(file_name)[1].lower()
-                    color = color_map.get(ext, "#FFFFFF")
+                elif sort_by_loc and loc > 0:
                     colored_text = Text(
                         f"📄 {display_path} ({loc} lines)",
                         style=color,
                     )
-                    tree.add(colored_text)
-                elif show_full_path and isinstance(file_item, tuple):
-                    if len(file_item) > 4:
-                        file_name, full_path, _, _, _ = file_item
-                    elif len(file_item) > 3:
-                        file_name, full_path, _, _ = file_item
-                    elif len(file_item) > 2:
-                        file_name, full_path, _ = file_item
-                    else:
-                        file_name, full_path = file_item
-                    ext = os.path.splitext(file_name)[1].lower()
-                    color = color_map.get(ext, "#FFFFFF")
-                    colored_text = Text(f"📄 {full_path}", style=color)
-                    tree.add(colored_text)
+                elif sort_by_size and size > 0:
+                    colored_text = Text(
+                        f"📄 {display_path} ({format_size(size)})",
+                        style=color,
+                    )
+                elif sort_by_mtime and mtime > 0:
+                    colored_text = Text(
+                        f"📄 {display_path} ({format_timestamp(mtime)})",
+                        style=color,
+                    )
                 else:
-                    if isinstance(file_item, tuple):
-                        if len(file_item) > 4:
-                            file_name, _, _, _, _ = file_item
-                        elif len(file_item) > 3:
-                            file_name, _, _, _ = file_item
-                        elif len(file_item) > 2:
-                            file_name, _, _ = file_item
-                        else:
-                            file_name, _ = file_item
-                    else:
-                        file_name = cast(str, file_item)
-                    ext = os.path.splitext(file_name)[1].lower()
-                    color = color_map.get(ext, "#FFFFFF")
-                    colored_text = Text(f"📄 {file_name}", style=color)
-                    tree.add(colored_text)
+                    colored_text = Text(f"📄 {display_path}", style=color)
+
+                tree.add(colored_text)
         elif (
             folder == "_loc"
             or folder == "_size"

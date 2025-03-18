@@ -147,6 +147,11 @@ def build_comparison_tree(
         for file_item in sort_files_by_type(
             structure["_files"], sort_by_loc, sort_by_size, sort_by_mtime
         ):
+            if isinstance(file_item, tuple):
+                file_name = file_item[0]
+            else:
+                file_name = file_item
+
             if (
                 sort_by_loc
                 and sort_by_size
@@ -279,11 +284,10 @@ def build_comparison_tree(
                     )
                 tree.add(colored_text)
             elif sort_by_loc and isinstance(file_item, tuple) and len(file_item) > 2:
-                if len(file_item) > 3:
-                    if len(file_item) > 4:
-                        file_name, full_path, loc, _, _ = file_item
-                    else:
-                        file_name, full_path, loc, _ = file_item
+                if len(file_item) > 4:
+                    file_name, full_path, loc, _, _ = file_item
+                elif len(file_item) > 3:
+                    file_name, full_path, loc, _ = file_item
                 else:
                     file_name, full_path, loc = file_item
                 ext = os.path.splitext(file_name)[1].lower()
@@ -316,7 +320,6 @@ def build_comparison_tree(
                     colored_text = Text(f"📄 {full_path}", style=color)
                 tree.add(colored_text)
             else:
-                file_name = cast(str, file_item)
                 ext = os.path.splitext(file_name)[1].lower()
                 color = color_map.get(ext, "#FFFFFF")
                 if file_name not in files_in_other_names:
@@ -505,11 +508,11 @@ def build_comparison_tree(
         for file_item in sort_files_by_type(
             other_structure["_files"], sort_by_loc, sort_by_size, sort_by_mtime
         ):
-            file_name = ""
             if isinstance(file_item, tuple):
                 file_name = file_item[0]
             else:
-                file_name = cast(str, file_item)
+                file_name = file_item
+
             if file_name not in files_in_this_names:
                 if (
                     sort_by_loc
@@ -1326,7 +1329,7 @@ def _export_comparison_to_html(
                         file_name, full_path = file_item
                     display_text = html.escape(full_path)
                 else:
-                    file_name = cast(str, file_item)
+                    file_name = file_item
                     display_text = html.escape(file_name)
                 if file_name not in files_in_other_names:
                     file_class = (
@@ -1557,7 +1560,7 @@ def _export_comparison_to_html(
                         file_name, full_path = file_item
                     display_text = html.escape(full_path)
                 else:
-                    file_name = cast(str, file_item)
+                    file_name = file_item
                     display_text = html.escape(file_name)
                 if file_name not in files_in_this_names:
                     file_class = (

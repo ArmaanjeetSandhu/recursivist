@@ -114,145 +114,163 @@ def generate_jsx_component(
             jsx_content.append("</DirectoryItem>")
         if "_files" in structure:
             files = structure["_files"]
+            sorted_files = []
+
+            valid_files = [
+                f for f in files if not (isinstance(f, tuple) and len(f) == 0)
+            ]
+
+            def safe_get(tup, idx, default=None):
+                if not isinstance(tup, tuple):
+                    return default
+                return tup[idx] if len(tup) > idx else default
+
+            def sort_key_all(f):
+                if isinstance(f, tuple):
+                    if len(f) == 0:
+                        return (0, 0, 0, "")
+                    file_name = f[0].lower() if len(f) > 0 else ""
+                    loc = safe_get(f, 2, 0) if len(f) > 2 else 0
+                    size = safe_get(f, 3, 0) if len(f) > 3 else 0
+                    mtime = safe_get(f, 4, 0) if len(f) > 4 else 0
+                    return (-loc, -size, -mtime, file_name)
+                return (0, 0, 0, f.lower() if isinstance(f, str) else "")
+
+            def sort_key_loc_size(f):
+                if isinstance(f, tuple):
+                    if len(f) == 0:
+                        return (0, 0, "")
+                    file_name = f[0].lower() if len(f) > 0 else ""
+                    loc = safe_get(f, 2, 0) if len(f) > 2 else 0
+                    size = safe_get(f, 3, 0) if len(f) > 3 else 0
+                    return (-loc, -size, file_name)
+                return (0, 0, f.lower() if isinstance(f, str) else "")
+
+            def sort_key_loc_mtime(f):
+                if isinstance(f, tuple):
+                    if len(f) == 0:
+                        return (0, 0, "")
+                    file_name = f[0].lower() if len(f) > 0 else ""
+                    loc = safe_get(f, 2, 0) if len(f) > 2 else 0
+                    mtime = safe_get(f, 3, 0) if len(f) > 3 and sort_by_loc else 0
+                    if len(f) > 4 and sort_by_loc and sort_by_size:
+                        mtime = safe_get(f, 4, 0)
+                    return (-loc, -mtime, file_name)
+                return (0, 0, f.lower() if isinstance(f, str) else "")
+
+            def sort_key_size_mtime(f):
+                if isinstance(f, tuple):
+                    if len(f) == 0:
+                        return (0, 0, "")
+                    file_name = f[0].lower() if len(f) > 0 else ""
+                    size = safe_get(f, 2, 0) if len(f) > 2 else 0
+                    mtime = safe_get(f, 3, 0) if len(f) > 3 else 0
+                    return (-size, -mtime, file_name)
+                return (0, 0, f.lower() if isinstance(f, str) else "")
+
+            def sort_key_mtime(f):
+                if isinstance(f, tuple):
+                    if len(f) == 0:
+                        return (0, "")
+                    file_name = f[0].lower() if len(f) > 0 else ""
+                    mtime = 0
+                    if len(f) > 4 and sort_by_loc and sort_by_size:
+                        mtime = safe_get(f, 4, 0)
+                    elif len(f) > 3 and (sort_by_loc or sort_by_size):
+                        mtime = safe_get(f, 3, 0)
+                    elif len(f) > 2:
+                        mtime = safe_get(f, 2, 0)
+                    return (-mtime, file_name)
+                return (0, f.lower() if isinstance(f, str) else "")
+
+            def sort_key_size(f):
+                if isinstance(f, tuple):
+                    if len(f) == 0:
+                        return (0, "")
+                    file_name = f[0].lower() if len(f) > 0 else ""
+                    size = 0
+                    if len(f) > 3 and sort_by_loc:
+                        size = safe_get(f, 3, 0)
+                    elif len(f) > 2:
+                        size = safe_get(f, 2, 0)
+                    return (-size, file_name)
+                return (0, f.lower() if isinstance(f, str) else "")
+
+            def sort_key_loc(f):
+                if isinstance(f, tuple):
+                    if len(f) == 0:
+                        return (0, "")
+                    file_name = f[0].lower() if len(f) > 0 else ""
+                    loc = safe_get(f, 2, 0) if len(f) > 2 else 0
+                    return (-loc, file_name)
+                return (0, f.lower() if isinstance(f, str) else "")
+
+            def sort_key_name(f):
+                if isinstance(f, tuple):
+                    if len(f) == 0:
+                        return ""
+                    return f[0].lower() if len(f) > 0 else ""
+                return f.lower() if isinstance(f, str) else ""
+
             if sort_by_loc and sort_by_size and sort_by_mtime:
-                sorted_files = sorted(
-                    files,
-                    key=lambda f: (
-                        -(f[2] if isinstance(f, tuple) and len(f) > 2 else 0),
-                        -(f[3] if isinstance(f, tuple) and len(f) > 3 else 0),
-                        -(f[4] if isinstance(f, tuple) and len(f) > 4 else 0),
-                        f[0].lower() if isinstance(f, tuple) else f.lower(),
-                    ),
-                )
+                sorted_files = sorted(valid_files, key=sort_key_all)
             elif sort_by_loc and sort_by_size:
-                sorted_files = sorted(
-                    files,
-                    key=lambda f: (
-                        -(f[2] if isinstance(f, tuple) and len(f) > 2 else 0),
-                        -(f[3] if isinstance(f, tuple) and len(f) > 3 else 0),
-                        f[0].lower() if isinstance(f, tuple) else f.lower(),
-                    ),
-                )
+                sorted_files = sorted(valid_files, key=sort_key_loc_size)
             elif sort_by_loc and sort_by_mtime:
-                sorted_files = sorted(
-                    files,
-                    key=lambda f: (
-                        -(f[2] if isinstance(f, tuple) and len(f) > 2 else 0),
-                        -(
-                            f[4]
-                            if isinstance(f, tuple) and len(f) > 4
-                            else (f[3] if isinstance(f, tuple) and len(f) > 3 else 0)
-                        ),
-                        f[0].lower() if isinstance(f, tuple) else f.lower(),
-                    ),
-                )
+                sorted_files = sorted(valid_files, key=sort_key_loc_mtime)
             elif sort_by_size and sort_by_mtime:
-                sorted_files = sorted(
-                    files,
-                    key=lambda f: (
-                        -(
-                            f[3]
-                            if isinstance(f, tuple) and len(f) > 3
-                            else (f[2] if isinstance(f, tuple) and len(f) > 2 else 0)
-                        ),
-                        -(
-                            f[4]
-                            if isinstance(f, tuple) and len(f) > 4
-                            else (f[3] if isinstance(f, tuple) and len(f) > 3 else 0)
-                        ),
-                        f[0].lower() if isinstance(f, tuple) else f.lower(),
-                    ),
-                )
+                sorted_files = sorted(valid_files, key=sort_key_size_mtime)
             elif sort_by_mtime:
-                sorted_files = sorted(
-                    files,
-                    key=lambda f: (
-                        -(
-                            f[4]
-                            if isinstance(f, tuple) and len(f) > 4
-                            else (
-                                f[3]
-                                if isinstance(f, tuple) and len(f) > 3
-                                else (
-                                    f[2] if isinstance(f, tuple) and len(f) > 2 else 0
-                                )
-                            )
-                        ),
-                        f[0].lower() if isinstance(f, tuple) else f.lower(),
-                    ),
-                )
+                sorted_files = sorted(valid_files, key=sort_key_mtime)
             elif sort_by_size:
-                sorted_files = sorted(
-                    files,
-                    key=lambda f: (
-                        -(
-                            f[3]
-                            if isinstance(f, tuple) and len(f) > 3
-                            else (f[2] if isinstance(f, tuple) and len(f) > 2 else 0)
-                        ),
-                        f[0].lower() if isinstance(f, tuple) else f.lower(),
-                    ),
-                )
+                sorted_files = sorted(valid_files, key=sort_key_size)
             elif sort_by_loc:
-                sorted_files = sorted(
-                    files,
-                    key=lambda f: (
-                        -(f[2] if isinstance(f, tuple) and len(f) > 2 else 0),
-                        f[0].lower() if isinstance(f, tuple) else f.lower(),
-                    ),
-                )
+                sorted_files = sorted(valid_files, key=sort_key_loc)
             else:
-                sorted_files = sorted(
-                    files,
-                    key=lambda f: f[0].lower() if isinstance(f, tuple) else f.lower(),
-                )
+                sorted_files = sorted(valid_files, key=sort_key_name)
+
             for file_item in sorted_files:
-                # Handle different tuple formats carefully
+                file_name = "unknown"
+                display_path = "unknown"
+                loc = 0
+                size = 0
+                mtime = 0
+
                 if isinstance(file_item, tuple):
-                    # Extract file_name and display_path first
-                    file_name = file_item[0]
+                    if len(file_item) == 0:
+                        continue
+
+                    file_name = file_item[0] if len(file_item) > 0 else "unknown"
                     display_path = file_item[1] if len(file_item) > 1 else file_name
 
-                    # Initialize optional properties
-                    loc = 0
-                    size = 0
-                    mtime = 0
-
-                    # Extract additional properties based on tuple size and sorting options
-                    if len(file_item) > 2:
-                        if (
-                            sort_by_loc
-                            and sort_by_size
-                            and sort_by_mtime
-                            and len(file_item) > 4
-                        ):
-                            loc = file_item[2]
-                            size = file_item[3]
-                            mtime = file_item[4]
-                        elif sort_by_loc and sort_by_size and len(file_item) > 3:
-                            loc = file_item[2]
-                            size = file_item[3]
-                        elif sort_by_loc and sort_by_mtime and len(file_item) > 3:
-                            loc = file_item[2]
-                            mtime = file_item[3]
-                        elif sort_by_size and sort_by_mtime and len(file_item) > 3:
-                            size = file_item[2]
-                            mtime = file_item[3]
-                        elif sort_by_loc:
-                            loc = file_item[2]
-                        elif sort_by_size:
-                            size = file_item[2]
-                        elif sort_by_mtime:
-                            mtime = file_item[2]
+                    if (
+                        sort_by_loc
+                        and sort_by_size
+                        and sort_by_mtime
+                        and len(file_item) > 4
+                    ):
+                        loc = file_item[2]
+                        size = file_item[3]
+                        mtime = file_item[4]
+                    elif sort_by_loc and sort_by_size and len(file_item) > 3:
+                        loc = file_item[2]
+                        size = file_item[3]
+                    elif sort_by_loc and sort_by_mtime and len(file_item) > 3:
+                        loc = file_item[2]
+                        mtime = file_item[3]
+                    elif sort_by_size and sort_by_mtime and len(file_item) > 3:
+                        size = file_item[2]
+                        mtime = file_item[3]
+                    elif sort_by_loc and len(file_item) > 2:
+                        loc = file_item[2]
+                    elif sort_by_size and len(file_item) > 2:
+                        size = file_item[2]
+                    elif sort_by_mtime and len(file_item) > 2:
+                        mtime = file_item[2]
                 else:
-                    # Handle string case
                     file_name = file_item
                     display_path = file_name
-                    loc = 0
-                    size = 0
-                    mtime = 0
 
-                # Prepare path parts
                 if path_prefix:
                     path_parts = path_prefix.split("/")
                     if path_parts and path_parts[0] == root_name:
@@ -268,7 +286,6 @@ def generate_jsx_component(
                     [f'"{html.escape(part)}"' for part in path_parts if part]
                 )
 
-                # Build properties based on what's available
                 props = [
                     f'name="{html.escape(file_name)}"',
                     f'displayPath="{html.escape(display_path)}"',
@@ -276,7 +293,6 @@ def generate_jsx_component(
                     f"level={{{level}}}",
                 ]
 
-                # Add optional properties
                 if sort_by_loc:
                     props.append(f"locCount={{{loc}}}")
 
@@ -288,7 +304,6 @@ def generate_jsx_component(
                     props.append(f"mtimeCount={{{mtime}}}")
                     props.append(f'mtimeFormatted="{format_timestamp(mtime)}"')
 
-                # Build final JSX element
                 jsx_content.append(f"<FileItem {' '.join(props)} />")
 
         return "\n".join(jsx_content)

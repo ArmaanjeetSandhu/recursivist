@@ -250,7 +250,7 @@ def visualize(
                 compiled_include = cast(
                     List[Union[str, Pattern[str]]], parsed_include_patterns
                 )
-            structure, extensions = get_directory_structure(
+            _, extensions = get_directory_structure(
                 str(directory),
                 parsed_exclude_dirs,
                 ignore_file,
