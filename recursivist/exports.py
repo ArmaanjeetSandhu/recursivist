@@ -643,8 +643,8 @@ class DirectoryExporter:
                                 result[k].append(
                                     {"name": file_name, "path": full_path, "loc": loc}
                                 )
-                            elif len(item) > 1:
-                                result[k].append(full_path)
+                            elif self.show_full_path and len(item) > 1:
+                                result[k].append({"name": file_name, "path": full_path})
                             else:
                                 result[k].append(file_name)
                     elif k == "_loc":
