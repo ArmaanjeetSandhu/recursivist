@@ -145,9 +145,9 @@ def should_exclude(
 ) -> bool:
     """Determine if a path should be excluded based on filtering rules.
 
-    Applies a hierarchical filtering logic:
-    1. If include_patterns match, INCLUDE the path (overrides all exclusions)
-    2. If exclude_patterns match, EXCLUDE the path
+    Logic to handle priority between include and exclude patterns:
+    1. If include_patterns exist and NONE match, EXCLUDE the path
+    2. If exclude_patterns match, EXCLUDE the path (overrides include patterns)
     3. If file extension is in exclude_extensions, EXCLUDE the path
     4. If gitignore-style patterns match, follow their rules (including negations)
 
@@ -164,10 +164,6 @@ def should_exclude(
 
     patterns = ignore_context.get("patterns", [])
     current_dir = ignore_context.get("current_dir", os.path.dirname(path))
-    if exclude_extensions and os.path.isfile(path):
-        _, ext = os.path.splitext(path)
-        if ext.lower() in exclude_extensions:
-            return True
     rel_path = os.path.relpath(path, current_dir)
     if os.name == "nt":
         rel_path = rel_path.replace("\\", "/")
@@ -185,20 +181,22 @@ def should_exclude(
                 ):
                     included = True
                     break
-        if included:
-            return False
-        else:
+        if not included:
             return True
     if exclude_patterns:
         for pattern in exclude_patterns:
             if isinstance(pattern, Pattern):
                 if pattern.search(rel_path) or pattern.search(basename):
-                    return True
+                    return True  # Matched an exclude pattern, so exclude
             else:
                 if fnmatch.fnmatch(rel_path, pattern) or fnmatch.fnmatch(
                     basename, pattern
                 ):
                     return True
+    if exclude_extensions and os.path.isfile(path):
+        _, ext = os.path.splitext(path)
+        if ext.lower() in exclude_extensions:
+            return True
     if not patterns:
         return False
     for pattern in patterns:
@@ -565,7 +563,7 @@ def sort_files_by_type(
             if sort_by_loc and sort_by_size:
                 return item[3]
             elif sort_by_size and not sort_by_loc:
-                return item[2]
+                return item[3]
         elif len(item) == 3 and sort_by_size:
             return item[2]
         return 0
