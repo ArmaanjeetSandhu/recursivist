@@ -959,16 +959,30 @@ def count_lines_of_code(file_path: str) -> int:
         Number of lines in the file, or 0 if the file cannot be read or is binary
     """
 
+    if file_path.lower().endswith(".bin"):
+        return 0
+    try:
+        with open(file_path, "r", encoding="utf-8", errors="strict") as f:
+            return sum(1 for _ in f)
+    except UnicodeDecodeError:
+        try:
+            with open(file_path, "r", encoding="utf-16", errors="strict") as f:
+                return sum(1 for _ in f)
+        except Exception as e:
+            logger.debug(f"Could not decode file as UTF-16: {file_path}: {e}")
+            pass
+    except Exception as e:
+        logger.debug(f"Could not read file as UTF-8: {file_path}: {e}")
+        return 0
     try:
         with open(file_path, "rb") as f:
             sample = f.read(1024)
-            if b"\0" in sample:
-                logger.debug(f"Skipping binary file: {file_path}")
+            if b"\x00" in sample:
                 return 0
         with open(file_path, "r", encoding="utf-8", errors="replace") as f:
             return sum(1 for _ in f)
     except Exception as e:
-        logger.debug(f"Could not count lines in {file_path}: {e}")
+        logger.debug(f"Could not analyze file: {file_path}: {e}")
         return 0
 
 
