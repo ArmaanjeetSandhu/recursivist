@@ -149,14 +149,15 @@ def should_exclude(
     1. If include_patterns exist and NONE match, EXCLUDE the path
     2. If exclude_patterns match, EXCLUDE the path (overrides include patterns)
     3. If file extension is in exclude_extensions, EXCLUDE the path
-    4. If gitignore-style patterns match, follow their rules (including negations)
+    4. If a matching include pattern exists, INCLUDE the path (overrides gitignore patterns)
+    5. If gitignore-style patterns match, follow their rules (including negations)
 
     Args:
         path: Path to check for exclusion
         ignore_context: Dictionary with 'patterns' and 'current_dir' keys
         exclude_extensions: Set of file extensions to exclude
         exclude_patterns: List of patterns (glob or regex) to exclude
-        include_patterns: List of patterns (glob or regex) to include (overrides exclusions)
+        include_patterns: List of patterns (glob or regex) to include (overrides gitignore exclusions)
 
     Returns:
         True if path should be excluded, False otherwise
@@ -187,7 +188,7 @@ def should_exclude(
         for pattern in exclude_patterns:
             if isinstance(pattern, Pattern):
                 if pattern.search(rel_path) or pattern.search(basename):
-                    return True  # Matched an exclude pattern, so exclude
+                    return True
             else:
                 if fnmatch.fnmatch(rel_path, pattern) or fnmatch.fnmatch(
                     basename, pattern
@@ -197,6 +198,8 @@ def should_exclude(
         _, ext = os.path.splitext(path)
         if ext.lower() in exclude_extensions:
             return True
+    if include_patterns:
+        return False
     if not patterns:
         return False
     for pattern in patterns:
