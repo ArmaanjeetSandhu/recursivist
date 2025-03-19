@@ -247,8 +247,7 @@ def hex_to_rgb(hex_color):
 def generate_color_for_extension(extension: str) -> str:
     """Generate a consistent color for a file extension with collision detection.
 
-    Creates a deterministic color based on the extension string using a hash function.
-    The same extension will always get the same color within a session, and different extensions get visually distinct colors.
+    Creates a deterministic color based on the extension string using a hash function.  The same extension will always get the same color within a session, and different extensions get visually distinct colors.
 
     Args:
         extension: File extension (with or without leading dot)
@@ -259,9 +258,16 @@ def generate_color_for_extension(extension: str) -> str:
     global _EXTENSION_COLORS
     if not extension:
         return "#FFFFFF"
+    normalized_ext = extension
+    if not extension.startswith("."):
+        normalized_ext = "." + extension
     if extension in _EXTENSION_COLORS:
         return _EXTENSION_COLORS[extension]
-    hash_bytes = hashlib.md5(extension.encode()).digest()
+    if extension != normalized_ext and normalized_ext in _EXTENSION_COLORS:
+        color = _EXTENSION_COLORS[normalized_ext]
+        _EXTENSION_COLORS[extension] = color
+        return color
+    hash_bytes = hashlib.md5(normalized_ext.encode()).digest()
     hue_int = int.from_bytes(hash_bytes[0:4], byteorder="big")
     hue = (hue_int % 360) / 360.0
     sat_int = hash_bytes[4]
@@ -275,6 +281,8 @@ def generate_color_for_extension(extension: str) -> str:
     if not _EXTENSION_COLORS:
         hex_color = "#{:02x}{:02x}{:02x}".format(*initial_color)
         _EXTENSION_COLORS[extension] = hex_color
+        if extension != normalized_ext:
+            _EXTENSION_COLORS[normalized_ext] = hex_color
         return hex_color
     best_color = initial_color
     best_min_distance = 0
@@ -296,6 +304,8 @@ def generate_color_for_extension(extension: str) -> str:
             break
     hex_color = "#{:02x}{:02x}{:02x}".format(*best_color)
     _EXTENSION_COLORS[extension] = hex_color
+    if extension != normalized_ext:
+        _EXTENSION_COLORS[normalized_ext] = hex_color
     return hex_color
 
 
