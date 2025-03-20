@@ -579,7 +579,7 @@ def sort_files_by_type(
     def get_mtime(item):
         if not isinstance(item, tuple):
             return 0
-        if len(item) > 4 and sort_by_loc and sort_by_size and sort_by_mtime:
+        if len(item) > 4:
             return item[4]
         elif len(item) > 3 and (
             (sort_by_loc and sort_by_mtime and not sort_by_size)
@@ -604,63 +604,19 @@ def sort_files_by_type(
         return sorted(files, key=lambda f: (-get_size(f)))
     elif sort_by_mtime and (has_mtime or has_simple_mtime):
         return sorted(files, key=lambda f: (-get_mtime(f)))
-    all_tuples = all(isinstance(item, tuple) for item in files)
-    all_strings = all(isinstance(item, str) for item in files)
-    if all_strings:
-        files_as_strings = cast(List[str], files)
-        return cast(
-            List[
-                Union[
-                    str,
-                    Tuple[str, str],
-                    Tuple[str, str, int],
-                    Tuple[str, str, int, int],
-                    Tuple[str, str, int, int, float],
-                ]
-            ],
-            sorted(
-                files_as_strings,
-                key=lambda f: (os.path.splitext(f)[1].lower(), f.lower()),
-            ),
-        )
-    elif all_tuples:
-        return sorted(
-            files,
-            key=lambda t: (os.path.splitext(t[0])[1].lower(), t[0].lower()),
-        )
-    else:
-        str_items: List[str] = []
-        tuple_items: List[
-            Union[
-                Tuple[str, str],
-                Tuple[str, str, int],
-                Tuple[str, str, int, int],
-                Tuple[str, str, int, int, float],
-            ]
-        ] = []
-        for item in files:
-            if isinstance(item, tuple):
-                tuple_items.append(item)
-            else:
-                str_items.append(item)
-        sorted_strings = sorted(
-            str_items, key=lambda f: (os.path.splitext(f)[1].lower(), f.lower())
-        )
-        sorted_tuples = sorted(
-            tuple_items, key=lambda t: (os.path.splitext(t[0])[1].lower(), t[0].lower())
-        )
-        result: List[
-            Union[
-                str,
-                Tuple[str, str],
-                Tuple[str, str, int],
-                Tuple[str, str, int, int],
-                Tuple[str, str, int, int, float],
-            ]
-        ] = []
-        result.extend(sorted_strings)
-        result.extend(sorted_tuples)
-        return result
+
+    def get_filename(item):
+        if isinstance(item, tuple):
+            return item[0]
+        return item
+
+    return sorted(
+        files,
+        key=lambda f: (
+            os.path.splitext(get_filename(f))[1].lower(),
+            get_filename(f).lower(),
+        ),
+    )
 
 
 def build_tree(
@@ -898,10 +854,11 @@ def display_tree(
     compiled_exclude = compile_regex_patterns(exclude_patterns, use_regex)
     compiled_include = compile_regex_patterns(include_patterns, use_regex)
     structure, extensions = get_directory_structure(
-        root_dir,
-        exclude_dirs,
-        ignore_file,
-        exclude_extensions,
+        root_dir=root_dir,
+        exclude_dirs=exclude_dirs,
+        ignore_file=ignore_file,
+        exclude_extensions=exclude_extensions,
+        parent_ignore_patterns=None,
         exclude_patterns=compiled_exclude,
         include_patterns=compiled_include,
         max_depth=max_depth,

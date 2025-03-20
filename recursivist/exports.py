@@ -18,7 +18,7 @@ import html
 import json
 import logging
 import os
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Union, cast
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 from recursivist.core import format_size, format_timestamp, generate_color_for_extension
 from recursivist.jsx_export import generate_jsx_component
@@ -81,9 +81,12 @@ def sort_files_by_type(
             return 0
         if len(item) > 4:
             return item[4]
-        elif len(item) > 3:
+        elif len(item) > 3 and (
+            (sort_by_loc and sort_by_mtime and not sort_by_size)
+            or (sort_by_size and sort_by_mtime and not sort_by_loc)
+        ):
             return item[3]
-        elif len(item) > 2:
+        elif len(item) > 2 and sort_by_mtime and not sort_by_loc and not sort_by_size:
             return item[2]
         return 0
 
@@ -101,72 +104,19 @@ def sort_files_by_type(
         return sorted(files, key=lambda f: (-get_size(f)))
     elif sort_by_mtime and (has_mtime or has_simple_mtime):
         return sorted(files, key=lambda f: (-get_mtime(f)))
-    all_tuples = all(isinstance(item, tuple) for item in files)
-    all_strings = all(isinstance(item, str) for item in files)
-    if all_strings:
-        files_as_strings = cast(List[str], files)
-        return cast(
-            List[
-                Union[
-                    str,
-                    Tuple[str, str],
-                    Tuple[str, str, int],
-                    Tuple[str, str, int, int],
-                    Tuple[str, str, int, int, float],
-                ]
-            ],
-            sorted(
-                files_as_strings,
-                key=lambda f: (os.path.splitext(f)[1].lower(), f.lower()),
-            ),
-        )
-    elif all_tuples:
-        return sorted(
-            files,
-            key=lambda t: (
-                (os.path.splitext(t[0])[1].lower(), t[0].lower())
-                if len(t) > 0
-                else ("", "")
-            ),
-        )
-    else:
-        str_items: List[str] = []
-        tuple_items: List[
-            Union[
-                Tuple[str, str],
-                Tuple[str, str, int],
-                Tuple[str, str, int, int],
-                Tuple[str, str, int, int, float],
-            ]
-        ] = []
-        for item in files:
-            if isinstance(item, tuple):
-                tuple_items.append(item)
-            else:
-                str_items.append(item)
-        sorted_strings = sorted(
-            str_items, key=lambda f: (os.path.splitext(f)[1].lower(), f.lower())
-        )
-        sorted_tuples = sorted(
-            tuple_items,
-            key=lambda t: (
-                (os.path.splitext(t[0])[1].lower(), t[0].lower())
-                if len(t) > 0
-                else ("", "")
-            ),
-        )
-        result: List[
-            Union[
-                str,
-                Tuple[str, str],
-                Tuple[str, str, int],
-                Tuple[str, str, int, int],
-                Tuple[str, str, int, int, float],
-            ]
-        ] = []
-        result.extend(sorted_strings)
-        result.extend(sorted_tuples)
-        return result
+
+    def get_filename(item):
+        if isinstance(item, tuple):
+            return item[0]
+        return item
+
+    return sorted(
+        files,
+        key=lambda f: (
+            os.path.splitext(get_filename(f))[1].lower(),
+            get_filename(f).lower(),
+        ),
+    )
 
 
 class DirectoryExporter:

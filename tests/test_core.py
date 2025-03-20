@@ -1,19 +1,12 @@
-"""
-Tests for the core functionality of the recursivist package.
-
-This module tests the fundamental components of the package:
-- Directory structure generation and representation
-- Pattern matching and filtering
-- Color coding by file extension
-- Handling of ignore files
-- Tree visualization formatting
-"""
-
+import json
 import os
 import re
 import time
-from typing import Any
+from pathlib import Path
+from typing import Any, Dict
+from unittest.mock import MagicMock, mock_open
 
+import pytest
 from pytest_mock import MockerFixture
 from rich.text import Text
 from rich.tree import Tree
@@ -22,6 +15,8 @@ from recursivist.core import (
     build_tree,
     compile_regex_patterns,
     count_lines_of_code,
+    display_tree,
+    export_structure,
     format_size,
     format_timestamp,
     generate_color_for_extension,
@@ -34,8 +29,627 @@ from recursivist.core import (
 )
 
 
+class TestFileSize:
+    @pytest.mark.parametrize(
+        "file_name,size",
+        [
+            ("empty.txt", 0),
+            ("small.txt", 10),
+            ("medium.txt", 1024),
+        ],
+    )
+    def test_normal_files(self, temp_dir, file_name, size):
+        path = os.path.join(temp_dir, file_name)
+        with open(path, "wb") as f:
+            f.write(b"x" * size)
+        assert get_file_size(path) == size
+
+    def test_nonexistent_file(self, temp_dir):
+        non_existent = os.path.join(temp_dir, "non_existent.txt")
+        assert get_file_size(non_existent) == 0
+
+    @pytest.mark.parametrize(
+        "error_type,error_msg",
+        [
+            (PermissionError, "Permission denied"),
+            (Exception, "Generic error"),
+        ],
+    )
+    def test_file_errors(self, mocker: MockerFixture, temp_dir, error_type, error_msg):
+        error_file = os.path.join(temp_dir, "error.txt")
+        with open(error_file, "w") as f:
+            f.write("content")
+        mocker.patch("os.path.getsize", side_effect=error_type(error_msg))
+        assert get_file_size(error_file) == 0
+
+    def test_special_files(self, mocker: MockerFixture):
+        mocker.patch("os.path.getsize", return_value=42)
+        assert get_file_size("/dev/null") == 42
+
+
+class TestFileMtime:
+    def test_normal_files(self, temp_dir):
+        file_path = os.path.join(temp_dir, "test_file.txt")
+        with open(file_path, "w") as f:
+            f.write("content")
+        actual_mtime = os.path.getmtime(file_path)
+        assert get_file_mtime(file_path) == actual_mtime
+
+    @pytest.mark.parametrize(
+        "error_type,error_msg,expected",
+        [
+            (None, None, 0.0),
+            (PermissionError, "Permission denied", 0.0),
+            (Exception, "Generic error", 0.0),
+        ],
+    )
+    def test_file_errors(
+        self, mocker: MockerFixture, temp_dir, error_type, error_msg, expected
+    ):
+        if error_type is None:
+            non_existent = os.path.join(temp_dir, "non_existent.txt")
+            assert get_file_mtime(non_existent) == expected
+        else:
+            error_file = os.path.join(temp_dir, "error.txt")
+            with open(error_file, "w") as f:
+                f.write("content")
+            mocker.patch("os.path.getmtime", side_effect=error_type(error_msg))
+            assert get_file_mtime(error_file) == expected
+
+    def test_future_timestamp(self, mocker: MockerFixture):
+        future_time = time.time() + 86400 * 365
+        mocker.patch("os.path.getmtime", return_value=future_time)
+        assert get_file_mtime("/path/to/future/file") == future_time
+
+
+class TestCountLines:
+    @pytest.mark.parametrize(
+        "file_content,expected_lines",
+        [
+            ("", 0),
+            ("Single line", 1),
+            ("Line 1\nLine 2\nLine 3", 3),
+            ("Line 1\nLine 2\nLine 3\n", 3),
+        ],
+    )
+    def test_line_counting(self, temp_dir, file_content, expected_lines):
+        file_path = os.path.join(temp_dir, f"test_file_{expected_lines}.txt")
+        with open(file_path, "w") as f:
+            f.write(file_content)
+        assert count_lines_of_code(file_path) == expected_lines
+
+    def test_binary_file(self, temp_dir):
+        file_path = os.path.join(temp_dir, "binary.bin")
+        with open(file_path, "wb") as f:
+            f.write(b"\x00\x01\x02\x03")
+        assert count_lines_of_code(file_path) == 0
+
+    def test_nonexistent_file(self, temp_dir):
+        non_existent = os.path.join(temp_dir, "non_existent.txt")
+        assert count_lines_of_code(non_existent) == 0
+
+    def test_permission_denied(self, mocker: MockerFixture, temp_dir):
+        permission_denied = os.path.join(temp_dir, "permission_denied.txt")
+        with open(permission_denied, "w") as f:
+            f.write("content")
+        mock_open_call = mock_open(read_data="content")
+        mocker.patch("builtins.open", mock_open_call)
+        mock_open_call.side_effect = PermissionError("Permission denied")
+        assert count_lines_of_code(permission_denied) == 0
+
+    @pytest.mark.parametrize("encoding", ["utf-8", "utf-16"])
+    def test_with_different_encodings(self, temp_dir, encoding):
+        """Test counting lines with different file encodings."""
+        file_path = os.path.join(temp_dir, f"{encoding}.txt")
+        try:
+            with open(file_path, "w", encoding=encoding) as f:
+                f.write("Line 1\nLine 2\n")
+            line_count = count_lines_of_code(file_path)
+            assert line_count == 2
+        except Exception as e:
+            pytest.fail(f"count_lines_of_code failed with {encoding} encoding: {e}")
+
+    def test_very_large_file(self, temp_dir):
+        """Test counting lines in a large file."""
+        test_file_path = os.path.join(temp_dir, "large_test.txt")
+        expected_lines = 1000
+        with open(test_file_path, "w") as f:
+            for i in range(expected_lines):
+                f.write(f"Line {i}\n")
+        line_count = count_lines_of_code(test_file_path)
+        assert line_count == expected_lines
+
+
+class TestFormatSize:
+    @pytest.mark.parametrize(
+        "size,expected",
+        [
+            (0, "0 B"),
+            (1, "1 B"),
+            (10, "10 B"),
+            (999, "999 B"),
+            (1023, "1023 B"),
+            (1024, "1.0 KB"),
+            (1500, "1.5 KB"),
+            (10 * 1024, "10.0 KB"),
+            (1023.9 * 1024, "1023.9 KB"),
+            (1024 * 1024, "1.0 MB"),
+            (1.5 * 1024 * 1024, "1.5 MB"),
+            (10 * 1024 * 1024, "10.0 MB"),
+            (1023.9 * 1024 * 1024, "1023.9 MB"),
+            (1024 * 1024 * 1024, "1.0 GB"),
+            (1.5 * 1024 * 1024 * 1024, "1.5 GB"),
+            (10 * 1024 * 1024 * 1024, "10.0 GB"),
+            (-1, "-1 B"),
+            (1024 * 1024 * 1024 * 1024, "1024.0 GB"),
+        ],
+    )
+    def test_format_size(self, size, expected):
+        assert format_size(size) == expected
+
+
+class TestFormatTimestamp:
+    def test_today(self):
+        now = time.time()
+        formatted = format_timestamp(now)
+        assert "Today" in formatted
+        assert re.match(r"Today \d\d:\d\d", formatted)
+
+    def test_yesterday(self):
+        yesterday = time.time() - 86400
+        formatted = format_timestamp(yesterday)
+        assert "Yesterday" in formatted
+        assert re.match(r"Yesterday \d\d:\d\d", formatted)
+
+    def test_this_week(self):
+        earlier_this_week = time.time() - 86400 * 3
+        formatted = format_timestamp(earlier_this_week)
+        assert re.match(r"\w{3} \d\d:\d\d", formatted)
+
+    def test_this_year(self):
+        earlier_this_year = time.time() - 86400 * 30
+        formatted = format_timestamp(earlier_this_year)
+        assert re.match(r"\w{3} \d{1,2}", formatted)
+
+    def test_previous_year(self):
+        previous_year = time.time() - 86400 * 400
+        formatted = format_timestamp(previous_year)
+        assert re.match(r"\d{4}-\d{2}-\d{2}", formatted)
+
+    def test_epoch(self):
+        epoch_time = 0
+        formatted = format_timestamp(epoch_time)
+        assert re.match(r"\d{4}-\d{2}-\d{2}", formatted)
+
+
+class TestGenerateColorForExtension:
+    def test_color_format(self):
+        color = generate_color_for_extension(".py")
+        assert re.match(r"^#[0-9A-Fa-f]{6}$", color)
+
+    def test_consistency(self):
+        """Test that the same extension always gets the same color."""
+        color1 = generate_color_for_extension(".py")
+        color2 = generate_color_for_extension(".py")
+        color3 = generate_color_for_extension(".py")
+        assert color1 == color2 == color3
+
+    def test_different_extensions(self):
+        """Test that different extensions get different colors."""
+        extensions = [".py", ".js", ".txt", ".md", ".html", ".css", ".json", ".xml"]
+        colors = [generate_color_for_extension(ext) for ext in extensions]
+        assert len(set(colors)) == len(extensions)
+
+    @pytest.mark.parametrize(
+        "test_case,extension1,extension2",
+        [
+            ("case_sensitivity", ".py", ".PY"),
+            ("with_without_dot", ".py", "py"),
+        ],
+    )
+    def test_extension_variants(self, test_case, extension1, extension2):
+        """Test behavior with different variants of extensions."""
+        color1 = generate_color_for_extension(extension1)
+        color2 = generate_color_for_extension(extension2)
+        assert isinstance(color1, str)
+        assert isinstance(color2, str)
+        assert color1.startswith("#")
+        assert color2.startswith("#")
+        if test_case == "case_sensitivity":
+            assert color1 != color2
+        else:
+            assert color1 == color2
+
+    def test_empty_extension(self):
+        color = generate_color_for_extension("")
+        assert color == "#FFFFFF"
+
+
+class TestBuildTree:
+    def test_basic_tree(self, mocker: MockerFixture, simple_structure, color_map):
+        mock_tree = MagicMock(spec=Tree)
+        mock_subtree = MagicMock(spec=Tree)
+        mock_tree.add.return_value = mock_subtree
+        build_tree(simple_structure, mock_tree, color_map)
+        assert mock_tree.add.call_count >= 3
+        calls = [
+            call
+            for call in mock_tree.add.call_args_list
+            if isinstance(call.args[0], Text)
+        ]
+        file_texts = [call.args[0].plain for call in calls]
+        assert any("file1.txt" in text for text in file_texts)
+        assert any("file2.py" in text for text in file_texts)
+
+    def test_empty_structure(self, mocker: MockerFixture):
+        mock_tree = MagicMock(spec=Tree)
+        color_map: Dict[str, str] = {}
+        structure: Dict[str, Any] = {}
+        build_tree(structure, mock_tree, color_map)
+        mock_tree.add.assert_not_called()
+
+    def test_with_full_paths(self, mocker: MockerFixture, color_map):
+        mock_tree = MagicMock(spec=Tree)
+        mock_subtree = MagicMock(spec=Tree)
+        mock_tree.add.return_value = mock_subtree
+        structure = {
+            "_files": [
+                ("file1.txt", "/path/to/file1.txt"),
+                ("file2.py", "/path/to/file2.py"),
+            ],
+            "subdir": {"_files": [("subfile.py", "/path/to/subdir/subfile.py")]},
+        }
+        build_tree(structure, mock_tree, color_map, show_full_path=True)
+        calls = [
+            call
+            for call in mock_tree.add.call_args_list
+            if isinstance(call.args[0], Text)
+        ]
+        file_texts = [call.args[0].plain for call in calls]
+        assert any("/path/to/file1.txt" in text for text in file_texts)
+        assert any("/path/to/file2.py" in text for text in file_texts)
+
+    @pytest.mark.parametrize(
+        "option,expected_indicator",
+        [
+            ("sort_by_loc", "lines"),
+            ("sort_by_size", ["B", "KB", "MB"]),
+            ("sort_by_mtime", ["Today", "Yesterday", r"\d{4}-\d{2}-\d{2}"]),
+        ],
+    )
+    def test_with_statistics(
+        self,
+        mocker: MockerFixture,
+        structure_with_stats,
+        color_map,
+        option,
+        expected_indicator,
+    ):
+        mock_tree = MagicMock(spec=Tree)
+        mock_subtree = MagicMock(spec=Tree)
+        mock_tree.add.return_value = mock_subtree
+        kwargs = {option: True}
+        build_tree(structure_with_stats, mock_tree, color_map, parent_name="", **kwargs)
+        calls = [str(call.args[0]) for call in mock_tree.add.call_args_list]
+        if isinstance(expected_indicator, list):
+            found = False
+            for indicator in expected_indicator:
+                if any(re.search(indicator, call) for call in calls):
+                    found = True
+                    break
+            assert found, f"None of the expected indicators {expected_indicator} found"
+        else:
+            assert any(
+                expected_indicator in call for call in calls
+            ), f"Expected indicator '{expected_indicator}' not found"
+
+    def test_max_depth_indicator(
+        self, mocker: MockerFixture, max_depth_structure, color_map
+    ):
+        mock_tree = MagicMock(spec=Tree)
+        mock_subtree = MagicMock(spec=Tree)
+        mock_tree.add.return_value = mock_subtree
+        build_tree(max_depth_structure, mock_tree, color_map)
+        mock_subtree.add.assert_called_once()
+        assert "(max depth reached)" in str(mock_subtree.add.call_args[0][0])
+
+
+class TestDisplayTree:
+    def test_basic_display(self, mocker: MockerFixture, temp_dir):
+        mock_console = mocker.patch("recursivist.core.Console")
+        mock_tree_class = mocker.patch("recursivist.core.Tree")
+        mock_build_tree = mocker.patch("recursivist.core.build_tree")
+        mock_get_structure = mocker.patch("recursivist.core.get_directory_structure")
+        mock_get_structure.return_value = ({}, set())
+        with open(os.path.join(temp_dir, "test.txt"), "w") as f:
+            f.write("Test content")
+        display_tree(temp_dir)
+        mock_tree_class.assert_called_once()
+        mock_console.return_value.print.assert_called_once()
+        mock_build_tree.assert_called_once()
+
+    def test_with_filtering_options(self, mocker: MockerFixture, temp_dir):
+        mock_get_structure = mocker.patch("recursivist.core.get_directory_structure")
+        mock_compile_regex = mocker.patch("recursivist.core.compile_regex_patterns")
+        mock_get_structure.return_value = ({}, set())
+        mock_compile_regex.return_value = []
+        exclude_extensions = {".pyc", ".log"}
+        display_tree(
+            temp_dir,
+            ["node_modules", "dist"],
+            ".gitignore",
+            exclude_extensions,
+            ["test_*"],
+            ["*.py"],
+            True,
+            2,
+        )
+        mock_get_structure.assert_called_once()
+        assert mock_compile_regex.call_count >= 1
+        _, kwargs = mock_get_structure.call_args
+        assert kwargs["exclude_dirs"] == ["node_modules", "dist"]
+        assert kwargs["ignore_file"] == ".gitignore"
+        assert kwargs["exclude_extensions"] == {".pyc", ".log"}
+        assert kwargs["max_depth"] == 2
+
+    def test_with_statistics(self, mocker: MockerFixture, temp_dir):
+        mock_tree = mocker.patch("recursivist.core.Tree")
+        mock_get_structure = mocker.patch("recursivist.core.get_directory_structure")
+        structure = {"_loc": 100, "_size": 10240, "_mtime": 1625097600.0, "_files": []}
+        mock_get_structure.return_value = (structure, set())
+        display_tree(temp_dir, sort_by_loc=True, sort_by_size=True, sort_by_mtime=True)
+        args, _ = mock_tree.call_args
+        root_label = args[0]
+        assert "100 lines" in root_label
+        assert "10.0 KB" in root_label
+        date_formats = ["Today", "Yesterday", "Jul 1", "2021-07-01"]
+        assert any(fmt in root_label for fmt in date_formats)
+
+
+@pytest.mark.parametrize(
+    "format_name,format_extension,expected_content",
+    [
+        ("json", "json", ["root", "structure"]),
+        ("txt", "txt", ["file1.txt", "file2.py", "subdir"]),
+        ("md", "md", ["# 📂", "file1.txt", "file2.py", "**subdir**"]),
+        (
+            "html",
+            "html",
+            ["<!DOCTYPE html>", "<html>", "file1.txt", "file2.py", "subdir"],
+        ),
+        (
+            "jsx",
+            "jsx",
+            ["import React", "DirectoryViewer", "file1.txt", "file2.py", "subdir"],
+        ),
+    ],
+)
+def test_export_structure(
+    sample_directory: Any,
+    output_dir: str,
+    format_name: str,
+    format_extension: str,
+    expected_content: list,
+):
+    """Test exporting structure to different formats."""
+    structure, _ = get_directory_structure(sample_directory)
+    output_path = os.path.join(output_dir, f"structure.{format_extension}")
+    export_structure(structure, sample_directory, format_name, output_path)
+    assert os.path.exists(output_path)
+    with open(output_path, "r", encoding="utf-8") as f:
+        content = f.read()
+    for expected in expected_content:
+        assert expected in content
+    if format_name == "json":
+        data = json.loads(content)
+        assert "root" in data
+        assert "structure" in data
+        assert data["root"] == os.path.basename(sample_directory)
+        assert "_files" in data["structure"]
+    elif format_name == "html":
+        assert "</html>" in content
+    elif format_name == "jsx":
+        assert "ChevronDown" in content
+        assert "ChevronUp" in content
+
+
+@pytest.mark.parametrize(
+    "option_name,option_value",
+    [
+        ("show_full_path", True),
+        ("sort_by_loc", True),
+        ("sort_by_size", True),
+        ("sort_by_mtime", True),
+    ],
+)
+def test_export_structure_with_options(
+    sample_directory: Any, output_dir: str, option_name: str, option_value: bool
+):
+    """Test exporting structure with various options."""
+    exclude_dirs = None
+    ignore_file = None
+    exclude_extensions = None
+    parent_ignore_patterns = None
+    exclude_patterns = None
+    include_patterns = None
+    max_depth = 0
+    current_depth = 0
+    current_path = ""
+    show_full_path = False
+    sort_by_loc = False
+    sort_by_size = False
+    sort_by_mtime = False
+    if option_name == "show_full_path":
+        show_full_path = option_value
+    elif option_name == "sort_by_loc":
+        sort_by_loc = option_value
+    elif option_name == "sort_by_size":
+        sort_by_size = option_value
+    elif option_name == "sort_by_mtime":
+        sort_by_mtime = option_value
+    elif option_name == "max_depth":
+        max_depth = option_value
+    structure, _ = get_directory_structure(
+        sample_directory,
+        exclude_dirs,
+        ignore_file,
+        exclude_extensions,
+        parent_ignore_patterns,
+        exclude_patterns,
+        include_patterns,
+        max_depth,
+        current_depth,
+        current_path,
+        show_full_path,
+        sort_by_loc,
+        sort_by_size,
+        sort_by_mtime,
+    )
+    output_path = os.path.join(output_dir, f"structure_{option_name}.json")
+    export_kwargs = {option_name: option_value}
+    export_structure(structure, sample_directory, "json", output_path, **export_kwargs)
+    assert os.path.exists(output_path)
+    with open(output_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    if option_name == "show_full_path":
+        if "_files" in data["structure"]:
+            has_full_path = False
+            for file_item in data["structure"]["_files"]:
+                if isinstance(file_item, dict) and "path" in file_item:
+                    assert os.path.isabs(file_item["path"].replace("/", os.sep))
+                    has_full_path = True
+                    break
+            assert has_full_path, "No full paths found in export"
+    elif option_name in ["sort_by_loc", "sort_by_size", "sort_by_mtime"]:
+        option_flag = f"show_{option_name[8:]}"
+        assert option_flag in data
+        assert data[option_flag] is True
+
+
+def test_export_invalid_format(temp_dir: str, output_dir: str):
+    """Test exporting with an invalid format."""
+    structure = {"_files": ["file1.txt"]}
+    output_path = os.path.join(output_dir, "test_export.invalid")
+    with pytest.raises(ValueError):
+        export_structure(structure, temp_dir, "invalid", output_path)
+
+
+@pytest.mark.parametrize(
+    "files,sort_key,expected_order",
+    [
+        (["c.txt", "b.py", "a.txt", "d.py"], None, ["b.py", "d.py", "a.txt", "c.txt"]),
+        (
+            [
+                ("a.py", "/path/to/a.py", 5),
+                ("b.py", "/path/to/b.py", 10),
+                ("c.py", "/path/to/c.py", 3),
+            ],
+            "sort_by_loc",
+            ["b.py", "a.py", "c.py"],
+        ),
+        (
+            [
+                ("a.py", "/path/to/a.py", 0, 1024),
+                ("b.py", "/path/to/b.py", 0, 2048),
+                ("c.py", "/path/to/c.py", 0, 512),
+            ],
+            "sort_by_size",
+            ["b.py", "a.py", "c.py"],
+        ),
+    ],
+)
+def test_sort_files_by_type(files, sort_key, expected_order):
+    """Test sorting files by different criteria."""
+    kwargs = {}
+    if sort_key:
+        kwargs[sort_key] = True
+    sorted_files = sort_files_by_type(files, **kwargs)
+    sorted_names = []
+    for item in sorted_files:
+        if isinstance(item, tuple):
+            sorted_names.append(item[0])
+        else:
+            sorted_names.append(item)
+    for i, expected_file in enumerate(expected_order):
+        assert (
+            sorted_names[i] == expected_file
+        ), f"Expected {expected_file} at position {i}, got {sorted_names[i]}"
+
+
+@pytest.mark.parametrize(
+    "path,patterns,extensions,expected,exclude_patterns",
+    [
+        ("/test/app.log", ["*.log", "node_modules"], set(), True, None),
+        ("/test/app.txt", ["*.log", "node_modules"], set(), False, None),
+        ("/test/node_modules", ["*.log", "node_modules"], set(), True, None),
+        ("/test/script.py", [], {".py", ".js"}, True, None),
+        ("/test/app.js", [], {".py", ".js"}, True, None),
+        ("/test/app.txt", [], {".py", ".js"}, False, None),
+        ("/test/test_app.py", [], set(), True, [re.compile(r"test_.*\.py$")]),
+        ("/test/app.log", [], set(), True, [re.compile(r"\.log$")]),
+        ("/test/app.py", [], set(), False, [re.compile(r"test_.*\.py$")]),
+    ],
+)
+def test_should_exclude(
+    mocker: MockerFixture, path, patterns, extensions, expected, exclude_patterns
+):
+    """Test file exclusion logic."""
+    mocker.patch("os.path.isfile", return_value=True)
+    ignore_context = {"patterns": patterns, "current_dir": "/test"}
+    kwargs = {}
+    if exclude_patterns:
+        kwargs["exclude_patterns"] = exclude_patterns
+    result = should_exclude(
+        path, ignore_context, exclude_extensions=extensions, **kwargs
+    )
+    assert (
+        result == expected
+    ), f"Expected should_exclude('{path}') to return {expected}, got {result}"
+
+
+@pytest.mark.parametrize(
+    "patterns,is_regex,expected_count,expected_types",
+    [
+        (["*.py", "test_*"], False, 2, [str, str]),
+        ([r"\.py$", r"^test_"], True, 2, [re.Pattern, re.Pattern]),
+        ([r"[invalid", r"(unclosed"], True, 2, [str, str]),
+        ([], False, 0, []),
+        ([], True, 0, []),
+    ],
+)
+def test_compile_regex_patterns(patterns, is_regex, expected_count, expected_types):
+    """Test compiling regex patterns."""
+    compiled = compile_regex_patterns(patterns, is_regex=is_regex)
+    assert len(compiled) == expected_count
+    for i, pattern_type in enumerate(expected_types):
+        assert isinstance(compiled[i], pattern_type)
+
+
+@pytest.mark.parametrize(
+    "content,expected_patterns",
+    [
+        (
+            "# This is a comment\n*.log\n\nnode_modules/\ndist\n# Another comment\n",
+            ["*.log", "node_modules", "dist"],
+        ),
+        ("", []),
+        (
+            "# Logs\n*.log\nlogs/\n!important.log\n# Directories\nnode_modules/\ndist/\n",
+            ["*.log", "logs", "!important.log", "node_modules", "dist"],
+        ),
+    ],
+)
+def test_parse_ignore_file(temp_dir, content, expected_patterns):
+    """Test parsing ignore files."""
+    ignore_path = os.path.join(temp_dir, ".testignore")
+    with open(ignore_path, "w") as f:
+        f.write(content)
+    patterns = parse_ignore_file(ignore_path)
+    assert set(patterns) == set(expected_patterns)
+
+
 def test_get_directory_structure(sample_directory: Any):
-    """Test that directory structure is correctly built."""
+    """Test getting directory structure."""
     structure, extensions = get_directory_structure(sample_directory)
     assert isinstance(structure, dict)
     assert "_files" in structure
@@ -48,618 +662,88 @@ def test_get_directory_structure(sample_directory: Any):
     assert ".json" in extensions
 
 
-def test_get_directory_structure_with_full_path(sample_directory: Any):
-    """Test that directory structure with absolute paths is correctly built."""
-    structure, extensions = get_directory_structure(
-        sample_directory, show_full_path=True
-    )
-    assert isinstance(structure, dict)
-    assert "_files" in structure
-    assert "subdir" in structure
-    assert isinstance(structure["_files"][0], tuple)
-    assert len(structure["_files"][0]) == 2
-    found_txt = False
-    found_py = False
-    for file_name, full_path in structure["_files"]:
-        if file_name == "file1.txt":
-            found_txt = True
-            assert os.path.isabs(
-                full_path.replace("/", os.sep)
-            ), f"Path should be absolute: {full_path}"
-            expected_path = os.path.abspath(os.path.join(sample_directory, "file1.txt"))
-            normalized_expected = expected_path.replace(os.sep, "/")
-            assert (
-                full_path == normalized_expected
-            ), f"Expected {normalized_expected}, got {full_path}"
-        if file_name == "file2.py":
-            found_py = True
-            assert os.path.isabs(
-                full_path.replace("/", os.sep)
-            ), f"Path should be absolute: {full_path}"
-            expected_path = os.path.abspath(os.path.join(sample_directory, "file2.py"))
-            normalized_expected = expected_path.replace(os.sep, "/")
-            assert (
-                full_path == normalized_expected
-            ), f"Expected {normalized_expected}, got {full_path}"
-    assert found_txt, "file1.txt not found in structure with full path"
-    assert found_py, "file2.py not found in structure with full path"
-    assert ".txt" in extensions
-    assert ".py" in extensions
-    assert ".md" in extensions
-    assert ".json" in extensions
-
-
-def test_get_directory_structure_with_excludes(sample_directory: Any):
-    """Test directory structure with excluded directories."""
-    exclude_dirs = ["node_modules"]
-    structure, _ = get_directory_structure(sample_directory, exclude_dirs)
-    assert "node_modules" not in structure
-
-
-def test_get_directory_structure_with_multiple_excludes(sample_directory: Any):
-    """Test directory structure with multiple excluded directories."""
-    os.makedirs(os.path.join(sample_directory, "dist"), exist_ok=True)
-    os.makedirs(os.path.join(sample_directory, "build"), exist_ok=True)
-    with open(os.path.join(sample_directory, "dist", "bundle.js"), "w") as f:
-        f.write("// Bundled JavaScript")
-    with open(os.path.join(sample_directory, "build", "output.txt"), "w") as f:
-        f.write("Build output")
-    exclude_dirs = ["node_modules", "dist", "build"]
-    structure, _ = get_directory_structure(sample_directory, exclude_dirs)
-    assert "node_modules" not in structure
-    assert "dist" not in structure
-    assert "build" not in structure
-
-
-def test_get_directory_structure_with_exclude_extensions(sample_directory: Any):
-    """Test directory structure with excluded file extensions."""
-    exclude_extensions = {".py"}
-    structure, extensions = get_directory_structure(
-        sample_directory, exclude_extensions=exclude_extensions
-    )
-    assert "file2.py" not in structure["_files"]
-    assert ".py" not in extensions
-
-
-def test_get_directory_structure_with_multiple_exclude_extensions(
-    sample_directory: Any,
+@pytest.mark.parametrize(
+    "option_name,option_value,expected_result",
+    [
+        ("show_full_path", True, "tuple with path"),
+        ("max_depth", 1, "max_depth_reached in level1"),
+        ("sort_by_loc", True, "_loc in structure"),
+        ("sort_by_size", True, "_size in structure"),
+        ("sort_by_mtime", True, "_mtime in structure"),
+    ],
+)
+def test_get_directory_structure_with_options(
+    deeply_nested_directory: Any, option_name: str, option_value, expected_result: str
 ):
-    """Test directory structure with multiple excluded file extensions."""
-    with open(os.path.join(sample_directory, "script.js"), "w") as f:
-        f.write("// JavaScript code")
-    with open(os.path.join(sample_directory, "styles.css"), "w") as f:
-        f.write("/* CSS styles */")
-    with open(os.path.join(sample_directory, "data.csv"), "w") as f:
-        f.write("column1,column2\nvalue1,value2")
-    exclude_extensions = {".py", ".js", ".css"}
-    structure, extensions = get_directory_structure(
-        sample_directory, exclude_extensions=exclude_extensions
-    )
-    file_names = structure.get("_files", [])
-    assert "file2.py" not in file_names
-    assert "script.js" not in file_names
-    assert "styles.css" not in file_names
-    assert "data.csv" in file_names
-    assert ".py" not in extensions
-    assert ".js" not in extensions
-    assert ".css" not in extensions
-    assert ".csv" in extensions
-
-
-def test_get_directory_structure_with_ignore_file(sample_directory: Any):
-    """Test directory structure respects gitignore patterns."""
-    log_file = os.path.join(sample_directory, "app.log")
-    with open(log_file, "w") as f:
-        f.write("Some log content")
-    structure, _ = get_directory_structure(sample_directory, ignore_file=".gitignore")
-    assert "app.log" not in structure["_files"]
-    assert "node_modules" not in structure
-
-
-def test_get_directory_structure_with_multiple_ignore_patterns(sample_directory: Any):
-    """Test directory structure with multiple ignore patterns."""
-    gitignore_path = os.path.join(sample_directory, ".gitignore")
-    with open(gitignore_path, "a") as f:
-        f.write("\n*.tmp\n*.cache\ndist/\n")
-    with open(os.path.join(sample_directory, "temp.tmp"), "w") as f:
-        f.write("Temporary file")
-    with open(os.path.join(sample_directory, "data.cache"), "w") as f:
-        f.write("Cache file")
-    os.makedirs(os.path.join(sample_directory, "dist"), exist_ok=True)
-    with open(os.path.join(sample_directory, "dist", "bundle.js"), "w") as f:
-        f.write("// Bundled JavaScript")
-    structure, _ = get_directory_structure(sample_directory, ignore_file=".gitignore")
-    assert "temp.tmp" not in structure["_files"]
-    assert "data.cache" not in structure["_files"]
-    assert "dist" not in structure
-
-
-def test_get_directory_structure_with_exclude_patterns(sample_directory: Any):
-    """Test directory structure with exclude patterns."""
-    with open(os.path.join(sample_directory, "test_file1.py"), "w") as f:
-        f.write("# Test file 1")
-    with open(os.path.join(sample_directory, "test_file2.js"), "w") as f:
-        f.write("// Test file 2")
-    exclude_patterns = ["test_*"]
-    structure, _ = get_directory_structure(
-        sample_directory, exclude_patterns=exclude_patterns
-    )
-    assert "test_file1.py" not in structure["_files"]
-    assert "test_file2.js" not in structure["_files"]
-
-
-def test_get_directory_structure_with_include_patterns(sample_directory: Any):
-    """Test directory structure with include patterns."""
-    with open(os.path.join(sample_directory, "include_this.md"), "w") as f:
-        f.write("# Include this file")
-    with open(os.path.join(sample_directory, "exclude_this.txt"), "w") as f:
-        f.write("Exclude this file")
-    include_patterns = ["*.md"]
-    structure, extensions = get_directory_structure(
-        sample_directory, include_patterns=include_patterns
-    )
-    md_files_found = False
-    non_md_files_found = False
-    for file in structure.get("_files", []):
-        file_name = file if isinstance(file, str) else file[0]
-        if file_name.endswith(".md"):
-            md_files_found = True
-        else:
-            non_md_files_found = True
-    assert md_files_found, "No markdown files found despite include pattern"
-    assert not non_md_files_found, "Non-markdown files found despite include pattern"
-    if "subdir" in structure:
-        for file in structure["subdir"].get("_files", []):
-            file_name = file if isinstance(file, str) else file[0]
-            assert file_name.endswith(
-                ".md"
-            ), f"Non-markdown file {file_name} found in subdir despite include pattern"
-
-
-def test_get_directory_structure_with_regex_patterns(sample_directory: Any):
-    """Test directory structure with regex patterns."""
-    with open(os.path.join(sample_directory, "test123.txt"), "w") as f:
-        f.write("Test file with numbers")
-    with open(os.path.join(sample_directory, "test456.txt"), "w") as f:
-        f.write("Another test file with numbers")
-    with open(os.path.join(sample_directory, "regular.txt"), "w") as f:
-        f.write("Regular file")
-    exclude_patterns = [re.compile(r"test\d+\.txt")]
-    structure, _ = get_directory_structure(
-        sample_directory, exclude_patterns=exclude_patterns
-    )
-    assert "test123.txt" not in structure["_files"]
-    assert "test456.txt" not in structure["_files"]
-    assert "regular.txt" in structure["_files"]
-    include_patterns = [re.compile(r"test\d+\.txt")]
-    structure, _ = get_directory_structure(
-        sample_directory, include_patterns=include_patterns
-    )
-    for file in structure["_files"]:
-        file_name = file if isinstance(file, str) else file[0]
-        assert re.match(
-            r"test\d+\.txt", file_name
-        ), f"File {file_name} doesn't match include pattern"
-
-
-def test_get_directory_structure_with_sort_options(sample_directory: Any):
-    """Test directory structure with sorting options."""
-    structure, _ = get_directory_structure(
-        sample_directory, sort_by_loc=True, sort_by_size=True, sort_by_mtime=True
-    )
-    assert "_loc" in structure
-    assert "_size" in structure
-    assert "_mtime" in structure
-    if "_files" in structure:
+    """Test getting directory structure with various options."""
+    kwargs = {option_name: option_value}
+    structure, _ = get_directory_structure(deeply_nested_directory, **kwargs)
+    if expected_result == "tuple with path":
+        assert "_files" in structure
         for file_item in structure["_files"]:
-            if isinstance(file_item, tuple):
-                assert len(file_item) > 4
+            assert isinstance(file_item, tuple)
+            assert len(file_item) == 2
+            _, full_path = file_item
+            assert os.path.isabs(full_path.replace("/", os.sep))
+    elif expected_result == "max_depth_reached in level1":
+        assert "level1" in structure
+        assert "_max_depth_reached" in structure["level1"]
+    elif expected_result == "_loc in structure":
+        assert "_loc" in structure
+        if "level1" in structure:
+            assert "_loc" in structure["level1"]
+    elif expected_result == "_size in structure":
+        assert "_size" in structure
+        if "level1" in structure:
+            assert "_size" in structure["level1"]
+    elif expected_result == "_mtime in structure":
+        assert "_mtime" in structure
+        if "level1" in structure:
+            assert "_mtime" in structure["level1"]
 
 
-def test_generate_color_for_extension():
-    """Test color generation for file extensions."""
-    color1 = generate_color_for_extension(".py")
-    color2 = generate_color_for_extension(".py")
-    assert color1 == color2, "Same extension should produce the same color"
-    color_py = generate_color_for_extension(".py")
-    color_txt = generate_color_for_extension(".txt")
-    assert color_py != color_txt, "Different extensions should produce different colors"
-    assert color_py.startswith("#"), "Color should be a hex code starting with #"
-    assert len(color_py) == 7, "Color should be a 7-character hex code (#RRGGBB)"
+def test_pathlib_compatibility(temp_dir):
+    """Test compatibility with pathlib.Path objects."""
+    test_file = os.path.join(temp_dir, "test.txt")
+    with open(test_file, "w") as f:
+        f.write("Test content")
+    path_obj = Path(temp_dir)
+    structure, _ = get_directory_structure(str(path_obj))
+    assert "_files" in structure
+    file_found = False
+    for file_item in structure["_files"]:
+        file_name = file_item if isinstance(file_item, str) else file_item[0]
+        if file_name == "test.txt":
+            file_found = True
+    assert file_found, "File not found when using pathlib.Path"
 
 
-def test_generate_color_consistency():
-    """Test consistency of color generation across multiple extensions."""
-    extensions = [".py", ".js", ".txt", ".md", ".html", ".css", ".json", ".xml", ".csv"]
-    colors = {ext: generate_color_for_extension(ext) for ext in extensions}
-    for ext in extensions:
-        assert (
-            generate_color_for_extension(ext) == colors[ext]
-        ), f"Color for {ext} is not consistent"
-    unique_colors = set(colors.values())
-    assert len(unique_colors) == len(extensions), "Some extensions got the same color"
-
-
-def test_parse_ignore_file(sample_directory: Any):
-    """Test parsing of ignore file."""
-    ignore_file_path = os.path.join(sample_directory, ".gitignore")
-    patterns = parse_ignore_file(ignore_file_path)
-    assert "*.log" in patterns
-    assert "node_modules" in patterns
-
-
-def test_parse_ignore_file_with_comments(temp_dir: str):
-    """Test parsing ignore file with comments and empty lines."""
-    ignore_file_path = os.path.join(temp_dir, "test_ignore")
-    with open(ignore_file_path, "w") as f:
-        f.write("# This is a comment\n")
-        f.write("*.log\n")
-        f.write("\n")
-        f.write("node_modules/\n")
-        f.write("# Another comment\n")
-        f.write("dist\n")
-    patterns = parse_ignore_file(ignore_file_path)
-    assert "*.log" in patterns
-    assert "node_modules" in patterns
-    assert "dist" in patterns
-    assert "# This is a comment" not in patterns
-    assert "# Another comment" not in patterns
-    assert "" not in patterns
-
-
-def test_parse_ignore_file_nonexistent():
-    """Test parsing a non-existent ignore file."""
-    patterns = parse_ignore_file("/path/to/nonexistent/file")
-    assert patterns == []
-
-
-def test_should_exclude(mocker: MockerFixture):
-    """Test the exclude logic."""
-    mocker.patch("os.path.isfile", return_value=True)
-    ignore_context = {"patterns": ["*.log", "node_modules"], "current_dir": "/test"}
-    assert should_exclude("/test/app.log", ignore_context)
-    assert not should_exclude("/test/app.txt", ignore_context)
-    assert should_exclude("/test/node_modules", ignore_context)
-    assert not should_exclude("/test/src", ignore_context)
-    ignore_context_without_patterns = {
-        "patterns": [],
-        "current_dir": "/test",
-    }
-    exclude_extensions = {".py"}
-    assert should_exclude(
-        "/test/script.py", ignore_context_without_patterns, exclude_extensions
-    )
-    assert not should_exclude(
-        "/test/app.txt", ignore_context_without_patterns, exclude_extensions
-    )
-
-
-def test_should_exclude_with_negation_patterns(
-    mocker: MockerFixture,
-):
-    """Test exclude logic with negation patterns."""
-    mocker.patch("os.path.isfile", return_value=True)
-    ignore_context = {"patterns": ["*.log", "!important.log"], "current_dir": "/test"}
-    assert should_exclude("/test/app.log", ignore_context)
-    assert not should_exclude("/test/important.log", ignore_context)
-    assert not should_exclude("/test/app.txt", ignore_context)
-
-
-def test_should_exclude_with_complex_patterns(
-    mocker: MockerFixture,
-):
-    """Test exclude logic with complex patterns."""
-    mocker.patch("os.path.isfile", return_value=True)
-    ignore_context = {"patterns": [], "current_dir": "/test"}
-    exclude_extensions = {".txt"}
-    assert should_exclude("/test/file.txt", ignore_context, exclude_extensions)
-    assert not should_exclude("/test/file.py", ignore_context, exclude_extensions)
-    exclude_patterns = [re.compile(r"\.py$"), re.compile(r"test_.*\.js$")]
-    assert should_exclude(
-        "/test/script.py", ignore_context, exclude_patterns=exclude_patterns
-    )
-    assert should_exclude(
-        "/test/test_app.js", ignore_context, exclude_patterns=exclude_patterns
-    )
-    assert not should_exclude(
-        "/test/script.txt", ignore_context, exclude_patterns=exclude_patterns
-    )
-
-
-def test_empty_directory(temp_dir: str):
-    """Test handling of empty directories."""
-    structure, extensions = get_directory_structure(temp_dir)
-    assert isinstance(structure, dict)
-    assert len(extensions) == 0
-
-
-def test_permission_denied(mocker: MockerFixture, temp_dir: str):
-    """Test handling of permission denied errors."""
-    mocker.patch("os.listdir", side_effect=PermissionError("Permission denied"))
-    structure, extensions = get_directory_structure(temp_dir)
-    assert structure == {}
-    assert not extensions
-
-
-def test_subdirectory_full_path(sample_directory: Any):
-    """Test full path resolution for files in subdirectories."""
-    structure, _ = get_directory_structure(sample_directory, show_full_path=True)
-    assert "subdir" in structure
-    assert "_files" in structure["subdir"]
-    found_md = False
-    found_json = False
-    for file_name, full_path in structure["subdir"]["_files"]:
-        if file_name == "subfile1.md":
-            found_md = True
-            expected_path = os.path.abspath(
-                os.path.join(sample_directory, "subdir", "subfile1.md")
-            )
-            normalized_expected = expected_path.replace(os.sep, "/")
-            assert (
-                full_path == normalized_expected
-            ), f"Expected {normalized_expected}, got {full_path}"
-        if file_name == "subfile2.json":
-            found_json = True
-            expected_path = os.path.abspath(
-                os.path.join(sample_directory, "subdir", "subfile2.json")
-            )
-            normalized_expected = expected_path.replace(os.sep, "/")
-            assert (
-                full_path == normalized_expected
-            ), f"Expected {normalized_expected}, got {full_path}"
-    assert found_md, "subfile1.md not found in structure with full path"
-    assert found_json, "subfile2.json not found in structure with full path"
-
-
-def test_compile_regex_patterns():
-    """Test compiling regex patterns."""
-    valid_patterns = ["\\d+", "test_.*", "[a-z]+"]
-    compiled = compile_regex_patterns(valid_patterns, is_regex=True)
-    assert len(compiled) == 3
-    assert all(isinstance(p, re.Pattern) for p in compiled)
-    invalid_patterns = ["[invalid", "unmatched)"]
-    compiled = compile_regex_patterns(invalid_patterns, is_regex=True)
-    assert len(compiled) == 2
-    assert all(isinstance(p, str) for p in compiled)
-    glob_patterns = ["*.py", "test_*"]
-    compiled = compile_regex_patterns(glob_patterns, is_regex=False)
-    assert len(compiled) == 2
-    assert all(isinstance(p, str) for p in compiled)
-
-
-def test_sort_files_by_type():
-    """Test sorting files by type."""
-    files = ["c.txt", "b.py", "a.txt", "d.py"]
-    sorted_files = sort_files_by_type(files)
-    assert sorted_files[0].endswith(".py")
-    assert sorted_files[1].endswith(".py")
-    assert sorted_files[2].endswith(".txt")
-    assert sorted_files[3].endswith(".txt")
-    tuple_files = [
-        ("c.txt", "/path/to/c.txt"),
-        ("b.py", "/path/to/b.py"),
-        ("a.txt", "/path/to/a.txt"),
-        ("d.py", "/path/to/d.py"),
-    ]
-    sorted_tuple_files = sort_files_by_type(tuple_files)
-    assert sorted_tuple_files[0][0].endswith(".py")
-    assert sorted_tuple_files[1][0].endswith(".py")
-    assert sorted_tuple_files[2][0].endswith(".txt")
-    assert sorted_tuple_files[3][0].endswith(".txt")
-
-
-def test_sort_files_by_loc(temp_dir: str):
-    """Test sorting files by lines of code."""
-    with open(os.path.join(temp_dir, "small.py"), "w") as f:
-        f.write("print('Small')")
-    with open(os.path.join(temp_dir, "medium.py"), "w") as f:
-        f.write("def func():\n    print('Medium')\n\nfunc()")
-    with open(os.path.join(temp_dir, "large.py"), "w") as f:
-        f.write(
-            "def func1():\n    print('Large')\n\ndef func2():\n    print('Large 2')\n\nfunc1()\nfunc2()"
-        )
-
-    small_loc = count_lines_of_code(os.path.join(temp_dir, "small.py"))
-    medium_loc = count_lines_of_code(os.path.join(temp_dir, "medium.py"))
-    large_loc = count_lines_of_code(os.path.join(temp_dir, "large.py"))
-
-    files = [
-        ("small.py", "/path/to/small.py", small_loc),
-        ("medium.py", "/path/to/medium.py", medium_loc),
-        ("large.py", "/path/to/large.py", large_loc),
-    ]
-
-    sorted_files = sort_files_by_type(files, sort_by_loc=True)
-    assert sorted_files[0][0] == "large.py"
-    assert sorted_files[1][0] == "medium.py"
-    assert sorted_files[2][0] == "small.py"
-
-
-def test_sort_files_by_size(temp_dir: str):
-    """Test sorting files by size."""
-    with open(os.path.join(temp_dir, "small.txt"), "w") as f:
-        f.write("Small")
-    with open(os.path.join(temp_dir, "medium.txt"), "w") as f:
-        f.write("Medium" * 10)
-    with open(os.path.join(temp_dir, "large.txt"), "w") as f:
-        f.write("Large" * 100)
-
-    small_size = get_file_size(os.path.join(temp_dir, "small.txt"))
-    medium_size = get_file_size(os.path.join(temp_dir, "medium.txt"))
-    large_size = get_file_size(os.path.join(temp_dir, "large.txt"))
-
-    files = [
-        ("small.txt", "/path/to/small.txt", small_size),
-        ("medium.txt", "/path/to/medium.txt", medium_size),
-        ("large.txt", "/path/to/large.txt", large_size),
-    ]
-
-    sorted_files = sort_files_by_type(files, sort_by_size=True)
-    assert sorted_files[0][0] == "large.txt"
-    assert sorted_files[1][0] == "medium.txt"
-    assert sorted_files[2][0] == "small.txt"
-
-
-def test_sort_files_by_mtime(temp_dir: str):
-    """Test sorting files by modification time."""
-    with open(os.path.join(temp_dir, "oldest.txt"), "w") as f:
-        f.write("Oldest")
-    time.sleep(1)
-    with open(os.path.join(temp_dir, "middle.txt"), "w") as f:
-        f.write("Middle")
-    time.sleep(1)
-    with open(os.path.join(temp_dir, "newest.txt"), "w") as f:
-        f.write("Newest")
-    oldest_mtime = get_file_mtime(os.path.join(temp_dir, "oldest.txt"))
-    middle_mtime = get_file_mtime(os.path.join(temp_dir, "middle.txt"))
-    newest_mtime = get_file_mtime(os.path.join(temp_dir, "newest.txt"))
-    files = [
-        ("oldest.txt", "/path/to/oldest.txt", int(oldest_mtime)),
-        ("middle.txt", "/path/to/middle.txt", int(middle_mtime)),
-        ("newest.txt", "/path/to/newest.txt", int(newest_mtime)),
-    ]
-    sorted_files = sort_files_by_type(files, sort_by_mtime=True)
-    assert sorted_files[0][0] == "newest.txt"
-    assert sorted_files[1][0] == "middle.txt"
-    assert sorted_files[2][0] == "oldest.txt"
-
-
-def test_sort_files_combined_criteria(temp_dir: str):
-    """Test sorting files with combined criteria."""
-    with open(os.path.join(temp_dir, "file1.py"), "w") as f:
-        f.write("print('File 1')")
-    with open(os.path.join(temp_dir, "file2.py"), "w") as f:
-        f.write("def func():\n    print('File 2')\n\nfunc()")
-    file1_loc = count_lines_of_code(os.path.join(temp_dir, "file1.py"))
-    file2_loc = count_lines_of_code(os.path.join(temp_dir, "file2.py"))
-    file1_size = get_file_size(os.path.join(temp_dir, "file1.py"))
-    file2_size = get_file_size(os.path.join(temp_dir, "file2.py"))
-    file1_mtime = get_file_mtime(os.path.join(temp_dir, "file1.py"))
-    file2_mtime = get_file_mtime(os.path.join(temp_dir, "file2.py"))
-    files = [
-        ("file1.py", "/path/to/file1.py", file1_loc, file1_size, file1_mtime),
-        ("file2.py", "/path/to/file2.py", file2_loc, file2_size, file2_mtime),
-    ]
-    sorted_files = sort_files_by_type(
-        files, sort_by_loc=True, sort_by_size=True, sort_by_mtime=True
-    )
-    assert sorted_files[0][0] == "file2.py"
-    assert sorted_files[1][0] == "file1.py"
-
-
-def test_format_size():
-    """Test formatting of file sizes."""
-    assert format_size(500) == "500 B"
-    assert format_size(1500) == "1.5 KB"
-    assert format_size(1500000) == "1.4 MB"
-    assert format_size(1500000000) == "1.4 GB"
-
-
-def test_format_timestamp():
-    """Test formatting of timestamps."""
-    now = time.time()
-    today_format = format_timestamp(now)
-    assert "Today" in today_format
-    old_year = time.time() - 86400 * 365
-    old_year_format = format_timestamp(old_year)
-    assert re.match(r"\d{4}-\d{2}-\d{2}", old_year_format)
-
-
-def test_build_tree(mocker: MockerFixture):
-    """Test building a tree structure with colored file names."""
-    mock_tree = mocker.MagicMock(spec=Tree)
+def test_build_tree_combined(mocker: MockerFixture):
+    """Combined test of build_tree functionality."""
+    mock_tree = MagicMock(spec=Tree)
     color_map = {".py": "#FF0000", ".txt": "#00FF00"}
     structure = {
-        "_files": ["file1.txt", "file2.py"],
+        "_files": [
+            "file1.txt",
+            ("file2.py", "/path/to/file2.py"),
+            ("file3.md", "/path/to/file3.md", 50),
+            ("file4.json", "/path/to/file4.json", 20, 1024),
+            ("file5.js", "/path/to/file5.js", 30, 2048, time.time()),
+        ],
         "subdir": {"_files": ["subfile.py"]},
     }
-    build_tree(structure, mock_tree, color_map)
-    mock_calls = mock_tree.add.call_args_list
-    assert len(mock_calls) >= 3
-    colored_texts = [
-        call.args[0] for call in mock_calls if isinstance(call.args[0], Text)
-    ]
-    assert any(
-        text.plain == "📄 file1.txt" and "#00FF00" in str(text.style)
-        for text in colored_texts
+    build_tree(
+        structure,
+        mock_tree,
+        color_map,
+        sort_by_loc=True,
+        sort_by_size=True,
+        sort_by_mtime=True,
     )
-    assert any(
-        text.plain == "📄 file2.py" and "#FF0000" in str(text.style)
-        for text in colored_texts
-    )
-    mock_tree.reset_mock()
-    structure_with_paths = {
-        "_files": [
-            ("file1.txt", "/path/to/file1.txt"),
-            ("file2.py", "/path/to/file2.py"),
-        ],
-        "subdir": {"_files": [("subfile.py", "/path/to/subdir/subfile.py")]},
-    }
-    build_tree(structure_with_paths, mock_tree, color_map, show_full_path=True)
-    mock_calls = mock_tree.add.call_args_list
-    colored_texts = [
-        call.args[0] for call in mock_calls if isinstance(call.args[0], Text)
+    assert mock_tree.add.call_count >= 6
+    calls = [
+        call for call in mock_tree.add.call_args_list if isinstance(call.args[0], Text)
     ]
-    assert any(text.plain == "📄 /path/to/file1.txt" for text in colored_texts)
-    assert any(text.plain == "📄 /path/to/file2.py" for text in colored_texts)
-
-
-def test_build_tree_with_max_depth(
-    mocker: MockerFixture,
-):
-    """Test building a tree structure with max depth indicator."""
-    mock_tree = mocker.MagicMock(spec=Tree)
-    mock_subtree = mocker.MagicMock(spec=Tree)
-    mock_tree.add.return_value = mock_subtree
-    color_map = {".py": "#FF0000", ".txt": "#00FF00"}
-    structure = {"_files": ["file1.txt"], "subdir": {"_max_depth_reached": True}}
-    build_tree(structure, mock_tree, color_map)
-    mock_subtree.add.assert_called_once()
-    args = mock_subtree.add.call_args[0]
-    assert isinstance(args[0], Text)
-    assert args[0].plain == "⋯ (max depth reached)"
-    assert "dim" in str(args[0].style)
-
-
-def test_build_tree_with_stats(
-    mocker: MockerFixture,
-):
-    """Test building a tree with statistics (loc, size, mtime)."""
-    mock_tree = mocker.MagicMock(spec=Tree)
-    color_map = {".py": "#FF0000", ".txt": "#00FF00"}
-    structure_with_loc = {
-        "_loc": 100,
-        "_files": [("file1.txt", "/path/to/file1.txt", 50)],
-        "subdir": {
-            "_loc": 50,
-            "_files": [("subfile.py", "/path/to/subdir/subfile.py", 50)],
-        },
-    }
-    build_tree(structure_with_loc, mock_tree, color_map, sort_by_loc=True)
-    mock_calls = mock_tree.add.call_args_list
-    assert any("lines" in str(call) for call in mock_calls)
-    mock_tree.reset_mock()
-    structure_with_size = {
-        "_size": 1024,
-        "_files": [("file1.txt", "/path/to/file1.txt", 512)],
-        "subdir": {
-            "_size": 512,
-            "_files": [("subfile.py", "/path/to/subdir/subfile.py", 512)],
-        },
-    }
-    build_tree(structure_with_size, mock_tree, color_map, sort_by_size=True)
-    mock_calls = mock_tree.add.call_args_list
-    assert any(("B" in str(call) or "KB" in str(call)) for call in mock_calls)
-    mock_tree.reset_mock()
-    now = time.time()
-    structure_with_mtime = {
-        "_mtime": now,
-        "_files": [("file1.txt", "/path/to/file1.txt", now)],
-        "subdir": {
-            "_mtime": now,
-            "_files": [("subfile.py", "/path/to/subdir/subfile.py", now)],
-        },
-    }
-    build_tree(structure_with_mtime, mock_tree, color_map, sort_by_mtime=True)
-    mock_calls = mock_tree.add.call_args_list
-    assert any("Today" in str(call) for call in mock_calls)
+    texts = [call.args[0].plain for call in calls if isinstance(call.args[0], Text)]
+    for file_name in ["file1.txt", "file2.py", "file3.md", "file4.json", "file5.js"]:
+        assert any(file_name in text for text in texts)

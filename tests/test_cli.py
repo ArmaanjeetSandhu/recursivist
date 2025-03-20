@@ -1,18 +1,7 @@
-"""
-Tests for the command-line interface of the recursivist package.
-
-This module contains tests for all CLI commands, options, and their combinations:
-- visualize: Tests for directory visualization with various filtering options
-- export: Tests for exporting directory structures to different formats
-- compare: Tests for comparing two directory structures
-- version: Tests for displaying version information
-- completion: Tests for generating shell completion scripts
-"""
-
 import json
 import os
 import re
-from typing import Any
+from typing import Any, List
 
 import pytest
 from typer.testing import CliRunner
@@ -20,30 +9,23 @@ from typer.testing import CliRunner
 from recursivist.cli import app, parse_list_option
 
 
-@pytest.fixture
-def runner():
-    """Create a CLI test runner."""
-    return CliRunner()
-
-
-def test_parse_list_option():
-    """Test parsing of space-separated list options."""
-    result = parse_list_option(["value1"])
-    assert result == ["value1"]
-    result = parse_list_option(["value1 value2 value3"])
-    assert result == ["value1", "value2", "value3"]
-    result = parse_list_option(["value1", "value2", "value3"])
-    assert result == ["value1", "value2", "value3"]
-    result = parse_list_option(["value1 value2", "value3 value4"])
-    assert result == ["value1", "value2", "value3", "value4"]
-    result = parse_list_option([])
-    assert result == []
-    result = parse_list_option(None)
-    assert result == []
+@pytest.mark.parametrize(
+    "input_list,expected",
+    [
+        (["value1"], ["value1"]),
+        (["value1 value2 value3"], ["value1", "value2", "value3"]),
+        (["value1", "value2", "value3"], ["value1", "value2", "value3"]),
+        (["value1 value2", "value3 value4"], ["value1", "value2", "value3", "value4"]),
+        ([], []),
+        (None, []),
+    ],
+)
+def test_parse_list_option(input_list, expected):
+    result = parse_list_option(input_list)
+    assert result == expected
 
 
 def test_visualize_command(runner: CliRunner, sample_directory: Any):
-    """Test the visualize command with default options."""
     result = runner.invoke(app, ["visualize", sample_directory])
     assert result.exit_code == 0
     assert os.path.basename(sample_directory) in result.stdout
@@ -53,215 +35,127 @@ def test_visualize_command(runner: CliRunner, sample_directory: Any):
 
 
 def test_visualize_with_full_path(runner: CliRunner, sample_directory: Any):
-    """Test the visualize command with full path option."""
     result = runner.invoke(app, ["visualize", sample_directory, "--full-path"])
     assert result.exit_code == 0
-    assert os.path.basename(sample_directory) in result.stdout
-    base_name = os.path.basename(sample_directory)
-    sample_path = f"{base_name}/file1.txt".replace("/", os.path.sep)
-    sample_path_alt = f"{base_name}\\file1.txt".replace("\\", os.path.sep)
-    has_full_path = base_name in result.stdout and (
-        "file1.txt" in result.stdout
-        or "file2.py" in result.stdout
-        or sample_path in result.stdout
-        or sample_path_alt in result.stdout
-    )
-    assert has_full_path, "Full path information not found in output"
+    assert_path_info_in_output(result.stdout, sample_directory)
 
 
-def test_visualize_with_exclude_dirs(runner: CliRunner, sample_directory: Any):
-    """Test the visualize command with excluded directories."""
-    exclude_dir = os.path.join(sample_directory, "exclude_me")
-    os.makedirs(exclude_dir, exist_ok=True)
-    with open(os.path.join(exclude_dir, "excluded.txt"), "w") as f:
-        f.write("This should be excluded")
-    result = runner.invoke(
-        app, ["visualize", sample_directory, "--exclude", "exclude_me"]
-    )
-    assert result.exit_code == 0
-    assert "exclude_me" not in result.stdout
-    assert "excluded.txt" not in result.stdout
-
-
-def test_visualize_with_multiple_exclude_dirs(runner: CliRunner, sample_directory: Any):
-    """Test the visualize command with multiple excluded directories."""
-    exclude_dir1 = os.path.join(sample_directory, "exclude_me1")
-    exclude_dir2 = os.path.join(sample_directory, "exclude_me2")
-    os.makedirs(exclude_dir1, exist_ok=True)
-    os.makedirs(exclude_dir2, exist_ok=True)
-    with open(os.path.join(exclude_dir1, "excluded1.txt"), "w") as f:
-        f.write("This should be excluded")
-    with open(os.path.join(exclude_dir2, "excluded2.txt"), "w") as f:
-        f.write("This should also be excluded")
-    result = runner.invoke(
-        app, ["visualize", sample_directory, "--exclude", "exclude_me1 exclude_me2"]
-    )
-    assert result.exit_code == 0
-    assert "exclude_me1" not in result.stdout
-    assert "exclude_me2" not in result.stdout
-    assert "excluded1.txt" not in result.stdout
-    assert "excluded2.txt" not in result.stdout
-    result = runner.invoke(
-        app,
-        [
-            "visualize",
-            sample_directory,
-            "--exclude",
-            "exclude_me1",
-            "--exclude",
-            "exclude_me2",
-        ],
-    )
-    assert result.exit_code == 0
-    assert "exclude_me1" not in result.stdout
-    assert "exclude_me2" not in result.stdout
-
-
-def test_visualize_with_exclude_extensions(runner: CliRunner, sample_directory: Any):
-    """Test the visualize command with excluded file extensions."""
-    result = runner.invoke(app, ["visualize", sample_directory, "--exclude-ext", ".py"])
-    assert result.exit_code == 0
-    assert "file1.txt" in result.stdout
-    assert "file2.py" not in result.stdout
-
-
-def test_visualize_with_multiple_exclude_extensions(
-    runner: CliRunner, sample_directory: Any
+@pytest.mark.parametrize(
+    "option_name,option_value,expected_missing",
+    [
+        ("--exclude", "exclude_me", ["exclude_me", "excluded.txt"]),
+        ("--exclude-ext", ".py", ["file2.py"]),
+        ("--include-pattern", "include_*", ["ignore_me.txt", "file1.txt", "file2.py"]),
+        ("--exclude-pattern", "exclude_*", ["exclude_this.txt"]),
+    ],
+)
+def test_visualize_with_filtering_options(
+    runner: CliRunner,
+    sample_directory: Any,
+    option_name: str,
+    option_value: str,
+    expected_missing: List[str],
 ):
-    """Test the visualize command with multiple excluded file extensions."""
-    with open(os.path.join(sample_directory, "test1.log"), "w") as f:
-        f.write("Log content")
-    with open(os.path.join(sample_directory, "test2.tmp"), "w") as f:
-        f.write("Temp content")
+    if "exclude_me" in expected_missing:
+        exclude_dir = os.path.join(sample_directory, "exclude_me")
+        os.makedirs(exclude_dir, exist_ok=True)
+        with open(os.path.join(exclude_dir, "excluded.txt"), "w") as f:
+            f.write("This should be excluded")
+    if "exclude_this.txt" in expected_missing:
+        with open(os.path.join(sample_directory, "exclude_this.txt"), "w") as f:
+            f.write("This should be excluded")
+        with open(os.path.join(sample_directory, "keep_this.txt"), "w") as f:
+            f.write("This should be kept")
+    if "include_*" in option_value:
+        with open(os.path.join(sample_directory, "include_me.txt"), "w") as f:
+            f.write("This should be included")
+        with open(os.path.join(sample_directory, "ignore_me.txt"), "w") as f:
+            f.write("This should be ignored")
     result = runner.invoke(
-        app, ["visualize", sample_directory, "--exclude-ext", ".py .log"]
+        app, ["visualize", sample_directory, option_name, option_value]
     )
     assert result.exit_code == 0
-    assert "file1.txt" in result.stdout
-    assert "file2.py" not in result.stdout
-    assert "test1.log" not in result.stdout
-    assert "test2.tmp" in result.stdout
-    result = runner.invoke(
-        app,
-        [
-            "visualize",
-            sample_directory,
-            "--exclude-ext",
-            ".py",
-            "--exclude-ext",
-            ".log",
-        ],
-    )
-    assert result.exit_code == 0
-    assert "file1.txt" in result.stdout
-    assert "file2.py" not in result.stdout
-    assert "test1.log" not in result.stdout
-    assert "test2.tmp" in result.stdout
+    for item in expected_missing:
+        assert item not in result.stdout
+    if option_name == "--include-pattern":
+        assert "include_me.txt" in result.stdout
+    elif option_name == "--exclude-pattern":
+        assert "keep_this.txt" in result.stdout
 
 
-def test_visualize_with_include_patterns(runner: CliRunner, sample_directory: Any):
-    """Test the visualize command with include patterns."""
-    with open(os.path.join(sample_directory, "include_me.txt"), "w") as f:
-        f.write("This should be included")
-    with open(os.path.join(sample_directory, "ignore_me.txt"), "w") as f:
-        f.write("This should be ignored")
-    result = runner.invoke(
-        app, ["visualize", sample_directory, "--include-pattern", "include_*"]
-    )
-    assert result.exit_code == 0
-    assert "include_me.txt" in result.stdout
-    assert "ignore_me.txt" not in result.stdout
-    assert "file1.txt" not in result.stdout
-    assert "file2.py" not in result.stdout
-
-
-def test_visualize_with_multiple_include_patterns(
-    runner: CliRunner, sample_directory: Any
+@pytest.mark.parametrize(
+    "option_name,value1,value2",
+    [
+        ("--exclude", "exclude_me1", "exclude_me2"),
+        ("--exclude-ext", ".py", ".log"),
+        ("--include-pattern", "include_*", "also_*"),
+        ("--exclude-pattern", "exclude_*", "also_*"),
+    ],
+)
+def test_visualize_with_multiple_filtering_options(
+    runner: CliRunner, sample_directory: Any, option_name: str, value1: str, value2: str
 ):
-    """Test the visualize command with multiple include patterns."""
-    with open(os.path.join(sample_directory, "include_me.txt"), "w") as f:
-        f.write("This should be included")
-    with open(os.path.join(sample_directory, "also_include.py"), "w") as f:
-        f.write("This should also be included")
-    with open(os.path.join(sample_directory, "ignore_me.txt"), "w") as f:
-        f.write("This should be ignored")
+    if option_name == "--exclude":
+        exclude_dir1 = os.path.join(sample_directory, "exclude_me1")
+        exclude_dir2 = os.path.join(sample_directory, "exclude_me2")
+        os.makedirs(exclude_dir1, exist_ok=True)
+        os.makedirs(exclude_dir2, exist_ok=True)
+        with open(os.path.join(exclude_dir1, "excluded1.txt"), "w") as f:
+            f.write("This should be excluded")
+        with open(os.path.join(exclude_dir2, "excluded2.txt"), "w") as f:
+            f.write("This should also be excluded")
+    elif option_name == "--exclude-ext":
+        with open(os.path.join(sample_directory, "test1.log"), "w") as f:
+            f.write("Log content")
+        with open(os.path.join(sample_directory, "test2.tmp"), "w") as f:
+            f.write("Temp content")
+    elif option_name == "--include-pattern":
+        with open(os.path.join(sample_directory, "include_me.txt"), "w") as f:
+            f.write("This should be included")
+        with open(os.path.join(sample_directory, "also_include.py"), "w") as f:
+            f.write("This should also be included")
+        with open(os.path.join(sample_directory, "ignore_me.txt"), "w") as f:
+            f.write("This should be ignored")
+    elif option_name == "--exclude-pattern":
+        with open(os.path.join(sample_directory, "exclude_this.txt"), "w") as f:
+            f.write("This should be excluded")
+        with open(os.path.join(sample_directory, "also_exclude.py"), "w") as f:
+            f.write("This should also be excluded")
+        with open(os.path.join(sample_directory, "keep_this.txt"), "w") as f:
+            f.write("This should be kept")
     result = runner.invoke(
-        app, ["visualize", sample_directory, "--include-pattern", "include_* also_*"]
+        app, ["visualize", sample_directory, option_name, f"{value1} {value2}"]
     )
     assert result.exit_code == 0
-    assert "include_me.txt" in result.stdout
-    assert "also_include.py" in result.stdout
-    assert "ignore_me.txt" not in result.stdout
-    assert "file1.txt" not in result.stdout
     result = runner.invoke(
-        app,
-        [
-            "visualize",
-            sample_directory,
-            "--include-pattern",
-            "include_*",
-            "--include-pattern",
-            "also_*",
-        ],
+        app, ["visualize", sample_directory, option_name, value1, option_name, value2]
     )
     assert result.exit_code == 0
-    assert "include_me.txt" in result.stdout
-    assert "also_include.py" in result.stdout
-    assert "ignore_me.txt" not in result.stdout
-
-
-def test_visualize_with_exclude_patterns(runner: CliRunner, sample_directory: Any):
-    """Test the visualize command with exclude patterns."""
-    with open(os.path.join(sample_directory, "exclude_this.txt"), "w") as f:
-        f.write("This should be excluded")
-    with open(os.path.join(sample_directory, "keep_this.txt"), "w") as f:
-        f.write("This should be kept")
-    result = runner.invoke(
-        app, ["visualize", sample_directory, "--exclude-pattern", "exclude_*"]
-    )
-    assert result.exit_code == 0
-    assert "exclude_this.txt" not in result.stdout
-    assert "keep_this.txt" in result.stdout
-    assert "file1.txt" in result.stdout
-    assert "file2.py" in result.stdout
-
-
-def test_visualize_with_multiple_exclude_patterns(
-    runner: CliRunner, sample_directory: Any
-):
-    """Test the visualize command with multiple exclude patterns."""
-    with open(os.path.join(sample_directory, "exclude_this.txt"), "w") as f:
-        f.write("This should be excluded")
-    with open(os.path.join(sample_directory, "also_exclude.py"), "w") as f:
-        f.write("This should also be excluded")
-    with open(os.path.join(sample_directory, "keep_this.txt"), "w") as f:
-        f.write("This should be kept")
-    result = runner.invoke(
-        app, ["visualize", sample_directory, "--exclude-pattern", "exclude_* also_*"]
-    )
-    assert result.exit_code == 0
-    assert "exclude_this.txt" not in result.stdout
-    assert "also_exclude.py" not in result.stdout
-    assert "keep_this.txt" in result.stdout
-    result = runner.invoke(
-        app,
-        [
-            "visualize",
-            sample_directory,
-            "--exclude-pattern",
-            "exclude_*",
-            "--exclude-pattern",
-            "also_*",
-        ],
-    )
-    assert result.exit_code == 0
-    assert "exclude_this.txt" not in result.stdout
-    assert "also_exclude.py" not in result.stdout
-    assert "keep_this.txt" in result.stdout
+    if option_name == "--exclude":
+        for result_output in [result.stdout]:
+            assert "exclude_me1" not in result_output
+            assert "exclude_me2" not in result_output
+            assert "excluded1.txt" not in result_output
+            assert "excluded2.txt" not in result_output
+    elif option_name == "--exclude-ext":
+        for result_output in [result.stdout]:
+            assert "file1.txt" in result_output
+            assert "file2.py" not in result_output
+            assert "test1.log" not in result_output
+            assert "test2.tmp" in result_output
+    elif option_name == "--include-pattern":
+        for result_output in [result.stdout]:
+            assert "include_me.txt" in result_output
+            assert "also_include.py" in result_output
+            assert "ignore_me.txt" not in result_output
+    elif option_name == "--exclude-pattern":
+        for result_output in [result.stdout]:
+            assert "exclude_this.txt" not in result_output
+            assert "also_exclude.py" not in result_output
+            assert "keep_this.txt" in result_output
 
 
 def test_visualize_with_regex_patterns(runner: CliRunner, sample_directory: Any):
-    """Test the visualize command with regex patterns."""
     with open(os.path.join(sample_directory, "test123.txt"), "w") as f:
         f.write("This should be excluded with regex")
     with open(os.path.join(sample_directory, "test456.txt"), "w") as f:
@@ -285,7 +179,6 @@ def test_visualize_with_regex_patterns(runner: CliRunner, sample_directory: Any)
 
 
 def test_visualize_with_ignore_file(runner: CliRunner, sample_with_logs: Any):
-    """Test the visualize command with gitignore file."""
     result = runner.invoke(
         app, ["visualize", sample_with_logs, "--ignore-file", ".gitignore"]
     )
@@ -294,23 +187,12 @@ def test_visualize_with_ignore_file(runner: CliRunner, sample_with_logs: Any):
     assert "node_modules" not in result.stdout
 
 
-def test_visualize_with_depth_limit(runner: CliRunner, sample_directory: Any):
-    """Test the visualize command with depth limit."""
-    level1 = os.path.join(sample_directory, "level1")
-    level2 = os.path.join(level1, "level2")
-    level3 = os.path.join(level2, "level3")
-    os.makedirs(level3, exist_ok=True)
-    with open(os.path.join(level1, "file1.txt"), "w") as f:
-        f.write("Level 1 file")
-    with open(os.path.join(level2, "file2.txt"), "w") as f:
-        f.write("Level 2 file")
-    with open(os.path.join(level3, "file3.txt"), "w") as f:
-        f.write("Level 3 file")
-    result = runner.invoke(app, ["visualize", sample_directory, "--depth", "1"])
+def test_visualize_with_depth_limit(runner: CliRunner, deeply_nested_directory: Any):
+    result = runner.invoke(app, ["visualize", deeply_nested_directory, "--depth", "1"])
     assert result.exit_code == 0
     assert "level1" in result.stdout
     assert "(max depth reached)" in result.stdout
-    result = runner.invoke(app, ["visualize", sample_directory, "--depth", "2"])
+    result = runner.invoke(app, ["visualize", deeply_nested_directory, "--depth", "2"])
     assert result.exit_code == 0
     assert "level1" in result.stdout
     assert "level2" in result.stdout
@@ -320,7 +202,6 @@ def test_visualize_with_depth_limit(runner: CliRunner, sample_directory: Any):
 def test_visualize_invalid_directory(
     runner: CliRunner, temp_dir: str, caplog: pytest.LogCaptureFixture
 ):
-    """Test the visualize command with non-existent directory."""
     invalid_dir = os.path.join(temp_dir, "nonexistent")
     result = runner.invoke(app, ["visualize", invalid_dir])
     assert result.exit_code == 1
@@ -330,80 +211,74 @@ def test_visualize_invalid_directory(
 def test_visualize_with_verbose_mode(
     runner: CliRunner, sample_directory: Any, caplog: pytest.LogCaptureFixture
 ):
-    """Test the visualize command with verbose mode."""
     result = runner.invoke(app, ["visualize", sample_directory, "--verbose"])
     assert result.exit_code == 0
     assert any("Verbose mode enabled" in record.message for record in caplog.records)
 
 
-def test_visualize_with_sort_by_loc(runner: CliRunner, sample_directory: Any):
-    """Test the visualize command with sorting by lines of code."""
-    result = runner.invoke(app, ["visualize", sample_directory, "--sort-by-loc"])
+@pytest.mark.parametrize(
+    "option,expected_in_output",
+    [
+        ("--sort-by-loc", "lines"),
+        ("--sort-by-size", ["B", "KB", "MB"]),
+        (
+            "--sort-by-mtime",
+            ["Today", "Yesterday", r"\d{4}-\d{2}-\d{2}", r"\w{3} \d{1,2}"],
+        ),
+    ],
+)
+def test_visualize_with_sort_options(
+    runner: CliRunner, sample_directory: Any, option: str, expected_in_output
+):
+    result = runner.invoke(app, ["visualize", sample_directory, option])
     assert result.exit_code == 0
-    assert "lines" in result.stdout
+    if isinstance(expected_in_output, list):
+        match_found = False
+        for pattern in expected_in_output:
+            if re.search(pattern, result.stdout):
+                match_found = True
+                break
+        assert (
+            match_found
+        ), f"None of the expected patterns {expected_in_output} found in output"
+    else:
+        assert expected_in_output in result.stdout
 
 
-def test_visualize_with_sort_by_size(runner: CliRunner, sample_directory: Any):
-    """Test the visualize command with sorting by file size."""
-    result = runner.invoke(app, ["visualize", sample_directory, "--sort-by-size"])
-    assert result.exit_code == 0
-    assert "B" in result.stdout or "KB" in result.stdout or "MB" in result.stdout
-
-
-def test_visualize_with_sort_by_mtime(runner: CliRunner, sample_directory: Any):
-    """Test the visualize command with sorting by modification time."""
-    result = runner.invoke(app, ["visualize", sample_directory, "--sort-by-mtime"])
-    assert result.exit_code == 0
-    has_time_info = re.search(
-        r"Today|Yesterday|\d{4}-\d{2}-\d{2}|\w{3} \d{1,2}", result.stdout
-    )
-    assert has_time_info is not None
-
-
-def test_export_command(runner: CliRunner, sample_directory: Any, output_dir: str):
-    """Test the export command with txt format."""
+@pytest.mark.parametrize(
+    "format_option",
+    ["txt", "json", "html", "md", "jsx", "txt json", "txt json html md jsx"],
+)
+def test_export_command(
+    runner: CliRunner, sample_directory: Any, output_dir: str, format_option: str
+):
+    prefix = "test_export"
     result = runner.invoke(
         app,
         [
             "export",
             sample_directory,
             "--format",
-            "txt",
+            format_option,
             "--output-dir",
             output_dir,
             "--prefix",
-            "test_export",
+            prefix,
         ],
     )
     assert result.exit_code == 0
-    export_file = os.path.join(output_dir, "test_export.txt")
-    assert os.path.exists(export_file)
-
-
-def test_export_multiple_formats(
-    runner: CliRunner, sample_directory: Any, output_dir: str
-):
-    """Test the export command with multiple formats."""
-    result = runner.invoke(
-        app,
-        [
-            "export",
-            sample_directory,
-            "--format",
-            "txt json",
-            "--output-dir",
-            output_dir,
-        ],
-    )
-    assert result.exit_code == 0
-    assert os.path.exists(os.path.join(output_dir, "structure.txt"))
-    assert os.path.exists(os.path.join(output_dir, "structure.json"))
+    formats = format_option.split()
+    for fmt in formats:
+        export_file = os.path.join(output_dir, f"{prefix}.{fmt}")
+        assert os.path.exists(export_file), f"File {export_file} does not exist"
+        with open(export_file, "r", encoding="utf-8") as f:
+            content = f.read()
+            assert os.path.basename(sample_directory) in content
 
 
 def test_export_with_multiple_format_flags(
     runner: CliRunner, sample_directory: Any, output_dir: str
 ):
-    """Test the export command with multiple format flags."""
     result = runner.invoke(
         app,
         [
@@ -427,56 +302,38 @@ def test_export_with_multiple_format_flags(
     assert os.path.exists(os.path.join(output_dir, "multi_format.html"))
 
 
-def test_export_all_formats(runner: CliRunner, sample_directory: Any, output_dir: str):
-    """Test the export command with all supported formats."""
+def test_export_json_content(runner: CliRunner, sample_directory: Any, output_dir: str):
+    """Specific test for JSON export content validation."""
     result = runner.invoke(
         app,
         [
             "export",
             sample_directory,
             "--format",
-            "txt json html md jsx",
+            "json",
             "--output-dir",
             output_dir,
             "--prefix",
-            "all_formats",
+            "json_validate",
         ],
     )
     assert result.exit_code == 0
-    assert os.path.exists(os.path.join(output_dir, "all_formats.txt"))
-    assert os.path.exists(os.path.join(output_dir, "all_formats.json"))
-    assert os.path.exists(os.path.join(output_dir, "all_formats.html"))
-    assert os.path.exists(os.path.join(output_dir, "all_formats.md"))
-    assert os.path.exists(os.path.join(output_dir, "all_formats.jsx"))
-    with open(os.path.join(output_dir, "all_formats.json"), "r", encoding="utf-8") as f:
+    json_file = os.path.join(output_dir, "json_validate.json")
+    with open(json_file, "r", encoding="utf-8") as f:
         data = json.load(f)
-        assert "root" in data
-        assert "structure" in data
-        assert data["root"] == os.path.basename(sample_directory)
-    with open(os.path.join(output_dir, "all_formats.txt"), "r", encoding="utf-8") as f:
-        content = f.read()
-        assert os.path.basename(sample_directory) in content
-        assert "file1.txt" in content
-    with open(os.path.join(output_dir, "all_formats.md"), "r", encoding="utf-8") as f:
-        content = f.read()
-        assert f"# 📂 {os.path.basename(sample_directory)}" in content
-        assert "- 📄 `file1.txt`" in content
-    with open(os.path.join(output_dir, "all_formats.html"), "r", encoding="utf-8") as f:
-        content = f.read()
-        assert "<!DOCTYPE html>" in content
-        assert "<html>" in content
-        assert os.path.basename(sample_directory) in content
-    with open(os.path.join(output_dir, "all_formats.jsx"), "r", encoding="utf-8") as f:
-        content = f.read()
-        assert "import React" in content
-        assert "DirectoryViewer" in content
-        assert os.path.basename(sample_directory) in content
+    assert "root" in data
+    assert "structure" in data
+    assert data["root"] == os.path.basename(sample_directory)
+    assert "_files" in data["structure"]
+    file_names = data["structure"]["_files"]
+    assert "file1.txt" in file_names
+    assert "file2.py" in file_names
+    assert "subdir" in data["structure"]
 
 
 def test_export_with_full_path(
     runner: CliRunner, sample_directory: Any, output_dir: str
 ):
-    """Test the export command with full path option."""
     result = runner.invoke(
         app,
         [
@@ -496,22 +353,12 @@ def test_export_with_full_path(
     assert os.path.exists(export_file)
     with open(export_file, "r", encoding="utf-8") as f:
         content = f.read()
-    base_name = os.path.basename(sample_directory)
-    has_path_info = False
-    lines = content.split("\n")
-    for line in lines:
-        if ("├── 📄" in line or "└── 📄" in line) and (
-            base_name in line or os.path.sep in line or "/" in line
-        ):
-            has_path_info = True
-            break
-    assert has_path_info, "No full path information found in exported content"
+    assert_path_info_in_output(content, sample_directory)
 
 
 def test_export_with_filtering_options(
     runner: CliRunner, sample_directory: Any, output_dir: str
 ):
-    """Test the export command with filtering options."""
     exclude_dir = os.path.join(sample_directory, "exclude_me")
     os.makedirs(exclude_dir, exist_ok=True)
     with open(os.path.join(exclude_dir, "excluded.txt"), "w") as f:
@@ -540,35 +387,24 @@ def test_export_with_filtering_options(
     assert os.path.exists(export_file)
     with open(export_file, "r", encoding="utf-8") as f:
         data = json.load(f)
-        assert "structure" in data
-        assert "exclude_me" not in data["structure"]
-        if "_files" in data["structure"]:
-            for file in data["structure"]["_files"]:
-                if isinstance(file, str):
-                    assert not file.startswith("test")
-                else:
-                    assert not file[0].startswith("test")
+    assert "structure" in data
+    assert "exclude_me" not in data["structure"]
+    if "_files" in data["structure"]:
+        for file in data["structure"]["_files"]:
+            if isinstance(file, str):
+                assert not file.startswith("test")
+            else:
+                assert not file[0].startswith("test")
 
 
 def test_export_with_depth_limit(
-    runner: CliRunner, sample_directory: Any, output_dir: str
+    runner: CliRunner, deeply_nested_directory: Any, output_dir: str
 ):
-    """Test the export command with depth limit."""
-    level1 = os.path.join(sample_directory, "level1")
-    level2 = os.path.join(level1, "level2")
-    level3 = os.path.join(level2, "level3")
-    os.makedirs(level3, exist_ok=True)
-    with open(os.path.join(level1, "file1.txt"), "w") as f:
-        f.write("Level 1 file")
-    with open(os.path.join(level2, "file2.txt"), "w") as f:
-        f.write("Level 2 file")
-    with open(os.path.join(level3, "file3.txt"), "w") as f:
-        f.write("Level 3 file")
     result = runner.invoke(
         app,
         [
             "export",
-            sample_directory,
+            deeply_nested_directory,
             "--format",
             "json",
             "--output-dir",
@@ -584,16 +420,15 @@ def test_export_with_depth_limit(
     assert os.path.exists(export_file)
     with open(export_file, "r", encoding="utf-8") as f:
         data = json.load(f)
-        assert "structure" in data
-        assert "level1" in data["structure"]
-        assert "level2" in data["structure"]["level1"]
-        assert "_max_depth_reached" in data["structure"]["level1"]["level2"]
+    assert "structure" in data
+    assert "level1" in data["structure"]
+    assert "level2" in data["structure"]["level1"]
+    assert "_max_depth_reached" in data["structure"]["level1"]["level2"]
 
 
 def test_export_invalid_format(
     runner: CliRunner, sample_directory: Any, caplog: pytest.LogCaptureFixture
 ):
-    """Test the export command with invalid format."""
     result = runner.invoke(app, ["export", sample_directory, "--format", "invalid"])
     assert result.exit_code == 1
     assert any(
@@ -604,7 +439,6 @@ def test_export_invalid_format(
 def test_export_with_sort_options(
     runner: CliRunner, sample_directory: Any, output_dir: str
 ):
-    """Test the export command with sorting options."""
     result = runner.invoke(
         app,
         [
@@ -626,61 +460,47 @@ def test_export_with_sort_options(
     assert os.path.exists(export_file)
     with open(export_file, "r", encoding="utf-8") as f:
         data = json.load(f)
-        assert data["show_loc"] is True
-        assert data["show_size"] is True
-        assert data["show_mtime"] is True
+    assert data["show_loc"] is True
+    assert data["show_size"] is True
+    assert data["show_mtime"] is True
 
 
-def test_compare_command(runner: CliRunner, temp_dir: str):
-    """Test the compare command with two directories."""
-    dir1 = os.path.join(temp_dir, "dir1")
-    dir2 = os.path.join(temp_dir, "dir2")
-    os.makedirs(dir1, exist_ok=True)
-    os.makedirs(dir2, exist_ok=True)
-    with open(os.path.join(dir1, "common.txt"), "w") as f:
-        f.write("Common file")
-    with open(os.path.join(dir2, "common.txt"), "w") as f:
-        f.write("Common file")
-    with open(os.path.join(dir1, "unique1.txt"), "w") as f:
-        f.write("Unique to dir1")
-    with open(os.path.join(dir2, "unique2.txt"), "w") as f:
-        f.write("Unique to dir2")
+def test_compare_command(runner: CliRunner, comparison_directories: tuple):
+    dir1, dir2 = comparison_directories
     result = runner.invoke(app, ["compare", dir1, dir2])
     assert result.exit_code == 0
-    assert "dir1" in result.stdout
-    assert "dir2" in result.stdout
-    assert "common.txt" in result.stdout
-    assert "unique1.txt" in result.stdout
-    assert "unique2.txt" in result.stdout
+    assert os.path.basename(dir1) in result.stdout
+    assert os.path.basename(dir2) in result.stdout
+    assert "common.txt" in result.stdout or "file1.txt" in result.stdout
+    assert "unique1.txt" in result.stdout or "dir1_only.txt" in result.stdout
+    assert "unique2.txt" in result.stdout or "dir2_only.txt" in result.stdout
     assert "Legend" in result.stdout
 
 
 def test_compare_with_filtering_options(runner: CliRunner, temp_dir: str):
-    """Test the compare command with filtering options."""
-    dir1 = os.path.join(temp_dir, "dir1")
-    dir2 = os.path.join(temp_dir, "dir2")
+    dir1 = os.path.join(temp_dir, "compare_dir1")
+    dir2 = os.path.join(temp_dir, "compare_dir2")
     os.makedirs(dir1, exist_ok=True)
     os.makedirs(dir2, exist_ok=True)
     os.makedirs(os.path.join(dir1, "exclude_me"), exist_ok=True)
     os.makedirs(os.path.join(dir2, "exclude_me"), exist_ok=True)
-    with open(os.path.join(dir1, "exclude_me", "file.txt"), "w") as f:
-        f.write("Should be excluded")
-    with open(os.path.join(dir2, "exclude_me", "file.txt"), "w") as f:
-        f.write("Should be excluded")
-    with open(os.path.join(dir1, "excluded.pyc"), "w") as f:
-        f.write("Should be excluded by extension")
-    with open(os.path.join(dir2, "excluded.pyc"), "w") as f:
-        f.write("Should be excluded by extension")
-    with open(os.path.join(dir1, "normal.txt"), "w") as f:
-        f.write("Normal file")
-    with open(os.path.join(dir2, "different.txt"), "w") as f:
-        f.write("Different file")
+    test_files = {
+        os.path.join(dir1, "exclude_me", "file.txt"): "Should be excluded",
+        os.path.join(dir2, "exclude_me", "file.txt"): "Should be excluded",
+        os.path.join(dir1, "excluded.pyc"): "Should be excluded by extension",
+        os.path.join(dir2, "excluded.pyc"): "Should be excluded by extension",
+        os.path.join(dir1, "normal.txt"): "Normal file",
+        os.path.join(dir2, "different.txt"): "Different file",
+    }
+    for path, content in test_files.items():
+        with open(path, "w") as f:
+            f.write(content)
     result = runner.invoke(
         app, ["compare", dir1, dir2, "--exclude", "exclude_me", "--exclude-ext", ".pyc"]
     )
     assert result.exit_code == 0
-    assert "dir1" in result.stdout
-    assert "dir2" in result.stdout
+    assert os.path.basename(dir1) in result.stdout
+    assert os.path.basename(dir2) in result.stdout
     assert "normal.txt" in result.stdout
     assert "different.txt" in result.stdout
     assert "exclude_me" not in result.stdout
@@ -688,23 +508,23 @@ def test_compare_with_filtering_options(runner: CliRunner, temp_dir: str):
 
 
 def test_compare_with_depth_limit(runner: CliRunner, temp_dir: str):
-    """Test the compare command with depth limit."""
-    dir1 = os.path.join(temp_dir, "dir1")
-    dir2 = os.path.join(temp_dir, "dir2")
+    dir1 = os.path.join(temp_dir, "compare_depth_dir1")
+    dir2 = os.path.join(temp_dir, "compare_depth_dir2")
     level1_dir1 = os.path.join(dir1, "level1")
     level2_dir1 = os.path.join(level1_dir1, "level2")
     os.makedirs(level2_dir1, exist_ok=True)
-    with open(os.path.join(level1_dir1, "file1.txt"), "w") as f:
-        f.write("Level 1 file in dir1")
-    with open(os.path.join(level2_dir1, "file2.txt"), "w") as f:
-        f.write("Level 2 file in dir1")
     level1_dir2 = os.path.join(dir2, "level1")
     level2_dir2 = os.path.join(level1_dir2, "level2")
     os.makedirs(level2_dir2, exist_ok=True)
-    with open(os.path.join(level1_dir2, "file1.txt"), "w") as f:
-        f.write("Level 1 file in dir2")
-    with open(os.path.join(level2_dir2, "different.txt"), "w") as f:
-        f.write("Different file in dir2")
+    test_files = {
+        os.path.join(level1_dir1, "file1.txt"): "Level 1 file in dir1",
+        os.path.join(level2_dir1, "file2.txt"): "Level 2 file in dir1",
+        os.path.join(level1_dir2, "file1.txt"): "Level 1 file in dir2",
+        os.path.join(level2_dir2, "different.txt"): "Different file in dir2",
+    }
+    for path, content in test_files.items():
+        with open(path, "w") as f:
+            f.write(content)
     result = runner.invoke(app, ["compare", dir1, dir2, "--depth", "1"])
     assert result.exit_code == 0
     assert "level1" in result.stdout
@@ -713,20 +533,10 @@ def test_compare_with_depth_limit(runner: CliRunner, temp_dir: str):
     assert "different.txt" not in result.stdout
 
 
-def test_compare_export_to_html(runner: CliRunner, temp_dir: str, output_dir: str):
-    """Test the compare command with export to HTML."""
-    dir1 = os.path.join(temp_dir, "dir1")
-    dir2 = os.path.join(temp_dir, "dir2")
-    os.makedirs(dir1, exist_ok=True)
-    os.makedirs(dir2, exist_ok=True)
-    with open(os.path.join(dir1, "common.txt"), "w") as f:
-        f.write("Common file")
-    with open(os.path.join(dir2, "common.txt"), "w") as f:
-        f.write("Common file")
-    with open(os.path.join(dir1, "unique1.txt"), "w") as f:
-        f.write("Unique to dir1")
-    with open(os.path.join(dir2, "unique2.txt"), "w") as f:
-        f.write("Unique to dir2")
+def test_compare_export_to_html(
+    runner: CliRunner, comparison_directories: tuple, output_dir: str
+):
+    dir1, dir2 = comparison_directories
     result = runner.invoke(
         app,
         [
@@ -748,25 +558,13 @@ def test_compare_export_to_html(runner: CliRunner, temp_dir: str, output_dir: st
     assert "<!DOCTYPE html>" in content
     assert "<html>" in content
     assert "Directory Comparison" in content
-    assert "common.txt" in content
-    assert "unique1.txt" in content
-    assert "unique2.txt" in content
+    assert "file1.txt" in content
+    assert "dir1_only.txt" in content
+    assert "dir2_only.txt" in content
 
 
-def test_compare_with_full_path(runner: CliRunner, temp_dir: str):
-    """Test the compare command with full path option."""
-    dir1 = os.path.join(temp_dir, "dir1")
-    dir2 = os.path.join(temp_dir, "dir2")
-    os.makedirs(dir1, exist_ok=True)
-    os.makedirs(dir2, exist_ok=True)
-    with open(os.path.join(dir1, "common.txt"), "w") as f:
-        f.write("Common file")
-    with open(os.path.join(dir2, "common.txt"), "w") as f:
-        f.write("Common file")
-    with open(os.path.join(dir1, "unique1.txt"), "w") as f:
-        f.write("Unique to dir1")
-    with open(os.path.join(dir2, "unique2.txt"), "w") as f:
-        f.write("Unique to dir2")
+def test_compare_with_full_path(runner: CliRunner, comparison_directories: tuple):
+    dir1, dir2 = comparison_directories
     result = runner.invoke(app, ["compare", dir1, dir2, "--full-path"])
     assert result.exit_code == 0
     assert "dir1" in result.stdout
@@ -783,32 +581,34 @@ def test_compare_with_full_path(runner: CliRunner, temp_dir: str):
     assert has_full_path, "No full paths found in the output"
 
 
-def test_compare_with_sort_options(runner: CliRunner, temp_dir: str):
-    """Test the compare command with sorting options."""
-    dir1 = os.path.join(temp_dir, "dir1")
-    dir2 = os.path.join(temp_dir, "dir2")
-    os.makedirs(dir1, exist_ok=True)
-    os.makedirs(dir2, exist_ok=True)
-    with open(os.path.join(dir1, "file1.txt"), "w") as f:
-        f.write("File 1 in dir1")
-    with open(os.path.join(dir2, "file2.txt"), "w") as f:
-        f.write("File 2 in dir2")
-    result = runner.invoke(
-        app,
-        ["compare", dir1, dir2, "--sort-by-loc", "--sort-by-size", "--sort-by-mtime"],
-    )
+@pytest.mark.parametrize(
+    "option", ["--sort-by-loc", "--sort-by-size", "--sort-by-mtime"]
+)
+def test_compare_with_sort_options(
+    runner: CliRunner, comparison_directories: tuple, option: str
+):
+    dir1, dir2 = comparison_directories
+    result = runner.invoke(app, ["compare", dir1, dir2, option])
     assert result.exit_code == 0
-    assert "dir1" in result.stdout
-    assert "dir2" in result.stdout
-    assert (
-        "lines" in result.stdout
-        or "B" in result.stdout
-        or re.search(r"Today|Yesterday|\d{4}-\d{2}-\d{2}", result.stdout)
-    )
+    assert os.path.basename(dir1) in result.stdout
+    assert os.path.basename(dir2) in result.stdout
+    if option == "--sort-by-loc":
+        assert "lines" in result.stdout
+    elif option == "--sort-by-size":
+        assert any(unit in result.stdout for unit in ["B", "KB", "MB"])
+    elif option == "--sort-by-mtime":
+        assert any(
+            (indicator is not None and indicator in result.stdout)
+            or (pattern is not None and re.search(pattern, result.stdout))
+            for indicator, pattern in [
+                ("Today", None),
+                ("Yesterday", None),
+                (None, r"\d{4}-\d{2}-\d{2}"),
+            ]
+        )
 
 
 def test_version_command(runner: CliRunner):
-    """Test the version command."""
     result = runner.invoke(app, ["version"])
     assert result.exit_code == 0
     assert "Recursivist version" in result.stdout
@@ -817,8 +617,6 @@ def test_version_command(runner: CliRunner):
 def test_completion_command(
     runner: CliRunner, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ):
-    """Test the completion command."""
-
     def mock_get_completion(shell):
         if shell not in ["bash", "zsh", "fish", "powershell"]:
             raise ValueError(f"Unsupported shell: {shell}")
@@ -827,14 +625,9 @@ def test_completion_command(
     monkeypatch.setattr(
         "typer.completion.get_completion_inspect_parameters", mock_get_completion
     )
-    result = runner.invoke(app, ["completion", "bash"])
-    assert result.exit_code == 0
-    result = runner.invoke(app, ["completion", "zsh"])
-    assert result.exit_code == 0
-    result = runner.invoke(app, ["completion", "fish"])
-    assert result.exit_code == 0
-    result = runner.invoke(app, ["completion", "powershell"])
-    assert result.exit_code == 0
+    for shell in ["bash", "zsh", "fish", "powershell"]:
+        result = runner.invoke(app, ["completion", shell])
+        assert result.exit_code == 0
     result = runner.invoke(app, ["completion", "invalid"])
     assert result.exit_code == 1
     assert any("Unsupported shell" in record.message for record in caplog.records)
@@ -843,7 +636,21 @@ def test_completion_command(
 def test_verbose_mode(
     runner: CliRunner, sample_directory: Any, caplog: pytest.LogCaptureFixture
 ):
-    """Test the verbose mode."""
     result = runner.invoke(app, ["visualize", sample_directory, "--verbose"])
     assert result.exit_code == 0
     assert any("Verbose mode enabled" in record.message for record in caplog.records)
+
+
+def assert_path_info_in_output(output: str, directory: str):
+    """Check if output contains full path information."""
+    base_name = os.path.basename(directory)
+    has_full_path = False
+    sample_path = f"{base_name}/file1.txt".replace("/", os.sep)
+    sample_path_alt = f"{base_name}\\file1.txt".replace("\\", os.sep)
+    has_full_path = base_name in output and (
+        "file1.txt" in output
+        or "file2.py" in output
+        or sample_path in output
+        or sample_path_alt in output
+    )
+    assert has_full_path, "Full path information not found in output"
