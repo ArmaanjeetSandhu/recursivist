@@ -872,27 +872,69 @@ def display_tree(
 
 def count_lines_of_code(file_path: str) -> int:
     """Count the number of lines in a file.
+
     Counts lines in text files while handling encoding issues and skipping binary files.
+    Properly distinguishes between binary files with null bytes and UTF-16 encoded text files.
+
     Args:
         file_path: Path to the file
+
     Returns:
         Number of lines in the file, or 0 if the file cannot be read or is binary
     """
     if file_path.lower().endswith(".bin"):
         return 0
     try:
-        with open(file_path, "rb") as f:
-            sample = f.read(1024)
-            if b"\x00" in sample:
+        with open(file_path, "rb") as binary_file:
+            sample = binary_file.read(4096)
+            if not sample:
+                return 0
+            utf16_le_bom = sample.startswith(b"\xff\xfe")
+            utf16_be_bom = sample.startswith(b"\xfe\xff")
+            if utf16_le_bom or utf16_be_bom:
+                encoding = "utf-16-le" if utf16_le_bom else "utf-16-be"
+                with open(
+                    file_path, "r", encoding=encoding, errors="replace"
+                ) as text_file:
+                    return sum(1 for _ in text_file)
+            if len(sample) >= 16:
+                potential_utf16le: bool = all(
+                    sample[i] == 0 for i in range(1, min(32, len(sample)), 2)
+                )
+                potential_utf16be: bool = all(
+                    sample[i] == 0 for i in range(0, min(32, len(sample)), 2)
+                )
+                if potential_utf16le or potential_utf16be:
+                    encoding = "utf-16-le" if potential_utf16le else "utf-16-be"
+                    try:
+                        with open(
+                            file_path, "r", encoding=encoding, errors="replace"
+                        ) as text_file:
+                            return sum(1 for _ in text_file)
+                    except Exception:
+                        pass
+            if b"\x00" in sample and not (potential_utf16le or potential_utf16be):
                 return 0
     except Exception as e:
         logger.debug(f"Could not analyze file: {file_path}: {e}")
         return 0
     try:
-        with open(file_path, "r", encoding="utf-8", errors="replace") as f:
-            return sum(1 for _ in f)
+        with open(file_path, "r", encoding="utf-8", errors="strict") as text_file:
+            return sum(1 for _ in text_file)
+    except UnicodeDecodeError:
+        try:
+            with open(file_path, "r", encoding="utf-16", errors="strict") as text_file:
+                return sum(1 for _ in text_file)
+        except Exception:
+            pass
     except Exception as e:
-        logger.debug(f"Could not analyze file: {file_path}: {e}")
+        logger.debug(f"Could not read file as UTF-8: {file_path}: {e}")
+        return 0
+    try:
+        with open(file_path, "r", encoding="utf-8", errors="replace") as text_file:
+            return sum(1 for _ in text_file)
+    except Exception as e:
+        logger.debug(f"Could not analyze file with replacement: {file_path}: {e}")
         return 0
 
 

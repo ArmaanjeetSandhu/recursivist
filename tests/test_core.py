@@ -145,12 +145,9 @@ class TestCountLines:
             with open(file_path, "w", encoding=encoding) as f:
                 f.write("Line 1\nLine 2\n")
             line_count = count_lines_of_code(file_path)
-            if encoding == "utf-16":
-                assert (
-                    line_count == 0
-                ), "UTF-16 files contain null bytes and should be treated as binary"
-            else:
-                assert line_count == 2
+            assert (
+                line_count == 2
+            ), f"Expected 2 lines in {encoding} file, got {line_count}"
         except Exception as e:
             pytest.fail(f"count_lines_of_code failed with {encoding} encoding: {e}")
 
