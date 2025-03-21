@@ -1,6 +1,8 @@
 """
 Core functionality for the Recursivist directory visualization tool.
+
 This module provides the fundamental components for building, filtering, displaying, and exporting directory structures. It handles directory traversal, pattern matching, color coding, file statistics calculation, and tree construction.
+
 Key components:
 - Directory structure parsing and representation
 - Pattern-based filtering (gitignore, glob, regex)
@@ -41,7 +43,9 @@ def export_structure(
     sort_by_mtime: bool = False,
 ) -> None:
     """Export the directory structure to various formats.
+
     Maps the requested format to the appropriate export method using DirectoryExporter. Handles txt, json, html, md, and jsx formats with consistent styling.
+
     Args:
         structure: Directory structure dictionary
         root_dir: Root directory name
@@ -51,6 +55,7 @@ def export_structure(
         sort_by_loc: Whether to include lines of code counts in the export
         sort_by_size: Whether to include file size information in the export
         sort_by_mtime: Whether to include file modification times in the export
+
     Raises:
         ValueError: If the format_type is not supported
     """
@@ -79,9 +84,12 @@ def export_structure(
 
 def parse_ignore_file(ignore_file_path: str) -> List[str]:
     """Parse an ignore file (like .gitignore) and return patterns.
+
     Reads an ignore file and extracts patterns for excluding files and directories. Handles comments and trailing slashes in directories.
+
     Args:
         ignore_file_path: Path to the ignore file
+
     Returns:
         List of patterns to ignore
     """
@@ -102,11 +110,13 @@ def compile_regex_patterns(
     patterns: Sequence[str], is_regex: bool = False
 ) -> List[Union[str, Pattern[str]]]:
     """Convert patterns to compiled regex objects when appropriate.
-    When is_regex is True, compiles string patterns into regex pattern objects for efficient matching.
-    For invalid regex patterns, logs a warning and keeps them as strings.
+
+    When is_regex is True, compiles string patterns into regex pattern objects for efficient matching. For invalid regex patterns, logs a warning and keeps them as strings.
+
     Args:
         patterns: List of patterns to compile
         is_regex: Whether the patterns should be treated as regex (True) or glob patterns (False)
+
     Returns:
         List of patterns (strings for glob patterns or compiled regex objects)
     """
@@ -130,12 +140,14 @@ def should_exclude(
     include_patterns: Optional[Sequence[Union[str, Pattern[str]]]] = None,
 ) -> bool:
     """Determine if a path should be excluded based on filtering rules.
+
     Logic to handle priority between include and exclude patterns:
     1. If include_patterns exist and NONE match, EXCLUDE the path
     2. If exclude_patterns match, EXCLUDE the path (overrides include patterns)
     3. If file extension is in exclude_extensions, EXCLUDE the path
     4. If a matching include pattern exists, INCLUDE the path (overrides gitignore patterns)
     5. If gitignore-style patterns match, follow their rules (including negations)
+
     Args:
         path: Path to check for exclusion
         ignore_context: Dictionary with 'patterns' and 'current_dir' keys
@@ -201,10 +213,13 @@ _EXTENSION_COLORS: Dict[str, str] = {}
 def color_distance(color1, color2):
     """
     Calculate perceptual distance between two colors in RGB space.
+
     Using a weighted Euclidean distance that accounts for human perception.
+
     Args:
         color1: First color as (r, g, b) tuple with values 0-255
         color2: Second color as (r, g, b) tuple with values 0-255
+
     Returns:
         Float representing perceptual distance
     """
@@ -227,9 +242,12 @@ def hex_to_rgb(hex_color):
 
 def generate_color_for_extension(extension: str) -> str:
     """Generate a consistent color for a file extension with collision detection.
+
     Creates a deterministic color based on the extension string using a hash function.  The same extension will always get the same color within a session, and different extensions get visually distinct colors.
+
     Args:
         extension: File extension (with or without leading dot)
+
     Returns:
         Hex color code (e.g., "#FF5733")
     """
@@ -304,17 +322,21 @@ def get_directory_structure(
     sort_by_mtime: bool = False,
 ) -> Tuple[Dict[str, Any], Set[str]]:
     """Build a nested dictionary representing a directory structure.
+
     Recursively traverses the file system applying filters and collecting statistics.
+
     The resulting structure contains:
     - Hierarchical representation of directories and files
     - Optional statistics (lines of code, sizes, modification times)
     - Filtered entries based on various exclusion patterns
+
     Special dictionary keys:
     - "_files": List of files in the directory
     - "_loc": Total lines of code (if sort_by_loc is True)
     - "_size": Total size in bytes (if sort_by_size is True)
     - "_mtime": Latest modification timestamp (if sort_by_mtime is True)
     - "_max_depth_reached": Flag indicating max depth was reached
+
     Args:
         root_dir: Root directory path to start from
         exclude_dirs: List of directory names to exclude
@@ -330,6 +352,7 @@ def get_directory_structure(
         sort_by_loc: Whether to calculate and track lines of code counts
         sort_by_size: Whether to calculate and track file sizes
         sort_by_mtime: Whether to track file modification times
+
     Returns:
         Tuple of (structure dictionary, set of file extensions found)
     """
@@ -508,12 +531,15 @@ def sort_files_by_type(
     ]
 ]:
     """Sort files by extension and then by name, or by LOC/size/mtime if requested.
+
     The sort precedence follows: LOC > size > mtime > extension/name
+
     Args:
         files: List of file items, which can be strings or tuples of various forms
         sort_by_loc: Whether to sort by lines of code
         sort_by_size: Whether to sort by file size
         sort_by_mtime: Whether to sort by modification time
+
     Returns:
         Sorted list of file items
     """
@@ -598,10 +624,13 @@ def build_tree(
     sort_by_mtime: bool = False,
 ) -> None:
     """Build the tree structure with colored file names.
+
     Recursively builds a rich.Tree representation of the directory structure with files color-coded by extension.
+
     When sort_by_loc is True, displays lines of code counts for files and directories.
     When sort_by_size is True, displays file sizes for files and directories.
     When sort_by_mtime is True, displays file modification times.
+
     Args:
         structure: Dictionary representation of the directory structure
         tree: Rich Tree object to build upon
@@ -774,12 +803,15 @@ def display_tree(
     sort_by_mtime: bool = False,
 ) -> None:
     """Display a directory tree in the terminal with rich formatting.
+
     Presents a directory structure as a tree with:
     - Color-coded file extensions
     - Optional statistics (lines of code, sizes, modification times)
     - Filtered content based on exclusion patterns
     - Depth limitations if specified
+
     This function handles the entire process from scanning the directory to displaying the final tree visualization.
+
     Args:
         root_dir: Root directory path to display
         exclude_dirs: List of directory names to exclude
@@ -954,9 +986,12 @@ def get_file_size(file_path: str) -> int:
 
 def format_size(size_in_bytes: int) -> str:
     """Format a size in bytes to a human-readable string.
+
     Converts raw byte counts to appropriate units (B, KB, MB, GB) with consistent formatting.
+
     Args:
         size_in_bytes: Size in bytes
+
     Returns:
         Human-readable size string (e.g., "4.2 MB")
     """
@@ -972,8 +1007,10 @@ def format_size(size_in_bytes: int) -> str:
 
 def get_file_mtime(file_path: str) -> float:
     """Get the modification time of a file in seconds since epoch.
+
     Args:
         file_path: Path to the file
+
     Returns:
         Modification time as a float (seconds since epoch), or 0 if the file cannot be accessed
     """
@@ -986,14 +1023,17 @@ def get_file_mtime(file_path: str) -> float:
 
 def format_timestamp(timestamp: float) -> str:
     """Format a Unix timestamp to a human-readable string.
+
     Intelligently formats timestamps with different representations based on recency:
     - Today: "Today HH:MM"
     - Yesterday: "Yesterday HH:MM"
     - Last week: "Day HH:MM" (e.g., "Mon 14:30")
     - This year: "Month Day" (e.g., "Mar 15")
     - Older: "YYYY-MM-DD"
+
     Args:
         timestamp: Unix timestamp (seconds since epoch)
+
     Returns:
         Human-readable date/time string
     """
