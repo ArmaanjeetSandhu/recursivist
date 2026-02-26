@@ -1,5 +1,6 @@
 """Property-based tests for the compare module functionality."""
 
+from typing import Any
 from unittest.mock import ANY, MagicMock, patch
 
 import pytest
@@ -15,10 +16,10 @@ from recursivist.compare import (
 
 
 @st.composite
-def comparison_structure(draw, ensure_files=False):
+def comparison_structure(draw: st.DrawFn, ensure_files: bool = False) -> dict[str, Any]:
     """Generate a structure for comparison testing."""
-    structure = {}
-    file_list = []
+    structure: dict[str, Any] = {}
+    file_list: list[Any] = []
     if ensure_files:
         filename = "sample.txt"
         file_path = "/path/to/sample.txt"
@@ -66,8 +67,8 @@ def comparison_structure(draw, ensure_files=False):
         if draw(st.booleans()) and draw(st.booleans()):
             structure[dir_name] = {"_max_depth_reached": True}
         else:
-            sub_structure = {}
-            sub_file_list = []
+            sub_structure: dict[str, Any] = {}
+            sub_file_list: list[Any] = []
             for _ in range(draw(st.integers(min_value=0, max_value=3))):
                 sub_filename = draw(
                     st.text(
@@ -96,12 +97,16 @@ def comparison_structure(draw, ensure_files=False):
 
 
 @st.composite
-def comparison_pair(draw, ensure_files=False):
+def comparison_pair(
+    draw: st.DrawFn, ensure_files: bool = False
+) -> tuple[dict[str, Any], dict[str, Any]]:
     """Generate a pair of related structures for comparison testing."""
-    base_structure = draw(comparison_structure(ensure_files=ensure_files))
-    modified_structure = {}
+    base_structure: dict[str, Any] = draw(
+        comparison_structure(ensure_files=ensure_files)
+    )
+    modified_structure: dict[str, Any] = {}
     if "_files" in base_structure:
-        modified_files = []
+        modified_files: list[Any] = []
         for file_item in base_structure["_files"]:
             if draw(st.booleans()):
                 modified_files.append(file_item)
@@ -171,7 +176,7 @@ class TestCompareDirectoryStructures:
 
     @given(dir1=safe_path, dir2=safe_path)
     @settings(max_examples=10)
-    def test_comparison_returns_structures(self, dir1, dir2):
+    def test_comparison_returns_structures(self, dir1: str, dir2: str) -> None:
         """Test that compare_directory_structures returns valid structures."""
         with patch("recursivist.compare.get_directory_structure") as mock_get_structure:
             mock_get_structure.side_effect = [
@@ -220,7 +225,7 @@ class TestCompareDirectoryStructures:
 
     @given(dir1=safe_path, dir2=safe_path)
     @settings(max_examples=5)
-    def test_comparison_with_options(self, dir1, dir2):
+    def test_comparison_with_options(self, dir1: str, dir2: str) -> None:
         """Test compare_directory_structures with various options."""
         with patch("recursivist.compare.get_directory_structure") as mock_get_structure:
             mock_get_structure.side_effect = [
@@ -274,7 +279,11 @@ class TestBuildComparisonTree:
         ),
     )
     @settings(max_examples=10)
-    def test_build_comparison_tree(self, structures, color_map):
+    def test_build_comparison_tree(
+        self,
+        structures: tuple[dict[str, Any], dict[str, Any]],
+        color_map: dict[str, str],
+    ) -> None:
         """Test that build_comparison_tree builds a valid tree."""
         structure1, structure2 = structures
         mock_tree = MagicMock()
@@ -292,7 +301,11 @@ class TestBuildComparisonTree:
         ),
     )
     @settings(max_examples=5)
-    def test_build_comparison_tree_with_options(self, structures, color_map):
+    def test_build_comparison_tree_with_options(
+        self,
+        structures: tuple[dict[str, Any], dict[str, Any]],
+        color_map: dict[str, str],
+    ) -> None:
         """Test build_comparison_tree with various options."""
         structure1, structure2 = structures
         mock_tree = MagicMock()
@@ -316,7 +329,7 @@ class TestDisplayComparison:
 
     @given(dir1=safe_path, dir2=safe_path)
     @settings(max_examples=5)
-    def test_display_comparison(self, dir1, dir2):
+    def test_display_comparison(self, dir1: str, dir2: str) -> None:
         """Test that display_comparison calls the necessary functions."""
         with patch(
             "recursivist.compare.compare_directory_structures"
@@ -337,7 +350,7 @@ class TestDisplayComparison:
 
     @given(dir1=safe_path, dir2=safe_path)
     @settings(max_examples=5)
-    def test_display_comparison_with_options(self, dir1, dir2):
+    def test_display_comparison_with_options(self, dir1: str, dir2: str) -> None:
         """Test display_comparison with various options."""
         with patch(
             "recursivist.compare.compare_directory_structures"
@@ -386,7 +399,7 @@ class TestExportComparison:
         output_path=safe_path,
     )
     @settings(max_examples=5)
-    def test_export_comparison(self, dir1, dir2, output_path):
+    def test_export_comparison(self, dir1: str, dir2: str, output_path: str) -> None:
         """Test that export_comparison exports to HTML."""
         with patch(
             "recursivist.compare.compare_directory_structures"
@@ -403,7 +416,9 @@ class TestExportComparison:
         output_path=safe_path,
     )
     @settings(max_examples=5)
-    def test_export_comparison_invalid_format(self, dir1, dir2, output_path):
+    def test_export_comparison_invalid_format(
+        self, dir1: str, dir2: str, output_path: str
+    ) -> None:
         """Test that export_comparison raises an error for invalid formats."""
         with pytest.raises(ValueError) as excinfo:
             export_comparison(dir1, dir2, "invalid", output_path)
@@ -415,7 +430,9 @@ class TestExportComparison:
         output_path=safe_path,
     )
     @settings(max_examples=5)
-    def test_export_comparison_with_options(self, dir1, dir2, output_path):
+    def test_export_comparison_with_options(
+        self, dir1: str, dir2: str, output_path: str
+    ) -> None:
         """Test export_comparison with various options."""
         with patch(
             "recursivist.compare.compare_directory_structures"
@@ -463,10 +480,15 @@ class TestExportComparisonToHTML:
         dir2_name=safe_path,
     )
     @settings(max_examples=5)
-    def test_export_comparison_to_html(self, structures, dir1_name, dir2_name):
+    def test_export_comparison_to_html(
+        self,
+        structures: tuple[dict[str, Any], dict[str, Any]],
+        dir1_name: str,
+        dir2_name: str,
+    ) -> None:
         """Test that _export_comparison_to_html creates a valid HTML file."""
         structure1, structure2 = structures
-        comparison_data = {
+        comparison_data: dict[str, Any] = {
             "dir1": {
                 "path": f"/path/to/{dir1_name}",
                 "name": dir1_name,

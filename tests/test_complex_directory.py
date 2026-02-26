@@ -2,7 +2,7 @@ import json
 import os
 import re
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 import pytest
 from typer.testing import CliRunner
@@ -14,7 +14,7 @@ from recursivist.core import export_structure, get_directory_structure
 
 def test_cli_with_complex_structure(
     runner: CliRunner, complex_directory: str, output_dir: str
-):
+) -> None:
     """Test CLI visualization of complex directory structure with filtering options."""
     result = runner.invoke(
         app,
@@ -67,7 +67,7 @@ def test_cli_with_complex_structure(
         assert "dist" not in data["structure"]
 
 
-def test_regex_filtering_with_complex_directory(complex_directory: str):
+def test_regex_filtering_with_complex_directory(complex_directory: str) -> None:
     """Test regex filtering on complex directory structure."""
     include_patterns = [re.compile(r"\.py$")]
     structure, extensions = get_directory_structure(
@@ -81,7 +81,7 @@ def test_regex_filtering_with_complex_directory(complex_directory: str):
     python_files_found = False
     non_python_files_found = False
 
-    def check_files(structure):
+    def check_files(structure: Dict[str, Any]) -> None:
         nonlocal python_files_found, non_python_files_found
         if "_files" in structure:
             for file in structure["_files"]:
@@ -101,7 +101,7 @@ def test_regex_filtering_with_complex_directory(complex_directory: str):
 
 def test_comparison_with_complex_directories(
     complex_directory: str, complex_directory_clone: str, output_dir: str
-):
+) -> None:
     """Test comparison between complex directory structures."""
     structure1, structure2, _ = compare_directory_structures(
         complex_directory,
@@ -144,7 +144,7 @@ def test_comparison_with_complex_directories(
 
 def test_full_path_display_with_complex_directory(
     complex_directory: str, output_dir: str
-):
+) -> None:
     """Test full path display with complex directory structure."""
     structure, _ = get_directory_structure(
         complex_directory,
@@ -182,14 +182,14 @@ def test_full_path_display_with_complex_directory(
 
 
 @pytest.mark.parametrize("depth", [1, 2, 3])
-def test_depth_limit_with_complex_directory(complex_directory: str, depth: int):
+def test_depth_limit_with_complex_directory(complex_directory: str, depth: int) -> None:
     """Test depth limits with complex directory structure."""
     structure, _ = get_directory_structure(
         complex_directory,
         max_depth=depth,
     )
 
-    def check_depth(structure, current_depth=0):
+    def check_depth(structure: Dict[str, Any], current_depth: int = 0) -> None:
         if current_depth == depth:
             for key, value in structure.items():
                 if (
@@ -212,7 +212,7 @@ def test_depth_limit_with_complex_directory(complex_directory: str, depth: int):
     check_depth(structure)
 
 
-def test_cli_with_regex_patterns(runner: CliRunner, temp_dir: str):
+def test_cli_with_regex_patterns(runner: CliRunner, temp_dir: str) -> None:
     """Test CLI with regex patterns."""
     with open(os.path.join(temp_dir, "test.txt"), "w") as f:
         f.write("Test file")
@@ -230,7 +230,7 @@ def test_cli_with_regex_patterns(runner: CliRunner, temp_dir: str):
     assert "test.py" not in result.stdout
 
 
-def test_gitignore_pattern_with_complex_directory(complex_directory: str):
+def test_gitignore_pattern_with_complex_directory(complex_directory: str) -> None:
     """Test using gitignore file for filtering."""
     structure, _ = get_directory_structure(
         complex_directory,
@@ -239,7 +239,7 @@ def test_gitignore_pattern_with_complex_directory(complex_directory: str):
     assert "build" not in structure
     assert "dist" not in structure
 
-    def check_extensions(structure):
+    def check_extensions(structure: Dict[str, Any]) -> None:
         for key, value in structure.items():
             if key == "_files":
                 for file in value:
@@ -253,11 +253,11 @@ def test_gitignore_pattern_with_complex_directory(complex_directory: str):
     check_extensions(structure)
 
 
-def test_statistics_integration(temp_dir: str):
+def test_statistics_integration(temp_dir: str) -> None:
     """Test statistics integration with directory structure."""
     src_dir = os.path.join(temp_dir, "src")
     os.makedirs(src_dir, exist_ok=True)
-    file_contents = {
+    file_contents: Dict[str, str] = {
         "small.py": "print('Small file')",
         "medium.py": "def test_func():\n    print('Medium file')\n\ntest_func()",
         "large.py": "\n".join([f"print('Line {i}')" for i in range(10)]),
@@ -284,7 +284,9 @@ def test_statistics_integration(temp_dir: str):
 
 
 @pytest.mark.parametrize("fmt", ["json", "txt", "md", "html"])
-def test_export_formats_with_statistics(temp_dir: str, output_dir: str, fmt: str):
+def test_export_formats_with_statistics(
+    temp_dir: str, output_dir: str, fmt: str
+) -> None:
     """Test exporting with statistics to different formats."""
     with open(os.path.join(temp_dir, "test1.py"), "w") as f:
         f.write("def main():\n    print('Test 1')\n\nmain()")
@@ -319,7 +321,7 @@ def test_export_formats_with_statistics(temp_dir: str, output_dir: str, fmt: str
         assert has_stats, f"No statistics found in {fmt} export"
 
 
-def test_comparison_with_statistics(temp_dir: str, output_dir: str):
+def test_comparison_with_statistics(temp_dir: str, output_dir: str) -> None:
     """Test comparison with statistics."""
     dir1 = os.path.join(temp_dir, "dir1")
     dir2 = os.path.join(temp_dir, "dir2")
@@ -359,7 +361,7 @@ def test_comparison_with_statistics(temp_dir: str, output_dir: str):
     assert has_stats, "No statistics found in comparison export"
 
 
-def test_pathlib_compatibility(temp_dir: str, output_dir: str):
+def test_pathlib_compatibility(temp_dir: str, output_dir: str) -> None:
     """Test compatibility with pathlib.Path objects."""
     test_file = os.path.join(temp_dir, "test.txt")
     with open(test_file, "w") as f:
@@ -383,7 +385,9 @@ def test_pathlib_compatibility(temp_dir: str, output_dir: str):
     assert "_files" in data["structure"]
 
 
-def get_file_names(structure: Dict, path: Optional[List[str]] = None) -> List[str]:
+def get_file_names(
+    structure: Dict[str, Any], path: Optional[List[str]] = None
+) -> List[str]:
     """
     Extract file names from a structure, optionally at a specific path.
     Args:

@@ -81,7 +81,11 @@ class TestSortFilesByType:
             ),
         ],
     )
-    def test_sort_by_extension(self, input_files, expected_order):
+    def test_sort_by_extension(
+        self,
+        input_files: List[str | tuple[str, str]],
+        expected_order: List[str | tuple[str, str]],
+    ) -> None:
         sorted_files = sort_files_by_type(input_files)
         sorted_names = [f if isinstance(f, str) else f[0] for f in sorted_files]
         if len(expected_order) > 0:
@@ -122,7 +126,12 @@ class TestSortFilesByType:
             ),
         ],
     )
-    def test_sort_by_statistics(self, sort_option, files, expected_order):
+    def test_sort_by_statistics(
+        self,
+        sort_option: str,
+        files: List[tuple[Any, ...]],
+        expected_order: List[str],
+    ) -> None:
         kwargs = {sort_option: True}
         sorted_files = sort_files_by_type(files, **kwargs)
         sorted_names = [item[0] for item in sorted_files]
@@ -130,7 +139,7 @@ class TestSortFilesByType:
             f"Expected {expected_order}, got {sorted_names}"
         )
 
-    def test_sort_with_multiple_criteria(self):
+    def test_sort_with_multiple_criteria(self) -> None:
         files = [
             ("a.py", "/path/to/a.py", 100, 1024, 1609459200),
             ("b.py", "/path/to/b.py", 100, 2048, 1609459200),
@@ -148,7 +157,7 @@ class TestSortFilesByType:
 
 
 class TestDirectoryExporter:
-    def test_init(self):
+    def test_init(self) -> None:
         """Test initializing DirectoryExporter."""
         structure = {"_files": ["file1.txt"], "dir1": {"_files": ["file2.py"]}}
         exporter = DirectoryExporter(structure, "test_root")
@@ -157,7 +166,7 @@ class TestDirectoryExporter:
         assert exporter.base_path is None
         assert not exporter.show_full_path
 
-    def test_init_with_full_path(self):
+    def test_init_with_full_path(self) -> None:
         """Test initializing DirectoryExporter with full paths."""
         structure = {
             "_files": [("file1.txt", "/path/to/file1.txt")],
@@ -169,7 +178,7 @@ class TestDirectoryExporter:
         assert exporter.base_path == "/path/to"
         assert exporter.show_full_path
 
-    def test_init_with_statistics(self):
+    def test_init_with_statistics(self) -> None:
         """Test initializing DirectoryExporter with statistics."""
         now = time.time()
         structure = {
@@ -256,7 +265,7 @@ def test_export_formats(
     format_name: str,
     format_extension: str,
     content_checks: List[Callable[[str], bool]],
-):
+) -> None:
     """Test exporting to different formats."""
     structure, _ = get_directory_structure(sample_directory)
     output_path = os.path.join(output_dir, f"structure.{format_extension}")
@@ -313,7 +322,7 @@ def test_export_with_options(
     option_name: str,
     option_value: bool,
     content_check: Callable[[str, str], bool],
-):
+) -> None:
     """Test exporting with various options."""
     get_structure_kwargs = {}
     if option_name in [
@@ -352,7 +361,7 @@ def test_export_with_options(
     )
 
 
-def test_export_nested_structure(sample_directory: str, output_dir: str):
+def test_export_nested_structure(sample_directory: str, output_dir: str) -> None:
     """Test exporting nested directory structure."""
     nested_dir = os.path.join(sample_directory, "nested", "deep")
     os.makedirs(nested_dir, exist_ok=True)
@@ -369,7 +378,7 @@ def test_export_nested_structure(sample_directory: str, output_dir: str):
     assert "deep_file.txt" in data["structure"]["nested"]["deep"]["_files"]
 
 
-def test_export_invalid_format(temp_dir: str, output_dir: str):
+def test_export_invalid_format(temp_dir: str, output_dir: str) -> None:
     """Test exporting with invalid format."""
     structure = {"_files": ["file1.txt"]}
     output_path = os.path.join(output_dir, "test_export.invalid")
@@ -382,7 +391,7 @@ def test_export_error_handling(
     sample_directory: str,
     output_dir: str,
     mocker: MockerFixture,
-):
+) -> None:
     """Test error handling during export."""
     structure, _ = get_directory_structure(sample_directory)
     output_path = os.path.join(output_dir, "structure.txt")
@@ -391,7 +400,7 @@ def test_export_error_handling(
         export_structure(structure, sample_directory, "txt", output_path)
 
 
-def test_export_with_max_depth_indicator(temp_dir: str, output_dir: str):
+def test_export_with_max_depth_indicator(temp_dir: str, output_dir: str) -> None:
     """Test exporting structure with max depth indicators."""
     level1 = os.path.join(temp_dir, "level1")
     level2 = os.path.join(level1, "level2")
@@ -417,7 +426,7 @@ def test_export_with_max_depth_indicator(temp_dir: str, output_dir: str):
         )
 
 
-def test_export_with_statistics(sample_directory: str, output_dir: str):
+def test_export_with_statistics(sample_directory: str, output_dir: str) -> None:
     """Test exporting with statistics (LOC, size, mtime)."""
     structure, _ = get_directory_structure(
         sample_directory, sort_by_loc=True, sort_by_size=True, sort_by_mtime=True
@@ -460,7 +469,7 @@ def test_export_with_statistics(sample_directory: str, output_dir: str):
             )
 
 
-def test_large_structure_export(output_dir: str):
+def test_large_structure_export(output_dir: str) -> None:
     """Test exporting a large directory structure."""
     structure = generate_large_structure(depth=5, files_per_dir=10, dir_branching=3)
     for fmt in ["txt", "json", "html", "md", "jsx"]:
@@ -487,7 +496,7 @@ def test_large_structure_export(output_dir: str):
             assert 'name="large_root"' in content
 
 
-def test_unicode_file_names(output_dir: str):
+def test_unicode_file_names(output_dir: str) -> None:
     """Test exporting with Unicode characters in file names."""
     unicode_structure = {
         "_files": [
@@ -539,12 +548,13 @@ def test_unicode_file_names(output_dir: str):
 def test_export_structure_error_types(
     sample_directory: str,
     output_dir: str,
-    error_type: type,
+    error_type: type[Exception],
     error_msg: str,
-):
+) -> None:
     """Test handling different error types during export."""
     structure, _ = get_directory_structure(sample_directory)
     output_path = os.path.join(output_dir, f"error_{error_type.__name__}.txt")
+    error: Exception
     if error_type is OSError:
         error = OSError(28, error_msg)
     else:
@@ -555,7 +565,7 @@ def test_export_structure_error_types(
         assert error_msg in str(excinfo.value)
 
 
-def test_to_jsx_with_long_paths(output_dir: str):
+def test_to_jsx_with_long_paths(output_dir: str) -> None:
     """Test JSX export with very long file names."""
     long_name = "a" * 255
     long_structure = {
@@ -579,7 +589,7 @@ def test_to_jsx_with_long_paths(output_dir: str):
     assert f'name="nested_{long_name}.md"' in content
 
 
-def test_export_with_excessive_loc(temp_dir: str, output_dir: str):
+def test_export_with_excessive_loc(temp_dir: str, output_dir: str) -> None:
     """Test exporting files with very large line counts."""
     test_file = os.path.join(temp_dir, "many_lines.py")
     with open(test_file, "w") as f:
@@ -602,7 +612,7 @@ def test_export_with_excessive_loc(temp_dir: str, output_dir: str):
             assert re.search(r"locCount={\d{4,}}", content)
 
 
-def test_many_unique_extensions(output_dir: str):
+def test_many_unique_extensions(output_dir: str) -> None:
     """Test export with many unique file extensions."""
     many_extensions_structure: Dict[str, List[str]] = {"_files": []}
     for i in range(100):
@@ -625,7 +635,7 @@ def test_many_unique_extensions(output_dir: str):
     )
 
 
-def test_problematic_filenames(output_dir: str):
+def test_problematic_filenames(output_dir: str) -> None:
     """Test export with filenames containing special characters."""
     problematic_structure = {
         "_files": [
@@ -663,7 +673,7 @@ def test_problematic_filenames(output_dir: str):
             pytest.fail(f"Format {fmt} failed validation: {str(e)}")
 
 
-def test_combined_export_options(output_dir: str):
+def test_combined_export_options(output_dir: str) -> None:
     """Test exporting with all options combined."""
     now = time.time()
     complex_structure = {
@@ -750,10 +760,10 @@ def test_combined_export_options(output_dir: str):
 
 def generate_large_structure(
     depth: int, files_per_dir: int, dir_branching: int
-) -> Dict:
+) -> Dict[str, Any]:
     """Generate a large directory structure for testing."""
 
-    def _generate_recursive(current_depth: int) -> Dict:
+    def _generate_recursive(current_depth: int) -> Dict[str, Any]:
         if current_depth > depth:
             return {}
         structure: Dict[str, Any] = {}

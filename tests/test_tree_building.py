@@ -1,7 +1,9 @@
 import os
 import re
 import time
-from unittest.mock import patch
+from pathlib import Path
+from typing import Any
+from unittest.mock import MagicMock, patch
 
 import pytest
 from rich.text import Text
@@ -12,7 +14,12 @@ from recursivist.exports import DirectoryExporter
 
 
 class TestBuildTree:
-    def test_simple_structure(self, mock_tree, color_map, simple_structure):
+    def test_simple_structure(
+        self,
+        mock_tree: MagicMock,
+        color_map: dict[str, str],
+        simple_structure: dict[str, Any],
+    ) -> None:
         """Test building a tree from a simple structure."""
         build_tree(simple_structure, mock_tree, color_map)
         assert mock_tree.add.call_count == 3
@@ -27,8 +34,12 @@ class TestBuildTree:
         assert "📄 file3.md" in texts
 
     def test_nested_structure(
-        self, mock_tree, mock_subtree, color_map, nested_structure
-    ):
+        self,
+        mock_tree: MagicMock,
+        mock_subtree: MagicMock,
+        color_map: dict[str, str],
+        nested_structure: dict[str, Any],
+    ) -> None:
         """Test building a tree with nested directories."""
         mock_tree.add.return_value = mock_subtree
         build_tree(nested_structure, mock_tree, color_map)
@@ -43,7 +54,9 @@ class TestBuildTree:
         assert "📁 subdir1" in dir_names
         assert "📁 subdir2" in dir_names
 
-    def test_with_full_path(self, mock_tree, color_map):
+    def test_with_full_path(
+        self, mock_tree: MagicMock, color_map: dict[str, str]
+    ) -> None:
         """Test building a tree with full file paths."""
         full_path_structure = {
             "_files": [
@@ -72,8 +85,13 @@ class TestBuildTree:
         ],
     )
     def test_with_statistics(
-        self, mock_tree, color_map, structure_with_stats, option, expected_indicator
-    ):
+        self,
+        mock_tree: MagicMock,
+        color_map: dict[str, str],
+        structure_with_stats: dict[str, Any],
+        option: str,
+        expected_indicator: str | list[str],
+    ) -> None:
         """Test building a tree with file statistics."""
         kwargs = {option: True}
         build_tree(structure_with_stats, mock_tree, color_map, parent_name="", **kwargs)
@@ -91,15 +109,21 @@ class TestBuildTree:
             )
 
     def test_max_depth_indicator(
-        self, mock_tree, mock_subtree, color_map, max_depth_structure
-    ):
+        self,
+        mock_tree: MagicMock,
+        mock_subtree: MagicMock,
+        color_map: dict[str, str],
+        max_depth_structure: dict[str, Any],
+    ) -> None:
         """Test displaying max depth indicator in tree."""
         mock_tree.add.return_value = mock_subtree
         build_tree(max_depth_structure, mock_tree, color_map)
         mock_subtree.add.assert_called_once()
         assert "(max depth reached)" in str(mock_subtree.add.call_args[0][0])
 
-    def test_with_various_file_formats(self, mock_tree, color_map):
+    def test_with_various_file_formats(
+        self, mock_tree: MagicMock, color_map: dict[str, str]
+    ) -> None:
         """Test building a tree with various file info formats."""
         mixed_structure = {
             "_files": [
@@ -158,7 +182,12 @@ class TestBuildTree:
 
 
 class TestBuildComparisonTree:
-    def test_identical_structures(self, mock_tree, color_map, simple_structure):
+    def test_identical_structures(
+        self,
+        mock_tree: MagicMock,
+        color_map: dict[str, str],
+        simple_structure: dict[str, Any],
+    ) -> None:
         """Test comparing identical structures."""
         build_comparison_tree(simple_structure, simple_structure, mock_tree, color_map)
         assert mock_tree.add.call_count == 3
@@ -171,7 +200,9 @@ class TestBuildComparisonTree:
         assert not any("on green" in style for style in styles)
         assert not any("on red" in style for style in styles)
 
-    def test_different_files(self, mock_tree, color_map):
+    def test_different_files(
+        self, mock_tree: MagicMock, color_map: dict[str, str]
+    ) -> None:
         """Test comparing structures with different files."""
         structure1 = {"_files": ["file1.txt", "common.py"]}
         structure2 = {"_files": ["file2.txt", "common.py"]}
@@ -193,7 +224,9 @@ class TestBuildComparisonTree:
             for text, style in texts_and_styles
         )
 
-    def test_different_directories(self, mock_tree, mock_subtree, color_map):
+    def test_different_directories(
+        self, mock_tree: MagicMock, mock_subtree: MagicMock, color_map: dict[str, str]
+    ) -> None:
         """Test comparing structures with different directories."""
         structure1 = {
             "dir1": {"_files": ["file1.txt"]},
@@ -225,7 +258,9 @@ class TestBuildComparisonTree:
         ]
         assert len(common_dir_calls) > 0
 
-    def test_with_statistics(self, mock_tree, color_map):
+    def test_with_statistics(
+        self, mock_tree: MagicMock, color_map: dict[str, str]
+    ) -> None:
         """Test comparison tree with statistics."""
         now = time.time()
         structure1 = {
@@ -269,7 +304,9 @@ class TestBuildComparisonTree:
                 break
         assert has_stats, "No statistics indicators found in comparison tree"
 
-    def test_with_complex_structures(self, mock_tree, mock_subtree, color_map):
+    def test_with_complex_structures(
+        self, mock_tree: MagicMock, mock_subtree: MagicMock, color_map: dict[str, str]
+    ) -> None:
         """Test comparison with complex nested structures."""
         structure1 = {
             "_files": ["common1.txt", "only1.txt"],
@@ -289,7 +326,7 @@ class TestBuildComparisonTree:
         }
         all_calls = []
 
-        def side_effect(*args, **kwargs):
+        def side_effect(*args: Any, **kwargs: Any) -> MagicMock:
             all_calls.append((args, kwargs))
             return mock_subtree
 
@@ -313,7 +350,9 @@ class TestBuildComparisonTree:
             for text, style in file_texts_styles
         )
 
-    def test_with_max_depth(self, mock_tree, mock_subtree, color_map):
+    def test_with_max_depth(
+        self, mock_tree: MagicMock, mock_subtree: MagicMock, color_map: dict[str, str]
+    ) -> None:
         """Test comparison tree with max depth indicators."""
         structure1 = {
             "_files": ["file1.txt"],
@@ -347,8 +386,13 @@ class TestDirectoryExporter:
         ],
     )
     def test_export_formats(
-        self, simple_structure, tmp_path, format_name, format_method, expected_content
-    ):
+        self,
+        simple_structure: dict[str, Any],
+        tmp_path: Path,
+        format_name: str,
+        format_method: str,
+        expected_content: list[str],
+    ) -> None:
         """Test DirectoryExporter's format-specific export methods."""
         output_path = os.path.join(tmp_path, f"test_output.{format_name}")
         exporter = DirectoryExporter(simple_structure, "test_root")
@@ -359,7 +403,9 @@ class TestDirectoryExporter:
         for expected in expected_content:
             assert expected in content
 
-    def test_export_with_directories(self, nested_structure, tmp_path):
+    def test_export_with_directories(
+        self, nested_structure: dict[str, Any], tmp_path: Path
+    ) -> None:
         """Test that directories are properly formatted in exports."""
         md_output_path = os.path.join(tmp_path, "test_dirs.md")
         md_exporter = DirectoryExporter(nested_structure, "test_root")
@@ -384,15 +430,15 @@ class TestDirectoryExporter:
     )
     def test_export_with_statistics(
         self,
-        structure_with_stats,
-        tmp_path,
-        option_name,
-        option_value,
-        expected_in_content,
-    ):
+        structure_with_stats: dict[str, Any],
+        tmp_path: Path,
+        option_name: str,
+        option_value: bool,
+        expected_in_content: str | list[str],
+    ) -> None:
         """Test exporting with statistics options."""
         output_path = os.path.join(tmp_path, f"test_output_{option_name}.txt")
-        kwargs = {option_name: option_value}
+        kwargs: dict[str, Any] = {option_name: option_value}
         exporter = DirectoryExporter(structure_with_stats, "test_root", **kwargs)
         exporter.to_txt(output_path)
         assert os.path.exists(output_path)
@@ -407,7 +453,9 @@ class TestDirectoryExporter:
                 f"{expected_in_content} not found in export"
             )
 
-    def test_export_with_full_path(self, structure_with_stats, tmp_path):
+    def test_export_with_full_path(
+        self, structure_with_stats: dict[str, Any], tmp_path: Path
+    ) -> None:
         """Test exporting with full file paths."""
         output_path = os.path.join(tmp_path, "test_output_fullpath.txt")
         exporter = DirectoryExporter(
@@ -426,11 +474,16 @@ class TestDirectoryExporter:
         ],
     )
     def test_export_error_handling(
-        self, simple_structure, tmp_path, error_type, error_msg
-    ):
+        self,
+        simple_structure: dict[str, Any],
+        tmp_path: Path,
+        error_type: type[Exception],
+        error_msg: str,
+    ) -> None:
         """Test error handling during export."""
         output_path = os.path.join(tmp_path, "test_output.txt")
         exporter = DirectoryExporter(simple_structure, "test_root")
+        error: Exception
         if error_type is OSError:
             error = OSError(28, error_msg)
         else:
@@ -440,7 +493,9 @@ class TestDirectoryExporter:
                 exporter.to_txt(output_path)
             assert error_msg in str(excinfo.value)
 
-    def test_export_with_max_depth(self, max_depth_structure, tmp_path):
+    def test_export_with_max_depth(
+        self, max_depth_structure: dict[str, Any], tmp_path: Path
+    ) -> None:
         """Test exporting with max depth indicators."""
         exporter = DirectoryExporter(max_depth_structure, "max_depth_root")
         txt_path = os.path.join(tmp_path, "max_depth.txt")
@@ -459,7 +514,7 @@ class TestDirectoryExporter:
             content = f.read()
         assert "max-depth" in content
 
-    def test_jsx_export(self, nested_structure, tmp_path):
+    def test_jsx_export(self, nested_structure: dict[str, Any], tmp_path: Path) -> None:
         """Test JSX export with mock."""
         output_path = os.path.join(tmp_path, "test_output.jsx")
         with patch("recursivist.exports.generate_jsx_component") as mock_generate:

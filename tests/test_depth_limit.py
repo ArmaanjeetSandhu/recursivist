@@ -1,7 +1,7 @@
 import json
 import os
 import shutil
-from typing import List
+from typing import Any, List, cast
 
 import pytest
 from typer.testing import CliRunner
@@ -10,7 +10,9 @@ from recursivist.cli import app
 from recursivist.core import get_directory_structure
 
 
-def test_get_directory_structure_with_no_depth_limit(deeply_nested_directory: str):
+def test_get_directory_structure_with_no_depth_limit(
+    deeply_nested_directory: str,
+) -> None:
     """Test that structure is built without depth limits when max_depth=0."""
     structure, _ = get_directory_structure(deeply_nested_directory, max_depth=0)
     assert "level1" in structure
@@ -24,11 +26,11 @@ def test_get_directory_structure_with_no_depth_limit(deeply_nested_directory: st
     assert "_max_depth_reached" not in structure["level1"]
     assert "_max_depth_reached" not in structure["level1"]["level2"]
 
-    def check_no_max_depth_flags(structure):
+    def check_no_max_depth_flags(structure: dict[str, Any]) -> None:
         assert "_max_depth_reached" not in structure
         for key, value in structure.items():
             if key != "_files" and isinstance(value, dict):
-                check_no_max_depth_flags(value)
+                check_no_max_depth_flags(cast(dict[str, Any], value))
 
     check_no_max_depth_flags(structure)
 
@@ -43,12 +45,12 @@ def test_get_directory_structure_with_no_depth_limit(deeply_nested_directory: st
 )
 def test_get_directory_structure_with_depth_limits(
     deeply_nested_directory: str, depth: int, max_depth_in_level: List[str]
-):
+) -> None:
     """Test that structure is limited to specified depth."""
     structure, _ = get_directory_structure(deeply_nested_directory, max_depth=depth)
 
     def check_path_has_max_depth(path_segments: List[str]) -> bool:
-        current = structure
+        current: dict[str, Any] = structure
         for segment in path_segments:
             if segment in current:
                 current = current[segment]
@@ -57,7 +59,7 @@ def test_get_directory_structure_with_depth_limits(
         return "_max_depth_reached" in current
 
     for path in max_depth_in_level:
-        segments = path.split("/")
+        segments: List[str] = path.split("/")
         assert check_path_has_max_depth(segments), (
             f"No max_depth_reached flag in {path}"
         )
@@ -65,7 +67,7 @@ def test_get_directory_structure_with_depth_limits(
 
 def test_visualize_command_with_depth_limit(
     runner: CliRunner, deeply_nested_directory: str
-):
+) -> None:
     """Test CLI visualize command with depth limits."""
     result = runner.invoke(app, ["visualize", deeply_nested_directory, "--depth", "1"])
     assert result.exit_code == 0
@@ -82,7 +84,7 @@ def test_visualize_command_with_depth_limit(
 
 def test_export_command_with_depth_limit(
     runner: CliRunner, deeply_nested_directory: str, output_dir: str
-):
+) -> None:
     """Test CLI export command with depth limits."""
     result = runner.invoke(
         app,
@@ -100,10 +102,10 @@ def test_export_command_with_depth_limit(
         ],
     )
     assert result.exit_code == 0
-    export_file = os.path.join(output_dir, "depth_limited.json")
+    export_file: str = os.path.join(output_dir, "depth_limited.json")
     assert os.path.exists(export_file)
     with open(export_file, encoding="utf-8") as f:
-        data = json.load(f)
+        data: dict[str, Any] = json.load(f)
     assert "structure" in data
     assert "level1" in data["structure"]
     assert "level2" in data["structure"]["level1"]
@@ -112,15 +114,15 @@ def test_export_command_with_depth_limit(
 
 def test_compare_command_with_depth_limit(
     runner: CliRunner, deeply_nested_directory: str, temp_dir: str
-):
+) -> None:
     """Test CLI compare command with depth limits."""
-    compare_dir = os.path.join(os.path.dirname(temp_dir), "compare_dir")
+    compare_dir: str = os.path.join(os.path.dirname(temp_dir), "compare_dir")
     if os.path.exists(compare_dir):
         shutil.rmtree(compare_dir)
     os.makedirs(compare_dir, exist_ok=True)
-    level1 = os.path.join(compare_dir, "level1")
-    level2 = os.path.join(level1, "level2")
-    level3 = os.path.join(level2, "level3")
+    level1: str = os.path.join(compare_dir, "level1")
+    level2: str = os.path.join(level1, "level2")
+    level3: str = os.path.join(level2, "level3")
     os.makedirs(level1, exist_ok=True)
     os.makedirs(level2, exist_ok=True)
     os.makedirs(level3, exist_ok=True)
@@ -147,15 +149,15 @@ def test_compare_command_with_depth_limit(
 
 def test_compare_export_with_depth_limit(
     runner: CliRunner, deeply_nested_directory: str, temp_dir: str, output_dir: str
-):
+) -> None:
     """Test exporting comparison with depth limits."""
-    compare_dir = os.path.join(os.path.dirname(temp_dir), "compare_export_dir")
+    compare_dir: str = os.path.join(os.path.dirname(temp_dir), "compare_export_dir")
     if os.path.exists(compare_dir):
         shutil.rmtree(compare_dir)
     os.makedirs(compare_dir, exist_ok=True)
-    level1 = os.path.join(compare_dir, "level1")
-    level2 = os.path.join(level1, "level2")
-    level3 = os.path.join(level2, "level3")
+    level1: str = os.path.join(compare_dir, "level1")
+    level2: str = os.path.join(level1, "level2")
+    level3: str = os.path.join(level2, "level3")
     os.makedirs(level1, exist_ok=True)
     os.makedirs(level2, exist_ok=True)
     os.makedirs(level3, exist_ok=True)
@@ -183,10 +185,10 @@ def test_compare_export_with_depth_limit(
         ],
     )
     assert result.exit_code == 0
-    export_file = os.path.join(output_dir, "depth_limited_compare.html")
+    export_file: str = os.path.join(output_dir, "depth_limited_compare.html")
     assert os.path.exists(export_file)
     with open(export_file, encoding="utf-8") as f:
-        content = f.read()
+        content: str = f.read()
     assert "Directory Comparison" in content
     assert "level1" in content
     assert "level2" in content
@@ -198,9 +200,11 @@ def test_compare_export_with_depth_limit(
     assert "(max depth reached)" in content
 
 
-def test_depth_combined_with_filters(runner: CliRunner, deeply_nested_directory: str):
+def test_depth_combined_with_filters(
+    runner: CliRunner, deeply_nested_directory: str
+) -> None:
     """Test combining depth limits with other filters."""
-    excluded_dir = os.path.join(deeply_nested_directory, "excluded")
+    excluded_dir: str = os.path.join(deeply_nested_directory, "excluded")
     os.makedirs(excluded_dir, exist_ok=True)
     with open(os.path.join(excluded_dir, "excluded.txt"), "w") as f:
         f.write("This should be excluded")
@@ -230,7 +234,7 @@ def test_depth_combined_with_filters(runner: CliRunner, deeply_nested_directory:
 @pytest.mark.parametrize("depth", [1, 2, 3, 4])
 def test_export_with_different_depth_limits(
     runner: CliRunner, deeply_nested_directory: str, output_dir: str, depth: int
-):
+) -> None:
     """Test exporting with different depth limits."""
     result = runner.invoke(
         app,
@@ -248,11 +252,11 @@ def test_export_with_different_depth_limits(
         ],
     )
     assert result.exit_code == 0
-    export_file = os.path.join(output_dir, f"depth_{depth}.json")
+    export_file: str = os.path.join(output_dir, f"depth_{depth}.json")
     assert os.path.exists(export_file)
     with open(export_file, encoding="utf-8") as f:
-        data = json.load(f)
-    current = data["structure"]
+        data: dict[str, Any] = json.load(f)
+    current: dict[str, Any] = data["structure"]
     assert "level1" in current
     current = current["level1"]
     if depth == 1:
@@ -275,14 +279,14 @@ def test_export_with_different_depth_limits(
         return
 
 
-def test_unlimited_depth(runner: CliRunner, deeply_nested_directory: str):
+def test_unlimited_depth(runner: CliRunner, deeply_nested_directory: str) -> None:
     """Test with unlimited depth (depth=0)."""
-    level1 = os.path.join(deeply_nested_directory, "level1")
-    level2 = os.path.join(level1, "level2")
-    level3 = os.path.join(level2, "level3")
-    level4 = os.path.join(level3, "level4")
-    level5 = os.path.join(level4, "level5")
-    level6 = os.path.join(level5, "level6")
+    level1: str = os.path.join(deeply_nested_directory, "level1")
+    level2: str = os.path.join(level1, "level2")
+    level3: str = os.path.join(level2, "level3")
+    level4: str = os.path.join(level3, "level4")
+    level5: str = os.path.join(level4, "level5")
+    level6: str = os.path.join(level5, "level6")
     assert os.path.exists(level6), "Test setup error: level6 directory should exist"
     result = runner.invoke(
         app,

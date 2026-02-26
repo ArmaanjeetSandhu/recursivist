@@ -1,7 +1,7 @@
 import json
 import os
 import re
-from typing import Any, List
+from typing import Any, List, Optional, Union
 
 import pytest
 from typer.testing import CliRunner
@@ -20,12 +20,14 @@ from recursivist.cli import app, parse_list_option
         (None, []),
     ],
 )
-def test_parse_list_option(input_list, expected):
+def test_parse_list_option(
+    input_list: Optional[List[str]], expected: List[str]
+) -> None:
     result = parse_list_option(input_list)
     assert result == expected
 
 
-def test_visualize_command(runner: CliRunner, sample_directory: Any):
+def test_visualize_command(runner: CliRunner, sample_directory: str) -> None:
     result = runner.invoke(app, ["visualize", sample_directory])
     assert result.exit_code == 0
     assert os.path.basename(sample_directory) in result.stdout
@@ -34,7 +36,7 @@ def test_visualize_command(runner: CliRunner, sample_directory: Any):
     assert "subdir" in result.stdout
 
 
-def test_visualize_with_full_path(runner: CliRunner, sample_directory: Any):
+def test_visualize_with_full_path(runner: CliRunner, sample_directory: str) -> None:
     result = runner.invoke(app, ["visualize", sample_directory, "--full-path"])
     assert result.exit_code == 0
     assert_path_info_in_output(result.stdout, sample_directory)
@@ -51,11 +53,11 @@ def test_visualize_with_full_path(runner: CliRunner, sample_directory: Any):
 )
 def test_visualize_with_filtering_options(
     runner: CliRunner,
-    sample_directory: Any,
+    sample_directory: str,
     option_name: str,
     option_value: str,
     expected_missing: List[str],
-):
+) -> None:
     if "exclude_me" in expected_missing:
         exclude_dir = os.path.join(sample_directory, "exclude_me")
         os.makedirs(exclude_dir, exist_ok=True)
@@ -93,8 +95,8 @@ def test_visualize_with_filtering_options(
     ],
 )
 def test_visualize_with_multiple_filtering_options(
-    runner: CliRunner, sample_directory: Any, option_name: str, value1: str, value2: str
-):
+    runner: CliRunner, sample_directory: str, option_name: str, value1: str, value2: str
+) -> None:
     if option_name == "--exclude":
         exclude_dir1 = os.path.join(sample_directory, "exclude_me1")
         exclude_dir2 = os.path.join(sample_directory, "exclude_me2")
@@ -155,7 +157,9 @@ def test_visualize_with_multiple_filtering_options(
             assert "keep_this.txt" in result_output
 
 
-def test_visualize_with_regex_patterns(runner: CliRunner, sample_directory: Any):
+def test_visualize_with_regex_patterns(
+    runner: CliRunner, sample_directory: str
+) -> None:
     with open(os.path.join(sample_directory, "test123.txt"), "w") as f:
         f.write("This should be excluded with regex")
     with open(os.path.join(sample_directory, "test456.txt"), "w") as f:
@@ -178,7 +182,7 @@ def test_visualize_with_regex_patterns(runner: CliRunner, sample_directory: Any)
     assert "keep789.txt" in result.stdout
 
 
-def test_visualize_with_ignore_file(runner: CliRunner, sample_with_logs: Any):
+def test_visualize_with_ignore_file(runner: CliRunner, sample_with_logs: str) -> None:
     result = runner.invoke(
         app, ["visualize", sample_with_logs, "--ignore-file", ".gitignore"]
     )
@@ -187,7 +191,9 @@ def test_visualize_with_ignore_file(runner: CliRunner, sample_with_logs: Any):
     assert "node_modules" not in result.stdout
 
 
-def test_visualize_with_depth_limit(runner: CliRunner, deeply_nested_directory: Any):
+def test_visualize_with_depth_limit(
+    runner: CliRunner, deeply_nested_directory: str
+) -> None:
     result = runner.invoke(app, ["visualize", deeply_nested_directory, "--depth", "1"])
     assert result.exit_code == 0
     assert "level1" in result.stdout
@@ -201,7 +207,7 @@ def test_visualize_with_depth_limit(runner: CliRunner, deeply_nested_directory: 
 
 def test_visualize_invalid_directory(
     runner: CliRunner, temp_dir: str, caplog: pytest.LogCaptureFixture
-):
+) -> None:
     invalid_dir = os.path.join(temp_dir, "nonexistent")
     result = runner.invoke(app, ["visualize", invalid_dir])
     assert result.exit_code == 1
@@ -209,8 +215,8 @@ def test_visualize_invalid_directory(
 
 
 def test_visualize_with_verbose_mode(
-    runner: CliRunner, sample_directory: Any, caplog: pytest.LogCaptureFixture
-):
+    runner: CliRunner, sample_directory: str, caplog: pytest.LogCaptureFixture
+) -> None:
     result = runner.invoke(app, ["visualize", sample_directory, "--verbose"])
     assert result.exit_code == 0
     assert any("Verbose mode enabled" in record.message for record in caplog.records)
@@ -228,8 +234,11 @@ def test_visualize_with_verbose_mode(
     ],
 )
 def test_visualize_with_sort_options(
-    runner: CliRunner, sample_directory: Any, option: str, expected_in_output
-):
+    runner: CliRunner,
+    sample_directory: str,
+    option: str,
+    expected_in_output: Union[str, List[str]],
+) -> None:
     result = runner.invoke(app, ["visualize", sample_directory, option])
     assert result.exit_code == 0
     if isinstance(expected_in_output, list):
@@ -250,8 +259,8 @@ def test_visualize_with_sort_options(
     ["txt", "json", "html", "md", "jsx", "txt json", "txt json html md jsx"],
 )
 def test_export_command(
-    runner: CliRunner, sample_directory: Any, output_dir: str, format_option: str
-):
+    runner: CliRunner, sample_directory: str, output_dir: str, format_option: str
+) -> None:
     prefix = "test_export"
     result = runner.invoke(
         app,
@@ -277,8 +286,8 @@ def test_export_command(
 
 
 def test_export_with_multiple_format_flags(
-    runner: CliRunner, sample_directory: Any, output_dir: str
-):
+    runner: CliRunner, sample_directory: str, output_dir: str
+) -> None:
     result = runner.invoke(
         app,
         [
@@ -302,7 +311,9 @@ def test_export_with_multiple_format_flags(
     assert os.path.exists(os.path.join(output_dir, "multi_format.html"))
 
 
-def test_export_json_content(runner: CliRunner, sample_directory: Any, output_dir: str):
+def test_export_json_content(
+    runner: CliRunner, sample_directory: str, output_dir: str
+) -> None:
     """Specific test for JSON export content validation."""
     result = runner.invoke(
         app,
@@ -320,7 +331,7 @@ def test_export_json_content(runner: CliRunner, sample_directory: Any, output_di
     assert result.exit_code == 0
     json_file = os.path.join(output_dir, "json_validate.json")
     with open(json_file, encoding="utf-8") as f:
-        data = json.load(f)
+        data: dict[str, Any] = json.load(f)
     assert "root" in data
     assert "structure" in data
     assert data["root"] == os.path.basename(sample_directory)
@@ -332,8 +343,8 @@ def test_export_json_content(runner: CliRunner, sample_directory: Any, output_di
 
 
 def test_export_with_full_path(
-    runner: CliRunner, sample_directory: Any, output_dir: str
-):
+    runner: CliRunner, sample_directory: str, output_dir: str
+) -> None:
     result = runner.invoke(
         app,
         [
@@ -357,8 +368,8 @@ def test_export_with_full_path(
 
 
 def test_export_with_filtering_options(
-    runner: CliRunner, sample_directory: Any, output_dir: str
-):
+    runner: CliRunner, sample_directory: str, output_dir: str
+) -> None:
     exclude_dir = os.path.join(sample_directory, "exclude_me")
     os.makedirs(exclude_dir, exist_ok=True)
     with open(os.path.join(exclude_dir, "excluded.txt"), "w") as f:
@@ -386,7 +397,7 @@ def test_export_with_filtering_options(
     export_file = os.path.join(output_dir, "filtered_export.json")
     assert os.path.exists(export_file)
     with open(export_file, encoding="utf-8") as f:
-        data = json.load(f)
+        data: dict[str, Any] = json.load(f)
     assert "structure" in data
     assert "exclude_me" not in data["structure"]
     if "_files" in data["structure"]:
@@ -398,8 +409,8 @@ def test_export_with_filtering_options(
 
 
 def test_export_with_depth_limit(
-    runner: CliRunner, deeply_nested_directory: Any, output_dir: str
-):
+    runner: CliRunner, deeply_nested_directory: str, output_dir: str
+) -> None:
     result = runner.invoke(
         app,
         [
@@ -419,7 +430,7 @@ def test_export_with_depth_limit(
     export_file = os.path.join(output_dir, "depth_limited.json")
     assert os.path.exists(export_file)
     with open(export_file, encoding="utf-8") as f:
-        data = json.load(f)
+        data: dict[str, Any] = json.load(f)
     assert "structure" in data
     assert "level1" in data["structure"]
     assert "level2" in data["structure"]["level1"]
@@ -427,8 +438,8 @@ def test_export_with_depth_limit(
 
 
 def test_export_invalid_format(
-    runner: CliRunner, sample_directory: Any, caplog: pytest.LogCaptureFixture
-):
+    runner: CliRunner, sample_directory: str, caplog: pytest.LogCaptureFixture
+) -> None:
     result = runner.invoke(app, ["export", sample_directory, "--format", "invalid"])
     assert result.exit_code == 1
     assert any(
@@ -437,8 +448,8 @@ def test_export_invalid_format(
 
 
 def test_export_with_sort_options(
-    runner: CliRunner, sample_directory: Any, output_dir: str
-):
+    runner: CliRunner, sample_directory: str, output_dir: str
+) -> None:
     result = runner.invoke(
         app,
         [
@@ -459,13 +470,15 @@ def test_export_with_sort_options(
     export_file = os.path.join(output_dir, "sorted_export.json")
     assert os.path.exists(export_file)
     with open(export_file, encoding="utf-8") as f:
-        data = json.load(f)
+        data: dict[str, Any] = json.load(f)
     assert data["show_loc"] is True
     assert data["show_size"] is True
     assert data["show_mtime"] is True
 
 
-def test_compare_command(runner: CliRunner, comparison_directories: tuple):
+def test_compare_command(
+    runner: CliRunner, comparison_directories: tuple[str, str]
+) -> None:
     dir1, dir2 = comparison_directories
     result = runner.invoke(app, ["compare", dir1, dir2])
     assert result.exit_code == 0
@@ -477,7 +490,7 @@ def test_compare_command(runner: CliRunner, comparison_directories: tuple):
     assert "Legend" in result.stdout
 
 
-def test_compare_with_filtering_options(runner: CliRunner, temp_dir: str):
+def test_compare_with_filtering_options(runner: CliRunner, temp_dir: str) -> None:
     dir1 = os.path.join(temp_dir, "compare_dir1")
     dir2 = os.path.join(temp_dir, "compare_dir2")
     os.makedirs(dir1, exist_ok=True)
@@ -507,7 +520,7 @@ def test_compare_with_filtering_options(runner: CliRunner, temp_dir: str):
     assert "excluded.pyc" not in result.stdout
 
 
-def test_compare_with_depth_limit(runner: CliRunner, temp_dir: str):
+def test_compare_with_depth_limit(runner: CliRunner, temp_dir: str) -> None:
     dir1 = os.path.join(temp_dir, "compare_depth_dir1")
     dir2 = os.path.join(temp_dir, "compare_depth_dir2")
     level1_dir1 = os.path.join(dir1, "level1")
@@ -534,8 +547,8 @@ def test_compare_with_depth_limit(runner: CliRunner, temp_dir: str):
 
 
 def test_compare_export_to_html(
-    runner: CliRunner, comparison_directories: tuple, output_dir: str
-):
+    runner: CliRunner, comparison_directories: tuple[str, str], output_dir: str
+) -> None:
     dir1, dir2 = comparison_directories
     result = runner.invoke(
         app,
@@ -563,7 +576,9 @@ def test_compare_export_to_html(
     assert "dir2_only.txt" in content
 
 
-def test_compare_with_full_path(runner: CliRunner, comparison_directories: tuple):
+def test_compare_with_full_path(
+    runner: CliRunner, comparison_directories: tuple[str, str]
+) -> None:
     dir1, dir2 = comparison_directories
     result = runner.invoke(app, ["compare", dir1, dir2, "--full-path"])
     assert result.exit_code == 0
@@ -585,8 +600,8 @@ def test_compare_with_full_path(runner: CliRunner, comparison_directories: tuple
     "option", ["--sort-by-loc", "--sort-by-size", "--sort-by-mtime"]
 )
 def test_compare_with_sort_options(
-    runner: CliRunner, comparison_directories: tuple, option: str
-):
+    runner: CliRunner, comparison_directories: tuple[str, str], option: str
+) -> None:
     dir1, dir2 = comparison_directories
     result = runner.invoke(app, ["compare", dir1, dir2, option])
     assert result.exit_code == 0
@@ -608,7 +623,7 @@ def test_compare_with_sort_options(
         )
 
 
-def test_version_command(runner: CliRunner):
+def test_version_command(runner: CliRunner) -> None:
     result = runner.invoke(app, ["version"])
     assert result.exit_code == 0
     assert "Recursivist version" in result.stdout
@@ -616,8 +631,8 @@ def test_version_command(runner: CliRunner):
 
 def test_completion_command(
     runner: CliRunner, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
-):
-    def mock_get_completion(shell):
+) -> None:
+    def mock_get_completion(shell: str) -> str:
         if shell not in ["bash", "zsh", "fish", "powershell"]:
             raise ValueError(f"Unsupported shell: {shell}")
         return f"# {shell} completion script"
@@ -634,14 +649,14 @@ def test_completion_command(
 
 
 def test_verbose_mode(
-    runner: CliRunner, sample_directory: Any, caplog: pytest.LogCaptureFixture
-):
+    runner: CliRunner, sample_directory: str, caplog: pytest.LogCaptureFixture
+) -> None:
     result = runner.invoke(app, ["visualize", sample_directory, "--verbose"])
     assert result.exit_code == 0
     assert any("Verbose mode enabled" in record.message for record in caplog.records)
 
 
-def assert_path_info_in_output(output: str, directory: str):
+def assert_path_info_in_output(output: str, directory: str) -> None:
     """Check if output contains full path information."""
     base_name = os.path.basename(directory)
     has_full_path = False

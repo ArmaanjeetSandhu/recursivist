@@ -3,6 +3,7 @@
 import os
 import tempfile
 import unittest.mock
+from typing import Any, Union
 
 import pytest
 from hypothesis import given, settings
@@ -12,7 +13,7 @@ from recursivist.jsx_export import generate_jsx_component
 
 
 @st.composite
-def file_tuples_for_sorting(draw):
+def file_tuples_for_sorting(draw: st.DrawFn) -> Any:
     """Generate various file tuple formats for testing sorting functions."""
     filename = draw(
         st.text(
@@ -61,13 +62,15 @@ file_tuple_list = st.lists(
 class TestJSXSort:
     """Focused property-based tests for sorting functions in jsx_export.py."""
 
-    def safe_get(self, tup, idx, default=0):
+    def safe_get(
+        self, tup: Union[str, tuple[Any, ...]], idx: int, default: int = 0
+    ) -> int:
         """Reimplementation of safe_get from jsx_export.py."""
         if not isinstance(tup, tuple):
             return default
         return tup[idx] if len(tup) > idx else default
 
-    def sort_key_all(self, f):
+    def sort_key_all(self, f: Union[str, tuple[Any, ...]]) -> tuple[int, int, int, str]:
         """Reimplementation of sort_key_all from jsx_export.py."""
         if isinstance(f, tuple):
             if len(f) == 0:
@@ -79,7 +82,7 @@ class TestJSXSort:
             return (-loc, -size, -mtime, file_name)
         return (0, 0, 0, f.lower() if isinstance(f, str) else "")
 
-    def sort_key_loc_size(self, f):
+    def sort_key_loc_size(self, f: Union[str, tuple[Any, ...]]) -> tuple[int, int, str]:
         """Reimplementation of sort_key_loc_size from jsx_export.py."""
         if isinstance(f, tuple):
             if len(f) == 0:
@@ -90,7 +93,9 @@ class TestJSXSort:
             return (-loc, -size, file_name)
         return (0, 0, f.lower() if isinstance(f, str) else "")
 
-    def sort_key_loc_mtime(self, f):
+    def sort_key_loc_mtime(
+        self, f: Union[str, tuple[Any, ...]]
+    ) -> tuple[int, int, str]:
         """Reimplementation of sort_key_loc_mtime from jsx_export.py."""
         if isinstance(f, tuple):
             if len(f) == 0:
@@ -101,7 +106,9 @@ class TestJSXSort:
             return (-loc, -mtime, file_name)
         return (0, 0, f.lower() if isinstance(f, str) else "")
 
-    def sort_key_size_mtime(self, f):
+    def sort_key_size_mtime(
+        self, f: Union[str, tuple[Any, ...]]
+    ) -> tuple[int, int, str]:
         """Reimplementation of sort_key_size_mtime from jsx_export.py."""
         if isinstance(f, tuple):
             if len(f) == 0:
@@ -112,7 +119,7 @@ class TestJSXSort:
             return (-size, -mtime, file_name)
         return (0, 0, f.lower() if isinstance(f, str) else "")
 
-    def sort_key_mtime(self, f):
+    def sort_key_mtime(self, f: Union[str, tuple[Any, ...]]) -> tuple[int, str]:
         """Reimplementation of sort_key_mtime from jsx_export.py."""
         if isinstance(f, tuple):
             if len(f) == 0:
@@ -128,7 +135,7 @@ class TestJSXSort:
             return (-mtime, file_name)
         return (0, f.lower() if isinstance(f, str) else "")
 
-    def sort_key_size(self, f):
+    def sort_key_size(self, f: Union[str, tuple[Any, ...]]) -> tuple[int, str]:
         """Reimplementation of sort_key_size from jsx_export.py."""
         if isinstance(f, tuple):
             if len(f) == 0:
@@ -142,7 +149,7 @@ class TestJSXSort:
             return (-size, file_name)
         return (0, f.lower() if isinstance(f, str) else "")
 
-    def sort_key_loc(self, f):
+    def sort_key_loc(self, f: Union[str, tuple[Any, ...]]) -> tuple[int, str]:
         """Reimplementation of sort_key_loc from jsx_export.py."""
         if isinstance(f, tuple):
             if len(f) == 0:
@@ -152,7 +159,7 @@ class TestJSXSort:
             return (-loc, file_name)
         return (0, f.lower() if isinstance(f, str) else "")
 
-    def sort_key_name(self, f):
+    def sort_key_name(self, f: Union[str, tuple[Any, ...]]) -> str:
         """Reimplementation of sort_key_name from jsx_export.py."""
         if isinstance(f, tuple):
             if len(f) == 0:
@@ -162,7 +169,7 @@ class TestJSXSort:
 
     @given(files=file_tuple_list)
     @settings(max_examples=100)
-    def test_sort_key_all(self, files):
+    def test_sort_key_all(self, files: list[Union[str, tuple[Any, ...]]]) -> None:
         """Test that sorting with sort_key_all maintains consistent ordering."""
         sorted_files = sorted(files, key=self.sort_key_all)
         assert len(sorted_files) == len(files), "Sorting should preserve all elements"
@@ -178,7 +185,7 @@ class TestJSXSort:
 
     @given(files=file_tuple_list)
     @settings(max_examples=100)
-    def test_sort_key_loc_size(self, files):
+    def test_sort_key_loc_size(self, files: list[Union[str, tuple[Any, ...]]]) -> None:
         """Test that sorting with sort_key_loc_size maintains consistent ordering."""
         sorted_files = sorted(files, key=self.sort_key_loc_size)
         assert len(sorted_files) == len(files), "Sorting should preserve all elements"
@@ -194,7 +201,7 @@ class TestJSXSort:
 
     @given(files=file_tuple_list)
     @settings(max_examples=100)
-    def test_sort_key_loc_mtime(self, files):
+    def test_sort_key_loc_mtime(self, files: list[Union[str, tuple[Any, ...]]]) -> None:
         """Test that sorting with sort_key_loc_mtime maintains consistent ordering."""
         sorted_files = sorted(files, key=self.sort_key_loc_mtime)
         assert len(sorted_files) == len(files), "Sorting should preserve all elements"
@@ -210,7 +217,9 @@ class TestJSXSort:
 
     @given(files=file_tuple_list)
     @settings(max_examples=100)
-    def test_sort_key_size_mtime(self, files):
+    def test_sort_key_size_mtime(
+        self, files: list[Union[str, tuple[Any, ...]]]
+    ) -> None:
         """Test that sorting with sort_key_size_mtime maintains consistent ordering."""
         sorted_files = sorted(files, key=self.sort_key_size_mtime)
         assert len(sorted_files) == len(files), "Sorting should preserve all elements"
@@ -226,7 +235,7 @@ class TestJSXSort:
 
     @given(files=file_tuple_list)
     @settings(max_examples=100)
-    def test_sort_key_mtime(self, files):
+    def test_sort_key_mtime(self, files: list[Union[str, tuple[Any, ...]]]) -> None:
         """Test that sorting with sort_key_mtime maintains consistent ordering."""
         sorted_files = sorted(files, key=self.sort_key_mtime)
         assert len(sorted_files) == len(files), "Sorting should preserve all elements"
@@ -242,7 +251,7 @@ class TestJSXSort:
 
     @given(files=file_tuple_list)
     @settings(max_examples=100)
-    def test_sort_key_size(self, files):
+    def test_sort_key_size(self, files: list[Union[str, tuple[Any, ...]]]) -> None:
         """Test that sorting with sort_key_size maintains consistent ordering."""
         sorted_files = sorted(files, key=self.sort_key_size)
         assert len(sorted_files) == len(files), "Sorting should preserve all elements"
@@ -258,7 +267,7 @@ class TestJSXSort:
 
     @given(files=file_tuple_list)
     @settings(max_examples=100)
-    def test_sort_key_loc(self, files):
+    def test_sort_key_loc(self, files: list[Union[str, tuple[Any, ...]]]) -> None:
         """Test that sorting with sort_key_loc maintains consistent ordering."""
         sorted_files = sorted(files, key=self.sort_key_loc)
         assert len(sorted_files) == len(files), "Sorting should preserve all elements"
@@ -274,7 +283,7 @@ class TestJSXSort:
 
     @given(files=file_tuple_list)
     @settings(max_examples=100)
-    def test_sort_key_name(self, files):
+    def test_sort_key_name(self, files: list[Union[str, tuple[Any, ...]]]) -> None:
         """Test that sorting with sort_key_name maintains consistent ordering."""
         sorted_files = sorted(files, key=self.sort_key_name)
         assert len(sorted_files) == len(files), "Sorting should preserve all elements"
@@ -290,7 +299,7 @@ class TestJSXSort:
 
 
 @st.composite
-def jsx_directory_structure(draw):
+def jsx_directory_structure(draw: st.DrawFn) -> Any:
     """Generate a simplified directory structure suitable for JSX component testing."""
     structure = {}
     structure["_files"] = draw(
@@ -351,7 +360,9 @@ class TestJSXComponent:
         root_name=st.text(min_size=1, max_size=20),
     )
     @settings(max_examples=20)
-    def test_generate_jsx_component_basics(self, dir_structure, root_name):
+    def test_generate_jsx_component_basics(
+        self, dir_structure: dict[str, Any], root_name: str
+    ) -> None:
         """Test basic generation of JSX component."""
         with unittest.mock.patch(
             "builtins.open", unittest.mock.mock_open()
@@ -373,7 +384,9 @@ class TestJSXComponent:
         ),
     )
     @settings(max_examples=5)
-    def test_jsx_end_to_end(self, dir_structure, root_name):
+    def test_jsx_end_to_end(
+        self, dir_structure: dict[str, Any], root_name: str
+    ) -> None:
         """Test end-to-end JSX component generation with temporary file."""
         with tempfile.NamedTemporaryFile(suffix=".jsx", delete=False) as temp_file:
             output_path = temp_file.name
@@ -421,13 +434,13 @@ class TestJSXComponent:
     @settings(max_examples=10)
     def test_jsx_options(
         self,
-        dir_structure,
-        root_name,
-        show_full_path,
-        sort_by_loc,
-        sort_by_size,
-        sort_by_mtime,
-    ):
+        dir_structure: dict[str, Any],
+        root_name: str,
+        show_full_path: bool,
+        sort_by_loc: bool,
+        sort_by_size: bool,
+        sort_by_mtime: bool,
+    ) -> None:
         """Test JSX generation with various options."""
         with unittest.mock.patch(
             "builtins.open", unittest.mock.mock_open()

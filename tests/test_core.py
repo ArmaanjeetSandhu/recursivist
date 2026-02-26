@@ -3,7 +3,7 @@ import os
 import re
 import time
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, List, Optional, Set, Type, Union
 from unittest.mock import MagicMock, mock_open
 
 import pytest
@@ -38,13 +38,13 @@ class TestFileSize:
             ("medium.txt", 1024),
         ],
     )
-    def test_normal_files(self, temp_dir, file_name, size):
+    def test_normal_files(self, temp_dir: str, file_name: str, size: int) -> None:
         path = os.path.join(temp_dir, file_name)
         with open(path, "wb") as f:
             f.write(b"x" * size)
         assert get_file_size(path) == size
 
-    def test_nonexistent_file(self, temp_dir):
+    def test_nonexistent_file(self, temp_dir: str) -> None:
         non_existent = os.path.join(temp_dir, "non_existent.txt")
         assert get_file_size(non_existent) == 0
 
@@ -55,20 +55,26 @@ class TestFileSize:
             (Exception, "Generic error"),
         ],
     )
-    def test_file_errors(self, mocker: MockerFixture, temp_dir, error_type, error_msg):
+    def test_file_errors(
+        self,
+        mocker: MockerFixture,
+        temp_dir: str,
+        error_type: Type[Exception],
+        error_msg: str,
+    ) -> None:
         error_file = os.path.join(temp_dir, "error.txt")
         with open(error_file, "w") as f:
             f.write("content")
         mocker.patch("os.path.getsize", side_effect=error_type(error_msg))
         assert get_file_size(error_file) == 0
 
-    def test_special_files(self, mocker: MockerFixture):
+    def test_special_files(self, mocker: MockerFixture) -> None:
         mocker.patch("os.path.getsize", return_value=42)
         assert get_file_size("/dev/null") == 42
 
 
 class TestFileMtime:
-    def test_normal_files(self, temp_dir):
+    def test_normal_files(self, temp_dir: str) -> None:
         file_path = os.path.join(temp_dir, "test_file.txt")
         with open(file_path, "w") as f:
             f.write("content")
@@ -84,8 +90,13 @@ class TestFileMtime:
         ],
     )
     def test_file_errors(
-        self, mocker: MockerFixture, temp_dir, error_type, error_msg, expected
-    ):
+        self,
+        mocker: MockerFixture,
+        temp_dir: str,
+        error_type: Optional[Type[Exception]],
+        error_msg: Optional[str],
+        expected: float,
+    ) -> None:
         if error_type is None:
             non_existent = os.path.join(temp_dir, "non_existent.txt")
             assert get_file_mtime(non_existent) == expected
@@ -96,7 +107,7 @@ class TestFileMtime:
             mocker.patch("os.path.getmtime", side_effect=error_type(error_msg))
             assert get_file_mtime(error_file) == expected
 
-    def test_future_timestamp(self, mocker: MockerFixture):
+    def test_future_timestamp(self, mocker: MockerFixture) -> None:
         future_time = time.time() + 86400 * 365
         mocker.patch("os.path.getmtime", return_value=future_time)
         assert get_file_mtime("/path/to/future/file") == future_time
@@ -112,23 +123,25 @@ class TestCountLines:
             ("Line 1\nLine 2\nLine 3\n", 3),
         ],
     )
-    def test_line_counting(self, temp_dir, file_content, expected_lines):
+    def test_line_counting(
+        self, temp_dir: str, file_content: str, expected_lines: int
+    ) -> None:
         file_path = os.path.join(temp_dir, f"test_file_{expected_lines}.txt")
         with open(file_path, "w") as f:
             f.write(file_content)
         assert count_lines_of_code(file_path) == expected_lines
 
-    def test_binary_file(self, temp_dir):
+    def test_binary_file(self, temp_dir: str) -> None:
         file_path = os.path.join(temp_dir, "binary.bin")
         with open(file_path, "wb") as f:
             f.write(b"\x00\x01\x02\x03")
         assert count_lines_of_code(file_path) == 0
 
-    def test_nonexistent_file(self, temp_dir):
+    def test_nonexistent_file(self, temp_dir: str) -> None:
         non_existent = os.path.join(temp_dir, "non_existent.txt")
         assert count_lines_of_code(non_existent) == 0
 
-    def test_permission_denied(self, mocker: MockerFixture, temp_dir):
+    def test_permission_denied(self, mocker: MockerFixture, temp_dir: str) -> None:
         permission_denied = os.path.join(temp_dir, "permission_denied.txt")
         with open(permission_denied, "w") as f:
             f.write("content")
@@ -138,7 +151,7 @@ class TestCountLines:
         assert count_lines_of_code(permission_denied) == 0
 
     @pytest.mark.parametrize("encoding", ["utf-8", "utf-16"])
-    def test_with_different_encodings(self, temp_dir, encoding):
+    def test_with_different_encodings(self, temp_dir: str, encoding: str) -> None:
         """Test counting lines with different file encodings."""
         file_path = os.path.join(temp_dir, f"{encoding}.txt")
         try:
@@ -151,7 +164,7 @@ class TestCountLines:
         except Exception as e:
             pytest.fail(f"count_lines_of_code failed with {encoding} encoding: {e}")
 
-    def test_very_large_file(self, temp_dir):
+    def test_very_large_file(self, temp_dir: str) -> None:
         """Test counting lines in a large file."""
         test_file_path = os.path.join(temp_dir, "large_test.txt")
         expected_lines = 1000
@@ -186,57 +199,57 @@ class TestFormatSize:
             (1024 * 1024 * 1024 * 1024, "1024.0 GB"),
         ],
     )
-    def test_format_size(self, size, expected):
-        assert format_size(size) == expected
+    def test_format_size(self, size: float, expected: str) -> None:
+        assert format_size(int(size)) == expected
 
 
 class TestFormatTimestamp:
-    def test_today(self):
+    def test_today(self) -> None:
         now = time.time()
         formatted = format_timestamp(now)
         assert "Today" in formatted
         assert re.match(r"Today \d\d:\d\d", formatted)
 
-    def test_yesterday(self):
+    def test_yesterday(self) -> None:
         yesterday = time.time() - 86400
         formatted = format_timestamp(yesterday)
         assert "Yesterday" in formatted
         assert re.match(r"Yesterday \d\d:\d\d", formatted)
 
-    def test_this_week(self):
+    def test_this_week(self) -> None:
         earlier_this_week = time.time() - 86400 * 3
         formatted = format_timestamp(earlier_this_week)
         assert re.match(r"\w{3} \d\d:\d\d", formatted)
 
-    def test_this_year(self):
+    def test_this_year(self) -> None:
         earlier_this_year = time.time() - 86400 * 30
         formatted = format_timestamp(earlier_this_year)
         assert re.match(r"\w{3} \d{1,2}", formatted)
 
-    def test_previous_year(self):
+    def test_previous_year(self) -> None:
         previous_year = time.time() - 86400 * 400
         formatted = format_timestamp(previous_year)
         assert re.match(r"\d{4}-\d{2}-\d{2}", formatted)
 
-    def test_epoch(self):
+    def test_epoch(self) -> None:
         epoch_time = 0
         formatted = format_timestamp(epoch_time)
         assert re.match(r"\d{4}-\d{2}-\d{2}", formatted)
 
 
 class TestGenerateColorForExtension:
-    def test_color_format(self):
+    def test_color_format(self) -> None:
         color = generate_color_for_extension(".py")
         assert re.match(r"^#[0-9A-Fa-f]{6}$", color)
 
-    def test_consistency(self):
+    def test_consistency(self) -> None:
         """Test that the same extension always gets the same color."""
         color1 = generate_color_for_extension(".py")
         color2 = generate_color_for_extension(".py")
         color3 = generate_color_for_extension(".py")
         assert color1 == color2 == color3
 
-    def test_different_extensions(self):
+    def test_different_extensions(self) -> None:
         """Test that different extensions get different colors."""
         extensions = [".py", ".js", ".txt", ".md", ".html", ".css", ".json", ".xml"]
         colors = [generate_color_for_extension(ext) for ext in extensions]
@@ -249,7 +262,9 @@ class TestGenerateColorForExtension:
             ("with_without_dot", ".py", "py"),
         ],
     )
-    def test_extension_variants(self, test_case, extension1, extension2):
+    def test_extension_variants(
+        self, test_case: str, extension1: str, extension2: str
+    ) -> None:
         """Test behavior with different variants of extensions."""
         color1 = generate_color_for_extension(extension1)
         color2 = generate_color_for_extension(extension2)
@@ -262,13 +277,18 @@ class TestGenerateColorForExtension:
         else:
             assert color1 == color2
 
-    def test_empty_extension(self):
+    def test_empty_extension(self) -> None:
         color = generate_color_for_extension("")
         assert color == "#FFFFFF"
 
 
 class TestBuildTree:
-    def test_basic_tree(self, mocker: MockerFixture, simple_structure, color_map):
+    def test_basic_tree(
+        self,
+        mocker: MockerFixture,
+        simple_structure: Dict[str, Any],
+        color_map: Dict[str, str],
+    ) -> None:
         mock_tree = MagicMock(spec=Tree)
         mock_subtree = MagicMock(spec=Tree)
         mock_tree.add.return_value = mock_subtree
@@ -283,14 +303,16 @@ class TestBuildTree:
         assert any("file1.txt" in text for text in file_texts)
         assert any("file2.py" in text for text in file_texts)
 
-    def test_empty_structure(self, mocker: MockerFixture):
+    def test_empty_structure(self, mocker: MockerFixture) -> None:
         mock_tree = MagicMock(spec=Tree)
         color_map: Dict[str, str] = {}
         structure: Dict[str, Any] = {}
         build_tree(structure, mock_tree, color_map)
         mock_tree.add.assert_not_called()
 
-    def test_with_full_paths(self, mocker: MockerFixture, color_map):
+    def test_with_full_paths(
+        self, mocker: MockerFixture, color_map: Dict[str, str]
+    ) -> None:
         mock_tree = MagicMock(spec=Tree)
         mock_subtree = MagicMock(spec=Tree)
         mock_tree.add.return_value = mock_subtree
@@ -322,11 +344,11 @@ class TestBuildTree:
     def test_with_statistics(
         self,
         mocker: MockerFixture,
-        structure_with_stats,
-        color_map,
-        option,
-        expected_indicator,
-    ):
+        structure_with_stats: Dict[str, Any],
+        color_map: Dict[str, str],
+        option: str,
+        expected_indicator: Union[str, List[str]],
+    ) -> None:
         mock_tree = MagicMock(spec=Tree)
         mock_subtree = MagicMock(spec=Tree)
         mock_tree.add.return_value = mock_subtree
@@ -346,8 +368,11 @@ class TestBuildTree:
             )
 
     def test_max_depth_indicator(
-        self, mocker: MockerFixture, max_depth_structure, color_map
-    ):
+        self,
+        mocker: MockerFixture,
+        max_depth_structure: Dict[str, Any],
+        color_map: Dict[str, str],
+    ) -> None:
         mock_tree = MagicMock(spec=Tree)
         mock_subtree = MagicMock(spec=Tree)
         mock_tree.add.return_value = mock_subtree
@@ -357,7 +382,7 @@ class TestBuildTree:
 
 
 class TestDisplayTree:
-    def test_basic_display(self, mocker: MockerFixture, temp_dir):
+    def test_basic_display(self, mocker: MockerFixture, temp_dir: str) -> None:
         mock_console = mocker.patch("recursivist.core.Console")
         mock_tree_class = mocker.patch("recursivist.core.Tree")
         mock_build_tree = mocker.patch("recursivist.core.build_tree")
@@ -370,7 +395,7 @@ class TestDisplayTree:
         mock_console.return_value.print.assert_called_once()
         mock_build_tree.assert_called_once()
 
-    def test_with_filtering_options(self, mocker: MockerFixture, temp_dir):
+    def test_with_filtering_options(self, mocker: MockerFixture, temp_dir: str) -> None:
         mock_get_structure = mocker.patch("recursivist.core.get_directory_structure")
         mock_compile_regex = mocker.patch("recursivist.core.compile_regex_patterns")
         mock_get_structure.return_value = ({}, set())
@@ -394,7 +419,7 @@ class TestDisplayTree:
         assert kwargs["exclude_extensions"] == {".pyc", ".log"}
         assert kwargs["max_depth"] == 2
 
-    def test_with_statistics(self, mocker: MockerFixture, temp_dir):
+    def test_with_statistics(self, mocker: MockerFixture, temp_dir: str) -> None:
         mock_tree = mocker.patch("recursivist.core.Tree")
         mock_get_structure = mocker.patch("recursivist.core.get_directory_structure")
         structure = {"_loc": 100, "_size": 10240, "_mtime": 1625097600.0, "_files": []}
@@ -431,8 +456,8 @@ def test_export_structure(
     output_dir: str,
     format_name: str,
     format_extension: str,
-    expected_content: list,
-):
+    expected_content: List[str],
+) -> None:
     """Test exporting structure to different formats."""
     structure, _ = get_directory_structure(sample_directory)
     output_path = os.path.join(output_dir, f"structure.{format_extension}")
@@ -466,7 +491,7 @@ def test_export_structure(
 )
 def test_export_structure_with_options(
     sample_directory: Any, output_dir: str, option_name: str, option_value: bool
-):
+) -> None:
     """Test exporting structure with various options."""
     exclude_dirs = None
     ignore_file = None
@@ -528,7 +553,7 @@ def test_export_structure_with_options(
         assert data[option_flag] is True
 
 
-def test_export_invalid_format(temp_dir: str, output_dir: str):
+def test_export_invalid_format(temp_dir: str, output_dir: str) -> None:
     """Test exporting with an invalid format."""
     structure = {"_files": ["file1.txt"]}
     output_path = os.path.join(output_dir, "test_export.invalid")
@@ -560,7 +585,9 @@ def test_export_invalid_format(temp_dir: str, output_dir: str):
         ),
     ],
 )
-def test_sort_files_by_type(files, sort_key, expected_order):
+def test_sort_files_by_type(
+    files: List[Any], sort_key: Optional[str], expected_order: List[str]
+) -> None:
     """Test sorting files by different criteria."""
     kwargs = {}
     if sort_key:
@@ -593,8 +620,13 @@ def test_sort_files_by_type(files, sort_key, expected_order):
     ],
 )
 def test_should_exclude(
-    mocker: MockerFixture, path, patterns, extensions, expected, exclude_patterns
-):
+    mocker: MockerFixture,
+    path: str,
+    patterns: List[str],
+    extensions: Set[str],
+    expected: bool,
+    exclude_patterns: Optional[List[Any]],
+) -> None:
     """Test file exclusion logic."""
     mocker.patch("os.path.isfile", return_value=True)
     ignore_context = {"patterns": patterns, "current_dir": "/test"}
@@ -619,7 +651,12 @@ def test_should_exclude(
         ([], True, 0, []),
     ],
 )
-def test_compile_regex_patterns(patterns, is_regex, expected_count, expected_types):
+def test_compile_regex_patterns(
+    patterns: List[str],
+    is_regex: bool,
+    expected_count: int,
+    expected_types: List[Type[Any]],
+) -> None:
     """Test compiling regex patterns."""
     compiled = compile_regex_patterns(patterns, is_regex=is_regex)
     assert len(compiled) == expected_count
@@ -641,7 +678,9 @@ def test_compile_regex_patterns(patterns, is_regex, expected_count, expected_typ
         ),
     ],
 )
-def test_parse_ignore_file(temp_dir, content, expected_patterns):
+def test_parse_ignore_file(
+    temp_dir: str, content: str, expected_patterns: List[str]
+) -> None:
     """Test parsing ignore files."""
     ignore_path = os.path.join(temp_dir, ".testignore")
     with open(ignore_path, "w") as f:
@@ -650,7 +689,7 @@ def test_parse_ignore_file(temp_dir, content, expected_patterns):
     assert set(patterns) == set(expected_patterns)
 
 
-def test_get_directory_structure(sample_directory: Any):
+def test_get_directory_structure(sample_directory: Any) -> None:
     """Test getting directory structure."""
     structure, extensions = get_directory_structure(sample_directory)
     assert isinstance(structure, dict)
@@ -675,8 +714,11 @@ def test_get_directory_structure(sample_directory: Any):
     ],
 )
 def test_get_directory_structure_with_options(
-    deeply_nested_directory: Any, option_name: str, option_value, expected_result: str
-):
+    deeply_nested_directory: Any,
+    option_name: str,
+    option_value: Any,
+    expected_result: str,
+) -> None:
     """Test getting directory structure with various options."""
     kwargs = {option_name: option_value}
     structure, _ = get_directory_structure(deeply_nested_directory, **kwargs)
@@ -704,7 +746,7 @@ def test_get_directory_structure_with_options(
             assert "_mtime" in structure["level1"]
 
 
-def test_pathlib_compatibility(temp_dir):
+def test_pathlib_compatibility(temp_dir: str) -> None:
     """Test compatibility with pathlib.Path objects."""
     test_file = os.path.join(temp_dir, "test.txt")
     with open(test_file, "w") as f:
@@ -720,7 +762,7 @@ def test_pathlib_compatibility(temp_dir):
     assert file_found, "File not found when using pathlib.Path"
 
 
-def test_build_tree_combined(mocker: MockerFixture):
+def test_build_tree_combined(mocker: MockerFixture) -> None:
     """Combined test of build_tree functionality."""
     mock_tree = MagicMock(spec=Tree)
     color_map = {".py": "#FF0000", ".txt": "#00FF00"}

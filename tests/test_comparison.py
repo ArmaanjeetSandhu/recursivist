@@ -1,6 +1,7 @@
 import html
 import os
 import re
+from typing import Any, Optional, Union
 
 import pytest
 from pytest_mock import MockerFixture
@@ -14,7 +15,7 @@ from recursivist.compare import (
 )
 
 
-def test_compare_directory_structures(comparison_directories: tuple[str, str]):
+def test_compare_directory_structures(comparison_directories: tuple[str, str]) -> None:
     dir1, dir2 = comparison_directories
     structure1, structure2, extensions = compare_directory_structures(dir1, dir2)
     assert "_files" in structure1
@@ -47,9 +48,9 @@ def test_compare_directory_structures(comparison_directories: tuple[str, str]):
 def test_compare_directory_structures_with_options(
     comparison_directories: tuple[str, str],
     option_name: str,
-    option_value,
+    option_value: Any,
     expected_result: str,
-):
+) -> None:
     dir1, dir2 = comparison_directories
     if option_name == "exclude_dirs":
         exclude_dir_path1 = os.path.join(dir1, "exclude_me")
@@ -121,7 +122,7 @@ def test_compare_directory_structures_with_options(
 
 def test_compare_directory_structures_with_statistics(
     comparison_directories: tuple[str, str],
-):
+) -> None:
     dir1, dir2 = comparison_directories
     structure1, structure2, _ = compare_directory_structures(
         dir1, dir2, sort_by_loc=True, sort_by_size=True, sort_by_mtime=True
@@ -133,12 +134,12 @@ def test_compare_directory_structures_with_statistics(
     if "_files" in structure1 and structure1["_files"]:
         file_item = structure1["_files"][0]
         if isinstance(file_item, tuple):
-            assert len(file_item) > 4
+            assert file_item[4] is not None
 
 
 def test_display_comparison(
     comparison_directories: tuple[str, str], capsys: pytest.CaptureFixture[str]
-):
+) -> None:
     dir1, dir2 = comparison_directories
     display_comparison(dir1, dir2)
     captured = capsys.readouterr()
@@ -162,10 +163,10 @@ def test_display_comparison_with_options(
     comparison_directories: tuple[str, str],
     capsys: pytest.CaptureFixture[str],
     option_name: str,
-    option_value,
-    expected_in_output,
-    expected_not_in_output,
-):
+    option_value: Any,
+    expected_in_output: Optional[Union[str, list[str]]],
+    expected_not_in_output: Optional[Union[str, list[str]]],
+) -> None:
     dir1, dir2 = comparison_directories
     if option_name == "exclude_dirs":
         exclude_dir1 = os.path.join(dir1, "exclude_me")
@@ -203,7 +204,7 @@ def test_display_comparison_with_options(
 
 def test_export_comparison_txt(
     comparison_directories: tuple[str, str], output_dir: str
-):
+) -> None:
     dir1, dir2 = comparison_directories
     output_path = os.path.join(output_dir, "comparison.txt")
     with pytest.raises(ValueError) as excinfo:
@@ -213,7 +214,7 @@ def test_export_comparison_txt(
 
 def test_export_comparison_html(
     comparison_directories: tuple[str, str], output_dir: str
-):
+) -> None:
     dir1, dir2 = comparison_directories
     output_path = os.path.join(output_dir, "comparison.html")
     export_comparison(dir1, dir2, "html", output_path)
@@ -249,10 +250,10 @@ def test_export_comparison_with_options(
     comparison_directories: tuple[str, str],
     output_dir: str,
     option_name: str,
-    option_value,
-    expected_in_output,
-    expected_not_in_output,
-):
+    option_value: Any,
+    expected_in_output: Optional[Union[str, list[str]]],
+    expected_not_in_output: Optional[Union[str, list[str]]],
+) -> None:
     dir1, dir2 = comparison_directories
     if option_name == "exclude_dirs":
         exclude_dir1 = os.path.join(dir1, "exclude_me")
@@ -311,7 +312,7 @@ def test_export_comparison_with_options(
 
 def test_export_comparison_unsupported_format(
     comparison_directories: tuple[str, str], output_dir: str
-):
+) -> None:
     dir1, dir2 = comparison_directories
     output_path = os.path.join(output_dir, "comparison.unsupported")
     with pytest.raises(ValueError) as excinfo:
@@ -321,7 +322,7 @@ def test_export_comparison_unsupported_format(
 
 def test_complex_comparison(
     complex_directory: str, complex_directory_clone: str, output_dir: str
-):
+) -> None:
     structure1, structure2, _ = compare_directory_structures(
         complex_directory, complex_directory_clone
     )
@@ -349,7 +350,7 @@ def test_complex_comparison(
 def test_build_comparison_tree(
     comparison_directories: tuple[str, str],
     mocker: MockerFixture,
-):
+) -> None:
     dir1, dir2 = comparison_directories
     structure1, structure2, extensions = compare_directory_structures(dir1, dir2)
     color_map = {ext: f"#{i:06x}" for i, ext in enumerate(extensions)}
@@ -370,7 +371,7 @@ def test_build_comparison_tree(
 
 def test_comparison_with_statistics(
     comparison_directories: tuple[str, str], output_dir: str
-):
+) -> None:
     dir1, dir2 = comparison_directories
     output_path = os.path.join(output_dir, "comparison_with_stats.html")
     export_comparison(
@@ -393,7 +394,10 @@ def test_comparison_with_statistics(
     assert has_time_indicator, "No time indicators found in the comparison"
 
 
-def get_file_names(structure, path=None):
+def get_file_names(
+    structure: dict[str, Any],
+    path: Optional[list[str]] = None,
+) -> list[str]:
     """Extract file names from a structure, optionally at a specific path."""
     if path is None:
         return [f if isinstance(f, str) else f[0] for f in structure.get("_files", [])]

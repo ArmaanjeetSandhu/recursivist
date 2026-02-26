@@ -5,7 +5,7 @@ import os
 import shutil
 import tempfile
 import time
-from typing import Any, Dict, Tuple, Union
+from typing import Any, Dict, Generator, List, Optional, Tuple, Union
 from unittest.mock import MagicMock
 
 import pytest
@@ -23,13 +23,13 @@ DirStructure = Dict[str, Any]
 
 
 @pytest.fixture
-def runner():
+def runner() -> CliRunner:
     """Create a Typer test runner."""
     return CliRunner()
 
 
 @pytest.fixture
-def temp_dir():
+def temp_dir() -> Generator[str, None, None]:
     """Create a temporary directory for testing."""
     temp_dir = tempfile.mkdtemp()
     yield temp_dir
@@ -37,7 +37,7 @@ def temp_dir():
 
 
 @pytest.fixture
-def sample_directory(temp_dir):
+def sample_directory(temp_dir: str) -> str:
     """Create a sample directory structure for testing.
     Structure:
     temp_dir/
@@ -70,7 +70,7 @@ def sample_directory(temp_dir):
 
 
 @pytest.fixture
-def sample_with_logs(sample_directory):
+def sample_with_logs(sample_directory: str) -> str:
     """Sample directory with log files."""
     log_file = os.path.join(sample_directory, "app.log")
     with open(log_file, "w") as f:
@@ -79,7 +79,7 @@ def sample_with_logs(sample_directory):
 
 
 @pytest.fixture
-def output_dir(temp_dir):
+def output_dir(temp_dir: str) -> str:
     """Create an output directory for export tests."""
     output_path = os.path.join(temp_dir, "output")
     os.makedirs(output_path, exist_ok=True)
@@ -87,7 +87,7 @@ def output_dir(temp_dir):
 
 
 @pytest.fixture
-def deeply_nested_directory(temp_dir):
+def deeply_nested_directory(temp_dir: str) -> str:
     """Create a deeply nested directory structure for depth limit tests.
     Structure:
     temp_dir/
@@ -135,7 +135,7 @@ def deeply_nested_directory(temp_dir):
 
 
 @pytest.fixture
-def pattern_test_directory(temp_dir):
+def pattern_test_directory(temp_dir: str) -> str:
     """Create a directory structure for pattern matching tests.
     Structure includes various file types and patterns to test
     include/exclude functionality.
@@ -168,7 +168,7 @@ def pattern_test_directory(temp_dir):
 
 
 @pytest.fixture
-def comparison_directories(temp_dir):
+def comparison_directories(temp_dir: str) -> Tuple[str, str]:
     """Create two directories for comparison testing.
     Creates two directories with some common files and some
     unique files to each directory for comparison testing.
@@ -199,7 +199,7 @@ def comparison_directories(temp_dir):
 
 
 @pytest.fixture
-def complex_directory(temp_dir):
+def complex_directory(temp_dir: str) -> str:
     """Create a complex directory structure for testing.
     Creates a complex directory structure with multiple levels,
     different file types, and various content.
@@ -273,7 +273,7 @@ def complex_directory(temp_dir):
 
 
 @pytest.fixture
-def complex_directory_clone(complex_directory, temp_dir):
+def complex_directory_clone(complex_directory: str, temp_dir: str) -> str:
     """Create a modified clone of the complex directory.
     Creates a clone of the complex directory with some files modified
     and some new files added to test comparison functionality.
@@ -313,19 +313,19 @@ def complex_directory_clone(complex_directory, temp_dir):
 
 
 @pytest.fixture
-def mock_tree():
+def mock_tree() -> MagicMock:
     """Create a mock Rich Tree object."""
     return MagicMock(spec=Tree)
 
 
 @pytest.fixture
-def mock_subtree():
+def mock_subtree() -> MagicMock:
     """Create a mock Tree that can be returned by mock_tree.add()."""
     return MagicMock(spec=Tree)
 
 
 @pytest.fixture
-def color_map():
+def color_map() -> Dict[str, str]:
     """Create a sample color map for file extensions."""
     return {
         ".py": "#FF0000",
@@ -337,7 +337,7 @@ def color_map():
 
 
 @pytest.fixture
-def simple_structure():
+def simple_structure() -> DirStructure:
     """Create a simple directory structure for testing."""
     return {
         "_files": ["file1.txt", "file2.py", "file3.md"],
@@ -345,7 +345,7 @@ def simple_structure():
 
 
 @pytest.fixture
-def nested_structure():
+def nested_structure() -> DirStructure:
     """Create a nested directory structure for testing."""
     return {
         "_files": ["root_file1.txt", "root_file2.py"],
@@ -362,7 +362,7 @@ def nested_structure():
 
 
 @pytest.fixture
-def structure_with_stats():
+def structure_with_stats() -> DirStructure:
     """Create a directory structure with file statistics."""
     now = time.time()
     return {
@@ -385,7 +385,7 @@ def structure_with_stats():
 
 
 @pytest.fixture
-def max_depth_structure():
+def max_depth_structure() -> DirStructure:
     """Create a structure with max depth indicator."""
     return {
         "_files": ["root_file.txt"],
@@ -395,7 +395,9 @@ def max_depth_structure():
     }
 
 
-def create_test_file(path, content="Test content", size=None):
+def create_test_file(
+    path: str, content: str = "Test content", size: Optional[int] = None
+) -> str:
     """Helper function to create a test file with specified content or size."""
     os.makedirs(os.path.dirname(path), exist_ok=True)
     if size is not None:
@@ -407,10 +409,12 @@ def create_test_file(path, content="Test content", size=None):
     return path
 
 
-def assert_structure_has_files(structure, expected_files):
+def assert_structure_has_files(
+    structure: DirStructure, expected_files: List[str]
+) -> None:
     """Assert that a structure contains the expected files."""
     assert "_files" in structure
-    file_names = []
+    file_names: List[str] = []
     for file_item in structure["_files"]:
         if isinstance(file_item, tuple):
             file_names.append(file_item[0])
@@ -420,14 +424,16 @@ def assert_structure_has_files(structure, expected_files):
         assert expected_file in file_names
 
 
-def assert_structure_has_dirs(structure, expected_dirs):
+def assert_structure_has_dirs(
+    structure: DirStructure, expected_dirs: List[str]
+) -> None:
     """Assert that a structure contains the expected directories."""
     for expected_dir in expected_dirs:
         assert expected_dir in structure
         assert isinstance(structure[expected_dir], dict)
 
 
-def assert_stats_in_structure(structure):
+def assert_stats_in_structure(structure: DirStructure) -> None:
     """Assert that a structure contains statistics."""
     assert "_loc" in structure
     assert "_size" in structure
@@ -445,18 +451,18 @@ def assert_stats_in_structure(structure):
                     assert isinstance(mtime, float)
 
 
-def assert_json_export_valid(file_path, root_name):
+def assert_json_export_valid(file_path: str, root_name: str) -> Dict[str, Any]:
     """Assert that a JSON export file is valid and contains expected structure."""
     assert os.path.exists(file_path)
     with open(file_path, encoding="utf-8") as f:
-        data = json.load(f)
+        data: Dict[str, Any] = json.load(f)
     assert "root" in data
     assert data["root"] == root_name
     assert "structure" in data
     return data
 
 
-def assert_html_export_valid(file_path, root_name):
+def assert_html_export_valid(file_path: str, root_name: str) -> str:
     """Assert that an HTML export file is valid and contains expected structure."""
     assert os.path.exists(file_path)
     with open(file_path, encoding="utf-8") as f:
@@ -468,7 +474,9 @@ def assert_html_export_valid(file_path, root_name):
     return content
 
 
-def assert_text_based_export_valid(file_path, root_name, format_name):
+def assert_text_based_export_valid(
+    file_path: str, root_name: str, format_name: str
+) -> str:
     """Assert that a text-based export (txt, md) is valid."""
     assert os.path.exists(file_path)
     with open(file_path, encoding="utf-8") as f:
@@ -480,7 +488,7 @@ def assert_text_based_export_valid(file_path, root_name, format_name):
     return content
 
 
-def assert_jsx_export_valid(file_path, root_name):
+def assert_jsx_export_valid(file_path: str, root_name: str) -> str:
     """Assert that a JSX export file is valid."""
     assert os.path.exists(file_path)
     with open(file_path, encoding="utf-8") as f:
@@ -491,7 +499,11 @@ def assert_jsx_export_valid(file_path, root_name):
     return content
 
 
-def assert_cli_command_success(result, expected_items=None, unexpected_items=None):
+def assert_cli_command_success(
+    result: Any,
+    expected_items: Optional[List[str]] = None,
+    unexpected_items: Optional[List[str]] = None,
+) -> None:
     """Assert that a CLI command succeeded and contains expected output."""
     assert result.exit_code == 0
     if expected_items:

@@ -3,6 +3,7 @@
 import os
 import re
 import tempfile
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -67,9 +68,9 @@ file_list = st.lists(
 
 
 @st.composite
-def simple_directory_structure(draw):
+def simple_directory_structure(draw: st.DrawFn) -> dict[str, Any]:
     """Generate a simple directory structure."""
-    structure = {}
+    structure: dict[str, Any] = {}
     structure["_files"] = draw(file_list)
     if draw(st.booleans()):
         structure["_loc"] = draw(st.integers(min_value=0, max_value=10000))
@@ -99,7 +100,7 @@ class TestCountLinesOfCode:
 
     @given(st.text(alphabet=st.characters(max_codepoint=127)))
     @settings(max_examples=100)
-    def test_always_nonnegative(self, content):
+    def test_always_nonnegative(self, content: str) -> None:
         """Test that count_lines_of_code always returns a non-negative value."""
         with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", delete=False) as f:
             try:
@@ -119,7 +120,7 @@ class TestCountLinesOfCode:
         )
     )
     @settings(max_examples=50)
-    def test_matches_line_count(self, lines):
+    def test_matches_line_count(self, lines: list[str]) -> None:
         """Test that count_lines_of_code returns the correct number of lines."""
         content = "\n".join(lines)
         expected_lines = len(lines)
@@ -154,7 +155,7 @@ class TestCountLinesOfCode:
 
     @given(st.binary(min_size=0, max_size=1000))
     @settings(max_examples=50)
-    def test_binary_files_handled(self, content):
+    def test_binary_files_handled(self, content: bytes) -> None:
         """Test that binary files are handled appropriately."""
         with tempfile.NamedTemporaryFile(mode="wb", delete=False) as f:
             f.write(content)
@@ -172,7 +173,7 @@ class TestCountLinesOfCode:
     @example("file.txt")
     @example("file.py")
     @settings(max_examples=20)
-    def test_nonexistent_files(self, filename):
+    def test_nonexistent_files(self, filename: str) -> None:
         """Test that nonexistent files return 0 lines."""
         with tempfile.TemporaryDirectory() as temp_dir:
             file_path = os.path.join(temp_dir, filename)
@@ -180,7 +181,7 @@ class TestCountLinesOfCode:
                 "Nonexistent files should return 0 lines"
             )
 
-    def test_permission_denied(self):
+    def test_permission_denied(self) -> None:
         """Test that permission denied errors are handled gracefully."""
         with patch("builtins.open", side_effect=PermissionError("Permission denied")):
             assert count_lines_of_code("some/path.txt") == 0, (
@@ -193,7 +194,7 @@ class TestSortFilesByType:
 
     @given(file_list)
     @settings(max_examples=100)
-    def test_sorts_by_extension(self, files):
+    def test_sorts_by_extension(self, files: list[Any]) -> None:
         """Test that files are sorted by extension and then by name."""
         sorted_files = sort_files_by_type(files)
         assert len(sorted_files) == len(files), (
@@ -224,7 +225,13 @@ class TestSortFilesByType:
 
     @given(file_list, st.booleans(), st.booleans(), st.booleans())
     @settings(max_examples=100)
-    def test_sort_with_stats(self, files, sort_by_loc, sort_by_size, sort_by_mtime):
+    def test_sort_with_stats(
+        self,
+        files: list[Any],
+        sort_by_loc: bool,
+        sort_by_size: bool,
+        sort_by_mtime: bool,
+    ) -> None:
         """Test sort_files_by_type with various sorting options."""
         sorted_files = sort_files_by_type(
             files, sort_by_loc, sort_by_size, sort_by_mtime
@@ -260,13 +267,15 @@ class TestBuildTree:
         ),
     )
     @settings(max_examples=50)
-    def test_build_tree_adds_files(self, structure, color_map):
+    def test_build_tree_adds_files(
+        self, structure: dict[str, Any], color_map: dict[str, str]
+    ) -> None:
         """Test that build_tree properly adds all files to the tree."""
         mock_tree = MagicMock(spec=Tree)
         mock_subtree = MagicMock(spec=Tree)
         mock_tree.add.return_value = mock_subtree
 
-        def count_files_and_folders(struct):
+        def count_files_and_folders(struct: dict[str, Any]) -> int:
             count = 0
             if "_files" in struct:
                 count += len(struct["_files"])
@@ -305,13 +314,18 @@ class TestBuildComparisonTree:
         ),
     )
     @settings(max_examples=20)
-    def test_build_comparison_tree(self, structure1, structure2, color_map):
+    def test_build_comparison_tree(
+        self,
+        structure1: dict[str, Any],
+        structure2: dict[str, Any],
+        color_map: dict[str, str],
+    ) -> None:
         """Test that build_comparison_tree successfully builds a tree."""
         mock_tree = MagicMock(spec=Tree)
         mock_subtree = MagicMock(spec=Tree)
         mock_tree.add.return_value = mock_subtree
 
-        def count_files_and_folders(struct):
+        def count_files_and_folders(struct: dict[str, Any]) -> int:
             count = 0
             if "_files" in struct:
                 count += len(struct["_files"])
@@ -345,7 +359,7 @@ class TestFormatFunctions:
 
     @given(st.integers(min_value=0, max_value=10**12))
     @settings(max_examples=100)
-    def test_format_size(self, size):
+    def test_format_size(self, size: int) -> None:
         """Test that format_size always returns a string with units."""
         result = format_size(size)
         assert isinstance(result, str), "format_size should return a string"
@@ -360,7 +374,7 @@ class TestFormatFunctions:
 
     @given(st.floats(min_value=0, max_value=1672531200))
     @settings(max_examples=100)
-    def test_format_timestamp(self, timestamp):
+    def test_format_timestamp(self, timestamp: float) -> None:
         """Test that format_timestamp always returns a string representation."""
         result = format_timestamp(timestamp)
         assert isinstance(result, str), "format_timestamp should return a string"
@@ -373,7 +387,7 @@ class TestFormatFunctions:
 class TestJSXExportSortingFunctions:
     """Property-based tests for sorting functions in jsx_export.py."""
 
-    def get_sort_key_all(self, f):
+    def get_sort_key_all(self, f: Any) -> tuple[int, int, int, str]:
         """Reimplementation of sort_key_all from jsx_export.py."""
         if isinstance(f, tuple):
             if len(f) == 0:
@@ -385,7 +399,7 @@ class TestJSXExportSortingFunctions:
             return (-loc, -size, -mtime, file_name)
         return (0, 0, 0, f.lower() if isinstance(f, str) else "")
 
-    def get_sort_key_loc_size(self, f):
+    def get_sort_key_loc_size(self, f: Any) -> tuple[int, int, str]:
         """Reimplementation of sort_key_loc_size from jsx_export.py."""
         if isinstance(f, tuple):
             if len(f) == 0:
@@ -396,7 +410,7 @@ class TestJSXExportSortingFunctions:
             return (-loc, -size, file_name)
         return (0, 0, f.lower() if isinstance(f, str) else "")
 
-    def get_safe_get(self, tup, idx, default=None):
+    def get_safe_get(self, tup: Any, idx: int, default: Any = None) -> Any:
         """Reimplementation of safe_get from jsx_export.py."""
         if not isinstance(tup, tuple):
             return default
@@ -404,7 +418,7 @@ class TestJSXExportSortingFunctions:
 
     @given(file_list)
     @settings(max_examples=100)
-    def test_sort_key_all(self, files):
+    def test_sort_key_all(self, files: list[Any]) -> None:
         """Test that sorting with sort_key_all is correct."""
         sorted_expected = sorted(files, key=self.get_sort_key_all)
         has_tuples_with_stats = any(isinstance(f, tuple) and len(f) > 2 for f in files)
@@ -454,7 +468,7 @@ class TestJSXExportSortingFunctions:
 
     @given(file_list)
     @settings(max_examples=100)
-    def test_sort_key_loc_size(self, files):
+    def test_sort_key_loc_size(self, files: list[Any]) -> None:
         """Test that sorting with sort_key_loc_size is correct."""
         sorted_expected = sorted(files, key=self.get_sort_key_loc_size)
         has_tuples_with_stats = any(isinstance(f, tuple) and len(f) > 2 for f in files)
@@ -487,7 +501,7 @@ class TestJSXExportSortingFunctions:
         st.integers(),
     )
     @settings(max_examples=100)
-    def test_safe_get(self, tup, idx, default):
+    def test_safe_get(self, tup: tuple[str, str, int], idx: int, default: int) -> None:
         """Test that safe_get returns the expected value."""
         result = self.get_safe_get(tup, idx, default)
         if idx < len(tup):
@@ -503,7 +517,7 @@ class TestJSXExportSortingFunctions:
 class TestDirectoryExporterToJSX:
     """Property-based tests for DirectoryExporter.to_jsx method."""
 
-    def test_to_jsx_basic(self):
+    def test_to_jsx_basic(self) -> None:
         """Basic test for to_jsx without property testing."""
         structure = {"_files": ["file1.txt"]}
         root_name = "test_root"
@@ -515,7 +529,7 @@ class TestDirectoryExporterToJSX:
                 structure, root_name, output_path, False, False, False, False
             )
 
-    def test_to_jsx_with_options_basic(self):
+    def test_to_jsx_with_options_basic(self) -> None:
         """Basic test for to_jsx with options, without property testing."""
         structure = {"_files": ["file1.txt"]}
         root_name = "test_root"
@@ -565,11 +579,13 @@ class TestShouldExclude:
         st.text(min_size=1, max_size=100),
     )
     @settings(max_examples=100)
-    def test_should_exclude_patterns(self, path, patterns, current_dir):
+    def test_should_exclude_patterns(
+        self, path: str, patterns: list[str], current_dir: str
+    ) -> None:
         """Test that should_exclude correctly applies patterns."""
         pass
 
-    def test_should_exclude_extensions_basic(self):
+    def test_should_exclude_extensions_basic(self) -> None:
         """Test that should_exclude correctly applies extension exclusions with basic cases."""
         exclude_extensions = {".txt", ".md", ".py"}
         with patch("os.path.isfile", return_value=True):
@@ -591,7 +607,7 @@ class TestShouldExclude:
 class TestGetDirectoryStructure:
     """Property-based tests for get_directory_structure function."""
 
-    def test_structure_properties(self, temp_dir):
+    def test_structure_properties(self, temp_dir: str) -> None:
         """Test properties of the directory structure."""
         file1 = os.path.join(temp_dir, "file1.txt")
         file2 = os.path.join(temp_dir, "file2.py")
@@ -629,7 +645,7 @@ class TestGetDirectoryStructure:
 class TestGenerateJSXComponent:
     """Property-based tests for generate_jsx_component function."""
 
-    def test_generate_jsx_component_basic(self):
+    def test_generate_jsx_component_basic(self) -> None:
         """Basic test for generate_jsx_component without property testing."""
         structure = {"_files": ["file1.txt"]}
         root_name = "test_root"
