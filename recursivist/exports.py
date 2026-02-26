@@ -59,7 +59,15 @@ def sort_files_by_type(
         sort_by_mtime and not sort_by_loc and not sort_by_size and (has_loc or has_size)
     )
 
-    def get_size(item):
+    def get_size(
+        item: Union[
+            str,
+            Tuple[str, str],
+            Tuple[str, str, int],
+            Tuple[str, str, int, int],
+            Tuple[str, str, int, int, float],
+        ],
+    ) -> int:
         if not isinstance(item, tuple):
             return 0
         if len(item) > 3:
@@ -71,12 +79,28 @@ def sort_files_by_type(
             return item[2]
         return 0
 
-    def get_loc(item):
+    def get_loc(
+        item: Union[
+            str,
+            Tuple[str, str],
+            Tuple[str, str, int],
+            Tuple[str, str, int, int],
+            Tuple[str, str, int, int, float],
+        ],
+    ) -> int:
         if not isinstance(item, tuple) or len(item) <= 2:
             return 0
         return item[2] if sort_by_loc else 0
 
-    def get_mtime(item):
+    def get_mtime(
+        item: Union[
+            str,
+            Tuple[str, str],
+            Tuple[str, str, int],
+            Tuple[str, str, int, int],
+            Tuple[str, str, int, int, float],
+        ],
+    ) -> float:
         if not isinstance(item, tuple):
             return 0
         if len(item) > 4:
@@ -105,7 +129,15 @@ def sort_files_by_type(
     elif sort_by_mtime and (has_mtime or has_simple_mtime):
         return sorted(files, key=lambda f: -get_mtime(f))
 
-    def get_filename(item):
+    def get_filename(
+        item: Union[
+            str,
+            Tuple[str, str],
+            Tuple[str, str, int],
+            Tuple[str, str, int, int],
+            Tuple[str, str, int, int, float],
+        ],
+    ) -> str:
         if isinstance(item, tuple):
             return item[0]
         return item
@@ -480,8 +512,8 @@ class DirectoryExporter:
             or self.sort_by_mtime
         ):
 
-            def convert_structure_for_json(structure):
-                result = {}
+            def convert_structure_for_json(structure: Dict[str, Any]) -> Dict[str, Any]:
+                result: Dict[str, Any] = {}
                 for k, v in structure.items():
                     if k == "_files":
                         result[k] = []

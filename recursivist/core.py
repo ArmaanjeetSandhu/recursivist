@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 
 def export_structure(
-    structure: Dict,
+    structure: Dict[str, Any],
     root_dir: str,
     format_type: str,
     output_path: str,
@@ -134,7 +134,7 @@ def compile_regex_patterns(
 
 def should_exclude(
     path: str,
-    ignore_context: Dict,
+    ignore_context: Dict[str, Any],
     exclude_extensions: Optional[Set[str]] = None,
     exclude_patterns: Optional[Sequence[Union[str, Pattern[str]]]] = None,
     include_patterns: Optional[Sequence[Union[str, Pattern[str]]]] = None,
@@ -210,7 +210,7 @@ def should_exclude(
 _EXTENSION_COLORS: Dict[str, str] = {}
 
 
-def color_distance(color1, color2):
+def color_distance(color1: Tuple[int, int, int], color2: Tuple[int, int, int]) -> float:
     """
     Calculate perceptual distance between two colors in RGB space.
 
@@ -234,10 +234,12 @@ def color_distance(color1, color2):
     return dist
 
 
-def hex_to_rgb(hex_color):
+def hex_to_rgb(hex_color: str) -> Tuple[int, int, int]:
     """Convert hex color to RGB tuple."""
     hex_color = hex_color.lstrip("#")
-    return tuple(int(hex_color[i : i + 2], 16) for i in (0, 2, 4))
+    return cast(
+        Tuple[int, int, int], tuple(int(hex_color[i : i + 2], 16) for i in (0, 2, 4))
+    )
 
 
 def generate_color_for_extension(extension: str) -> str:
@@ -553,7 +555,15 @@ def sort_files_by_type(
         sort_by_mtime and not sort_by_loc and not sort_by_size and (has_loc or has_size)
     )
 
-    def get_size(item):
+    def get_size(
+        item: Union[
+            str,
+            Tuple[str, str],
+            Tuple[str, str, int],
+            Tuple[str, str, int, int],
+            Tuple[str, str, int, int, float],
+        ],
+    ) -> int:
         if not isinstance(item, tuple):
             return 0
         if len(item) > 3:
@@ -565,12 +575,28 @@ def sort_files_by_type(
             return item[2]
         return 0
 
-    def get_loc(item):
+    def get_loc(
+        item: Union[
+            str,
+            Tuple[str, str],
+            Tuple[str, str, int],
+            Tuple[str, str, int, int],
+            Tuple[str, str, int, int, float],
+        ],
+    ) -> int:
         if not isinstance(item, tuple) or len(item) <= 2:
             return 0
         return item[2] if sort_by_loc else 0
 
-    def get_mtime(item):
+    def get_mtime(
+        item: Union[
+            str,
+            Tuple[str, str],
+            Tuple[str, str, int],
+            Tuple[str, str, int, int],
+            Tuple[str, str, int, int, float],
+        ],
+    ) -> float:
         if not isinstance(item, tuple):
             return 0
         if len(item) > 4:
@@ -599,7 +625,15 @@ def sort_files_by_type(
     elif sort_by_mtime and (has_mtime or has_simple_mtime):
         return sorted(files, key=lambda f: -get_mtime(f))
 
-    def get_filename(item):
+    def get_filename(
+        item: Union[
+            str,
+            Tuple[str, str],
+            Tuple[str, str, int],
+            Tuple[str, str, int, int],
+            Tuple[str, str, int, int, float],
+        ],
+    ) -> str:
         if isinstance(item, tuple):
             return item[0]
         return item
@@ -614,7 +648,7 @@ def sort_files_by_type(
 
 
 def build_tree(
-    structure: Dict,
+    structure: Dict[str, Any],
     tree: Tree,
     color_map: Dict[str, str],
     parent_name: str = "Root",
@@ -927,11 +961,13 @@ def count_lines_of_code(file_path: str) -> int:
                 encoding = "utf-16-le" if utf16_le_bom else "utf-16-be"
                 with open(file_path, encoding=encoding, errors="replace") as text_file:
                     return sum(1 for _ in text_file)
+            potential_utf16le: bool = False
+            potential_utf16be: bool = False
             if len(sample) >= 16:
-                potential_utf16le: bool = all(
+                potential_utf16le = all(
                     sample[i] == 0 for i in range(1, min(32, len(sample)), 2)
                 )
-                potential_utf16be: bool = all(
+                potential_utf16be = all(
                     sample[i] == 0 for i in range(0, min(32, len(sample)), 2)
                 )
                 if potential_utf16le or potential_utf16be:

@@ -18,7 +18,7 @@ with minimal dependencies.
 
 import html
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, Tuple, Union
 
 from recursivist.core import format_size, format_timestamp
 
@@ -120,92 +120,100 @@ def generate_jsx_component(
                 f for f in files if not (isinstance(f, tuple) and len(f) == 0)
             ]
 
-            def safe_get(tup, idx, default=None):
+            def safe_get(tup: Any, idx: int, default: int = 0) -> int:
                 if not isinstance(tup, tuple):
                     return default
-                return tup[idx] if len(tup) > idx else default
+                return int(tup[idx]) if len(tup) > idx else default
 
-            def sort_key_all(f):
+            def sort_key_all(
+                f: Union[Tuple[Any, ...], str],
+            ) -> Tuple[int, int, int, str]:
                 if isinstance(f, tuple):
                     if len(f) == 0:
                         return (0, 0, 0, "")
                     file_name = f[0].lower() if len(f) > 0 else ""
-                    loc = safe_get(f, 2, 0) if len(f) > 2 else 0
-                    size = safe_get(f, 3, 0) if len(f) > 3 else 0
-                    mtime = safe_get(f, 4, 0) if len(f) > 4 else 0
+                    loc = safe_get(f, 2) if len(f) > 2 else 0
+                    size = safe_get(f, 3) if len(f) > 3 else 0
+                    mtime = safe_get(f, 4) if len(f) > 4 else 0
                     return (-loc, -size, -mtime, file_name)
                 return (0, 0, 0, f.lower() if isinstance(f, str) else "")
 
-            def sort_key_loc_size(f):
+            def sort_key_loc_size(
+                f: Union[Tuple[Any, ...], str],
+            ) -> Tuple[int, int, str]:
                 if isinstance(f, tuple):
                     if len(f) == 0:
                         return (0, 0, "")
                     file_name = f[0].lower() if len(f) > 0 else ""
-                    loc = safe_get(f, 2, 0) if len(f) > 2 else 0
-                    size = safe_get(f, 3, 0) if len(f) > 3 else 0
+                    loc = safe_get(f, 2) if len(f) > 2 else 0
+                    size = safe_get(f, 3) if len(f) > 3 else 0
                     return (-loc, -size, file_name)
                 return (0, 0, f.lower() if isinstance(f, str) else "")
 
-            def sort_key_loc_mtime(f):
+            def sort_key_loc_mtime(
+                f: Union[Tuple[Any, ...], str],
+            ) -> Tuple[int, int, str]:
                 if isinstance(f, tuple):
                     if len(f) == 0:
                         return (0, 0, "")
                     file_name = f[0].lower() if len(f) > 0 else ""
-                    loc = safe_get(f, 2, 0) if len(f) > 2 else 0
-                    mtime = safe_get(f, 3, 0) if len(f) > 3 and sort_by_loc else 0
+                    loc = safe_get(f, 2) if len(f) > 2 else 0
+                    mtime = safe_get(f, 3) if len(f) > 3 and sort_by_loc else 0
                     if len(f) > 4 and sort_by_loc and sort_by_size:
-                        mtime = safe_get(f, 4, 0)
+                        mtime = safe_get(f, 4)
                     return (-loc, -mtime, file_name)
                 return (0, 0, f.lower() if isinstance(f, str) else "")
 
-            def sort_key_size_mtime(f):
+            def sort_key_size_mtime(
+                f: Union[Tuple[Any, ...], str],
+            ) -> Tuple[int, int, str]:
                 if isinstance(f, tuple):
                     if len(f) == 0:
                         return (0, 0, "")
                     file_name = f[0].lower() if len(f) > 0 else ""
-                    size = safe_get(f, 2, 0) if len(f) > 2 else 0
-                    mtime = safe_get(f, 3, 0) if len(f) > 3 else 0
+                    size = safe_get(f, 2) if len(f) > 2 else 0
+                    mtime = safe_get(f, 3) if len(f) > 3 else 0
                     return (-size, -mtime, file_name)
                 return (0, 0, f.lower() if isinstance(f, str) else "")
 
-            def sort_key_mtime(f):
+            def sort_key_mtime(f: Union[Tuple[Any, ...], str]) -> Tuple[int, str]:
                 if isinstance(f, tuple):
                     if len(f) == 0:
                         return (0, "")
                     file_name = f[0].lower() if len(f) > 0 else ""
                     mtime = 0
                     if len(f) > 4 and sort_by_loc and sort_by_size:
-                        mtime = safe_get(f, 4, 0)
+                        mtime = safe_get(f, 4)
                     elif len(f) > 3 and (sort_by_loc or sort_by_size):
-                        mtime = safe_get(f, 3, 0)
+                        mtime = safe_get(f, 3)
                     elif len(f) > 2:
-                        mtime = safe_get(f, 2, 0)
+                        mtime = safe_get(f, 2)
                     return (-mtime, file_name)
                 return (0, f.lower() if isinstance(f, str) else "")
 
-            def sort_key_size(f):
+            def sort_key_size(f: Union[Tuple[Any, ...], str]) -> Tuple[int, str]:
                 if isinstance(f, tuple):
                     if len(f) == 0:
                         return (0, "")
                     file_name = f[0].lower() if len(f) > 0 else ""
                     size = 0
                     if len(f) > 3 and sort_by_loc:
-                        size = safe_get(f, 3, 0)
+                        size = safe_get(f, 3)
                     elif len(f) > 2:
-                        size = safe_get(f, 2, 0)
+                        size = safe_get(f, 2)
                     return (-size, file_name)
                 return (0, f.lower() if isinstance(f, str) else "")
 
-            def sort_key_loc(f):
+            def sort_key_loc(f: Union[Tuple[Any, ...], str]) -> Tuple[int, str]:
                 if isinstance(f, tuple):
                     if len(f) == 0:
                         return (0, "")
                     file_name = f[0].lower() if len(f) > 0 else ""
-                    loc = safe_get(f, 2, 0) if len(f) > 2 else 0
+                    loc = safe_get(f, 2) if len(f) > 2 else 0
                     return (-loc, file_name)
                 return (0, f.lower() if isinstance(f, str) else "")
 
-            def sort_key_name(f):
+            def sort_key_name(f: Union[Tuple[Any, ...], str]) -> str:
                 if isinstance(f, tuple):
                     if len(f) == 0:
                         return ""

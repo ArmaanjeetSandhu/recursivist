@@ -56,7 +56,7 @@ console = Console()
 
 
 @app.callback()
-def callback():
+def callback() -> None:
     """
     Recursivist CLI tool for directory visualization and export.
 
@@ -162,7 +162,7 @@ def visualize(
     verbose: bool = typer.Option(
         False, "--verbose", "-v", help="Enable verbose output"
     ),
-):
+) -> None:
     """
     Visualize a directory structure as a tree in the terminal.
 
@@ -362,7 +362,7 @@ def export(
     verbose: bool = typer.Option(
         False, "--verbose", "-v", help="Enable verbose output"
     ),
-):
+) -> None:
     """
     Export a directory structure to various formats without displaying in the terminal.
 
@@ -506,7 +506,7 @@ def export(
 @app.command()
 def completion(
     shell: str = typer.Argument(..., help="Shell type (bash, zsh, fish, powershell)"),
-):
+) -> None:
     """
     Generate shell completion script.
 
@@ -545,7 +545,7 @@ def completion(
 
 
 @app.command()
-def version():
+def version() -> None:
     """Display the current version of recursivist.
 
     Reads and outputs the version information from the package metadata.
@@ -647,7 +647,7 @@ def compare(
     verbose: bool = typer.Option(
         False, "--verbose", "-v", help="Enable verbose output"
     ),
-):
+) -> None:
     """
     Compare two directory structures side by side.
 
@@ -763,7 +763,7 @@ def compare(
         raise typer.Exit(1) from None
 
 
-def main():
+def main() -> None:
     """Entry point for the CLI.
 
     Invokes the Typer application to process command-line arguments and execute the appropriate command.

@@ -41,14 +41,14 @@ def compare_directory_structures(
     exclude_dirs: Optional[Sequence[str]] = None,
     ignore_file: Optional[str] = None,
     exclude_extensions: Optional[Set[str]] = None,
-    exclude_patterns: Optional[Sequence[Union[str, Pattern]]] = None,
-    include_patterns: Optional[Sequence[Union[str, Pattern]]] = None,
+    exclude_patterns: Optional[Sequence[Union[str, Pattern[str]]]] = None,
+    include_patterns: Optional[Sequence[Union[str, Pattern[str]]]] = None,
     max_depth: int = 0,
     show_full_path: bool = False,
     sort_by_loc: bool = False,
     sort_by_size: bool = False,
     sort_by_mtime: bool = False,
-) -> Tuple[Dict, Dict, Set[str]]:
+) -> Tuple[Dict[str, Any], Dict[str, Any], Set[str]]:
     """Compare two directory structures and return both structures with a combined set of extensions.
 
     Retrieves the directory structures for both directories using the same filtering options, then combines their file extensions for consistent color mapping in visualizations.
@@ -102,8 +102,8 @@ def compare_directory_structures(
 
 
 def build_comparison_tree(
-    structure: Dict,
-    other_structure: Dict,
+    structure: Dict[str, Any],
+    other_structure: Dict[str, Any],
     tree: Tree,
     color_map: Dict[str, str],
     parent_name: str = "Root",
@@ -1669,7 +1669,7 @@ def _export_comparison_to_html(
         html_content.append("</ul>")
         return "\n".join(html_content)
 
-    def format_timestamp_js():
+    def format_timestamp_js() -> str:
         """Returns JavaScript function to format timestamps in HTML."""
         return """
         function formatTimestamp(timestamp) {
