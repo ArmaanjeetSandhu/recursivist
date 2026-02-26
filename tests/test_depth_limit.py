@@ -58,9 +58,9 @@ def test_get_directory_structure_with_depth_limits(
 
     for path in max_depth_in_level:
         segments = path.split("/")
-        assert check_path_has_max_depth(
-            segments
-        ), f"No max_depth_reached flag in {path}"
+        assert check_path_has_max_depth(segments), (
+            f"No max_depth_reached flag in {path}"
+        )
 
 
 def test_visualize_command_with_depth_limit(
@@ -102,7 +102,7 @@ def test_export_command_with_depth_limit(
     assert result.exit_code == 0
     export_file = os.path.join(output_dir, "depth_limited.json")
     assert os.path.exists(export_file)
-    with open(export_file, "r", encoding="utf-8") as f:
+    with open(export_file, encoding="utf-8") as f:
         data = json.load(f)
     assert "structure" in data
     assert "level1" in data["structure"]
@@ -185,7 +185,7 @@ def test_compare_export_with_depth_limit(
     assert result.exit_code == 0
     export_file = os.path.join(output_dir, "depth_limited_compare.html")
     assert os.path.exists(export_file)
-    with open(export_file, "r", encoding="utf-8") as f:
+    with open(export_file, encoding="utf-8") as f:
         content = f.read()
     assert "Directory Comparison" in content
     assert "level1" in content
@@ -250,7 +250,7 @@ def test_export_with_different_depth_limits(
     assert result.exit_code == 0
     export_file = os.path.join(output_dir, f"depth_{depth}.json")
     assert os.path.exists(export_file)
-    with open(export_file, "r", encoding="utf-8") as f:
+    with open(export_file, encoding="utf-8") as f:
         data = json.load(f)
     current = data["structure"]
     assert "level1" in current

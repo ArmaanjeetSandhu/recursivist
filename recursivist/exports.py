@@ -99,11 +99,11 @@ def sort_files_by_type(
     elif sort_by_size and sort_by_mtime and has_mtime:
         return sorted(files, key=lambda f: (-get_size(f), -get_mtime(f)))
     elif sort_by_loc and has_loc:
-        return sorted(files, key=lambda f: (-get_loc(f)))
+        return sorted(files, key=lambda f: -get_loc(f))
     elif sort_by_size and (has_size or has_simple_size):
-        return sorted(files, key=lambda f: (-get_size(f)))
+        return sorted(files, key=lambda f: -get_size(f))
     elif sort_by_mtime and (has_mtime or has_simple_mtime):
-        return sorted(files, key=lambda f: (-get_mtime(f)))
+        return sorted(files, key=lambda f: -get_mtime(f))
 
     def get_filename(item):
         if isinstance(item, tuple):

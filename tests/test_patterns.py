@@ -201,9 +201,9 @@ class TestPatternMatching:
                 py_files_found = True
                 break
         assert not py_files_found, "Python files were found despite exclude pattern"
-        assert (
-            ".py" not in extensions
-        ), "Python extension was included despite exclude pattern"
+        assert ".py" not in extensions, (
+            "Python extension was included despite exclude pattern"
+        )
 
         def check_subdirs_for_py_files(structure):
             for key, value in structure.items():
@@ -211,9 +211,9 @@ class TestPatternMatching:
                     if "_files" in value:
                         for file in value["_files"]:
                             file_name = file if isinstance(file, str) else file[0]
-                            assert not file_name.endswith(
-                                ".py"
-                            ), f"Python file {file_name} found despite exclude pattern"
+                            assert not file_name.endswith(".py"), (
+                                f"Python file {file_name} found despite exclude pattern"
+                            )
                     check_subdirs_for_py_files(value)
 
         check_subdirs_for_py_files(structure)
@@ -229,9 +229,9 @@ class TestPatternMatching:
         if "_files" in structure:
             for file in structure["_files"]:
                 file_name = file if isinstance(file, str) else file[0]
-                assert file_name.endswith(
-                    ".json"
-                ), f"Non-JSON file {file_name} was included"
+                assert file_name.endswith(".json"), (
+                    f"Non-JSON file {file_name} was included"
+                )
         assert ".json" in extensions
         assert len(extensions) == 1, "Only JSON extension should be included"
 
@@ -241,9 +241,9 @@ class TestPatternMatching:
                     if "_files" in value:
                         for file in value["_files"]:
                             file_name = file if isinstance(file, str) else file[0]
-                            assert file_name.endswith(
-                                ".json"
-                            ), f"Non-JSON file {file_name} was included"
+                            assert file_name.endswith(".json"), (
+                                f"Non-JSON file {file_name} was included"
+                            )
                     check_subdirs_for_non_json(value)
 
         check_subdirs_for_non_json(structure)
@@ -435,9 +435,9 @@ def test_regex_nested_directory_patterns(pattern_test_directory):
     structure, _ = get_directory_structure(pattern_test_directory)
     assert "tests" in structure, "Base structure doesn't have tests directory"
     assert "unit" in structure["tests"], "Base structure doesn't have unit directory"
-    assert (
-        "integration" in structure["tests"]
-    ), "Base structure doesn't have integration directory"
+    assert "integration" in structure["tests"], (
+        "Base structure doesn't have integration directory"
+    )
     include_patterns = [re.compile(r"test_.*\.py$")]
     structure, _ = get_directory_structure(
         pattern_test_directory, include_patterns=include_patterns
@@ -446,9 +446,9 @@ def test_regex_nested_directory_patterns(pattern_test_directory):
         f if isinstance(f, str) else f[0] for f in structure.get("_files", [])
     ]
     assert "test_file1.py" in files_at_root, "Root test_file1.py should be included"
-    assert (
-        "regular_file.txt" not in files_at_root
-    ), "Non-matching files should be excluded"
+    assert "regular_file.txt" not in files_at_root, (
+        "Non-matching files should be excluded"
+    )
     include_patterns = [re.compile(r"regular_file\.txt$")]
     structure, _ = get_directory_structure(
         pattern_test_directory, include_patterns=include_patterns
@@ -481,6 +481,6 @@ def test_pathlib_compatibility(pattern_test_directory):
     if "_files" in structure:
         for file_item in structure["_files"]:
             file_name = file_item if isinstance(file_item, str) else file_item[0]
-            assert file_name.endswith(
-                ".py"
-            ), f"Non-Python file {file_name} was included"
+            assert file_name.endswith(".py"), (
+                f"Non-Python file {file_name} was included"
+            )

@@ -58,7 +58,7 @@ def test_cli_with_complex_structure(
     assert result.exit_code == 0
     assert os.path.exists(os.path.join(output_dir, "complex.json"))
     assert os.path.exists(os.path.join(output_dir, "complex.md"))
-    with open(os.path.join(output_dir, "complex.json"), "r", encoding="utf-8") as f:
+    with open(os.path.join(output_dir, "complex.json"), encoding="utf-8") as f:
         data = json.load(f)
         assert "structure" in data
         assert "src" in data["structure"]
@@ -134,7 +134,7 @@ def test_comparison_with_complex_directories(
         max_depth=3,
     )
     assert os.path.exists(output_path)
-    with open(output_path, "r", encoding="utf-8") as f:
+    with open(output_path, encoding="utf-8") as f:
         content = f.read()
     assert "Directory Comparison" in content
     assert os.path.basename(complex_directory) in content
@@ -165,7 +165,7 @@ def test_full_path_display_with_complex_directory(
         output_path,
         show_full_path=True,
     )
-    with open(output_path, "r", encoding="utf-8") as f:
+    with open(output_path, encoding="utf-8") as f:
         data = json.load(f)
     assert "structure" in data
     assert "_files" in data["structure"]
@@ -304,7 +304,7 @@ def test_export_formats_with_statistics(temp_dir: str, output_dir: str, fmt: str
         sort_by_mtime=True,
     )
     assert os.path.exists(output_path)
-    with open(output_path, "r", encoding="utf-8") as f:
+    with open(output_path, encoding="utf-8") as f:
         content = f.read()
     if fmt == "json":
         assert '"show_loc": true' in content
@@ -349,7 +349,7 @@ def test_comparison_with_statistics(temp_dir: str, output_dir: str):
         sort_by_mtime=True,
     )
     assert os.path.exists(output_path)
-    with open(output_path, "r", encoding="utf-8") as f:
+    with open(output_path, encoding="utf-8") as f:
         content = f.read()
     has_stats = False
     for indicator in ["lines", "B", "KB", "MB", "Today", "Yesterday"]:
@@ -376,7 +376,7 @@ def test_pathlib_compatibility(temp_dir: str, output_dir: str):
     output_path = Path(output_dir) / "pathlib_test.json"
     export_structure(structure, str(path_obj), "json", str(output_path))
     assert output_path.exists()
-    with open(output_path, "r", encoding="utf-8") as f:
+    with open(output_path, encoding="utf-8") as f:
         data = json.load(f)
     assert "root" in data
     assert "structure" in data

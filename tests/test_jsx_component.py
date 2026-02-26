@@ -23,10 +23,12 @@ def file_tuples_for_sorting(draw):
             min_size=1,
             max_size=20,
         ).map(
-            lambda s: s
-            + st.sampled_from(
-                [".txt", ".py", ".md", ".json", ".js", ".html", ".css"]
-            ).example()
+            lambda s: (
+                s
+                + st.sampled_from(
+                    [".txt", ".py", ".md", ".json", ".js", ".html", ".css"]
+                ).example()
+            )
         )
     )
     tuple_type = draw(st.integers(min_value=0, max_value=4))
@@ -167,9 +169,9 @@ class TestJSXSort:
         """Test that sorting with sort_key_all maintains consistent ordering."""
         sorted_files = sorted(files, key=self.sort_key_all)
         assert len(sorted_files) == len(files), "Sorting should preserve all elements"
-        assert (
-            sorted(sorted_files, key=self.sort_key_all) == sorted_files
-        ), "Sorting should be stable"
+        assert sorted(sorted_files, key=self.sort_key_all) == sorted_files, (
+            "Sorting should be stable"
+        )
         for i in range(len(sorted_files) - 1):
             f1 = sorted_files[i]
             f2 = sorted_files[i + 1]
@@ -183,9 +185,9 @@ class TestJSXSort:
         """Test that sorting with sort_key_loc_size maintains consistent ordering."""
         sorted_files = sorted(files, key=self.sort_key_loc_size)
         assert len(sorted_files) == len(files), "Sorting should preserve all elements"
-        assert (
-            sorted(sorted_files, key=self.sort_key_loc_size) == sorted_files
-        ), "Sorting should be stable"
+        assert sorted(sorted_files, key=self.sort_key_loc_size) == sorted_files, (
+            "Sorting should be stable"
+        )
         for i in range(len(sorted_files) - 1):
             f1 = sorted_files[i]
             f2 = sorted_files[i + 1]
@@ -199,9 +201,9 @@ class TestJSXSort:
         """Test that sorting with sort_key_loc_mtime maintains consistent ordering."""
         sorted_files = sorted(files, key=self.sort_key_loc_mtime)
         assert len(sorted_files) == len(files), "Sorting should preserve all elements"
-        assert (
-            sorted(sorted_files, key=self.sort_key_loc_mtime) == sorted_files
-        ), "Sorting should be stable"
+        assert sorted(sorted_files, key=self.sort_key_loc_mtime) == sorted_files, (
+            "Sorting should be stable"
+        )
         for i in range(len(sorted_files) - 1):
             f1 = sorted_files[i]
             f2 = sorted_files[i + 1]
@@ -215,9 +217,9 @@ class TestJSXSort:
         """Test that sorting with sort_key_size_mtime maintains consistent ordering."""
         sorted_files = sorted(files, key=self.sort_key_size_mtime)
         assert len(sorted_files) == len(files), "Sorting should preserve all elements"
-        assert (
-            sorted(sorted_files, key=self.sort_key_size_mtime) == sorted_files
-        ), "Sorting should be stable"
+        assert sorted(sorted_files, key=self.sort_key_size_mtime) == sorted_files, (
+            "Sorting should be stable"
+        )
         for i in range(len(sorted_files) - 1):
             f1 = sorted_files[i]
             f2 = sorted_files[i + 1]
@@ -231,9 +233,9 @@ class TestJSXSort:
         """Test that sorting with sort_key_mtime maintains consistent ordering."""
         sorted_files = sorted(files, key=self.sort_key_mtime)
         assert len(sorted_files) == len(files), "Sorting should preserve all elements"
-        assert (
-            sorted(sorted_files, key=self.sort_key_mtime) == sorted_files
-        ), "Sorting should be stable"
+        assert sorted(sorted_files, key=self.sort_key_mtime) == sorted_files, (
+            "Sorting should be stable"
+        )
         for i in range(len(sorted_files) - 1):
             f1 = sorted_files[i]
             f2 = sorted_files[i + 1]
@@ -247,9 +249,9 @@ class TestJSXSort:
         """Test that sorting with sort_key_size maintains consistent ordering."""
         sorted_files = sorted(files, key=self.sort_key_size)
         assert len(sorted_files) == len(files), "Sorting should preserve all elements"
-        assert (
-            sorted(sorted_files, key=self.sort_key_size) == sorted_files
-        ), "Sorting should be stable"
+        assert sorted(sorted_files, key=self.sort_key_size) == sorted_files, (
+            "Sorting should be stable"
+        )
         for i in range(len(sorted_files) - 1):
             f1 = sorted_files[i]
             f2 = sorted_files[i + 1]
@@ -263,9 +265,9 @@ class TestJSXSort:
         """Test that sorting with sort_key_loc maintains consistent ordering."""
         sorted_files = sorted(files, key=self.sort_key_loc)
         assert len(sorted_files) == len(files), "Sorting should preserve all elements"
-        assert (
-            sorted(sorted_files, key=self.sort_key_loc) == sorted_files
-        ), "Sorting should be stable"
+        assert sorted(sorted_files, key=self.sort_key_loc) == sorted_files, (
+            "Sorting should be stable"
+        )
         for i in range(len(sorted_files) - 1):
             f1 = sorted_files[i]
             f2 = sorted_files[i + 1]
@@ -279,9 +281,9 @@ class TestJSXSort:
         """Test that sorting with sort_key_name maintains consistent ordering."""
         sorted_files = sorted(files, key=self.sort_key_name)
         assert len(sorted_files) == len(files), "Sorting should preserve all elements"
-        assert (
-            sorted(sorted_files, key=self.sort_key_name) == sorted_files
-        ), "Sorting should be stable"
+        assert sorted(sorted_files, key=self.sort_key_name) == sorted_files, (
+            "Sorting should be stable"
+        )
         for i in range(len(sorted_files) - 1):
             f1 = sorted_files[i]
             f2 = sorted_files[i + 1]
@@ -305,10 +307,12 @@ def jsx_directory_structure(draw):
                     min_size=1,
                     max_size=20,
                 ).map(
-                    lambda s: s
-                    + st.sampled_from(
-                        [".txt", ".py", ".md", ".json", ".js", ".html", ".css"]
-                    ).example()
+                    lambda s: (
+                        s
+                        + st.sampled_from(
+                            [".txt", ".py", ".md", ".json", ".js", ".html", ".css"]
+                        ).example()
+                    )
                 ),
                 st.tuples(
                     st.text(
@@ -319,10 +323,12 @@ def jsx_directory_structure(draw):
                         min_size=1,
                         max_size=20,
                     ).map(
-                        lambda s: s
-                        + st.sampled_from(
-                            [".txt", ".py", ".md", ".json", ".js", ".html", ".css"]
-                        ).example()
+                        lambda s: (
+                            s
+                            + st.sampled_from(
+                                [".txt", ".py", ".md", ".json", ".js", ".html", ".css"]
+                            ).example()
+                        )
                     ),
                     st.text(min_size=1, max_size=100),
                 ),
@@ -384,31 +390,31 @@ class TestJSXComponent:
             generate_jsx_component(dir_structure, root_name, output_path)
             assert os.path.exists(output_path), "The JSX file was not created"
             assert os.path.getsize(output_path) > 0, "The JSX file is empty"
-            with open(output_path, "r", encoding="utf-8") as f:
+            with open(output_path, encoding="utf-8") as f:
                 content = f.read()
             assert "import React" in content, "JSX should import React"
-            assert (
-                "export default DirectoryViewer" in content
-            ), "JSX should export the DirectoryViewer component"
+            assert "export default DirectoryViewer" in content, (
+                "JSX should export the DirectoryViewer component"
+            )
             assert root_name in content, "JSX should include the root name"
-            assert (
-                "const DirectoryViewer = () =>" in content
-            ), "DirectoryViewer component should be defined"
-            assert (
-                "const DirectoryItem = (props) =>" in content
-            ), "DirectoryItem component should be defined"
-            assert (
-                "const FileItem = (props) =>" in content
-            ), "FileItem component should be defined"
+            assert "const DirectoryViewer = () =>" in content, (
+                "DirectoryViewer component should be defined"
+            )
+            assert "const DirectoryItem = (props) =>" in content, (
+                "DirectoryItem component should be defined"
+            )
+            assert "const FileItem = (props) =>" in content, (
+                "FileItem component should be defined"
+            )
             if "_files" in dir_structure and dir_structure["_files"]:
                 for file_item in dir_structure["_files"]:
                     if isinstance(file_item, tuple):
                         file_name = file_item[0]
                     else:
                         file_name = file_item
-                    assert (
-                        file_name in content
-                    ), f"File {file_name} should be included in JSX content"
+                    assert file_name in content, (
+                        f"File {file_name} should be included in JSX content"
+                    )
         finally:
             if os.path.exists(output_path):
                 os.unlink(output_path)
@@ -449,53 +455,53 @@ class TestJSXComponent:
             write_calls = [args[0] for args, _ in mock_file.write.call_args_list]
             content = "".join(write_calls)
             if sort_by_loc:
-                assert (
-                    "const showLoc = true;" in content
-                ), "LOC display should be enabled"
-                assert (
-                    "const sortByLoc = true;" in content
-                ), "LOC sorting should be enabled"
+                assert "const showLoc = true;" in content, (
+                    "LOC display should be enabled"
+                )
+                assert "const sortByLoc = true;" in content, (
+                    "LOC sorting should be enabled"
+                )
             else:
-                assert (
-                    "const showLoc = false;" in content
-                ), "LOC display should be disabled"
-                assert (
-                    "const sortByLoc = false;" in content
-                ), "LOC sorting should be disabled"
+                assert "const showLoc = false;" in content, (
+                    "LOC display should be disabled"
+                )
+                assert "const sortByLoc = false;" in content, (
+                    "LOC sorting should be disabled"
+                )
             if sort_by_size:
-                assert (
-                    "const showSize = true;" in content
-                ), "Size display should be enabled"
-                assert (
-                    "const sortBySize = true;" in content
-                ), "Size sorting should be enabled"
-                assert (
-                    "format_size" in content
-                ), "Size formatting function should be included"
+                assert "const showSize = true;" in content, (
+                    "Size display should be enabled"
+                )
+                assert "const sortBySize = true;" in content, (
+                    "Size sorting should be enabled"
+                )
+                assert "format_size" in content, (
+                    "Size formatting function should be included"
+                )
             else:
-                assert (
-                    "const showSize = false;" in content
-                ), "Size display should be disabled"
-                assert (
-                    "const sortBySize = false;" in content
-                ), "Size sorting should be disabled"
+                assert "const showSize = false;" in content, (
+                    "Size display should be disabled"
+                )
+                assert "const sortBySize = false;" in content, (
+                    "Size sorting should be disabled"
+                )
             if sort_by_mtime:
-                assert (
-                    "const showMtime = true;" in content
-                ), "Mtime display should be enabled"
-                assert (
-                    "const sortByMtime = true;" in content
-                ), "Mtime sorting should be enabled"
-                assert (
-                    "format_timestamp" in content
-                ), "Timestamp formatting function should be included"
+                assert "const showMtime = true;" in content, (
+                    "Mtime display should be enabled"
+                )
+                assert "const sortByMtime = true;" in content, (
+                    "Mtime sorting should be enabled"
+                )
+                assert "format_timestamp" in content, (
+                    "Timestamp formatting function should be included"
+                )
             else:
-                assert (
-                    "const showMtime = false;" in content
-                ), "Mtime display should be disabled"
-                assert (
-                    "const sortByMtime = false;" in content
-                ), "Mtime sorting should be disabled"
+                assert "const showMtime = false;" in content, (
+                    "Mtime display should be disabled"
+                )
+                assert "const sortByMtime = false;" in content, (
+                    "Mtime sorting should be disabled"
+                )
 
 
 if __name__ == "__main__":

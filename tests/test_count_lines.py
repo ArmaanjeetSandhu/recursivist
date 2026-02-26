@@ -110,12 +110,12 @@ class TestCountLinesOfCode:
             except UnicodeEncodeError:
                 pytest.skip("Content contains characters that can't be encoded")
         try:
-            with open(file_path, "r", encoding="utf-8") as f:
+            with open(file_path, encoding="utf-8") as f:
                 expected_lines = sum(1 for _ in f)
             line_count = count_lines_of_code(file_path)
-            assert (
-                line_count == expected_lines
-            ), f"Expected {expected_lines} lines, got {line_count} for content: {repr(content)}"
+            assert line_count == expected_lines, (
+                f"Expected {expected_lines} lines, got {line_count} for content: {repr(content)}"
+            )
         finally:
             os.unlink(file_path)
 
@@ -128,16 +128,16 @@ class TestCountLinesOfCode:
             file_path = f.name
         try:
             line_count = count_lines_of_code(file_path)
-            assert (
-                line_count >= 0
-            ), "Line count should never be negative even for binary files"
+            assert line_count >= 0, (
+                "Line count should never be negative even for binary files"
+            )
             if file_path.lower().endswith(".bin") or (
                 b"\x00" in content and len(content) > 0 and content.strip()
             ):
                 if content.strip() != b"\x00":
-                    assert (
-                        line_count == 0
-                    ), "Files with non-trivial null bytes should return 0 lines"
+                    assert line_count == 0, (
+                        "Files with non-trivial null bytes should return 0 lines"
+                    )
         finally:
             os.unlink(file_path)
 
@@ -160,11 +160,11 @@ class TestCountLinesOfCode:
             assert line_count >= 0, "Line count should never be negative"
             if encoding == "utf-8" or encoding == "ascii":
                 try:
-                    with open(file_path, "r", encoding=encoding) as f:
+                    with open(file_path, encoding=encoding) as f:
                         expected_lines = sum(1 for _ in f)
-                    assert (
-                        line_count == expected_lines
-                    ), f"Line count mismatch for {encoding} content"
+                    assert line_count == expected_lines, (
+                        f"Line count mismatch for {encoding} content"
+                    )
                 except Exception:
                     pass
         finally:
@@ -180,9 +180,9 @@ class TestCountLinesOfCode:
             file_path = f.name
         try:
             line_count = count_lines_of_code(file_path)
-            assert (
-                line_count == num_lines
-            ), f"Expected {num_lines} lines, got {line_count}"
+            assert line_count == num_lines, (
+                f"Expected {num_lines} lines, got {line_count}"
+            )
         finally:
             os.unlink(file_path)
 
@@ -190,16 +190,16 @@ class TestCountLinesOfCode:
         """Test that count_lines_of_code handles nonexistent files."""
         with tempfile.TemporaryDirectory() as temp_dir:
             file_path = os.path.join(temp_dir, "nonexistent.txt")
-            assert (
-                count_lines_of_code(file_path) == 0
-            ), "Nonexistent files should return 0 lines"
+            assert count_lines_of_code(file_path) == 0, (
+                "Nonexistent files should return 0 lines"
+            )
 
     def test_permission_denied(self, mocker: MockerFixture):
         """Test that count_lines_of_code handles permission denied errors."""
         mocker.patch("builtins.open", side_effect=PermissionError("Permission denied"))
-        assert (
-            count_lines_of_code("some/path.txt") == 0
-        ), "Permission denied should return 0 lines"
+        assert count_lines_of_code("some/path.txt") == 0, (
+            "Permission denied should return 0 lines"
+        )
 
     def test_binary_file_detection(self):
         """Test that files are properly identified as binary."""
@@ -221,9 +221,9 @@ class TestCountLinesOfCode:
                 "utf-8", b"\x80", 0, 1, "invalid start byte"
             ),
         )
-        assert (
-            count_lines_of_code("some/path.txt") == 0
-        ), "UnicodeDecodeError should return 0 lines"
+        assert count_lines_of_code("some/path.txt") == 0, (
+            "UnicodeDecodeError should return 0 lines"
+        )
 
     def test_file_with_bin_extension(self):
         """Test that files with .bin extension are handled correctly."""

@@ -2,7 +2,7 @@
 
 <div class="hero-section">
   <p class="hero-subtitle">A powerful command-line tool for visualizing directory structures with rich formatting, color-coding, and comprehensive analysis options.</p>
-  
+
   <div class="hero-buttons">
     <a href="getting-started/installation/" class="md-button md-button--primary">Get Started</a>
     <a href="examples/basic/" class="md-button md-button--secondary">View Examples</a>
@@ -48,56 +48,56 @@
     <div class="feature-description">Each file type is assigned a unique color for easy identification, created deterministically from file extensions for consistent visual mapping.</div>
     <a href="user-guide/visualization/" class="feature-link">See visualization <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
   </div>
-  
+
   <div class="feature-card">
     <div class="feature-icon">📊</div>
     <div class="feature-title">File Statistics</div>
     <div class="feature-description">Display and sort by lines of code, file sizes, or modification times with formatting appropriate to each metric for better project understanding.</div>
     <a href="user-guide/visualization/#file-statistics" class="feature-link">File statistics <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
   </div>
-  
+
   <div class="feature-card">
     <div class="feature-icon">📁</div>
     <div class="feature-title">Smart Filtering</div>
     <div class="feature-description">Powerful filtering options combining directory exclusions, extension filtering, glob patterns, regex matching, and gitignore integration for surgical precision.</div>
     <a href="user-guide/pattern-filtering/" class="feature-link">Filtering options <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
   </div>
-  
+
   <div class="feature-card">
     <div class="feature-icon">🧩</div>
     <div class="feature-title">Gitignore Support</div>
     <div class="feature-description">Automatically respects your `.gitignore` patterns and similar ignore files to exclude files and directories you don't want to include in the visualization.</div>
     <a href="examples/advanced/#using-with-git-repositories" class="feature-link">Using with Git <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
   </div>
-  
+
   <div class="feature-card">
     <div class="feature-icon">🔍</div>
     <div class="feature-title">Pattern Matching</div>
     <div class="feature-description">Use glob patterns for simplicity or regular expressions for complex matching needs, with options for both inclusion and exclusion patterns.</div>
     <a href="reference/pattern-matching/" class="feature-link">Pattern matching <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
   </div>
-  
+
   <div class="feature-card">
     <div class="feature-icon">🔄</div>
     <div class="feature-title">Directory Comparison</div>
     <div class="feature-description">Compare two directory structures side by side with color-coded highlighting of differences for effective visual differentiation and change analysis.</div>
     <a href="user-guide/compare/" class="feature-link">Compare command <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
   </div>
-  
+
   <div class="feature-card">
     <div class="feature-icon">📤</div>
     <div class="feature-title">Multiple Export Formats</div>
     <div class="feature-description">Export to TXT, JSON, HTML, Markdown, and React components with consistent styling across formats for documentation and integration needs.</div>
     <a href="reference/export-formats/" class="feature-link">Export formats <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
   </div>
-  
+
   <div class="feature-card">
     <div class="feature-icon">🔎</div>
     <div class="feature-title">Depth Control</div>
     <div class="feature-description">Limit directory traversal depth to focus on higher-level structure or specific layers of your project hierarchy for better visualization management.</div>
     <a href="examples/advanced/#limiting-directory-depth" class="feature-link">Depth limiting <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
   </div>
-  
+
   <div class="feature-card">
     <div class="feature-icon">💻</div>
     <div class="feature-title">Shell Completion</div>
@@ -124,7 +124,7 @@ Recursivist is built with [Rich](https://github.com/Textualize/rich) for beautif
     <div class="feature-description">Follow our easy installation guide to get up and running in minutes with pip or from source.</div>
     <a href="getting-started/installation/" class="feature-link">Installation guide <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
   </div>
-  
+
   <div class="feature-card">
     <div class="feature-icon">🚀</div>
     <div class="feature-title">Quick Start</div>
@@ -145,14 +145,14 @@ Recursivist supports shell completion for easier command entry. See the [shell c
     <div class="feature-description">Complete reference for all commands, options, and arguments available in Recursivist with detailed explanations.</div>
     <a href="reference/cli-reference/" class="feature-link">View CLI Reference <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
   </div>
-  
+
   <div class="feature-card">
     <div class="feature-icon">🔧</div>
     <div class="feature-title">Examples</div>
     <div class="feature-description">Practical examples showing how to use Recursivist effectively for various scenarios and project types.</div>
     <a href="examples/basic/" class="feature-link">Explore Examples <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
   </div>
-  
+
   <div class="feature-card">
     <div class="feature-icon">🔄</div>
     <div class="feature-title">Contributing</div>

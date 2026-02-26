@@ -1,0 +1,385 @@
+B008 Do not perform function call `typer.Argument` in argument defaults; instead, perform the call within the function, or read the default from a module-level singleton variable
+   --> recursivist\cli.py:102:23
+    |
+100 |   @app.command()
+101 |   def visualize(
+102 |       directory: Path = typer.Argument(
+    |  _______________________^
+103 | |         ".", help="Directory path to visualize (defaults to current directory)"
+104 | |     ),
+    | |_____^
+105 |       exclude_dirs: Optional[List[str]] = typer.Option(
+106 |           None,
+    |
+
+B008 Do not perform function call `typer.Option` in argument defaults; instead, perform the call within the function, or read the default from a module-level singleton variable
+   --> recursivist\cli.py:105:41
+    |
+103 |           ".", help="Directory path to visualize (defaults to current directory)"
+104 |       ),
+105 |       exclude_dirs: Optional[List[str]] = typer.Option(
+    |  _________________________________________^
+106 | |         None,
+107 | |         "--exclude",
+108 | |         "-e",
+109 | |         help="Directories to exclude (space-separated or multiple flags)",
+110 | |     ),
+    | |_____^
+111 |       exclude_extensions: Optional[List[str]] = typer.Option(
+112 |           None,
+    |
+
+B008 Do not perform function call `typer.Option` in argument defaults; instead, perform the call within the function, or read the default from a module-level singleton variable
+   --> recursivist\cli.py:111:47
+    |
+109 |           help="Directories to exclude (space-separated or multiple flags)",
+110 |       ),
+111 |       exclude_extensions: Optional[List[str]] = typer.Option(
+    |  _______________________________________________^
+112 | |         None,
+113 | |         "--exclude-ext",
+114 | |         "-x",
+115 | |         help="File extensions to exclude (space-separated or multiple flags)",
+116 | |     ),
+    | |_____^
+117 |       exclude_patterns: Optional[List[str]] = typer.Option(
+118 |           None,
+    |
+
+B008 Do not perform function call `typer.Option` in argument defaults; instead, perform the call within the function, or read the default from a module-level singleton variable
+   --> recursivist\cli.py:117:45
+    |
+115 |           help="File extensions to exclude (space-separated or multiple flags)",
+116 |       ),
+117 |       exclude_patterns: Optional[List[str]] = typer.Option(
+    |  _____________________________________________^
+118 | |         None,
+119 | |         "--exclude-pattern",
+120 | |         "-p",
+121 | |         help="Patterns to exclude (space-separated or multiple flags)",
+122 | |     ),
+    | |_____^
+123 |       include_patterns: Optional[List[str]] = typer.Option(
+124 |           None,
+    |
+
+B008 Do not perform function call `typer.Option` in argument defaults; instead, perform the call within the function, or read the default from a module-level singleton variable
+   --> recursivist\cli.py:123:45
+    |
+121 |           help="Patterns to exclude (space-separated or multiple flags)",
+122 |       ),
+123 |       include_patterns: Optional[List[str]] = typer.Option(
+    |  _____________________________________________^
+124 | |         None,
+125 | |         "--include-pattern",
+126 | |         "-i",
+127 | |         help="Patterns to include (overrides exclusions, space-separated or multiple flags)",
+128 | |     ),
+    | |_____^
+129 |       use_regex: bool = typer.Option(
+130 |           False,
+    |
+
+B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+   --> recursivist\cli.py:285:9
+    |
+283 |     except Exception as e:
+284 |         logger.error(f"Error: {e}", exc_info=verbose)
+285 |         raise typer.Exit(1)
+    |         ^^^^^^^^^^^^^^^^^^^
+    |
+
+B008 Do not perform function call `typer.Argument` in argument defaults; instead, perform the call within the function, or read the default from a module-level singleton variable
+   --> recursivist\cli.py:290:23
+    |
+288 |   @app.command()
+289 |   def export(
+290 |       directory: Path = typer.Argument(
+    |  _______________________^
+291 | |         ".", help="Directory path to export (defaults to current directory)"
+292 | |     ),
+    | |_____^
+293 |       formats: List[str] = typer.Option(
+294 |           ["md"], "--format", "-f", help="Export formats: txt, json, html, md, jsx"
+    |
+
+B008 Do not perform function call `typer.Option` in argument defaults; instead, perform the call within the function, or read the default from a module-level singleton variable
+   --> recursivist\cli.py:293:26
+    |
+291 |           ".", help="Directory path to export (defaults to current directory)"
+292 |       ),
+293 |       formats: List[str] = typer.Option(
+    |  __________________________^
+294 | |         ["md"], "--format", "-f", help="Export formats: txt, json, html, md, jsx"
+295 | |     ),
+    | |_____^
+296 |       output_dir: Optional[Path] = typer.Option(
+297 |           None,
+    |
+
+B008 Do not perform function call `typer.Option` in argument defaults; instead, perform the call within the function, or read the default from a module-level singleton variable
+   --> recursivist\cli.py:296:34
+    |
+294 |           ["md"], "--format", "-f", help="Export formats: txt, json, html, md, jsx"
+295 |       ),
+296 |       output_dir: Optional[Path] = typer.Option(
+    |  __________________________________^
+297 | |         None,
+298 | |         "--output-dir",
+299 | |         "-o",
+300 | |         help="Output directory for exports (defaults to current directory)",
+301 | |     ),
+    | |_____^
+302 |       output_prefix: Optional[str] = typer.Option(
+303 |           "structure", "--prefix", "-n", help="Prefix for exported filenames"
+    |
+
+B008 Do not perform function call `typer.Option` in argument defaults; instead, perform the call within the function, or read the default from a module-level singleton variable
+   --> recursivist\cli.py:305:41
+    |
+303 |           "structure", "--prefix", "-n", help="Prefix for exported filenames"
+304 |       ),
+305 |       exclude_dirs: Optional[List[str]] = typer.Option(
+    |  _________________________________________^
+306 | |         None,
+307 | |         "--exclude",
+308 | |         "-e",
+309 | |         help="Directories to exclude (space-separated or multiple flags)",
+310 | |     ),
+    | |_____^
+311 |       exclude_extensions: Optional[List[str]] = typer.Option(
+312 |           None,
+    |
+
+B008 Do not perform function call `typer.Option` in argument defaults; instead, perform the call within the function, or read the default from a module-level singleton variable
+   --> recursivist\cli.py:311:47
+    |
+309 |           help="Directories to exclude (space-separated or multiple flags)",
+310 |       ),
+311 |       exclude_extensions: Optional[List[str]] = typer.Option(
+    |  _______________________________________________^
+312 | |         None,
+313 | |         "--exclude-ext",
+314 | |         "-x",
+315 | |         help="File extensions to exclude (space-separated or multiple flags)",
+316 | |     ),
+    | |_____^
+317 |       exclude_patterns: Optional[List[str]] = typer.Option(
+318 |           None,
+    |
+
+B008 Do not perform function call `typer.Option` in argument defaults; instead, perform the call within the function, or read the default from a module-level singleton variable
+   --> recursivist\cli.py:317:45
+    |
+315 |           help="File extensions to exclude (space-separated or multiple flags)",
+316 |       ),
+317 |       exclude_patterns: Optional[List[str]] = typer.Option(
+    |  _____________________________________________^
+318 | |         None,
+319 | |         "--exclude-pattern",
+320 | |         "-p",
+321 | |         help="Patterns to exclude (space-separated or multiple flags)",
+322 | |     ),
+    | |_____^
+323 |       include_patterns: Optional[List[str]] = typer.Option(
+324 |           None,
+    |
+
+B008 Do not perform function call `typer.Option` in argument defaults; instead, perform the call within the function, or read the default from a module-level singleton variable
+   --> recursivist\cli.py:323:45
+    |
+321 |           help="Patterns to exclude (space-separated or multiple flags)",
+322 |       ),
+323 |       include_patterns: Optional[List[str]] = typer.Option(
+    |  _____________________________________________^
+324 | |         None,
+325 | |         "--include-pattern",
+326 | |         "-i",
+327 | |         help="Patterns to include (overrides exclusions, space-separated or multiple flags)",
+328 | |     ),
+    | |_____^
+329 |       use_regex: bool = typer.Option(
+330 |           False,
+    |
+
+B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+   --> recursivist\cli.py:503:9
+    |
+501 |     except Exception as e:
+502 |         logger.error(f"Error: {e}", exc_info=verbose)
+503 |         raise typer.Exit(1)
+    |         ^^^^^^^^^^^^^^^^^^^
+    |
+
+B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+   --> recursivist\cli.py:544:9
+    |
+542 |     except Exception as e:
+543 |         logger.error(f"Error generating completion script: {e}")
+544 |         raise typer.Exit(1)
+    |         ^^^^^^^^^^^^^^^^^^^
+    |
+
+B008 Do not perform function call `typer.Argument` in argument defaults; instead, perform the call within the function, or read the default from a module-level singleton variable
+   --> recursivist\cli.py:561:18
+    |
+559 |   @app.command()
+560 |   def compare(
+561 |       dir1: Path = typer.Argument(
+    |  __________________^
+562 | |         ...,
+563 | |         help="First directory path to compare",
+564 | |         exists=True,
+565 | |         file_okay=False,
+566 | |         dir_okay=True,
+567 | |     ),
+    | |_____^
+568 |       dir2: Path = typer.Argument(
+569 |           ...,
+    |
+
+B008 Do not perform function call `typer.Argument` in argument defaults; instead, perform the call within the function, or read the default from a module-level singleton variable
+   --> recursivist\cli.py:568:18
+    |
+566 |           dir_okay=True,
+567 |       ),
+568 |       dir2: Path = typer.Argument(
+    |  __________________^
+569 | |         ...,
+570 | |         help="Second directory path to compare",
+571 | |         exists=True,
+572 | |         file_okay=False,
+573 | |         dir_okay=True,
+574 | |     ),
+    | |_____^
+575 |       exclude_dirs: Optional[List[str]] = typer.Option(
+576 |           None,
+    |
+
+B008 Do not perform function call `typer.Option` in argument defaults; instead, perform the call within the function, or read the default from a module-level singleton variable
+   --> recursivist\cli.py:575:41
+    |
+573 |           dir_okay=True,
+574 |       ),
+575 |       exclude_dirs: Optional[List[str]] = typer.Option(
+    |  _________________________________________^
+576 | |         None,
+577 | |         "--exclude",
+578 | |         "-e",
+579 | |         help="Directories to exclude (space-separated or multiple flags)",
+580 | |     ),
+    | |_____^
+581 |       exclude_extensions: Optional[List[str]] = typer.Option(
+582 |           None,
+    |
+
+B008 Do not perform function call `typer.Option` in argument defaults; instead, perform the call within the function, or read the default from a module-level singleton variable
+   --> recursivist\cli.py:581:47
+    |
+579 |           help="Directories to exclude (space-separated or multiple flags)",
+580 |       ),
+581 |       exclude_extensions: Optional[List[str]] = typer.Option(
+    |  _______________________________________________^
+582 | |         None,
+583 | |         "--exclude-ext",
+584 | |         "-x",
+585 | |         help="File extensions to exclude (space-separated or multiple flags)",
+586 | |     ),
+    | |_____^
+587 |       exclude_patterns: Optional[List[str]] = typer.Option(
+588 |           None,
+    |
+
+B008 Do not perform function call `typer.Option` in argument defaults; instead, perform the call within the function, or read the default from a module-level singleton variable
+   --> recursivist\cli.py:587:45
+    |
+585 |           help="File extensions to exclude (space-separated or multiple flags)",
+586 |       ),
+587 |       exclude_patterns: Optional[List[str]] = typer.Option(
+    |  _____________________________________________^
+588 | |         None,
+589 | |         "--exclude-pattern",
+590 | |         "-p",
+591 | |         help="Patterns to exclude (space-separated or multiple flags)",
+592 | |     ),
+    | |_____^
+593 |       include_patterns: Optional[List[str]] = typer.Option(
+594 |           None,
+    |
+
+B008 Do not perform function call `typer.Option` in argument defaults; instead, perform the call within the function, or read the default from a module-level singleton variable
+   --> recursivist\cli.py:593:45
+    |
+591 |           help="Patterns to exclude (space-separated or multiple flags)",
+592 |       ),
+593 |       include_patterns: Optional[List[str]] = typer.Option(
+    |  _____________________________________________^
+594 | |         None,
+595 | |         "--include-pattern",
+596 | |         "-i",
+597 | |         help="Patterns to include (overrides exclusions, space-separated or multiple flags)",
+598 | |     ),
+    | |_____^
+599 |       use_regex: bool = typer.Option(
+600 |           False,
+    |
+
+B008 Do not perform function call `typer.Option` in argument defaults; instead, perform the call within the function, or read the default from a module-level singleton variable
+   --> recursivist\cli.py:617:34
+    |
+615 |           help="Save comparison as HTML file instead of displaying in terminal",
+616 |       ),
+617 |       output_dir: Optional[Path] = typer.Option(
+    |  __________________________________^
+618 | |         None,
+619 | |         "--output-dir",
+620 | |         "-o",
+621 | |         help="Output directory for exports (defaults to current directory)",
+622 | |     ),
+    | |_____^
+623 |       output_prefix: Optional[str] = typer.Option(
+624 |           "comparison", "--prefix", "-n", help="Prefix for exported filenames"
+    |
+
+B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+   --> recursivist\cli.py:763:9
+    |
+761 |     except Exception as e:
+762 |         logger.error(f"Error: {e}", exc_info=verbose)
+763 |         raise typer.Exit(1)
+    |         ^^^^^^^^^^^^^^^^^^^
+    |
+
+B017 Do not assert blind exception: `Exception`
+   --> tests\test_exports.py:390:10
+    |
+388 |     output_path = os.path.join(output_dir, "structure.txt")
+389 |     mocker.patch("builtins.open", side_effect=PermissionError("Permission denied"))
+390 |     with pytest.raises(Exception):
+    |          ^^^^^^^^^^^^^^^^^^^^^^^^
+391 |         export_structure(structure, sample_directory, "txt", output_path)
+    |
+
+E721 Use `is` and `is not` for type comparisons, or `isinstance()` for isinstance checks
+   --> tests\test_exports.py:548:8
+    |
+546 |     structure, _ = get_directory_structure(sample_directory)
+547 |     output_path = os.path.join(output_dir, f"error_{error_type.__name__}.txt")
+548 |     if error_type == OSError:
+    |        ^^^^^^^^^^^^^^^^^^^^^
+549 |         error = OSError(28, error_msg)
+550 |     else:
+    |
+
+E721 Use `is` and `is not` for type comparisons, or `isinstance()` for isinstance checks
+   --> tests\test_tree_building.py:434:12
+    |
+432 |         output_path = os.path.join(tmp_path, "test_output.txt")
+433 |         exporter = DirectoryExporter(simple_structure, "test_root")
+434 |         if error_type == OSError:
+    |            ^^^^^^^^^^^^^^^^^^^^^
+435 |             error = OSError(28, error_msg)
+436 |         else:
+    |
+
+Found 26 errors.

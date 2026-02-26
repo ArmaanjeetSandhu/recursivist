@@ -30,8 +30,12 @@ simple_filename = st.text(
     min_size=1,
     max_size=20,
 ).map(
-    lambda s: s
-    + st.sampled_from([".txt", ".py", ".md", ".json", ".js", ".html", ".css"]).example()
+    lambda s: (
+        s
+        + st.sampled_from(
+            [".txt", ".py", ".md", ".json", ".js", ".html", ".css"]
+        ).example()
+    )
 )
 file_item_tuple = st.tuples(
     simple_filename,
@@ -135,19 +139,19 @@ class TestCountLinesOfCode:
         try:
             line_count = count_lines_of_code(file_path)
             if has_null_bytes:
-                assert (
-                    line_count == 0
-                ), f"Files with null bytes should return 0 lines, got {line_count}"
+                assert line_count == 0, (
+                    f"Files with null bytes should return 0 lines, got {line_count}"
+                )
             else:
                 has_carriage_returns = any("\r" in line for line in lines)
                 if has_carriage_returns:
-                    assert (
-                        line_count >= expected_lines
-                    ), f"Line count should be at least expected_lines when carriage returns are present. Expected {expected_lines}, got {line_count}"
+                    assert line_count >= expected_lines, (
+                        f"Line count should be at least expected_lines when carriage returns are present. Expected {expected_lines}, got {line_count}"
+                    )
                 else:
-                    assert (
-                        abs(line_count - expected_lines) <= 1
-                    ), f"Expected {expected_lines} lines, got {line_count}"
+                    assert abs(line_count - expected_lines) <= 1, (
+                        f"Expected {expected_lines} lines, got {line_count}"
+                    )
         finally:
             os.unlink(file_path)
 
@@ -160,9 +164,9 @@ class TestCountLinesOfCode:
             file_path = f.name
         try:
             line_count = count_lines_of_code(file_path)
-            assert (
-                line_count >= 0
-            ), "Line count should never be negative even for binary files"
+            assert line_count >= 0, (
+                "Line count should never be negative even for binary files"
+            )
         finally:
             os.unlink(file_path)
 
@@ -175,16 +179,16 @@ class TestCountLinesOfCode:
         """Test that nonexistent files return 0 lines."""
         with tempfile.TemporaryDirectory() as temp_dir:
             file_path = os.path.join(temp_dir, filename)
-            assert (
-                count_lines_of_code(file_path) == 0
-            ), "Nonexistent files should return 0 lines"
+            assert count_lines_of_code(file_path) == 0, (
+                "Nonexistent files should return 0 lines"
+            )
 
     def test_permission_denied(self):
         """Test that permission denied errors are handled gracefully."""
         with patch("builtins.open", side_effect=PermissionError("Permission denied")):
-            assert (
-                count_lines_of_code("some/path.txt") == 0
-            ), "Permission denied should return 0 lines"
+            assert count_lines_of_code("some/path.txt") == 0, (
+                "Permission denied should return 0 lines"
+            )
 
 
 class TestSortFilesByType:
@@ -195,9 +199,9 @@ class TestSortFilesByType:
     def test_sorts_by_extension(self, files):
         """Test that files are sorted by extension and then by name."""
         sorted_files = sort_files_by_type(files)
-        assert len(sorted_files) == len(
-            files
-        ), "Sorted list should have same length as original"
+        assert len(sorted_files) == len(files), (
+            "Sorted list should have same length as original"
+        )
         extensions = []
         for f in sorted_files:
             if isinstance(f, tuple):
@@ -217,9 +221,9 @@ class TestSortFilesByType:
                 file_ext = os.path.splitext(filename)[1].lower()
                 if file_ext == ext:
                     names_for_ext.append(filename.lower())
-            assert names_for_ext == sorted(
-                names_for_ext
-            ), f"Files with extension {ext} should be sorted by name"
+            assert names_for_ext == sorted(names_for_ext), (
+                f"Files with extension {ext} should be sorted by name"
+            )
 
     @given(file_list, st.booleans(), st.booleans(), st.booleans())
     @settings(max_examples=100)
@@ -228,9 +232,9 @@ class TestSortFilesByType:
         sorted_files = sort_files_by_type(
             files, sort_by_loc, sort_by_size, sort_by_mtime
         )
-        assert len(sorted_files) == len(
-            files
-        ), "Sorted list should have same length as original"
+        assert len(sorted_files) == len(files), (
+            "Sorted list should have same length as original"
+        )
         original_contents = set()
         for f in files:
             if isinstance(f, tuple):
@@ -243,9 +247,9 @@ class TestSortFilesByType:
                 sorted_contents.add(f[0])
             else:
                 sorted_contents.add(f)
-        assert (
-            sorted_contents == original_contents
-        ), "Sorted list should contain the same items as original"
+        assert sorted_contents == original_contents, (
+            "Sorted list should contain the same items as original"
+        )
 
 
 class TestBuildTree:
@@ -285,9 +289,9 @@ class TestBuildTree:
         expected_calls = count_files_and_folders(structure)
         build_tree(structure, mock_tree, color_map)
         if expected_calls > 0:
-            assert (
-                mock_tree.add.call_count > 0
-            ), "build_tree should make at least one call to tree.add when there are files or folders"
+            assert mock_tree.add.call_count > 0, (
+                "build_tree should make at least one call to tree.add when there are files or folders"
+            )
         else:
             pass
 
@@ -332,9 +336,9 @@ class TestBuildComparisonTree:
         )
         build_comparison_tree(structure1, structure2, mock_tree, color_map)
         if expected_calls > 0:
-            assert (
-                mock_tree.add.call_count > 0
-            ), "build_comparison_tree should make at least one call to tree.add when there are files or folders"
+            assert mock_tree.add.call_count > 0, (
+                "build_comparison_tree should make at least one call to tree.add when there are files or folders"
+            )
         else:
             pass
 
@@ -416,12 +420,16 @@ class TestJSXExportSortingFunctions:
                 loc1 = (
                     0
                     if loc1 is None
-                    else int(loc1) if isinstance(loc1, (int, float)) else 0
+                    else int(loc1)
+                    if isinstance(loc1, (int, float))
+                    else 0
                 )
                 loc2 = (
                     0
                     if loc2 is None
-                    else int(loc2) if isinstance(loc2, (int, float)) else 0
+                    else int(loc2)
+                    if isinstance(loc2, (int, float))
+                    else 0
                 )
                 if loc1 != loc2:
                     assert loc1 >= loc2, "Files should be sorted by LOC (descending)"
@@ -432,19 +440,23 @@ class TestJSXExportSortingFunctions:
                 name1 = (
                     f1[0].lower()
                     if isinstance(f1, tuple) and len(f1) > 0
-                    else f1.lower() if isinstance(f1, str) else ""
+                    else f1.lower()
+                    if isinstance(f1, str)
+                    else ""
                 )
                 name2 = (
                     f2[0].lower()
                     if isinstance(f2, tuple) and len(f2) > 0
-                    else f2.lower() if isinstance(f2, str) else ""
+                    else f2.lower()
+                    if isinstance(f2, str)
+                    else ""
                 )
                 ext1 = os.path.splitext(name1)[1]
                 ext2 = os.path.splitext(name2)[1]
                 if ext1 != ext2:
-                    assert (
-                        ext1 <= ext2
-                    ), "Files with different extensions should be sorted by extension"
+                    assert ext1 <= ext2, (
+                        "Files with different extensions should be sorted by extension"
+                    )
 
     @given(file_list)
     @settings(max_examples=100)
@@ -461,12 +473,16 @@ class TestJSXExportSortingFunctions:
                 loc1 = (
                     0
                     if loc1 is None
-                    else int(loc1) if isinstance(loc1, (int, float)) else 0
+                    else int(loc1)
+                    if isinstance(loc1, (int, float))
+                    else 0
                 )
                 loc2 = (
                     0
                     if loc2 is None
-                    else int(loc2) if isinstance(loc2, (int, float)) else 0
+                    else int(loc2)
+                    if isinstance(loc2, (int, float))
+                    else 0
                 )
                 if loc1 != loc2:
                     assert loc1 >= loc2, "Files should be sorted by LOC (descending)"
@@ -481,13 +497,13 @@ class TestJSXExportSortingFunctions:
         """Test that safe_get returns the expected value."""
         result = self.get_safe_get(tup, idx, default)
         if idx < len(tup):
-            assert (
-                result == tup[idx]
-            ), "safe_get should return the value at the given index"
+            assert result == tup[idx], (
+                "safe_get should return the value at the given index"
+            )
         else:
-            assert (
-                result == default
-            ), "safe_get should return the default value for out-of-bounds indices"
+            assert result == default, (
+                "safe_get should return the default value for out-of-bounds indices"
+            )
 
 
 class TestDirectoryExporterToJSX:
@@ -597,16 +613,16 @@ class TestGetDirectoryStructure:
         structure, extensions = get_directory_structure(temp_dir)
         assert "_files" in structure, "Root structure should have _files key"
         assert "subdir" in structure, "Root structure should have subdir directory"
-        assert (
-            "_files" in structure["subdir"]
-        ), "Subdir structure should have _files key"
+        assert "_files" in structure["subdir"], (
+            "Subdir structure should have _files key"
+        )
         root_files = structure["_files"]
-        assert "file1.txt" in [
-            f if isinstance(f, str) else f[0] for f in root_files
-        ], "file1.txt should be in root files"
-        assert "file2.py" in [
-            f if isinstance(f, str) else f[0] for f in root_files
-        ], "file2.py should be in root files"
+        assert "file1.txt" in [f if isinstance(f, str) else f[0] for f in root_files], (
+            "file1.txt should be in root files"
+        )
+        assert "file2.py" in [f if isinstance(f, str) else f[0] for f in root_files], (
+            "file2.py should be in root files"
+        )
         subdir_files = structure["subdir"]["_files"]
         assert "subfile.md" in [
             f if isinstance(f, str) else f[0] for f in subdir_files

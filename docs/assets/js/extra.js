@@ -164,12 +164,12 @@ animationStyles.textContent = `
       opacity: 0;
       transform: translateY(20px);
     }
-    
+
     /* Fade in animation */
     .animate-fade-in {
       animation: fadeIn 0.6s ease forwards;
     }
-    
+
     @keyframes fadeIn {
       from {
         opacity: 0;
@@ -180,26 +180,26 @@ animationStyles.textContent = `
         transform: translateY(0);
       }
     }
-    
+
     /* Tabbed interface animations */
     .tabbed-label--active {
       border-bottom-color: var(--md-primary-fg-color) !important;
       font-weight: 700 !important;
     }
-    
+
     .tabbed-content {
       opacity: 0;
       height: 0;
       overflow: hidden;
       transition: opacity 0.3s ease;
     }
-    
+
     .tabbed-content--active {
       opacity: 1;
       height: auto;
       overflow: visible;
     }
-    
+
     /* Lightbox styles */
     .lightbox {
       position: fixed;
@@ -215,12 +215,12 @@ animationStyles.textContent = `
       pointer-events: none;
       transition: opacity 0.3s ease;
     }
-    
+
     .lightbox--active {
       opacity: 1;
       pointer-events: auto;
     }
-    
+
     .lightbox-overlay {
       position: absolute;
       top: 0;
@@ -229,14 +229,14 @@ animationStyles.textContent = `
       height: 100%;
       background-color: rgba(0, 0, 0, 0.8);
     }
-    
+
     .lightbox-content {
       position: relative;
       max-width: 90%;
       max-height: 90%;
       z-index: 1;
     }
-    
+
     .lightbox-image {
       max-width: 100%;
       max-height: 90vh;
@@ -244,7 +244,7 @@ animationStyles.textContent = `
       border-radius: 4px;
       box-shadow: 0 5px 30px rgba(0, 0, 0, 0.3);
     }
-    
+
     .lightbox-close {
       position: absolute;
       top: -40px;
@@ -262,7 +262,7 @@ animationStyles.textContent = `
       justify-content: center;
       transition: background-color 0.3s ease;
     }
-    
+
     .lightbox-close:hover {
       background-color: rgba(0, 0, 0, 0.8);
     }

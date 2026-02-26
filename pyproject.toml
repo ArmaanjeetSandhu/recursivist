@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "recursivist"
-version = "1.4.3"
+version = "1.4.4"
 description = "A command-line tool for visualizing directory structures"
 readme = "README.md"
 requires-python = ">=3.7"
@@ -13,11 +13,11 @@ authors = [
     {name = "Armaanjeet Singh Sandhu", email = "armaanjeetsandhu430@gmail.com"},
 ]
 keywords = [
-    "directory", 
-    "file-tree", 
-    "visualization", 
-    "cli", 
-    "filesystem", 
+    "directory",
+    "file-tree",
+    "visualization",
+    "cli",
+    "filesystem",
     "explorer",
     "directory-structure"
 ]
@@ -47,22 +47,20 @@ dev = [
     "build",
     "twine",
     "hatchling",
-    "pytest>=7.0.0",
-    "pytest-cov>=4.0.0",
-    "pytest-mock>=3.10.0",
-    "black>=22.0.0",
-    "flake8>=5.0.0",
-    "isort>=5.0.0",
-    "mypy>=1.0.0",
+    "pytest",
+    "pytest-cov",
+    "pytest-mock",
+    "ruff",
+    "mypy",
 ]
 docs = [
-    "mkdocs>=1.6.1",
-    "mkdocs-material>=9.6.7",
-    "mkdocstrings>=0.28.2",
-    "mkdocstrings-python>=1.16.2",
-    "pymdown-extensions>=10.14.3",
-    "mkdocs-minify-plugin>=0.8.0",
-    "mkdocs-glightbox>=0.4.0",
+    "mkdocs",
+    "mkdocs-material",
+    "mkdocstrings",
+    "mkdocstrings-python",
+    "pymdown-extensions",
+    "mkdocs-minify-plugin",
+    "mkdocs-glightbox",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -74,11 +72,27 @@ python_files = "test_*.py"
 python_functions = "test_*"
 addopts = "--cov=recursivist --cov-report=term-missing"
 
-[tool.black]
+[tool.ruff]
+target-version = "py37"
 line-length = 88
-target-version = ["py37"]
-include = '\.pyi?$'
 
-[tool.isort]
-profile = "black"
-line_length = 88
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "UP",  # pyupgrade
+]
+ignore = ["E203", "E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["recursivist"]
+
+[tool.ruff.lint.per-file-ignores]
+"recursivist/cli.py" = ["B008"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"

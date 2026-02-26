@@ -1739,7 +1739,7 @@ def _export_comparison_to_html(
             <div class="pattern-info">
                 <h3>Applied Patterns</h3>
                 <dl>
-                    {''.join(pattern_items)}
+                    {"".join(pattern_items)}
                 </dl>
             </div>
             """

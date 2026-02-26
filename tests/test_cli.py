@@ -238,9 +238,9 @@ def test_visualize_with_sort_options(
             if re.search(pattern, result.stdout):
                 match_found = True
                 break
-        assert (
-            match_found
-        ), f"None of the expected patterns {expected_in_output} found in output"
+        assert match_found, (
+            f"None of the expected patterns {expected_in_output} found in output"
+        )
     else:
         assert expected_in_output in result.stdout
 
@@ -271,7 +271,7 @@ def test_export_command(
     for fmt in formats:
         export_file = os.path.join(output_dir, f"{prefix}.{fmt}")
         assert os.path.exists(export_file), f"File {export_file} does not exist"
-        with open(export_file, "r", encoding="utf-8") as f:
+        with open(export_file, encoding="utf-8") as f:
             content = f.read()
             assert os.path.basename(sample_directory) in content
 
@@ -319,7 +319,7 @@ def test_export_json_content(runner: CliRunner, sample_directory: Any, output_di
     )
     assert result.exit_code == 0
     json_file = os.path.join(output_dir, "json_validate.json")
-    with open(json_file, "r", encoding="utf-8") as f:
+    with open(json_file, encoding="utf-8") as f:
         data = json.load(f)
     assert "root" in data
     assert "structure" in data
@@ -351,7 +351,7 @@ def test_export_with_full_path(
     assert result.exit_code == 0
     export_file = os.path.join(output_dir, "test_export_full_path.txt")
     assert os.path.exists(export_file)
-    with open(export_file, "r", encoding="utf-8") as f:
+    with open(export_file, encoding="utf-8") as f:
         content = f.read()
     assert_path_info_in_output(content, sample_directory)
 
@@ -385,7 +385,7 @@ def test_export_with_filtering_options(
     assert result.exit_code == 0
     export_file = os.path.join(output_dir, "filtered_export.json")
     assert os.path.exists(export_file)
-    with open(export_file, "r", encoding="utf-8") as f:
+    with open(export_file, encoding="utf-8") as f:
         data = json.load(f)
     assert "structure" in data
     assert "exclude_me" not in data["structure"]
@@ -418,7 +418,7 @@ def test_export_with_depth_limit(
     assert result.exit_code == 0
     export_file = os.path.join(output_dir, "depth_limited.json")
     assert os.path.exists(export_file)
-    with open(export_file, "r", encoding="utf-8") as f:
+    with open(export_file, encoding="utf-8") as f:
         data = json.load(f)
     assert "structure" in data
     assert "level1" in data["structure"]
@@ -458,7 +458,7 @@ def test_export_with_sort_options(
     assert result.exit_code == 0
     export_file = os.path.join(output_dir, "sorted_export.json")
     assert os.path.exists(export_file)
-    with open(export_file, "r", encoding="utf-8") as f:
+    with open(export_file, encoding="utf-8") as f:
         data = json.load(f)
     assert data["show_loc"] is True
     assert data["show_size"] is True
@@ -553,7 +553,7 @@ def test_compare_export_to_html(
     assert result.exit_code == 0
     export_file = os.path.join(output_dir, "html_comparison.html")
     assert os.path.exists(export_file)
-    with open(export_file, "r", encoding="utf-8") as f:
+    with open(export_file, encoding="utf-8") as f:
         content = f.read()
     assert "<!DOCTYPE html>" in content
     assert "<html>" in content

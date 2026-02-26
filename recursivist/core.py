@@ -96,7 +96,7 @@ def parse_ignore_file(ignore_file_path: str) -> List[str]:
     if not os.path.exists(ignore_file_path):
         return []
     patterns = []
-    with open(ignore_file_path, "r") as f:
+    with open(ignore_file_path) as f:
         for line in f:
             line = line.strip()
             if line and not line.startswith("#"):
@@ -593,11 +593,11 @@ def sort_files_by_type(
     elif sort_by_size and sort_by_mtime and has_mtime:
         return sorted(files, key=lambda f: (-get_size(f), -get_mtime(f)))
     elif sort_by_loc and has_loc:
-        return sorted(files, key=lambda f: (-get_loc(f)))
+        return sorted(files, key=lambda f: -get_loc(f))
     elif sort_by_size and (has_size or has_simple_size):
-        return sorted(files, key=lambda f: (-get_size(f)))
+        return sorted(files, key=lambda f: -get_size(f))
     elif sort_by_mtime and (has_mtime or has_simple_mtime):
-        return sorted(files, key=lambda f: (-get_mtime(f)))
+        return sorted(files, key=lambda f: -get_mtime(f))
 
     def get_filename(item):
         if isinstance(item, tuple):
@@ -925,9 +925,7 @@ def count_lines_of_code(file_path: str) -> int:
             utf16_be_bom = sample.startswith(b"\xfe\xff")
             if utf16_le_bom or utf16_be_bom:
                 encoding = "utf-16-le" if utf16_le_bom else "utf-16-be"
-                with open(
-                    file_path, "r", encoding=encoding, errors="replace"
-                ) as text_file:
+                with open(file_path, encoding=encoding, errors="replace") as text_file:
                     return sum(1 for _ in text_file)
             if len(sample) >= 16:
                 potential_utf16le: bool = all(
@@ -940,7 +938,7 @@ def count_lines_of_code(file_path: str) -> int:
                     encoding = "utf-16-le" if potential_utf16le else "utf-16-be"
                     try:
                         with open(
-                            file_path, "r", encoding=encoding, errors="replace"
+                            file_path, encoding=encoding, errors="replace"
                         ) as text_file:
                             return sum(1 for _ in text_file)
                     except Exception:
@@ -951,11 +949,11 @@ def count_lines_of_code(file_path: str) -> int:
         logger.debug(f"Could not analyze file: {file_path}: {e}")
         return 0
     try:
-        with open(file_path, "r", encoding="utf-8", errors="strict") as text_file:
+        with open(file_path, encoding="utf-8", errors="strict") as text_file:
             return sum(1 for _ in text_file)
     except UnicodeDecodeError:
         try:
-            with open(file_path, "r", encoding="utf-16", errors="strict") as text_file:
+            with open(file_path, encoding="utf-16", errors="strict") as text_file:
                 return sum(1 for _ in text_file)
         except Exception:
             pass
@@ -963,7 +961,7 @@ def count_lines_of_code(file_path: str) -> int:
         logger.debug(f"Could not read file as UTF-8: {file_path}: {e}")
         return 0
     try:
-        with open(file_path, "r", encoding="utf-8", errors="replace") as text_file:
+        with open(file_path, encoding="utf-8", errors="replace") as text_file:
             return sum(1 for _ in text_file)
     except Exception as e:
         logger.debug(f"Could not analyze file with replacement: {file_path}: {e}")

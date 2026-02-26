@@ -103,14 +103,14 @@ def test_compare_directory_structures_with_options(
     elif option_name == "include_patterns":
         for file_name in structure1.get("_files", []):
             actual_name = file_name if isinstance(file_name, str) else file_name[0]
-            assert actual_name.endswith(
-                ".txt"
-            ), f"Non-txt file {actual_name} was included"
+            assert actual_name.endswith(".txt"), (
+                f"Non-txt file {actual_name} was included"
+            )
         for file_name in structure2.get("_files", []):
             actual_name = file_name if isinstance(file_name, str) else file_name[0]
-            assert actual_name.endswith(
-                ".txt"
-            ), f"Non-txt file {actual_name} was included"
+            assert actual_name.endswith(".txt"), (
+                f"Non-txt file {actual_name} was included"
+            )
         assert "include_me.txt" in [
             f if isinstance(f, str) else f[0] for f in structure1.get("_files", [])
         ]
@@ -182,23 +182,23 @@ def test_display_comparison_with_options(
     captured = capsys.readouterr()
     if expected_in_output:
         if isinstance(expected_in_output, list):
-            assert any(
-                expected in captured.out for expected in expected_in_output
-            ), f"None of {expected_in_output} found in output"
+            assert any(expected in captured.out for expected in expected_in_output), (
+                f"None of {expected_in_output} found in output"
+            )
         else:
-            assert (
-                expected_in_output in captured.out
-            ), f"{expected_in_output} not found in output"
+            assert expected_in_output in captured.out, (
+                f"{expected_in_output} not found in output"
+            )
     if expected_not_in_output:
         if isinstance(expected_not_in_output, list):
             for item in expected_not_in_output:
-                assert (
-                    item not in captured.out
-                ), f"{item} found in output but shouldn't be"
+                assert item not in captured.out, (
+                    f"{item} found in output but shouldn't be"
+                )
         else:
-            assert (
-                expected_not_in_output not in captured.out
-            ), f"{expected_not_in_output} found in output but shouldn't be"
+            assert expected_not_in_output not in captured.out, (
+                f"{expected_not_in_output} found in output but shouldn't be"
+            )
 
 
 def test_export_comparison_txt(
@@ -218,7 +218,7 @@ def test_export_comparison_html(
     output_path = os.path.join(output_dir, "comparison.html")
     export_comparison(dir1, dir2, "html", output_path)
     assert os.path.exists(output_path)
-    with open(output_path, "r", encoding="utf-8") as f:
+    with open(output_path, encoding="utf-8") as f:
         content = f.read()
     assert "<!DOCTYPE html>" in content
     assert "<html>" in content
@@ -268,7 +268,7 @@ def test_export_comparison_with_options(
     kwargs = {option_name: option_value}
     export_comparison(dir1, dir2, "html", output_path, **kwargs)
     assert os.path.exists(output_path)
-    with open(output_path, "r", encoding="utf-8") as f:
+    with open(output_path, encoding="utf-8") as f:
         content = f.read()
     if expected_in_output:
         if isinstance(expected_in_output, list):
@@ -276,17 +276,17 @@ def test_export_comparison_with_options(
                 re.search(expected, content) for expected in expected_in_output
             ), f"None of {expected_in_output} found in output"
         else:
-            assert (
-                expected_in_output in content
-            ), f"{expected_in_output} not found in output"
+            assert expected_in_output in content, (
+                f"{expected_in_output} not found in output"
+            )
     if expected_not_in_output:
         if isinstance(expected_not_in_output, list):
             for item in expected_not_in_output:
                 assert item not in content, f"{item} found in output but shouldn't be"
         else:
-            assert (
-                expected_not_in_output not in content
-            ), f"{expected_not_in_output} found in output but shouldn't be"
+            assert expected_not_in_output not in content, (
+                f"{expected_not_in_output} found in output but shouldn't be"
+            )
     if option_name == "show_full_path":
         file1_path = os.path.join(dir1, "file1.txt").replace(os.sep, "/")
         dir1_only_path = os.path.join(dir1, "dir1_only.txt").replace(os.sep, "/")
@@ -338,7 +338,7 @@ def test_complex_comparison(
     output_path = os.path.join(output_dir, "complex_comparison.html")
     export_comparison(complex_directory, complex_directory_clone, "html", output_path)
     assert os.path.exists(output_path)
-    with open(output_path, "r", encoding="utf-8") as f:
+    with open(output_path, encoding="utf-8") as f:
         content = f.read()
     assert "CHANGELOG.md" in content
     assert "utils.py" in content
@@ -383,7 +383,7 @@ def test_comparison_with_statistics(
         sort_by_mtime=True,
     )
     assert os.path.exists(output_path)
-    with open(output_path, "r", encoding="utf-8") as f:
+    with open(output_path, encoding="utf-8") as f:
         content = f.read()
     assert "lines" in content
     assert "B" in content or "KB" in content

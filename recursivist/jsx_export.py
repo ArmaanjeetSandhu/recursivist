@@ -85,11 +85,11 @@ def generate_jsx_component(
             size_prop = ""
             mtime_prop = ""
             if sort_by_loc and isinstance(content, dict) and "_loc" in content:
-                loc_prop = f' locCount={{{content["_loc"]}}}'
+                loc_prop = f" locCount={{{content['_loc']}}}"
             if sort_by_size and isinstance(content, dict) and "_size" in content:
-                size_prop = f' sizeCount={{{content["_size"]}}}'
+                size_prop = f" sizeCount={{{content['_size']}}}"
             if sort_by_mtime and isinstance(content, dict) and "_mtime" in content:
-                mtime_prop = f' mtimeCount={{{content["_mtime"]}}}'
+                mtime_prop = f" mtimeCount={{{content['_mtime']}}}"
             jsx_content.append(
                 f"<DirectoryItem "
                 f'name="{html.escape(name)}" '
@@ -755,7 +755,9 @@ def generate_jsx_component(
       );
     }};
     const DirectoryViewer = () => {{
-      const [openFolders, setOpenFolders] = useState(new Set(['{html.escape(root_name)}']));
+      const [openFolders, setOpenFolders] = useState(new Set(['{
+        html.escape(root_name)
+    }']));
       const [searchTerm, setSearchTerm] = useState('');
       const [darkMode, setDarkMode] = useState(false);
       const [currentPath, setCurrentPath] = useState(['{html.escape(root_name)}']);
@@ -782,15 +784,23 @@ def generate_jsx_component(
       {loc_toggle_function}
       {size_toggle_function}
       {mtime_toggle_function}
-      {format_size_function if format_size_function else '''
+      {
+        format_size_function
+        if format_size_function
+        else '''
   const format_size = () => {
     return '0 B';
-  };'''}
+  };'''
+    }
 
-      {format_timestamp_function if format_timestamp_function else '''
+      {
+        format_timestamp_function
+        if format_timestamp_function
+        else '''
   const format_timestamp = () => {
     return '';
-  };'''}
+  };'''
+    }
 
       useEffect(() => {{
         if (darkMode) {{
@@ -878,7 +888,9 @@ def generate_jsx_component(
                 <DirectoryItem
                   name="{html.escape(root_name)}"
                   level={{0}}
-                  path={{["{html.escape(root_name)}"]}}{root_loc_prop}{root_size_prop}{root_mtime_prop}
+                  path={{["{html.escape(root_name)}"]}}{root_loc_prop}{root_size_prop}{
+        root_mtime_prop
+    }
                 >
     {_build_structure_jsx(structure, 1, root_name if show_full_path else "")}
                 </DirectoryItem>

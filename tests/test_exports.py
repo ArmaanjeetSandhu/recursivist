@@ -86,9 +86,9 @@ class TestSortFilesByType:
         sorted_names = [f if isinstance(f, str) else f[0] for f in sorted_files]
         if len(expected_order) > 0:
             expected_names = [f if isinstance(f, str) else f[0] for f in expected_order]
-            assert (
-                sorted_names == expected_names
-            ), f"Expected {expected_names}, got {sorted_names}"
+            assert sorted_names == expected_names, (
+                f"Expected {expected_names}, got {sorted_names}"
+            )
 
     @pytest.mark.parametrize(
         "sort_option,files,expected_order",
@@ -126,9 +126,9 @@ class TestSortFilesByType:
         kwargs = {sort_option: True}
         sorted_files = sort_files_by_type(files, **kwargs)
         sorted_names = [item[0] for item in sorted_files]
-        assert (
-            sorted_names == expected_order
-        ), f"Expected {expected_order}, got {sorted_names}"
+        assert sorted_names == expected_order, (
+            f"Expected {expected_order}, got {sorted_names}"
+        )
 
     def test_sort_with_multiple_criteria(self):
         files = [
@@ -142,9 +142,9 @@ class TestSortFilesByType:
         )
         sorted_names = [item[0] for item in sorted_files]
         expected_order = ["c.py", "b.py", "d.py", "a.py"]
-        assert (
-            sorted_names == expected_order
-        ), f"Expected {expected_order}, got {sorted_names}"
+        assert sorted_names == expected_order, (
+            f"Expected {expected_order}, got {sorted_names}"
+        )
 
 
 class TestDirectoryExporter:
@@ -262,7 +262,7 @@ def test_export_formats(
     output_path = os.path.join(output_dir, f"structure.{format_extension}")
     export_structure(structure, sample_directory, format_name, output_path)
     assert os.path.exists(output_path)
-    with open(output_path, "r", encoding="utf-8") as f:
+    with open(output_path, encoding="utf-8") as f:
         content = f.read()
     assert os.path.basename(sample_directory) in content
     for check in content_checks:
@@ -300,8 +300,10 @@ def test_export_formats(
         (
             "sort_by_mtime",
             True,
-            lambda c, d: any(indicator in c for indicator in ["Today", "Yesterday"])
-            or re.search(r"\d{4}-\d{2}-\d{2}", c),
+            lambda c, d: (
+                any(indicator in c for indicator in ["Today", "Yesterday"])
+                or re.search(r"\d{4}-\d{2}-\d{2}", c)
+            ),
         ),
     ],
 )
@@ -343,11 +345,11 @@ def test_export_with_options(
     output_path = os.path.join(output_dir, f"structure_{option_name}.txt")
     export_structure(structure, sample_directory, "txt", output_path, **export_kwargs)
     assert os.path.exists(output_path)
-    with open(output_path, "r", encoding="utf-8") as f:
+    with open(output_path, encoding="utf-8") as f:
         content = f.read()
-    assert content_check(
-        content, sample_directory
-    ), f"Content check failed for option {option_name}"
+    assert content_check(content, sample_directory), (
+        f"Content check failed for option {option_name}"
+    )
 
 
 def test_export_nested_structure(sample_directory: str, output_dir: str):
@@ -359,7 +361,7 @@ def test_export_nested_structure(sample_directory: str, output_dir: str):
     structure, _ = get_directory_structure(sample_directory)
     output_path = os.path.join(output_dir, "nested_structure.json")
     export_structure(structure, sample_directory, "json", output_path)
-    with open(output_path, "r", encoding="utf-8") as f:
+    with open(output_path, encoding="utf-8") as f:
         data = json.load(f)
     assert "nested" in data["structure"]
     assert "deep" in data["structure"]["nested"]
@@ -385,7 +387,7 @@ def test_export_error_handling(
     structure, _ = get_directory_structure(sample_directory)
     output_path = os.path.join(output_dir, "structure.txt")
     mocker.patch("builtins.open", side_effect=PermissionError("Permission denied"))
-    with pytest.raises(Exception):
+    with pytest.raises(PermissionError):
         export_structure(structure, sample_directory, "txt", output_path)
 
 
@@ -408,11 +410,11 @@ def test_export_with_max_depth_indicator(temp_dir: str, output_dir: str):
     for fmt, indicator in format_indicators.items():
         output_path = os.path.join(output_dir, f"max_depth.{fmt}")
         export_structure(structure, temp_dir, fmt, output_path)
-        with open(output_path, "r", encoding="utf-8") as f:
+        with open(output_path, encoding="utf-8") as f:
             content = f.read()
-        assert (
-            indicator in content
-        ), f"Max depth indicator '{indicator}' not found in {fmt} export"
+        assert indicator in content, (
+            f"Max depth indicator '{indicator}' not found in {fmt} export"
+        )
 
 
 def test_export_with_statistics(sample_directory: str, output_dir: str):
@@ -450,12 +452,12 @@ def test_export_with_statistics(sample_directory: str, output_dir: str):
             sort_by_size=True,
             sort_by_mtime=True,
         )
-        with open(output_path, "r", encoding="utf-8") as f:
+        with open(output_path, encoding="utf-8") as f:
             content = f.read()
         for pattern in patterns:
-            assert re.search(
-                pattern, content
-            ), f"Pattern '{pattern}' not found in {fmt} export"
+            assert re.search(pattern, content), (
+                f"Pattern '{pattern}' not found in {fmt} export"
+            )
 
 
 def test_large_structure_export(output_dir: str):
@@ -466,7 +468,7 @@ def test_large_structure_export(output_dir: str):
         export_structure(structure, "large_root", fmt, output_path)
         assert os.path.exists(output_path)
         assert os.path.getsize(output_path) > 0, f"Exported {fmt} file is empty"
-        with open(output_path, "r", encoding="utf-8") as f:
+        with open(output_path, encoding="utf-8") as f:
             content = f.read()
         if fmt == "txt":
             assert "📂 large_root" in content
@@ -510,7 +512,7 @@ def test_unicode_file_names(output_dir: str):
         output_path = os.path.join(output_dir, f"unicode.{fmt}")
         export_structure(unicode_structure, "unicode_root", fmt, output_path)
         assert os.path.exists(output_path)
-        with open(output_path, "r", encoding="utf-8") as f:
+        with open(output_path, encoding="utf-8") as f:
             content = f.read()
         if fmt == "json":
             data = json.loads(content)
@@ -543,7 +545,7 @@ def test_export_structure_error_types(
     """Test handling different error types during export."""
     structure, _ = get_directory_structure(sample_directory)
     output_path = os.path.join(output_dir, f"error_{error_type.__name__}.txt")
-    if error_type == OSError:
+    if error_type is OSError:
         error = OSError(28, error_msg)
     else:
         error = error_type(error_msg)
@@ -569,7 +571,7 @@ def test_to_jsx_with_long_paths(output_dir: str):
     exporter = DirectoryExporter(long_structure, "long_root")
     exporter.to_jsx(output_path)
     assert os.path.exists(output_path)
-    with open(output_path, "r", encoding="utf-8") as f:
+    with open(output_path, encoding="utf-8") as f:
         content = f.read()
     assert f'name="{long_name}.txt"' in content
     assert f'name="{long_name}.py"' in content
@@ -588,7 +590,7 @@ def test_export_with_excessive_loc(temp_dir: str, output_dir: str):
         output_path = os.path.join(output_dir, f"large_loc.{fmt}")
         export_structure(structure, temp_dir, fmt, output_path, sort_by_loc=True)
         assert os.path.exists(output_path)
-        with open(output_path, "r", encoding="utf-8") as f:
+        with open(output_path, encoding="utf-8") as f:
             content = f.read()
         if fmt == "txt":
             assert re.search(r"many_lines\.py \(\d{4,} lines\)", content)
@@ -609,7 +611,7 @@ def test_many_unique_extensions(output_dir: str):
     output_path = os.path.join(output_dir, "many_extensions.html")
     export_structure(many_extensions_structure, "extensions_test", "html", output_path)
     assert os.path.exists(output_path)
-    with open(output_path, "r", encoding="utf-8") as f:
+    with open(output_path, encoding="utf-8") as f:
         content = f.read()
     color_matches = re.findall(r'style="([^"]*)"', content)
     unique_colors = set()
@@ -618,9 +620,9 @@ def test_many_unique_extensions(output_dir: str):
             color_code = re.search(r"#[0-9A-Fa-f]{6}", style)
             if color_code:
                 unique_colors.add(color_code.group())
-    assert (
-        len(unique_colors) > 10
-    ), "Too few unique colors generated for different extensions"
+    assert len(unique_colors) > 10, (
+        "Too few unique colors generated for different extensions"
+    )
 
 
 def test_problematic_filenames(output_dir: str):
@@ -643,16 +645,16 @@ def test_problematic_filenames(output_dir: str):
         assert os.path.exists(output_path)
         try:
             if fmt == "json":
-                with open(output_path, "r", encoding="utf-8") as f:
+                with open(output_path, encoding="utf-8") as f:
                     json.load(f)
             elif fmt == "html":
-                with open(output_path, "r", encoding="utf-8") as f:
+                with open(output_path, encoding="utf-8") as f:
                     content = f.read()
                 assert any(entity in content for entity in ["&amp;", "&#x26;"])
                 assert any(entity in content for entity in ["&lt;", "&#x3C;"])
                 assert any(entity in content for entity in ["&gt;", "&#x3E;"])
                 assert any(entity in content for entity in ["&quot;", "&#x22;"])
-            with open(output_path, "r", encoding="utf-8") as f:
+            with open(output_path, encoding="utf-8") as f:
                 content = f.read()
             normalized_content = content.replace("&#x20;", " ").replace("&nbsp;", " ")
             assert "file with spaces" in normalized_content
@@ -703,7 +705,7 @@ def test_combined_export_options(output_dir: str):
             sort_by_mtime=True,
         )
         assert os.path.exists(output_path)
-        with open(output_path, "r", encoding="utf-8") as f:
+        with open(output_path, encoding="utf-8") as f:
             content = f.read().replace("&quot;", '"')
         assert "/path/to/file1.txt" in content
         if fmt != "jsx":
@@ -731,9 +733,9 @@ def test_combined_export_options(output_dir: str):
             timestamp_matches = [
                 pattern for pattern in timestamp_patterns if pattern in content
             ]
-            assert (
-                len(timestamp_matches) > 0
-            ), f"No timestamp format found in {fmt} export"
+            assert len(timestamp_matches) > 0, (
+                f"No timestamp format found in {fmt} export"
+            )
         if fmt == "txt":
             assert "⋯ (max depth reached)" in content
         elif fmt == "json":

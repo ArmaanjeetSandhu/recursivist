@@ -86,9 +86,9 @@ class TestBuildTree:
                     break
             assert found, f"No indicator matching {expected_indicator} found"
         else:
-            assert any(
-                expected_indicator in call for call in calls
-            ), f"Expected indicator '{expected_indicator}' not found"
+            assert any(expected_indicator in call for call in calls), (
+                f"Expected indicator '{expected_indicator}' not found"
+            )
 
     def test_max_depth_indicator(
         self, mock_tree, mock_subtree, color_map, max_depth_structure
@@ -354,7 +354,7 @@ class TestDirectoryExporter:
         exporter = DirectoryExporter(simple_structure, "test_root")
         getattr(exporter, format_method)(output_path)
         assert os.path.exists(output_path)
-        with open(output_path, "r", encoding="utf-8") as f:
+        with open(output_path, encoding="utf-8") as f:
             content = f.read()
         for expected in expected_content:
             assert expected in content
@@ -364,13 +364,13 @@ class TestDirectoryExporter:
         md_output_path = os.path.join(tmp_path, "test_dirs.md")
         md_exporter = DirectoryExporter(nested_structure, "test_root")
         md_exporter.to_markdown(md_output_path)
-        with open(md_output_path, "r", encoding="utf-8") as f:
+        with open(md_output_path, encoding="utf-8") as f:
             md_content = f.read()
         assert "**subdir1**" in md_content or "**subdir2**" in md_content
         html_output_path = os.path.join(tmp_path, "test_dirs.html")
         html_exporter = DirectoryExporter(nested_structure, "test_root")
         html_exporter.to_html(html_output_path)
-        with open(html_output_path, "r", encoding="utf-8") as f:
+        with open(html_output_path, encoding="utf-8") as f:
             html_content = f.read()
         assert 'class="directory"' in html_content
 
@@ -396,16 +396,16 @@ class TestDirectoryExporter:
         exporter = DirectoryExporter(structure_with_stats, "test_root", **kwargs)
         exporter.to_txt(output_path)
         assert os.path.exists(output_path)
-        with open(output_path, "r", encoding="utf-8") as f:
+        with open(output_path, encoding="utf-8") as f:
             content = f.read()
         if isinstance(expected_in_content, list):
-            assert any(
-                expected in content for expected in expected_in_content
-            ), f"None of {expected_in_content} found in export"
+            assert any(expected in content for expected in expected_in_content), (
+                f"None of {expected_in_content} found in export"
+            )
         else:
-            assert (
-                expected_in_content in content
-            ), f"{expected_in_content} not found in export"
+            assert expected_in_content in content, (
+                f"{expected_in_content} not found in export"
+            )
 
     def test_export_with_full_path(self, structure_with_stats, tmp_path):
         """Test exporting with full file paths."""
@@ -414,7 +414,7 @@ class TestDirectoryExporter:
             structure_with_stats, "test_root", base_path="/path/to"
         )
         exporter.to_txt(output_path)
-        with open(output_path, "r", encoding="utf-8") as f:
+        with open(output_path, encoding="utf-8") as f:
             content = f.read()
         assert "/path/to/" in content
 
@@ -431,7 +431,7 @@ class TestDirectoryExporter:
         """Test error handling during export."""
         output_path = os.path.join(tmp_path, "test_output.txt")
         exporter = DirectoryExporter(simple_structure, "test_root")
-        if error_type == OSError:
+        if error_type is OSError:
             error = OSError(28, error_msg)
         else:
             error = error_type(error_msg)
@@ -445,17 +445,17 @@ class TestDirectoryExporter:
         exporter = DirectoryExporter(max_depth_structure, "max_depth_root")
         txt_path = os.path.join(tmp_path, "max_depth.txt")
         exporter.to_txt(txt_path)
-        with open(txt_path, "r", encoding="utf-8") as f:
+        with open(txt_path, encoding="utf-8") as f:
             content = f.read()
         assert "⋯ (max depth reached)" in content
         md_path = os.path.join(tmp_path, "max_depth.md")
         exporter.to_markdown(md_path)
-        with open(md_path, "r", encoding="utf-8") as f:
+        with open(md_path, encoding="utf-8") as f:
             content = f.read()
         assert "⋯ *(max depth reached)*" in content
         html_path = os.path.join(tmp_path, "max_depth.html")
         exporter.to_html(html_path)
-        with open(html_path, "r", encoding="utf-8") as f:
+        with open(html_path, encoding="utf-8") as f:
             content = f.read()
         assert "max-depth" in content
 

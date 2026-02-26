@@ -181,16 +181,16 @@ class TestCompareDirectoryStructures:
             structure1, structure2, extensions = compare_directory_structures(
                 dir1, dir2
             )
-            assert structure1 == {
-                "_files": ["file1.txt"]
-            }, "Should return structure1 from get_directory_structure"
-            assert structure2 == {
-                "_files": ["file2.txt"]
-            }, "Should return structure2 from get_directory_structure"
+            assert structure1 == {"_files": ["file1.txt"]}, (
+                "Should return structure1 from get_directory_structure"
+            )
+            assert structure2 == {"_files": ["file2.txt"]}, (
+                "Should return structure2 from get_directory_structure"
+            )
             assert extensions == {".txt"}, "Should return combined extensions"
-            assert (
-                mock_get_structure.call_count == 2
-            ), "get_directory_structure should be called twice"
+            assert mock_get_structure.call_count == 2, (
+                "get_directory_structure should be called twice"
+            )
             mock_get_structure.assert_any_call(
                 dir1,
                 None,
@@ -326,9 +326,7 @@ class TestDisplayComparison:
             "recursivist.compare.Console"
         ) as mock_console, patch(
             "recursivist.compare.build_comparison_tree"
-        ) as mock_build_tree, patch(
-            "recursivist.compare.Tree"
-        ) as mock_tree:
+        ) as mock_build_tree, patch("recursivist.compare.Tree") as mock_tree:
             mock_compare.return_value = ({"_files": []}, {"_files": []}, {".txt"})
             mock_color_map.return_value = "#FFFFFF"
             display_comparison(dir1, dir2)

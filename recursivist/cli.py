@@ -282,7 +282,7 @@ def visualize(
         )
     except Exception as e:
         logger.error(f"Error: {e}", exc_info=verbose)
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
 
 
 @app.command()
@@ -500,12 +500,12 @@ def export(
                 logger.error(f"Failed to export to {fmt}: {e}")
     except Exception as e:
         logger.error(f"Error: {e}", exc_info=verbose)
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
 
 
 @app.command()
 def completion(
-    shell: str = typer.Argument(..., help="Shell type (bash, zsh, fish, powershell)")
+    shell: str = typer.Argument(..., help="Shell type (bash, zsh, fish, powershell)"),
 ):
     """
     Generate shell completion script.
@@ -541,7 +541,7 @@ def completion(
         logger.info(f"Generated completion script for {shell}")
     except Exception as e:
         logger.error(f"Error generating completion script: {e}")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
 
 
 @app.command()
@@ -760,7 +760,7 @@ def compare(
             )
     except Exception as e:
         logger.error(f"Error: {e}", exc_info=verbose)
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
 
 
 def main():

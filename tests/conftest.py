@@ -289,7 +289,7 @@ def complex_directory_clone(complex_directory, temp_dir):
         "requirements.txt",
     ]
     for file in files_to_copy:
-        with open(os.path.join(complex_directory, file), "r") as src:
+        with open(os.path.join(complex_directory, file)) as src:
             content = src.read()
             with open(os.path.join(clone_dir, file), "w") as dst:
                 dst.write(content)
@@ -448,7 +448,7 @@ def assert_stats_in_structure(structure):
 def assert_json_export_valid(file_path, root_name):
     """Assert that a JSON export file is valid and contains expected structure."""
     assert os.path.exists(file_path)
-    with open(file_path, "r", encoding="utf-8") as f:
+    with open(file_path, encoding="utf-8") as f:
         data = json.load(f)
     assert "root" in data
     assert data["root"] == root_name
@@ -459,7 +459,7 @@ def assert_json_export_valid(file_path, root_name):
 def assert_html_export_valid(file_path, root_name):
     """Assert that an HTML export file is valid and contains expected structure."""
     assert os.path.exists(file_path)
-    with open(file_path, "r", encoding="utf-8") as f:
+    with open(file_path, encoding="utf-8") as f:
         content = f.read()
     assert "<!DOCTYPE html>" in content
     assert "<html" in content
@@ -471,7 +471,7 @@ def assert_html_export_valid(file_path, root_name):
 def assert_text_based_export_valid(file_path, root_name, format_name):
     """Assert that a text-based export (txt, md) is valid."""
     assert os.path.exists(file_path)
-    with open(file_path, "r", encoding="utf-8") as f:
+    with open(file_path, encoding="utf-8") as f:
         content = f.read()
     if format_name == "txt":
         assert f"📂 {root_name}" in content
@@ -483,7 +483,7 @@ def assert_text_based_export_valid(file_path, root_name, format_name):
 def assert_jsx_export_valid(file_path, root_name):
     """Assert that a JSX export file is valid."""
     assert os.path.exists(file_path)
-    with open(file_path, "r", encoding="utf-8") as f:
+    with open(file_path, encoding="utf-8") as f:
         content = f.read()
     assert "import React" in content
     assert "DirectoryViewer" in content

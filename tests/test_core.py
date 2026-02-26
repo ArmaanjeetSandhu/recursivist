@@ -145,9 +145,9 @@ class TestCountLines:
             with open(file_path, "w", encoding=encoding) as f:
                 f.write("Line 1\nLine 2\n")
             line_count = count_lines_of_code(file_path)
-            assert (
-                line_count == 2
-            ), f"Expected 2 lines in {encoding} file, got {line_count}"
+            assert line_count == 2, (
+                f"Expected 2 lines in {encoding} file, got {line_count}"
+            )
         except Exception as e:
             pytest.fail(f"count_lines_of_code failed with {encoding} encoding: {e}")
 
@@ -341,9 +341,9 @@ class TestBuildTree:
                     break
             assert found, f"None of the expected indicators {expected_indicator} found"
         else:
-            assert any(
-                expected_indicator in call for call in calls
-            ), f"Expected indicator '{expected_indicator}' not found"
+            assert any(expected_indicator in call for call in calls), (
+                f"Expected indicator '{expected_indicator}' not found"
+            )
 
     def test_max_depth_indicator(
         self, mocker: MockerFixture, max_depth_structure, color_map
@@ -438,7 +438,7 @@ def test_export_structure(
     output_path = os.path.join(output_dir, f"structure.{format_extension}")
     export_structure(structure, sample_directory, format_name, output_path)
     assert os.path.exists(output_path)
-    with open(output_path, "r", encoding="utf-8") as f:
+    with open(output_path, encoding="utf-8") as f:
         content = f.read()
     for expected in expected_content:
         assert expected in content
@@ -511,7 +511,7 @@ def test_export_structure_with_options(
     export_kwargs = {option_name: option_value}
     export_structure(structure, sample_directory, "json", output_path, **export_kwargs)
     assert os.path.exists(output_path)
-    with open(output_path, "r", encoding="utf-8") as f:
+    with open(output_path, encoding="utf-8") as f:
         data = json.load(f)
     if option_name == "show_full_path":
         if "_files" in data["structure"]:
@@ -573,9 +573,9 @@ def test_sort_files_by_type(files, sort_key, expected_order):
         else:
             sorted_names.append(item)
     for i, expected_file in enumerate(expected_order):
-        assert (
-            sorted_names[i] == expected_file
-        ), f"Expected {expected_file} at position {i}, got {sorted_names[i]}"
+        assert sorted_names[i] == expected_file, (
+            f"Expected {expected_file} at position {i}, got {sorted_names[i]}"
+        )
 
 
 @pytest.mark.parametrize(
@@ -604,9 +604,9 @@ def test_should_exclude(
     result = should_exclude(
         path, ignore_context, exclude_extensions=extensions, **kwargs
     )
-    assert (
-        result == expected
-    ), f"Expected should_exclude('{path}') to return {expected}, got {result}"
+    assert result == expected, (
+        f"Expected should_exclude('{path}') to return {expected}, got {result}"
+    )
 
 
 @pytest.mark.parametrize(
