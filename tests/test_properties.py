@@ -29,13 +29,10 @@ simple_filename = st.text(
     ),
     min_size=1,
     max_size=20,
-).map(
-    lambda s: (
-        s
-        + st.sampled_from(
-            [".txt", ".py", ".md", ".json", ".js", ".html", ".css"]
-        ).example()
-    )
+).flatmap(
+    lambda s: st.sampled_from(
+        [".txt", ".py", ".md", ".json", ".js", ".html", ".css"]
+    ).map(lambda ext: s + ext)
 )
 file_item_tuple = st.tuples(
     simple_filename,
@@ -451,12 +448,9 @@ class TestJSXExportSortingFunctions:
                     if isinstance(f2, str)
                     else ""
                 )
-                ext1 = os.path.splitext(name1)[1]
-                ext2 = os.path.splitext(name2)[1]
-                if ext1 != ext2:
-                    assert ext1 <= ext2, (
-                        "Files with different extensions should be sorted by extension"
-                    )
+                assert name1 <= name2, (
+                    "Files without stats should be sorted by full filename (ascending)"
+                )
 
     @given(file_list)
     @settings(max_examples=100)

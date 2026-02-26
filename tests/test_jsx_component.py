@@ -22,13 +22,10 @@ def file_tuples_for_sorting(draw):
             ),
             min_size=1,
             max_size=20,
-        ).map(
-            lambda s: (
-                s
-                + st.sampled_from(
-                    [".txt", ".py", ".md", ".json", ".js", ".html", ".css"]
-                ).example()
-            )
+        ).flatmap(
+            lambda s: st.sampled_from(
+                [".txt", ".py", ".md", ".json", ".js", ".html", ".css"]
+            ).map(lambda ext: s + ext)
         )
     )
     tuple_type = draw(st.integers(min_value=0, max_value=4))
@@ -306,13 +303,10 @@ def jsx_directory_structure(draw):
                     ),
                     min_size=1,
                     max_size=20,
-                ).map(
-                    lambda s: (
-                        s
-                        + st.sampled_from(
-                            [".txt", ".py", ".md", ".json", ".js", ".html", ".css"]
-                        ).example()
-                    )
+                ).flatmap(
+                    lambda s: st.sampled_from(
+                        [".txt", ".py", ".md", ".json", ".js", ".html", ".css"]
+                    ).map(lambda ext: s + ext)
                 ),
                 st.tuples(
                     st.text(
@@ -322,13 +316,10 @@ def jsx_directory_structure(draw):
                         ),
                         min_size=1,
                         max_size=20,
-                    ).map(
-                        lambda s: (
-                            s
-                            + st.sampled_from(
-                                [".txt", ".py", ".md", ".json", ".js", ".html", ".css"]
-                            ).example()
-                        )
+                    ).flatmap(
+                        lambda s: st.sampled_from(
+                            [".txt", ".py", ".md", ".json", ".js", ".html", ".css"]
+                        ).map(lambda ext: s + ext)
                     ),
                     st.text(min_size=1, max_size=100),
                 ),
