@@ -33,4 +33,7 @@ jobs:
         run: ruff format --check .
 
       - name: Run mypy
-        run: mypy .
+        run: mypy --strict .
+
+      - name: Run pyright
+        run: pyright .
