@@ -291,7 +291,7 @@ def export(
         ".", help="Directory path to export (defaults to current directory)"
     ),
     formats: List[str] = typer.Option(
-        ["md"], "--format", "-f", help="Export formats: txt, json, html, md, jsx"
+        ["md"], "--format", "-f", help="Export formats: txt, json, html, md, jsx, svg"
     ),
     output_dir: Optional[Path] = typer.Option(
         None,
@@ -469,7 +469,7 @@ def export(
         parsed_formats = []
         for fmt in formats:
             parsed_formats.extend([x.strip() for x in fmt.split(" ") if x.strip()])
-        valid_formats = ["txt", "json", "html", "md", "jsx"]
+        valid_formats = ["txt", "json", "html", "md", "jsx", "svg"]
         invalid_formats = [
             fmt for fmt in parsed_formats if fmt.lower() not in valid_formats
         ]

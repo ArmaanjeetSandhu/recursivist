@@ -4,13 +4,14 @@ Recursivist can export directory structures to several different formats to suit
 
 ## Available Formats
 
-| Format   | Extension | Description                                 | Best For                                 |
-| -------- | --------- | ------------------------------------------- | ---------------------------------------- |
-| Text     | `.txt`    | Simple ASCII tree representation            | Quick reference, text-only environments  |
-| JSON     | `.json`   | Structured data format for programmatic use | Data processing, integration with tools  |
-| HTML     | `.html`   | Interactive web-based visualization         | Sharing, documentation, web presentation |
-| Markdown | `.md`     | GitHub-compatible Markdown representation   | Project documentation, README files      |
-| React    | `.jsx`    | Interactive React component                 | Web applications, interactive interfaces |
+| Format   | Extension | Description                                 | Best For                                    |
+| -------- | --------- | ------------------------------------------- | ------------------------------------------- |
+| Text     | `.txt`    | Simple ASCII tree representation            | Quick reference, text-only environments     |
+| JSON     | `.json`   | Structured data format for programmatic use | Data processing, integration with tools     |
+| HTML     | `.html`   | Interactive web-based visualization         | Sharing, documentation, web presentation    |
+| Markdown | `.md`     | GitHub-compatible Markdown representation   | Project documentation, README files         |
+| React    | `.jsx`    | Interactive React component                 | Web applications, interactive interfaces    |
+| SVG      | `.svg`    | Vector image of the terminal output         | Embedding in documentation, sharing visuals |
 
 ## Basic Export Command
 
@@ -20,7 +21,7 @@ To export the current directory structure:
 recursivist export --format FORMAT
 ```
 
-Replace `FORMAT` with one of: `txt`, `json`, `html`, `md`, or `jsx`.
+Replace `FORMAT` with one of: `txt`, `json`, `html`, `md`, `jsx`, or `svg`.
 
 ## Exporting to Multiple Formats
 
@@ -245,6 +246,16 @@ Export to React component format with:
 recursivist export --format jsx
 ```
 
+### SVG Format
+
+The SVG format creates a beautiful, scalable vector graphic image of your directory structure exactly as it would appear in your terminal. It preserves all `rich` color-coding, icons, and formatting.
+
+Export to SVG format with:
+
+```bash
+recursivist export --format svg
+```
+
 ## Using the React Component
 
 To use the exported React component in your project:
@@ -296,16 +307,16 @@ This is particularly useful for JSON exports that might be processed by other to
 
 ## Comparison of Export Formats
 
-| Feature                     | TXT | JSON | HTML | MD  | JSX |
-| --------------------------- | --- | ---- | ---- | --- | --- |
-| Human-readable              | ✅  | ⚠️   | ✅   | ✅  | ⚠️  |
-| Machine-readable            | ⚠️  | ✅   | ⚠️   | ⚠️  | ⚠️  |
-| Interactive                 | ❌  | ❌   | ✅   | ❌  | ✅  |
-| Search functionality        | ❌  | ❌   | ❌   | ❌  | ✅  |
-| File statistics support     | ✅  | ✅   | ✅   | ✅  | ✅  |
-| Color-coding                | ✅  | ❌   | ✅   | ⚠️  | ✅  |
-| Collapsible structure       | ❌  | ❌   | ❌   | ❌  | ✅  |
-| Requires external libraries | ❌  | ❌   | ❌   | ❌  | ✅  |
+| Feature                     | TXT | JSON | HTML | MD  | JSX | SVG |
+| --------------------------- | --- | ---- | ---- | --- | --- | --- |
+| Human-readable              | ✅  | ⚠️   | ✅   | ✅  | ⚠️  | ✅  |
+| Machine-readable            | ⚠️  | ✅   | ⚠️   | ⚠️  | ⚠️  | ❌  |
+| Interactive                 | ❌  | ❌   | ✅   | ❌  | ✅  | ❌  |
+| Search functionality        | ❌  | ❌   | ❌   | ❌  | ✅  | ❌  |
+| File statistics support     | ✅  | ✅   | ✅   | ✅  | ✅  | ✅  |
+| Color-coding                | ✅  | ❌   | ✅   | ⚠️  | ✅  | ✅  |
+| Collapsible structure       | ❌  | ❌   | ❌   | ❌  | ✅  | ❌  |
+| Requires external libraries | ❌  | ❌   | ❌   | ❌  | ✅  | ❌  |
 
 Legend:
 

@@ -23,7 +23,7 @@ Add the following to your `.pre-commit-config.yaml`:
 ```yaml
 repos:
   - repo: https://github.com/ArmaanjeetSandhu/recursivist
-    rev: v1.4.8 # Replace with the latest version tag
+    rev: v1.4.9 # Replace with the latest version tag
       - id: recursivist-export
         # Customize your export settings here
         args:

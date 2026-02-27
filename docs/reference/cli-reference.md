@@ -132,7 +132,7 @@ recursivist export [OPTIONS] [DIRECTORY]
 
 | Option              | Short | Description                                                    |
 | ------------------- | ----- | -------------------------------------------------------------- |
-| `--format`          | `-f`  | Export formats: txt, json, html, md, jsx                       |
+| `--format`          | `-f`  | Export formats: txt, json, html, md, jsx, svg                  |
 | `--output-dir`      | `-o`  | Output directory for exports                                   |
 | `--prefix`          | `-n`  | Prefix for exported filenames                                  |
 | `--exclude`         | `-e`  | Directories to exclude (space-separated or multiple flags)     |

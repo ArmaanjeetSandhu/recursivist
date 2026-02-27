@@ -29,6 +29,7 @@ Recursivist supports multiple export formats, each suitable for different purpos
 | HTML     | `.html`   | Web-based view        | Sharing, web documentation               |
 | Markdown | `.md`     | GitHub-compatible     | Documentation, GitHub readmes            |
 | React    | `.jsx`    | Interactive component | Web applications, dashboards             |
+| SVG      | `.svg`    | Vector image          | Embedding in READMEs, sharing visuals    |
 
 ## Exporting to Multiple Formats
 
@@ -224,6 +225,10 @@ The JSX format creates an interactive React component with:
 - Mobile-responsive design
 
 This is the most sophisticated export option, designed for integration into web applications.
+
+### SVG Format (.svg)
+
+The SVG format captures an exact image of the terminal visualization, preserving all colors, icons, and tree structures in a scalable vector graphic. This is perfect for embedding your directory structure directly into project READMEs or documentation without losing the beautiful terminal styling.
 
 ## Using the React Component
 

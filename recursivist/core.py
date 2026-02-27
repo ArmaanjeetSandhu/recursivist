@@ -32,6 +32,80 @@ from rich.tree import Tree
 logger = logging.getLogger(__name__)
 
 
+def export_to_svg(
+    structure: Dict[str, Any],
+    root_dir: str,
+    output_path: str,
+    show_full_path: bool = False,
+    sort_by_loc: bool = False,
+    sort_by_size: bool = False,
+    sort_by_mtime: bool = False,
+) -> None:
+    """Export the directory structure to an SVG image using rich."""
+
+    def extract_extensions(struct: Dict[str, Any]) -> Set[str]:
+        exts = set()
+        for k, v in struct.items():
+            if k == "_files":
+                for f in v:
+                    name = f[0] if isinstance(f, tuple) else f
+                    exts.add(os.path.splitext(name)[1].lower())
+            elif isinstance(v, dict):
+                exts.update(extract_extensions(v))
+        return exts
+
+    extensions = extract_extensions(structure)
+    color_map = {ext: generate_color_for_extension(ext) for ext in extensions}
+
+    root_name = os.path.basename(root_dir)
+    root_label = f"📂 {root_name}"
+
+    if (
+        sort_by_loc
+        and sort_by_size
+        and sort_by_mtime
+        and "_loc" in structure
+        and "_size" in structure
+        and "_mtime" in structure
+    ):
+        root_label = f"📂 {root_name} ({structure['_loc']} lines, {format_size(structure['_size'])}, {format_timestamp(structure['_mtime'])})"
+    elif sort_by_loc and sort_by_size and "_loc" in structure and "_size" in structure:
+        root_label = f"📂 {root_name} ({structure['_loc']} lines, {format_size(structure['_size'])})"
+    elif (
+        sort_by_loc and sort_by_mtime and "_loc" in structure and "_mtime" in structure
+    ):
+        root_label = f"📂 {root_name} ({structure['_loc']} lines, {format_timestamp(structure['_mtime'])})"
+    elif (
+        sort_by_size
+        and sort_by_mtime
+        and "_size" in structure
+        and "_mtime" in structure
+    ):
+        root_label = f"📂 {root_name} ({format_size(structure['_size'])}, {format_timestamp(structure['_mtime'])})"
+    elif sort_by_loc and "_loc" in structure:
+        root_label = f"📂 {root_name} ({structure['_loc']} lines)"
+    elif sort_by_size and "_size" in structure:
+        root_label = f"📂 {root_name} ({format_size(structure['_size'])})"
+    elif sort_by_mtime and "_mtime" in structure:
+        root_label = f"📂 {root_name} ({format_timestamp(structure['_mtime'])})"
+
+    tree = Tree(root_label)
+
+    build_tree(
+        structure,
+        tree,
+        color_map,
+        show_full_path=show_full_path,
+        sort_by_loc=sort_by_loc,
+        sort_by_size=sort_by_size,
+        sort_by_mtime=sort_by_mtime,
+    )
+
+    console = Console(record=True, width=120)
+    console.print(tree)
+    console.save_svg(output_path, title=f"Directory Structure - {root_name}")
+
+
 def export_structure(
     structure: Dict[str, Any],
     root_dir: str,
@@ -59,6 +133,18 @@ def export_structure(
     Raises:
         ValueError: If the format_type is not supported
     """
+    if format_type.lower() == "svg":
+        export_to_svg(
+            structure=structure,
+            root_dir=root_dir,
+            output_path=output_path,
+            show_full_path=show_full_path,
+            sort_by_loc=sort_by_loc,
+            sort_by_size=sort_by_size,
+            sort_by_mtime=sort_by_mtime,
+        )
+        return
+
     from recursivist.exports import DirectoryExporter
 
     exporter = DirectoryExporter(
