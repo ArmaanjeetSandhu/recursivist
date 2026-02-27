@@ -16,14 +16,14 @@ This is particularly useful for quickly visualizing the structure of a Git repos
 
 ### Pre-commit Framework
 
-Recursivist provides official support for the [pre-commit](https://pre-commit.com) framework. This is the easiest way to esnure your directory structure documentation is always up to date before every commit.
+Recursivist provides official support for the [pre-commit](https://pre-commit.com) framework. This is the easiest way to ensure your directory structure documentation is always up to date before every commit.
 
 Add the following to your `.pre-commit-config.yaml`:
 
 ```yaml
 repos:
   - repo: https://github.com/ArmaanjeetSandhu/recursivist
-    rev: v1.4.7 # Replace with the latest version tag
+    rev: v1.4.8 # Replace with the latest version tag
       - id: recursivist-export
         # Customize your export settings here
         args:
