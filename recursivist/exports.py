@@ -177,6 +177,7 @@ class DirectoryExporter:
         sort_by_loc: bool = False,
         sort_by_size: bool = False,
         sort_by_mtime: bool = False,
+        show_git_status: bool = False,
     ):
         """Initialize the exporter with directory structure and root name.
 
@@ -187,6 +188,7 @@ class DirectoryExporter:
             sort_by_loc: Whether to include lines of code counts in exports
             sort_by_size: Whether to include file size information in exports
             sort_by_mtime: Whether to include modification time information in exports
+            show_git_status: Whether to annotate files with Git status markers
         """
 
         self.structure = structure
@@ -196,6 +198,10 @@ class DirectoryExporter:
         self.sort_by_loc = sort_by_loc
         self.sort_by_size = sort_by_size
         self.sort_by_mtime = sort_by_mtime
+        self.show_git_status = show_git_status
+
+    _GIT_MARKER_LABELS = {"U": "[U]", "M": "[M]", "A": "[A]", "D": "[D]"}
+    _GIT_TXT_SUFFIX = {"U": " [U]", "M": " [M]", "A": " [A]", "D": " [D]"}
 
     def to_txt(self, output_path: str) -> None:
         """Export directory structure to a text file with ASCII tree representation.
@@ -222,6 +228,24 @@ class DirectoryExporter:
                         is_last_file = j == len(file_items) - 1
                         is_last_item = is_last_file and i == len(items) - 1
                         item_prefix = prefix + ("└── " if is_last_item else "├── ")
+
+                        _fname = (
+                            file_item[0]
+                            if isinstance(file_item, tuple) and len(file_item) > 0
+                            else (
+                                file_item if isinstance(file_item, str) else "unknown"
+                            )
+                        )
+                        _git_markers = structure.get("_git_markers", {})
+                        _git_marker = (
+                            _git_markers.get(_fname, "") if self.show_git_status else ""
+                        )
+                        _git_suffix = (
+                            f" {self._GIT_TXT_SUFFIX.get(_git_marker, _git_marker)}"
+                            if _git_marker
+                            else ""
+                        )
+
                         if (
                             self.sort_by_loc
                             and self.sort_by_size
@@ -231,7 +255,7 @@ class DirectoryExporter:
                         ):
                             _, display_path, loc, size, mtime = file_item
                             lines.append(
-                                f"{item_prefix}📄 {display_path} ({loc} lines, {format_size(size)}, {format_timestamp(mtime)})"
+                                f"{item_prefix}📄 {display_path} ({loc} lines, {format_size(size)}, {format_timestamp(mtime)}){_git_suffix}"
                             )
                         elif (
                             self.sort_by_loc
@@ -241,7 +265,7 @@ class DirectoryExporter:
                         ):
                             _, display_path, loc, _, mtime = file_item
                             lines.append(
-                                f"{item_prefix}📄 {display_path} ({loc} lines, {format_timestamp(mtime)})"
+                                f"{item_prefix}📄 {display_path} ({loc} lines, {format_timestamp(mtime)}){_git_suffix}"
                             )
                         elif (
                             self.sort_by_size
@@ -251,7 +275,7 @@ class DirectoryExporter:
                         ):
                             _, display_path, _, size, mtime = file_item
                             lines.append(
-                                f"{item_prefix}📄 {display_path} ({format_size(size)}, {format_timestamp(mtime)})"
+                                f"{item_prefix}📄 {display_path} ({format_size(size)}, {format_timestamp(mtime)}){_git_suffix}"
                             )
                         elif (
                             self.sort_by_loc
@@ -264,7 +288,7 @@ class DirectoryExporter:
                             else:
                                 _, display_path, loc, size = file_item
                             lines.append(
-                                f"{item_prefix}📄 {display_path} ({loc} lines, {format_size(size)})"
+                                f"{item_prefix}📄 {display_path} ({loc} lines, {format_size(size)}){_git_suffix}"
                             )
                         elif (
                             self.sort_by_mtime
@@ -278,7 +302,7 @@ class DirectoryExporter:
                             else:
                                 _, display_path, mtime = file_item
                             lines.append(
-                                f"{item_prefix}📄 {display_path} ({format_timestamp(mtime)})"
+                                f"{item_prefix}📄 {display_path} ({format_timestamp(mtime)}){_git_suffix}"
                             )
                         elif (
                             self.sort_by_size
@@ -292,7 +316,7 @@ class DirectoryExporter:
                             else:
                                 _, display_path, size = file_item
                             lines.append(
-                                f"{item_prefix}📄 {display_path} ({format_size(size)})"
+                                f"{item_prefix}📄 {display_path} ({format_size(size)}){_git_suffix}"
                             )
                         elif (
                             self.sort_by_loc
@@ -306,7 +330,7 @@ class DirectoryExporter:
                             else:
                                 _, display_path, loc = file_item
                             lines.append(
-                                f"{item_prefix}📄 {display_path} ({loc} lines)"
+                                f"{item_prefix}📄 {display_path} ({loc} lines){_git_suffix}"
                             )
                         elif self.show_full_path and isinstance(file_item, tuple):
                             if len(file_item) > 4:
@@ -321,7 +345,7 @@ class DirectoryExporter:
                                 full_path = (
                                     file_item[0] if len(file_item) > 0 else "unknown"
                                 )
-                            lines.append(f"{item_prefix}📄 {full_path}")
+                            lines.append(f"{item_prefix}📄 {full_path}{_git_suffix}")
                         else:
                             if isinstance(file_item, tuple):
                                 file_name = (
@@ -329,7 +353,7 @@ class DirectoryExporter:
                                 )
                             else:
                                 file_name = file_item
-                            lines.append(f"{item_prefix}📄 {file_name}")
+                            lines.append(f"{item_prefix}📄 {file_name}{_git_suffix}")
                         if not is_last_item:
                             next_prefix = prefix + "│   "
                         else:
@@ -339,6 +363,7 @@ class DirectoryExporter:
                     or name == "_size"
                     or name == "_mtime"
                     or name == "_max_depth_reached"
+                    or name == "_git_markers"
                 ):
                     continue
                 else:
@@ -351,6 +376,7 @@ class DirectoryExporter:
                             "_loc",
                             "_size",
                             "_mtime",
+                            "_git_markers",
                         ]:
                             is_last_dir = False
                             break
@@ -364,6 +390,7 @@ class DirectoryExporter:
                                 "_loc",
                                 "_size",
                                 "_mtime",
+                                "_git_markers",
                             ]
                             for key, _ in items[i + 1 :]
                         )
@@ -514,12 +541,20 @@ class DirectoryExporter:
 
             def convert_structure_for_json(structure: Dict[str, Any]) -> Dict[str, Any]:
                 result: Dict[str, Any] = {}
+                _git_markers_here = structure.get("_git_markers", {})
                 for k, v in structure.items():
                     if k == "_files":
                         result[k] = []
                         for item in v:
                             if not isinstance(item, tuple):
-                                result[k].append(item)
+                                if self.show_git_status:
+                                    _gs = _git_markers_here.get(item, "")
+                                    entry: Any = {"name": item}
+                                    if _gs:
+                                        entry["git_status"] = _gs
+                                    result[k].append(entry)
+                                else:
+                                    result[k].append(item)
                                 continue
 
                             file_name = "unknown"
@@ -533,6 +568,19 @@ class DirectoryExporter:
                             if len(item) > 1:
                                 full_path = item[1]
 
+                            _git_status = (
+                                _git_markers_here.get(file_name, "")
+                                if self.show_git_status
+                                else ""
+                            )
+
+                            def _maybe_git(
+                                d: Dict[str, Any], _gs: str = _git_status
+                            ) -> Dict[str, Any]:
+                                if _gs:
+                                    d["git_status"] = _gs
+                                return d
+
                             if (
                                 self.sort_by_loc
                                 and self.sort_by_size
@@ -543,15 +591,17 @@ class DirectoryExporter:
                                 size = item[3]
                                 mtime = item[4]
                                 result[k].append(
-                                    {
-                                        "name": file_name,
-                                        "path": full_path,
-                                        "loc": loc,
-                                        "size": size,
-                                        "size_formatted": format_size(size),
-                                        "mtime": mtime,
-                                        "mtime_formatted": format_timestamp(mtime),
-                                    }
+                                    _maybe_git(
+                                        {
+                                            "name": file_name,
+                                            "path": full_path,
+                                            "loc": loc,
+                                            "size": size,
+                                            "size_formatted": format_size(size),
+                                            "mtime": mtime,
+                                            "mtime_formatted": format_timestamp(mtime),
+                                        }
+                                    )
                                 )
                             elif (
                                 self.sort_by_loc
@@ -561,13 +611,15 @@ class DirectoryExporter:
                                 loc = item[2]
                                 mtime = item[4]
                                 result[k].append(
-                                    {
-                                        "name": file_name,
-                                        "path": full_path,
-                                        "loc": loc,
-                                        "mtime": mtime,
-                                        "mtime_formatted": format_timestamp(mtime),
-                                    }
+                                    _maybe_git(
+                                        {
+                                            "name": file_name,
+                                            "path": full_path,
+                                            "loc": loc,
+                                            "mtime": mtime,
+                                            "mtime_formatted": format_timestamp(mtime),
+                                        }
+                                    )
                                 )
                             elif (
                                 self.sort_by_size
@@ -577,14 +629,16 @@ class DirectoryExporter:
                                 size = item[3]
                                 mtime = item[4]
                                 result[k].append(
-                                    {
-                                        "name": file_name,
-                                        "path": full_path,
-                                        "size": size,
-                                        "size_formatted": format_size(size),
-                                        "mtime": mtime,
-                                        "mtime_formatted": format_timestamp(mtime),
-                                    }
+                                    _maybe_git(
+                                        {
+                                            "name": file_name,
+                                            "path": full_path,
+                                            "size": size,
+                                            "size_formatted": format_size(size),
+                                            "mtime": mtime,
+                                            "mtime_formatted": format_timestamp(mtime),
+                                        }
+                                    )
                                 )
                             elif (
                                 self.sort_by_loc and self.sort_by_size and len(item) > 3
@@ -592,43 +646,62 @@ class DirectoryExporter:
                                 loc = item[2] if len(item) > 2 else 0
                                 size = item[3] if len(item) > 3 else 0
                                 result[k].append(
-                                    {
-                                        "name": file_name,
-                                        "path": full_path,
-                                        "loc": loc,
-                                        "size": size,
-                                        "size_formatted": format_size(size),
-                                    }
+                                    _maybe_git(
+                                        {
+                                            "name": file_name,
+                                            "path": full_path,
+                                            "loc": loc,
+                                            "size": size,
+                                            "size_formatted": format_size(size),
+                                        }
+                                    )
                                 )
                             elif self.sort_by_mtime and len(item) > 2:
                                 mtime = item[2] if len(item) > 2 else 0
                                 result[k].append(
-                                    {
-                                        "name": file_name,
-                                        "path": full_path,
-                                        "mtime": mtime,
-                                        "mtime_formatted": format_timestamp(mtime),
-                                    }
+                                    _maybe_git(
+                                        {
+                                            "name": file_name,
+                                            "path": full_path,
+                                            "mtime": mtime,
+                                            "mtime_formatted": format_timestamp(mtime),
+                                        }
+                                    )
                                 )
                             elif self.sort_by_size and len(item) > 2:
                                 size = item[2] if len(item) > 2 else 0
                                 result[k].append(
-                                    {
-                                        "name": file_name,
-                                        "path": full_path,
-                                        "size": size,
-                                        "size_formatted": format_size(size),
-                                    }
+                                    _maybe_git(
+                                        {
+                                            "name": file_name,
+                                            "path": full_path,
+                                            "size": size,
+                                            "size_formatted": format_size(size),
+                                        }
+                                    )
                                 )
                             elif self.sort_by_loc and len(item) > 2:
                                 loc = item[2] if len(item) > 2 else 0
                                 result[k].append(
-                                    {"name": file_name, "path": full_path, "loc": loc}
+                                    _maybe_git(
+                                        {
+                                            "name": file_name,
+                                            "path": full_path,
+                                            "loc": loc,
+                                        }
+                                    )
                                 )
                             elif self.show_full_path and len(item) > 1:
-                                result[k].append({"name": file_name, "path": full_path})
+                                result[k].append(
+                                    _maybe_git({"name": file_name, "path": full_path})
+                                )
                             else:
-                                result[k].append(file_name)
+                                if _git_status:
+                                    result[k].append(
+                                        {"name": file_name, "git_status": _git_status}
+                                    )
+                                else:
+                                    result[k].append(file_name)
                     elif k == "_loc":
                         if self.sort_by_loc:
                             result[k] = v
@@ -640,6 +713,8 @@ class DirectoryExporter:
                         if self.sort_by_mtime:
                             result[k] = v
                             result["_mtime_formatted"] = format_timestamp(v)
+                    elif k == "_git_markers":
+                        pass
                     elif k == "_max_depth_reached":
                         result[k] = v
                     elif isinstance(v, dict):
@@ -660,6 +735,7 @@ class DirectoryExporter:
                         "show_loc": self.sort_by_loc,
                         "show_size": self.sort_by_size,
                         "show_mtime": self.sort_by_mtime,
+                        "show_git_status": self.show_git_status,
                     },
                     f,
                     indent=2,
@@ -746,37 +822,66 @@ class DirectoryExporter:
                     ext = os.path.splitext(file_name)[1].lower()
                     color = generate_color_for_extension(ext)
 
+                    _git_markers_here = structure.get("_git_markers", {})
+                    _git_marker = (
+                        _git_markers_here.get(file_name, "")
+                        if self.show_git_status
+                        else ""
+                    )
+                    _GIT_HTML_STYLES = {
+                        "U": ("#999999", "dim"),
+                        "M": ("#d4a017", ""),
+                        "A": ("#28a745", ""),
+                        "D": ("#dc3545", "line-through"),
+                    }
+                    if _git_marker and _git_marker in _GIT_HTML_STYLES:
+                        _badge_color, _file_style_extra = _GIT_HTML_STYLES[_git_marker]
+                        _git_badge = f' <span class="git-badge git-{_git_marker.lower()}" style="color:{_badge_color};font-size:0.8em;font-weight:bold;">[{_git_marker}]</span>'
+                        _name_style = (
+                            ' style="text-decoration: line-through;"'
+                            if _file_style_extra == "line-through"
+                            else ""
+                        )
+                        _name_open = f"<span{_name_style}>"
+                        _name_close = "</span>"
+                        _file_style = f"color: {color};"
+                    else:
+                        _git_badge = ""
+                        _name_open = ""
+                        _name_close = ""
+                        _file_style = f"color: {color};"
+
                     if self.sort_by_loc and self.sort_by_size and self.sort_by_mtime:
                         html_content.append(
-                            f'<li class="file" style="color: {color};">📄 {html.escape(display_path)} ({loc} lines, {format_size(size)}, {format_timestamp(mtime)})</li>'
+                            f'<li class="file" style="{_file_style}">📄 {_name_open}{html.escape(display_path)}{_name_close} ({loc} lines, {format_size(size)}, {format_timestamp(mtime)}){_git_badge}</li>'
                         )
                     elif self.sort_by_loc and self.sort_by_mtime:
                         html_content.append(
-                            f'<li class="file" style="color: {color};">📄 {html.escape(display_path)} ({loc} lines, {format_timestamp(mtime)})</li>'
+                            f'<li class="file" style="{_file_style}">📄 {_name_open}{html.escape(display_path)}{_name_close} ({loc} lines, {format_timestamp(mtime)}){_git_badge}</li>'
                         )
                     elif self.sort_by_size and self.sort_by_mtime:
                         html_content.append(
-                            f'<li class="file" style="color: {color};">📄 {html.escape(display_path)} ({format_size(size)}, {format_timestamp(mtime)})</li>'
+                            f'<li class="file" style="{_file_style}">📄 {_name_open}{html.escape(display_path)}{_name_close} ({format_size(size)}, {format_timestamp(mtime)}){_git_badge}</li>'
                         )
                     elif self.sort_by_loc and self.sort_by_size:
                         html_content.append(
-                            f'<li class="file" style="color: {color};">📄 {html.escape(display_path)} ({loc} lines, {format_size(size)})</li>'
+                            f'<li class="file" style="{_file_style}">📄 {_name_open}{html.escape(display_path)}{_name_close} ({loc} lines, {format_size(size)}){_git_badge}</li>'
                         )
                     elif self.sort_by_mtime:
                         html_content.append(
-                            f'<li class="file" style="color: {color};">📄 {html.escape(display_path)} ({format_timestamp(mtime)})</li>'
+                            f'<li class="file" style="{_file_style}">📄 {_name_open}{html.escape(display_path)}{_name_close} ({format_timestamp(mtime)}){_git_badge}</li>'
                         )
                     elif self.sort_by_size:
                         html_content.append(
-                            f'<li class="file" style="color: {color};">📄 {html.escape(display_path)} ({format_size(size)})</li>'
+                            f'<li class="file" style="{_file_style}">📄 {_name_open}{html.escape(display_path)}{_name_close} ({format_size(size)}){_git_badge}</li>'
                         )
                     elif self.sort_by_loc:
                         html_content.append(
-                            f'<li class="file" style="color: {color};">📄 {html.escape(display_path)} ({loc} lines)</li>'
+                            f'<li class="file" style="{_file_style}">📄 {_name_open}{html.escape(display_path)}{_name_close} ({loc} lines){_git_badge}</li>'
                         )
                     else:
                         html_content.append(
-                            f'<li class="file" style="color: {color};">📄 {html.escape(display_path)}</li>'
+                            f'<li class="file" style="{_file_style}">📄 {_name_open}{html.escape(display_path)}{_name_close}{_git_badge}</li>'
                         )
             for name, content in sorted(structure.items()):
                 if (
@@ -785,6 +890,7 @@ class DirectoryExporter:
                     or name == "_loc"
                     or name == "_size"
                     or name == "_mtime"
+                    or name == "_git_markers"
                 ):
                     continue
                 if (
@@ -968,6 +1074,23 @@ class DirectoryExporter:
             or (self.sort_by_mtime and (self.sort_by_loc or self.sort_by_size))
             else ""
         )
+        git_styles = (
+            """
+            .git-badge {
+                font-size: 0.78em;
+                font-weight: bold;
+                font-family: monospace;
+                margin-left: 4px;
+                vertical-align: middle;
+            }
+            .git-u { color: #999999; }
+            .git-m { color: #d4a017; }
+            .git-a { color: #28a745; }
+            .git-d { color: #dc3545; }
+        """
+            if self.show_git_status
+            else ""
+        )
         html_template = f"""
         <!DOCTYPE html>
         <html>
@@ -1005,6 +1128,7 @@ class DirectoryExporter:
                 {size_styles}
                 {mtime_styles}
                 {metric_styles}
+                {git_styles}
             </style>
         </head>
         <body>
@@ -1097,34 +1221,63 @@ class DirectoryExporter:
                     else:
                         display_path = file_item
 
+                    _fname_md = (
+                        file_item[0]
+                        if isinstance(file_item, tuple) and len(file_item) > 0
+                        else (file_item if isinstance(file_item, str) else "unknown")
+                    )
+                    _git_markers_md = structure.get("_git_markers", {})
+                    _git_marker_md = (
+                        _git_markers_md.get(_fname_md, "")
+                        if self.show_git_status
+                        else ""
+                    )
+                    _GIT_MD_BADGE = {
+                        "U": "**[U]**",
+                        "M": "**[M]**",
+                        "A": "**[A]**",
+                        "D": "**[D]**",
+                    }
+                    if _git_marker_md == "D":
+                        _md_display = f"~~`{display_path}`~~"
+                    else:
+                        _md_display = f"`{display_path}`"
+                    _md_git_suffix = (
+                        f" {_GIT_MD_BADGE[_git_marker_md]}"
+                        if _git_marker_md in _GIT_MD_BADGE
+                        else ""
+                    )
+
                     if self.sort_by_loc and self.sort_by_size and self.sort_by_mtime:
                         lines.append(
-                            f"{indent}- 📄 `{display_path}` ({loc} lines, {format_size(size)}, {format_timestamp(mtime)})"
+                            f"{indent}- 📄 {_md_display} ({loc} lines, {format_size(size)}, {format_timestamp(mtime)}){_md_git_suffix}"
                         )
                     elif self.sort_by_loc and self.sort_by_mtime:
                         lines.append(
-                            f"{indent}- 📄 `{display_path}` ({loc} lines, {format_timestamp(mtime)})"
+                            f"{indent}- 📄 {_md_display} ({loc} lines, {format_timestamp(mtime)}){_md_git_suffix}"
                         )
                     elif self.sort_by_size and self.sort_by_mtime:
                         lines.append(
-                            f"{indent}- 📄 `{display_path}` ({format_size(size)}, {format_timestamp(mtime)})"
+                            f"{indent}- 📄 {_md_display} ({format_size(size)}, {format_timestamp(mtime)}){_md_git_suffix}"
                         )
                     elif self.sort_by_loc and self.sort_by_size:
                         lines.append(
-                            f"{indent}- 📄 `{display_path}` ({loc} lines, {format_size(size)})"
+                            f"{indent}- 📄 {_md_display} ({loc} lines, {format_size(size)}){_md_git_suffix}"
                         )
                     elif self.sort_by_mtime:
                         lines.append(
-                            f"{indent}- 📄 `{display_path}` ({format_timestamp(mtime)})"
+                            f"{indent}- 📄 {_md_display} ({format_timestamp(mtime)}){_md_git_suffix}"
                         )
                     elif self.sort_by_size:
                         lines.append(
-                            f"{indent}- 📄 `{display_path}` ({format_size(size)})"
+                            f"{indent}- 📄 {_md_display} ({format_size(size)}){_md_git_suffix}"
                         )
                     elif self.sort_by_loc:
-                        lines.append(f"{indent}- 📄 `{display_path}` ({loc} lines)")
+                        lines.append(
+                            f"{indent}- 📄 {_md_display} ({loc} lines){_md_git_suffix}"
+                        )
                     else:
-                        lines.append(f"{indent}- 📄 `{display_path}`")
+                        lines.append(f"{indent}- 📄 {_md_display}{_md_git_suffix}")
             for name, content in sorted(structure.items()):
                 if (
                     name == "_files"
@@ -1132,6 +1285,7 @@ class DirectoryExporter:
                     or name == "_loc"
                     or name == "_size"
                     or name == "_mtime"
+                    or name == "_git_markers"
                 ):
                     continue
                 if (
@@ -1302,6 +1456,7 @@ class DirectoryExporter:
                 self.sort_by_loc,
                 self.sort_by_size,
                 self.sort_by_mtime,
+                self.show_git_status,
             )
         except Exception as e:
             logger.error(f"Error exporting to React component: {e}")

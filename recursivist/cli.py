@@ -159,6 +159,12 @@ def visualize(
         "-m",
         help="Sort files by modification time and display timestamps",
     ),
+    show_git_status: bool = typer.Option(
+        False,
+        "--git-status",
+        "-G",
+        help="Annotate files with Git status markers: [U] untracked, [M] modified, [A] added, [D] deleted",
+    ),
     verbose: bool = typer.Option(
         False, "--verbose", "-v", help="Enable verbose output"
     ),
@@ -174,6 +180,7 @@ def visualize(
     - Full path display option
     - Lines of code counting and sorting
     - Progress indicators for large directories
+    - Optional Git status markers (--git-status)
 
     Examples:
         recursivist visualize                             # Display current directory
@@ -188,6 +195,7 @@ def visualize(
         recursivist visualize -s                          # Sort by lines of code and show LOC counts
         recursivist visualize -z                          # Sort by size and show file sizes
         recursivist visualize -m                          # Sort by modification time
+        recursivist visualize -G                          # Show Git status markers
     """
 
     if verbose:
@@ -206,6 +214,8 @@ def visualize(
         logger.info("Sorting files by size and displaying file sizes")
     if sort_by_mtime:
         logger.info("Sorting files by modification time and displaying timestamps")
+    if show_git_status:
+        logger.info("Showing Git status markers for changed files")
     parsed_exclude_dirs = parse_list_option(exclude_dirs)
     parsed_exclude_exts = parse_list_option(exclude_extensions)
     parsed_exclude_patterns = parse_list_option(exclude_patterns)
@@ -279,6 +289,7 @@ def visualize(
             sort_by_loc,
             sort_by_size,
             sort_by_mtime,
+            show_git_status,
         )
     except Exception as e:
         logger.error(f"Error: {e}", exc_info=verbose)
@@ -359,6 +370,12 @@ def export(
         "-m",
         help="Sort files by modification time and display timestamps",
     ),
+    show_git_status: bool = typer.Option(
+        False,
+        "--git-status",
+        "-G",
+        help="Annotate files with Git status markers: [U] untracked, [M] modified, [A] added, [D] deleted",
+    ),
     verbose: bool = typer.Option(
         False, "--verbose", "-v", help="Enable verbose output"
     ),
@@ -372,6 +389,7 @@ def export(
     - Progress indicators for large directories
     - Consistent styling across formats
     - Lines of code counting and sorting
+    - Optional Git status markers (--git-status)
 
     Examples:
         recursivist export                             # Export current directory to MD
@@ -389,6 +407,7 @@ def export(
         recursivist export -s                          # Sort by lines of code and show LOC counts
         recursivist export -z                          # Sort by file size and show file sizes
         recursivist export -m                          # Sort by modification time
+        recursivist export -G                          # Annotate files with Git status markers
     """
 
     if verbose:
@@ -407,6 +426,8 @@ def export(
         logger.info("Sorting files by size and displaying file sizes")
     if sort_by_mtime:
         logger.info("Sorting files by modification time and displaying timestamps")
+    if show_git_status:
+        logger.info("Annotating files with Git status markers")
     parsed_exclude_dirs = parse_list_option(exclude_dirs)
     parsed_exclude_exts = parse_list_option(exclude_extensions)
     parsed_exclude_patterns = parse_list_option(exclude_patterns)
@@ -433,6 +454,14 @@ def export(
         else:
             logger.warning(f"Ignore file not found: {ignore_path}")
     try:
+        from recursivist.core import get_git_status as _get_git_status
+
+        git_status_map = _get_git_status(str(directory)) if show_git_status else None
+        if show_git_status and not git_status_map:
+            logger.debug(
+                "Git status requested but no data returned — "
+                "directory may not be inside a Git repository, or there are no changes."
+            )
         with Progress() as progress:
             task_scan = progress.add_task(
                 "[cyan]Scanning directory structure...", total=None
@@ -463,6 +492,8 @@ def export(
                 sort_by_loc=sort_by_loc,
                 sort_by_size=sort_by_size,
                 sort_by_mtime=sort_by_mtime,
+                show_git_status=show_git_status,
+                git_status_map=git_status_map,
             )
             progress.update(task_scan, completed=True)
             logger.debug(f"Found {len(extensions)} unique file extensions")
@@ -494,6 +525,7 @@ def export(
                     sort_by_loc,
                     sort_by_size,
                     sort_by_mtime,
+                    show_git_status,
                 )
                 logger.info(f"Successfully exported to {output_path}")
             except Exception as e:

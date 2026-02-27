@@ -40,6 +40,7 @@ def export_to_svg(
     sort_by_loc: bool = False,
     sort_by_size: bool = False,
     sort_by_mtime: bool = False,
+    show_git_status: bool = False,
 ) -> None:
     """Export the directory structure to an SVG image using rich."""
 
@@ -99,8 +100,8 @@ def export_to_svg(
         sort_by_loc=sort_by_loc,
         sort_by_size=sort_by_size,
         sort_by_mtime=sort_by_mtime,
+        show_git_status=show_git_status,
     )
-
     console = Console(record=True, width=120)
     console.print(tree)
     console.save_svg(output_path, title=f"Directory Structure - {root_name}")
@@ -115,6 +116,7 @@ def export_structure(
     sort_by_loc: bool = False,
     sort_by_size: bool = False,
     sort_by_mtime: bool = False,
+    show_git_status: bool = False,
 ) -> None:
     """Export the directory structure to various formats.
 
@@ -129,6 +131,7 @@ def export_structure(
         sort_by_loc: Whether to include lines of code counts in the export
         sort_by_size: Whether to include file size information in the export
         sort_by_mtime: Whether to include file modification times in the export
+        show_git_status: Whether to annotate files with Git status markers
 
     Raises:
         ValueError: If the format_type is not supported
@@ -142,6 +145,7 @@ def export_structure(
             sort_by_loc=sort_by_loc,
             sort_by_size=sort_by_size,
             sort_by_mtime=sort_by_mtime,
+            show_git_status=show_git_status,
         )
         return
 
@@ -154,6 +158,7 @@ def export_structure(
         sort_by_loc,
         sort_by_size,
         sort_by_mtime,
+        show_git_status,
     )
     format_map = {
         "txt": exporter.to_txt,
@@ -190,6 +195,88 @@ def parse_ignore_file(ignore_file_path: str) -> List[str]:
                     line = line[:-1]
                 patterns.append(line)
     return patterns
+
+
+def get_git_status(directory: str) -> Dict[str, str]:
+    """Get Git status for files relative to a given directory.
+
+    Runs ``git status --porcelain`` from the repository root and maps every
+    changed/untracked path back to a path relative to *directory*, filtering
+    out files that live outside of it.
+
+    Status characters returned:
+    - ``'U'``: Untracked (``??`` in porcelain output)
+    - ``'M'``: Modified (working-tree or staged modification)
+    - ``'A'``: Added / staged for the first time (includes renames)
+    - ``'D'``: Deleted (working-tree or staged deletion)
+
+    Args:
+        directory: Absolute path to the directory being visualised.  Must be
+            inside a Git repository.
+
+    Returns:
+        ``{relative_path: status_char}`` where *relative_path* uses forward
+        slashes regardless of OS, or an empty dict when Git is unavailable or
+        the directory is not tracked.
+    """
+    import subprocess
+
+    try:
+        root_result = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"],
+            cwd=directory,
+            capture_output=True,
+            text=True,
+        )
+        if root_result.returncode != 0:
+            return {}
+        git_root = root_result.stdout.strip()
+
+        status_result = subprocess.run(
+            ["git", "status", "--porcelain"],
+            cwd=git_root,
+            capture_output=True,
+            text=True,
+        )
+        if status_result.returncode != 0:
+            return {}
+
+        status_map: Dict[str, str] = {}
+        for line in status_result.stdout.splitlines():
+            if len(line) < 4:
+                continue
+            xy = line[:2]
+            path = line[3:]
+            if " -> " in path:
+                path = path.split(" -> ", 1)[1]
+            path = path.strip().strip('"')
+
+            x, y = xy[0], xy[1]
+            if x == "?" and y == "?":
+                status = "U"
+            elif x == "D" or y == "D":
+                status = "D"
+            elif x == "A" or x == "R":
+                status = "A"
+            elif x == "M" or y == "M":
+                status = "M"
+            else:
+                status = "M"
+
+            abs_file = os.path.normpath(
+                os.path.join(git_root, path.replace("/", os.sep))
+            )
+            try:
+                rel = os.path.relpath(abs_file, directory)
+                if not rel.startswith(".."):
+                    status_map[rel.replace(os.sep, "/")] = status
+            except ValueError:
+                pass
+
+        return status_map
+    except Exception as e:
+        logger.debug(f"Could not get git status for {directory}: {e}")
+        return {}
 
 
 def compile_regex_patterns(
@@ -408,6 +495,8 @@ def get_directory_structure(
     sort_by_loc: bool = False,
     sort_by_size: bool = False,
     sort_by_mtime: bool = False,
+    show_git_status: bool = False,
+    git_status_map: Optional[Dict[str, str]] = None,
 ) -> Tuple[Dict[str, Any], Set[str]]:
     """Build a nested dictionary representing a directory structure.
 
@@ -424,6 +513,7 @@ def get_directory_structure(
     - "_size": Total size in bytes (if sort_by_size is True)
     - "_mtime": Latest modification timestamp (if sort_by_mtime is True)
     - "_max_depth_reached": Flag indicating max depth was reached
+    - "_git_markers": Dict mapping filename to Git status char (if show_git_status is True)
 
     Args:
         root_dir: Root directory path to start from
@@ -440,6 +530,8 @@ def get_directory_structure(
         sort_by_loc: Whether to calculate and track lines of code counts
         sort_by_size: Whether to calculate and track file sizes
         sort_by_mtime: Whether to track file modification times
+        show_git_status: Whether to annotate files with Git status markers
+        git_status_map: Pre-computed {rel_path: status_char} mapping (from get_git_status)
 
     Returns:
         Tuple of (structure dictionary, set of file extensions found)
@@ -462,6 +554,18 @@ def get_directory_structure(
     total_loc = 0
     total_size = 0
     latest_mtime = 0.0
+
+    git_markers: Dict[str, str] = {}
+    if show_git_status and git_status_map is not None:
+        current_prefix = current_path.replace(os.sep, "/") if current_path else ""
+        for git_path, status in git_status_map.items():
+            slash_idx = git_path.rfind("/")
+            if slash_idx == -1:
+                file_dir, fname = "", git_path
+            else:
+                file_dir, fname = git_path[:slash_idx], git_path[slash_idx + 1 :]
+            if file_dir == current_prefix:
+                git_markers[fname] = status
     if max_depth > 0 and current_depth >= max_depth:
         return {"_max_depth_reached": True}, extensions_set
     try:
@@ -578,6 +682,8 @@ def get_directory_structure(
                 sort_by_loc,
                 sort_by_size,
                 sort_by_mtime,
+                show_git_status,
+                git_status_map,
             )
             structure[item] = substructure
             extensions_set.update(sub_extensions)
@@ -593,6 +699,60 @@ def get_directory_structure(
         structure["_size"] = total_size
     if sort_by_mtime:
         structure["_mtime"] = latest_mtime
+
+    if show_git_status and git_markers:
+        existing_names: Set[str] = set()
+        for f in structure.get("_files", []):
+            existing_names.add(f[0] if isinstance(f, tuple) else f)
+
+        for fname, status in git_markers.items():
+            if status == "D" and fname not in existing_names:
+                _, ext = os.path.splitext(fname)
+                if ext:
+                    extensions_set.add(ext.lower())
+                if "_files" not in structure:
+                    structure["_files"] = []
+                abs_deleted = os.path.abspath(os.path.join(root_dir, fname)).replace(
+                    os.sep, "/"
+                )
+                if show_full_path:
+                    if sort_by_loc and sort_by_size and sort_by_mtime:
+                        entry: Any = (fname, abs_deleted, 0, 0, 0.0)
+                    elif sort_by_loc and sort_by_size:
+                        entry = (fname, abs_deleted, 0, 0)
+                    elif sort_by_loc and sort_by_mtime:
+                        entry = (fname, abs_deleted, 0, 0, 0.0)
+                    elif sort_by_size and sort_by_mtime:
+                        entry = (fname, abs_deleted, 0, 0, 0.0)
+                    elif sort_by_loc:
+                        entry = (fname, abs_deleted, 0)
+                    elif sort_by_size:
+                        entry = (fname, abs_deleted, 0)
+                    elif sort_by_mtime:
+                        entry = (fname, abs_deleted, 0.0)
+                    else:
+                        entry = (fname, abs_deleted)
+                else:
+                    if sort_by_loc and sort_by_size and sort_by_mtime:
+                        entry = (fname, fname, 0, 0, 0.0)
+                    elif sort_by_loc and sort_by_size:
+                        entry = (fname, fname, 0, 0)
+                    elif sort_by_loc and sort_by_mtime:
+                        entry = (fname, fname, 0, 0, 0.0)
+                    elif sort_by_size and sort_by_mtime:
+                        entry = (fname, fname, 0, 0, 0.0)
+                    elif sort_by_loc:
+                        entry = (fname, fname, 0)
+                    elif sort_by_size:
+                        entry = (fname, fname, 0)
+                    elif sort_by_mtime:
+                        entry = (fname, fname, 0.0)
+                    else:
+                        entry = fname
+                structure["_files"].append(entry)
+
+        structure["_git_markers"] = git_markers
+
     return structure, extensions_set
 
 
@@ -742,6 +902,7 @@ def build_tree(
     sort_by_loc: bool = False,
     sort_by_size: bool = False,
     sort_by_mtime: bool = False,
+    show_git_status: bool = False,
 ) -> None:
     """Build the tree structure with colored file names.
 
@@ -750,6 +911,10 @@ def build_tree(
     When sort_by_loc is True, displays lines of code counts for files and directories.
     When sort_by_size is True, displays file sizes for files and directories.
     When sort_by_mtime is True, displays file modification times.
+    When show_git_status is True, appends a coloured Git status marker to each file:
+    ``[U]`` untracked (grey), ``[M]`` modified (yellow), ``[A]`` added (green),
+    ``[D]`` deleted (red).  Deleted files that no longer exist on disk are shown
+    with a strikethrough style.
 
     Args:
         structure: Dictionary representation of the directory structure
@@ -760,7 +925,17 @@ def build_tree(
         sort_by_loc: Whether to display lines of code counts
         sort_by_size: Whether to display file sizes
         sort_by_mtime: Whether to display file modification times
+        show_git_status: Whether to display Git status markers
     """
+    _GIT_MARKER_STYLES = {
+        "U": ("dim", "[U]"),
+        "M": ("yellow", "[M]"),
+        "A": ("green", "[A]"),
+        "D": ("red", "[D]"),
+    }
+    git_markers_dict: Dict[str, str] = (
+        structure.get("_git_markers", {}) if show_git_status else {}
+    )
     for folder, content in sorted(structure.items()):
         if folder == "_files":
             for file_item in sort_files_by_type(
@@ -808,49 +983,66 @@ def build_tree(
                 display_path = full_path if show_full_path else file_name
                 ext = os.path.splitext(file_name)[1].lower()
                 color = color_map.get(ext, "#FFFFFF")
+
+                git_marker = git_markers_dict.get(file_name, "")
+                is_deleted = git_marker == "D"
+
+                name_style = f"{color} strike" if is_deleted else color
+
+                colored_text = Text()
+                colored_text.append("📄 ", style=color)
+
                 if sort_by_loc and sort_by_size and sort_by_mtime and loc > 0:
-                    colored_text = Text(
-                        f"📄 {display_path} ({loc} lines, {format_size(size)}, {format_timestamp(mtime)})",
-                        style=color,
+                    colored_text.append(
+                        f"{display_path} ({loc} lines, {format_size(size)}, {format_timestamp(mtime)})",
+                        style=name_style,
                     )
                 elif sort_by_loc and sort_by_mtime and loc > 0:
-                    colored_text = Text(
-                        f"📄 {display_path} ({loc} lines, {format_timestamp(mtime)})",
-                        style=color,
+                    colored_text.append(
+                        f"{display_path} ({loc} lines, {format_timestamp(mtime)})",
+                        style=name_style,
                     )
                 elif sort_by_size and sort_by_mtime and size > 0:
-                    colored_text = Text(
-                        f"📄 {display_path} ({format_size(size)}, {format_timestamp(mtime)})",
-                        style=color,
+                    colored_text.append(
+                        f"{display_path} ({format_size(size)}, {format_timestamp(mtime)})",
+                        style=name_style,
                     )
                 elif sort_by_loc and sort_by_size and loc > 0:
-                    colored_text = Text(
-                        f"📄 {display_path} ({loc} lines, {format_size(size)})",
-                        style=color,
+                    colored_text.append(
+                        f"{display_path} ({loc} lines, {format_size(size)})",
+                        style=name_style,
                     )
                 elif sort_by_loc and loc > 0:
-                    colored_text = Text(
-                        f"📄 {display_path} ({loc} lines)",
-                        style=color,
+                    colored_text.append(
+                        f"{display_path} ({loc} lines)",
+                        style=name_style,
                     )
                 elif sort_by_size and size > 0:
-                    colored_text = Text(
-                        f"📄 {display_path} ({format_size(size)})",
-                        style=color,
+                    colored_text.append(
+                        f"{display_path} ({format_size(size)})",
+                        style=name_style,
                     )
                 elif sort_by_mtime and mtime > 0:
-                    colored_text = Text(
-                        f"📄 {display_path} ({format_timestamp(mtime)})",
-                        style=color,
+                    colored_text.append(
+                        f"{display_path} ({format_timestamp(mtime)})",
+                        style=name_style,
                     )
                 else:
-                    colored_text = Text(f"📄 {display_path}", style=color)
+                    colored_text.append(display_path, style=name_style)
+
+                if show_git_status and git_marker:
+                    marker_style, badge = _GIT_MARKER_STYLES.get(
+                        git_marker, ("dim", f"[{git_marker}]")
+                    )
+                    colored_text.append(f" {badge}", style=marker_style)
+
                 tree.add(colored_text)
         elif (
             folder == "_loc"
             or folder == "_size"
             or folder == "_mtime"
             or folder == "_max_depth_reached"
+            or folder == "_git_markers"
         ):
             pass
         else:
@@ -905,6 +1097,7 @@ def build_tree(
                     sort_by_loc,
                     sort_by_size,
                     sort_by_mtime,
+                    show_git_status,
                 )
 
 
@@ -921,6 +1114,7 @@ def display_tree(
     sort_by_loc: bool = False,
     sort_by_size: bool = False,
     sort_by_mtime: bool = False,
+    show_git_status: bool = False,
 ) -> None:
     """Display a directory tree in the terminal with rich formatting.
 
@@ -929,6 +1123,7 @@ def display_tree(
     - Optional statistics (lines of code, sizes, modification times)
     - Filtered content based on exclusion patterns
     - Depth limitations if specified
+    - Optional Git status markers (when show_git_status is True)
 
     This function handles the entire process from scanning the directory to displaying the final tree visualization.
 
@@ -945,6 +1140,7 @@ def display_tree(
         sort_by_loc: Whether to show and sort by lines of code
         sort_by_size: Whether to show and sort by file size
         sort_by_mtime: Whether to show and sort by modification time
+        show_git_status: Whether to annotate files with Git status markers
     """
     if exclude_dirs is None:
         exclude_dirs = []
@@ -960,6 +1156,16 @@ def display_tree(
     }
     compiled_exclude = compile_regex_patterns(exclude_patterns, use_regex)
     compiled_include = compile_regex_patterns(include_patterns, use_regex)
+
+    git_status_map: Optional[Dict[str, str]] = None
+    if show_git_status:
+        git_status_map = get_git_status(root_dir)
+        if not git_status_map:
+            logger.debug(
+                "Git status requested but no data returned — "
+                "directory may not be inside a Git repository, or there are no changes."
+            )
+
     structure, extensions = get_directory_structure(
         root_dir=root_dir,
         exclude_dirs=exclude_dirs,
@@ -973,6 +1179,8 @@ def display_tree(
         sort_by_loc=sort_by_loc,
         sort_by_size=sort_by_size,
         sort_by_mtime=sort_by_mtime,
+        show_git_status=show_git_status,
+        git_status_map=git_status_map,
     )
     color_map = {ext: generate_color_for_extension(ext) for ext in extensions}
     console = Console()
@@ -1018,6 +1226,7 @@ def display_tree(
         sort_by_loc=sort_by_loc,
         sort_by_size=sort_by_size,
         sort_by_mtime=sort_by_mtime,
+        show_git_status=show_git_status,
     )
     console.print(tree)
 

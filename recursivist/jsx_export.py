@@ -33,6 +33,7 @@ def generate_jsx_component(
     sort_by_loc: bool = False,
     sort_by_size: bool = False,
     sort_by_mtime: bool = False,
+    show_git_status: bool = False,
 ) -> None:
     """Generate a React component file for directory structure visualization.
 
@@ -44,6 +45,7 @@ def generate_jsx_component(
     - Path copying
     - Expand/collapse all buttons
     - Optional statistics display (LOC, size, modification times)
+    - Optional Git status markers (untracked, modified, added, deleted)
     - Mobile-responsive design
 
     Args:
@@ -54,6 +56,7 @@ def generate_jsx_component(
         sort_by_loc: Whether to show lines of code counts and sort by them
         sort_by_size: Whether to show file sizes and sort by them
         sort_by_mtime: Whether to show file modification times and sort by them
+        show_git_status: Whether to show Git status markers on files
     """
 
     def _build_structure_jsx(
@@ -69,6 +72,7 @@ def generate_jsx_component(
                 and k != "_loc"
                 and k != "_size"
                 and k != "_mtime"
+                and k != "_git_markers"
             ],
             key=lambda x: x[0].lower(),
         ):
@@ -312,6 +316,12 @@ def generate_jsx_component(
                     props.append(f"mtimeCount={{{mtime}}}")
                     props.append(f'mtimeFormatted="{format_timestamp(mtime)}"')
 
+                if show_git_status:
+                    _git_markers_jsx = structure.get("_git_markers", {})
+                    _gs = _git_markers_jsx.get(file_name, "")
+                    if _gs:
+                        props.append(f'gitStatus="{_gs}"')
+
                 jsx_content.append(f"<FileItem {' '.join(props)} />")
 
         return "\n".join(jsx_content)
@@ -343,6 +353,11 @@ def generate_jsx_component(
         """const showMtime = true;"""
         if sort_by_mtime
         else """const showMtime = false;"""
+    )
+    git_status_state = (
+        """const showGitStatus = true;"""
+        if show_git_status
+        else """const showGitStatus = false;"""
     )
     loc_sort_state = (
         """const sortByLoc = true;""" if sort_by_loc else """const sortByLoc = false;"""
@@ -662,9 +677,18 @@ def generate_jsx_component(
         setSelectedItem,
         showLoc,
         showSize,
-        showMtime
+        showMtime,
+        showGitStatus
       }} = React.useContext(AppContext);
       const {{ name, displayPath, path = [] }} = props;
+      const gitStatus = props.gitStatus || '';
+      const isDeleted = gitStatus === 'D';
+      const GIT_BADGE_COLORS = {{
+        U: {{ bg: darkMode ? 'bg-gray-700' : 'bg-gray-200', text: darkMode ? 'text-gray-400' : 'text-gray-500' }},
+        M: {{ bg: darkMode ? 'bg-yellow-900' : 'bg-yellow-100', text: darkMode ? 'text-yellow-300' : 'text-yellow-700' }},
+        A: {{ bg: darkMode ? 'bg-green-900' : 'bg-green-100', text: darkMode ? 'text-green-300' : 'text-green-700' }},
+        D: {{ bg: darkMode ? 'bg-red-900' : 'bg-red-100', text: darkMode ? 'text-red-300' : 'text-red-600' }},
+      }};
       useEffect(() => {{
       }}, [currentPath, path]);
       const matchesSearch = searchTerm && name.toLowerCase().includes(searchTerm.toLowerCase());
@@ -702,7 +726,7 @@ def generate_jsx_component(
           >
             <File className={{`w-5 h-5 mr-2 ${{isSelected ? (darkMode ? 'text-yellow-300' : 'text-blue-600') : darkMode ? 'text-blue-400/70' : 'text-blue-400'}}`}} />
             <div className="min-w-0 overflow-hidden">
-              <span className={{`truncate block ${{isSelected ? (darkMode ? 'text-yellow-300 font-medium' : 'text-blue-700 font-medium') : ''}}`}}>
+              <span className={{`truncate block ${{isSelected ? (darkMode ? 'text-yellow-300 font-medium' : 'text-blue-700 font-medium') : ''}} ${{isDeleted ? 'line-through opacity-60' : ''}}`}}>
                 {{searchTerm ? highlightMatch(displayPath, searchTerm) : displayPath}}
               </span>
               {{props.locCount !== undefined && showLoc && (
@@ -724,6 +748,11 @@ def generate_jsx_component(
                   (darkMode ? 'bg-purple-800 text-purple-200' : 'bg-purple-200 text-purple-700') :
                   (darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-700')}}`}}>
                   {{props.mtimeFormatted}}
+                </span>
+              )}}
+              {{showGitStatus && gitStatus && GIT_BADGE_COLORS[gitStatus] && (
+                <span className={{`ml-2 text-xs px-1.5 py-0.5 rounded-full font-mono font-bold ${{GIT_BADGE_COLORS[gitStatus].bg}} ${{GIT_BADGE_COLORS[gitStatus].text}}`}}>
+                  [{html.escape("{")}gitStatus{html.escape("}")}]
                 </span>
               )}}
             </div>
@@ -778,6 +807,7 @@ def generate_jsx_component(
       {size_sort_state}
       {mtime_state}
       {mtime_sort_state}
+      {git_status_state}
       const handleExpandAll = () => {{
         setExpandAll(true);
         setTimeout(() => setExpandAll(false), 100);
@@ -836,6 +866,7 @@ def generate_jsx_component(
           sortBySize,
           showMtime,
           sortByMtime,
+          showGitStatus,
           format_size,
           format_timestamp
         }}}}>
@@ -936,7 +967,8 @@ def generate_jsx_component(
       sizeCount: PropTypes.number,
       sizeFormatted: PropTypes.string,
       mtimeCount: PropTypes.number,
-      mtimeFormatted: PropTypes.string
+      mtimeFormatted: PropTypes.string,
+      gitStatus: PropTypes.string
     }};
     export default DirectoryViewer;
     """

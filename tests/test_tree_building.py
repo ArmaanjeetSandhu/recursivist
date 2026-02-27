@@ -521,7 +521,14 @@ class TestDirectoryExporter:
             exporter = DirectoryExporter(nested_structure, "test_root")
             exporter.to_jsx(output_path)
             mock_generate.assert_called_once_with(
-                nested_structure, "test_root", output_path, False, False, False, False
+                nested_structure,
+                "test_root",
+                output_path,
+                False,
+                False,
+                False,
+                False,
+                False,
             )
             mock_generate.reset_mock()
             exporter = DirectoryExporter(
@@ -533,5 +540,12 @@ class TestDirectoryExporter:
             )
             exporter.to_jsx(output_path)
             mock_generate.assert_called_once_with(
-                nested_structure, "test_root", output_path, False, True, True, True
+                nested_structure,
+                "test_root",
+                output_path,
+                False,
+                True,
+                True,
+                True,
+                False,
             )

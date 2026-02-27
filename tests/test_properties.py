@@ -526,7 +526,7 @@ class TestDirectoryExporterToJSX:
             output_path = "test_output.jsx"
             exporter.to_jsx(output_path)
             mock_generate.assert_called_once_with(
-                structure, root_name, output_path, False, False, False, False
+                structure, root_name, output_path, False, False, False, False, False
             )
 
     def test_to_jsx_with_options_basic(self) -> None:
@@ -567,6 +567,7 @@ class TestDirectoryExporterToJSX:
                     sort_by_loc,
                     sort_by_size,
                     sort_by_mtime,
+                    False,
                 )
 
 
