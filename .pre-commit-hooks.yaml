@@ -1,0 +1,7 @@
+- id: recursivist-export
+  name: Recursivist Export
+  description: Automatically regenerate exported directory structures.
+  entry: recursivist export
+  language: python
+  pass_filenames: false
+  require_serial: true

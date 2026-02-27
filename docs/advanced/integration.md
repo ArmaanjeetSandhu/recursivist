@@ -14,9 +14,35 @@ recursivist visualize --ignore-file .gitignore
 
 This is particularly useful for quickly visualizing the structure of a Git repository without the noise of ignored files.
 
-### Git Hooks
+### Pre-commit Framework
 
-You can use Recursivist in Git hooks to automatically document your project structure:
+Recursivist provides official support for the [pre-commit](https://pre-commit.com) framework. This is the easiest way to esnure your directory structure documentation is always up to date before every commit.
+
+Add the following to your `.pre-commit-config.yaml`:
+
+```yaml
+repos:
+  - repo: https://github.com/ArmaanjeetSandhu/recursivist
+    rev: v1.4.6 # Replace with the latest version tag
+      - id: recursivist-export
+        # Customize your export settings here
+        args:
+          - "."
+          - "--format"
+          - "md"
+          - "--output-dir"
+          - "docs"
+          - "--prefix"
+          - "structure"
+          - "--exclude"
+          - "node_modules .git venv"
+```
+
+Once added, run `pre-commit install` to enable it. Now, whenever you commit changes, Recursivist will automatically regenerate your structure files!
+
+### Manual Git Hooks
+
+If you aren't using the `pre-commit` framework, you can still use Recursivist in standard Git hooks to automatically document your project structure:
 
 ```bash
 # .git/hooks/pre-commit
@@ -74,7 +100,7 @@ echo "Branch comparison saved to branch-comparison.html"
 
 ## Processing JSON Exports with jq
 
-The JSON export format works well with command-line data processors like [jq](https://stedolan.github.io/jq/). Here are some useful examples:
+The JSON export format works well with command-line data processors like [jq](https://jqlang.org). Here are some useful examples:
 
 ### Count Files by Extension
 
