@@ -2,7 +2,7 @@ import json
 import os
 import re
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 import pytest
 from typer.testing import CliRunner
@@ -81,7 +81,7 @@ def test_regex_filtering_with_complex_directory(complex_directory: str) -> None:
     python_files_found = False
     non_python_files_found = False
 
-    def check_files(structure: Dict[str, Any]) -> None:
+    def check_files(structure: dict[str, Any]) -> None:
         nonlocal python_files_found, non_python_files_found
         if "_files" in structure:
             for file in structure["_files"]:
@@ -189,7 +189,7 @@ def test_depth_limit_with_complex_directory(complex_directory: str, depth: int) 
         max_depth=depth,
     )
 
-    def check_depth(structure: Dict[str, Any], current_depth: int = 0) -> None:
+    def check_depth(structure: dict[str, Any], current_depth: int = 0) -> None:
         if current_depth == depth:
             for key, value in structure.items():
                 if (
@@ -239,7 +239,7 @@ def test_gitignore_pattern_with_complex_directory(complex_directory: str) -> Non
     assert "build" not in structure
     assert "dist" not in structure
 
-    def check_extensions(structure: Dict[str, Any]) -> None:
+    def check_extensions(structure: dict[str, Any]) -> None:
         for key, value in structure.items():
             if key == "_files":
                 for file in value:
@@ -257,7 +257,7 @@ def test_statistics_integration(temp_dir: str) -> None:
     """Test statistics integration with directory structure."""
     src_dir = os.path.join(temp_dir, "src")
     os.makedirs(src_dir, exist_ok=True)
-    file_contents: Dict[str, str] = {
+    file_contents: dict[str, str] = {
         "small.py": "print('Small file')",
         "medium.py": "def test_func():\n    print('Medium file')\n\ntest_func()",
         "large.py": "\n".join([f"print('Line {i}')" for i in range(10)]),
@@ -386,8 +386,8 @@ def test_pathlib_compatibility(temp_dir: str, output_dir: str) -> None:
 
 
 def get_file_names(
-    structure: Dict[str, Any], path: Optional[List[str]] = None
-) -> List[str]:
+    structure: dict[str, Any], path: Optional[list[str]] = None
+) -> list[str]:
     """
     Extract file names from a structure, optionally at a specific path.
     Args:

@@ -3,7 +3,7 @@ import os
 import re
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Type, Union
+from typing import Any, Optional, Union
 from unittest.mock import MagicMock, mock_open
 
 import pytest
@@ -59,7 +59,7 @@ class TestFileSize:
         self,
         mocker: MockerFixture,
         temp_dir: str,
-        error_type: Type[Exception],
+        error_type: type[Exception],
         error_msg: str,
     ) -> None:
         error_file = os.path.join(temp_dir, "error.txt")
@@ -93,7 +93,7 @@ class TestFileMtime:
         self,
         mocker: MockerFixture,
         temp_dir: str,
-        error_type: Optional[Type[Exception]],
+        error_type: Optional[type[Exception]],
         error_msg: Optional[str],
         expected: float,
     ) -> None:
@@ -286,8 +286,8 @@ class TestBuildTree:
     def test_basic_tree(
         self,
         mocker: MockerFixture,
-        simple_structure: Dict[str, Any],
-        color_map: Dict[str, str],
+        simple_structure: dict[str, Any],
+        color_map: dict[str, str],
     ) -> None:
         mock_tree = MagicMock(spec=Tree)
         mock_subtree = MagicMock(spec=Tree)
@@ -305,13 +305,13 @@ class TestBuildTree:
 
     def test_empty_structure(self, mocker: MockerFixture) -> None:
         mock_tree = MagicMock(spec=Tree)
-        color_map: Dict[str, str] = {}
-        structure: Dict[str, Any] = {}
+        color_map: dict[str, str] = {}
+        structure: dict[str, Any] = {}
         build_tree(structure, mock_tree, color_map)
         mock_tree.add.assert_not_called()
 
     def test_with_full_paths(
-        self, mocker: MockerFixture, color_map: Dict[str, str]
+        self, mocker: MockerFixture, color_map: dict[str, str]
     ) -> None:
         mock_tree = MagicMock(spec=Tree)
         mock_subtree = MagicMock(spec=Tree)
@@ -344,10 +344,10 @@ class TestBuildTree:
     def test_with_statistics(
         self,
         mocker: MockerFixture,
-        structure_with_stats: Dict[str, Any],
-        color_map: Dict[str, str],
+        structure_with_stats: dict[str, Any],
+        color_map: dict[str, str],
         option: str,
-        expected_indicator: Union[str, List[str]],
+        expected_indicator: Union[str, list[str]],
     ) -> None:
         mock_tree = MagicMock(spec=Tree)
         mock_subtree = MagicMock(spec=Tree)
@@ -370,8 +370,8 @@ class TestBuildTree:
     def test_max_depth_indicator(
         self,
         mocker: MockerFixture,
-        max_depth_structure: Dict[str, Any],
-        color_map: Dict[str, str],
+        max_depth_structure: dict[str, Any],
+        color_map: dict[str, str],
     ) -> None:
         mock_tree = MagicMock(spec=Tree)
         mock_subtree = MagicMock(spec=Tree)
@@ -456,7 +456,7 @@ def test_export_structure(
     output_dir: str,
     format_name: str,
     format_extension: str,
-    expected_content: List[str],
+    expected_content: list[str],
 ) -> None:
     """Test exporting structure to different formats."""
     structure, _ = get_directory_structure(sample_directory)
@@ -586,7 +586,7 @@ def test_export_invalid_format(temp_dir: str, output_dir: str) -> None:
     ],
 )
 def test_sort_files_by_type(
-    files: List[Any], sort_key: Optional[str], expected_order: List[str]
+    files: list[Any], sort_key: Optional[str], expected_order: list[str]
 ) -> None:
     """Test sorting files by different criteria."""
     kwargs = {}
@@ -622,10 +622,10 @@ def test_sort_files_by_type(
 def test_should_exclude(
     mocker: MockerFixture,
     path: str,
-    patterns: List[str],
-    extensions: Set[str],
+    patterns: list[str],
+    extensions: set[str],
     expected: bool,
-    exclude_patterns: Optional[List[Any]],
+    exclude_patterns: Optional[list[Any]],
 ) -> None:
     """Test file exclusion logic."""
     mocker.patch("os.path.isfile", return_value=True)
@@ -652,10 +652,10 @@ def test_should_exclude(
     ],
 )
 def test_compile_regex_patterns(
-    patterns: List[str],
+    patterns: list[str],
     is_regex: bool,
     expected_count: int,
-    expected_types: List[Type[Any]],
+    expected_types: list[type[Any]],
 ) -> None:
     """Test compiling regex patterns."""
     compiled = compile_regex_patterns(patterns, is_regex=is_regex)
@@ -679,7 +679,7 @@ def test_compile_regex_patterns(
     ],
 )
 def test_parse_ignore_file(
-    temp_dir: str, content: str, expected_patterns: List[str]
+    temp_dir: str, content: str, expected_patterns: list[str]
 ) -> None:
     """Test parsing ignore files."""
     ignore_path = os.path.join(temp_dir, ".testignore")

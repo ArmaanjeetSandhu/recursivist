@@ -650,9 +650,10 @@ class TestGenerateJSXComponent:
         """Basic test for generate_jsx_component without property testing."""
         structure = {"_files": ["file1.txt"]}
         root_name = "test_root"
-        with patch("builtins.open", MagicMock()) as mock_open, patch(
-            "recursivist.jsx_export.logger"
-        ) as _:
+        with (
+            patch("builtins.open", MagicMock()) as mock_open,
+            patch("recursivist.jsx_export.logger") as _,
+        ):
             mock_file = MagicMock()
             mock_open.return_value.__enter__.return_value = mock_file
             from recursivist.jsx_export import generate_jsx_component

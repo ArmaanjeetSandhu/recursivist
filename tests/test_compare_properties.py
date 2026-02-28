@@ -331,15 +331,13 @@ class TestDisplayComparison:
     @settings(max_examples=5)
     def test_display_comparison(self, dir1: str, dir2: str) -> None:
         """Test that display_comparison calls the necessary functions."""
-        with patch(
-            "recursivist.compare.compare_directory_structures"
-        ) as mock_compare, patch(
-            "recursivist.compare.generate_color_for_extension"
-        ) as mock_color_map, patch(
-            "recursivist.compare.Console"
-        ) as mock_console, patch(
-            "recursivist.compare.build_comparison_tree"
-        ) as mock_build_tree, patch("recursivist.compare.Tree") as mock_tree:
+        with (
+            patch("recursivist.compare.compare_directory_structures") as mock_compare,
+            patch("recursivist.compare.generate_color_for_extension") as mock_color_map,
+            patch("recursivist.compare.Console") as mock_console,
+            patch("recursivist.compare.build_comparison_tree") as mock_build_tree,
+            patch("recursivist.compare.Tree") as mock_tree,
+        ):
             mock_compare.return_value = ({"_files": []}, {"_files": []}, {".txt"})
             mock_color_map.return_value = "#FFFFFF"
             display_comparison(dir1, dir2)
@@ -352,11 +350,10 @@ class TestDisplayComparison:
     @settings(max_examples=5)
     def test_display_comparison_with_options(self, dir1: str, dir2: str) -> None:
         """Test display_comparison with various options."""
-        with patch(
-            "recursivist.compare.compare_directory_structures"
-        ) as mock_compare, patch(
-            "recursivist.compare.generate_color_for_extension"
-        ) as mock_color_map:
+        with (
+            patch("recursivist.compare.compare_directory_structures") as mock_compare,
+            patch("recursivist.compare.generate_color_for_extension") as mock_color_map,
+        ):
             mock_compare.return_value = ({"_files": []}, {"_files": []}, {".txt"})
             mock_color_map.return_value = "#FFFFFF"
             display_comparison(
@@ -401,11 +398,10 @@ class TestExportComparison:
     @settings(max_examples=5)
     def test_export_comparison(self, dir1: str, dir2: str, output_path: str) -> None:
         """Test that export_comparison exports to HTML."""
-        with patch(
-            "recursivist.compare.compare_directory_structures"
-        ) as mock_compare, patch(
-            "recursivist.compare._export_comparison_to_html"
-        ) as mock_export_html:
+        with (
+            patch("recursivist.compare.compare_directory_structures") as mock_compare,
+            patch("recursivist.compare._export_comparison_to_html") as mock_export_html,
+        ):
             mock_compare.return_value = ({"_files": []}, {"_files": []}, {".txt"})
             export_comparison(dir1, dir2, "html", output_path)
             mock_export_html.assert_called_once()
@@ -434,9 +430,10 @@ class TestExportComparison:
         self, dir1: str, dir2: str, output_path: str
     ) -> None:
         """Test export_comparison with various options."""
-        with patch(
-            "recursivist.compare.compare_directory_structures"
-        ) as mock_compare, patch("recursivist.compare._export_comparison_to_html") as _:
+        with (
+            patch("recursivist.compare.compare_directory_structures") as mock_compare,
+            patch("recursivist.compare._export_comparison_to_html") as _,
+        ):
             mock_compare.return_value = ({"_files": []}, {"_files": []}, {".txt"})
             export_comparison(
                 dir1,

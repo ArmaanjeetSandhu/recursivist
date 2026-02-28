@@ -15,7 +15,9 @@ Key features:
 import html
 import logging
 import os
-from typing import Any, Dict, List, Optional, Pattern, Sequence, Set, Tuple, Union, cast
+from collections.abc import Sequence
+from re import Pattern
+from typing import Any, Optional, Union, cast
 
 from rich.columns import Columns
 from rich.console import Console
@@ -40,7 +42,7 @@ def compare_directory_structures(
     dir2: str,
     exclude_dirs: Optional[Sequence[str]] = None,
     ignore_file: Optional[str] = None,
-    exclude_extensions: Optional[Set[str]] = None,
+    exclude_extensions: Optional[set[str]] = None,
     exclude_patterns: Optional[Sequence[Union[str, Pattern[str]]]] = None,
     include_patterns: Optional[Sequence[Union[str, Pattern[str]]]] = None,
     max_depth: int = 0,
@@ -48,7 +50,7 @@ def compare_directory_structures(
     sort_by_loc: bool = False,
     sort_by_size: bool = False,
     sort_by_mtime: bool = False,
-) -> Tuple[Dict[str, Any], Dict[str, Any], Set[str]]:
+) -> tuple[dict[str, Any], dict[str, Any], set[str]]:
     """Compare two directory structures and return both structures with a combined set of extensions.
 
     Retrieves the directory structures for both directories using the same filtering options, then combines their file extensions for consistent color mapping in visualizations.
@@ -102,10 +104,10 @@ def compare_directory_structures(
 
 
 def build_comparison_tree(
-    structure: Dict[str, Any],
-    other_structure: Dict[str, Any],
+    structure: dict[str, Any],
+    other_structure: dict[str, Any],
     tree: Tree,
-    color_map: Dict[str, str],
+    color_map: dict[str, str],
     parent_name: str = "Root",
     show_full_path: bool = False,
     sort_by_loc: bool = False,
@@ -777,11 +779,11 @@ def build_comparison_tree(
 def display_comparison(
     dir1: str,
     dir2: str,
-    exclude_dirs: Optional[List[str]] = None,
+    exclude_dirs: Optional[list[str]] = None,
     ignore_file: Optional[str] = None,
-    exclude_extensions: Optional[Set[str]] = None,
-    exclude_patterns: Optional[List[str]] = None,
-    include_patterns: Optional[List[str]] = None,
+    exclude_extensions: Optional[set[str]] = None,
+    exclude_patterns: Optional[list[str]] = None,
+    include_patterns: Optional[list[str]] = None,
     use_regex: bool = False,
     max_depth: int = 0,
     show_full_path: bool = False,
@@ -1074,11 +1076,11 @@ def export_comparison(
     dir2: str,
     format_type: str,
     output_path: str,
-    exclude_dirs: Optional[List[str]] = None,
+    exclude_dirs: Optional[list[str]] = None,
     ignore_file: Optional[str] = None,
-    exclude_extensions: Optional[Set[str]] = None,
-    exclude_patterns: Optional[List[str]] = None,
-    include_patterns: Optional[List[str]] = None,
+    exclude_extensions: Optional[set[str]] = None,
+    exclude_patterns: Optional[list[str]] = None,
+    include_patterns: Optional[list[str]] = None,
     use_regex: bool = False,
     max_depth: int = 0,
     show_full_path: bool = False,
@@ -1167,7 +1169,7 @@ def export_comparison(
 
 
 def _export_comparison_to_html(
-    comparison_data: Dict[str, Any], output_path: str
+    comparison_data: dict[str, Any], output_path: str
 ) -> None:
     """Export comparison to HTML format.
 
@@ -1179,8 +1181,8 @@ def _export_comparison_to_html(
     """
 
     def _build_html_tree(
-        structure: Dict[str, Any],
-        other_structure: Dict[str, Any],
+        structure: dict[str, Any],
+        other_structure: dict[str, Any],
         is_left_tree: bool = True,
     ) -> str:
         """Export comparison to HTML format.

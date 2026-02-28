@@ -18,7 +18,8 @@ import html
 import json
 import logging
 import os
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+from collections.abc import Sequence
+from typing import Any, Optional, Union
 
 from recursivist.core import format_size, format_timestamp, generate_color_for_extension
 from recursivist.jsx_export import generate_jsx_component
@@ -30,22 +31,22 @@ def sort_files_by_type(
     files: Sequence[
         Union[
             str,
-            Tuple[str, str],
-            Tuple[str, str, int],
-            Tuple[str, str, int, int],
-            Tuple[str, str, int, int, float],
+            tuple[str, str],
+            tuple[str, str, int],
+            tuple[str, str, int, int],
+            tuple[str, str, int, int, float],
         ]
     ],
     sort_by_loc: bool = False,
     sort_by_size: bool = False,
     sort_by_mtime: bool = False,
-) -> List[
+) -> list[
     Union[
         str,
-        Tuple[str, str],
-        Tuple[str, str, int],
-        Tuple[str, str, int, int],
-        Tuple[str, str, int, int, float],
+        tuple[str, str],
+        tuple[str, str, int],
+        tuple[str, str, int, int],
+        tuple[str, str, int, int, float],
     ]
 ]:
     """Sort files by extension and then by name, or by LOC/size/mtime if requested."""
@@ -62,10 +63,10 @@ def sort_files_by_type(
     def get_size(
         item: Union[
             str,
-            Tuple[str, str],
-            Tuple[str, str, int],
-            Tuple[str, str, int, int],
-            Tuple[str, str, int, int, float],
+            tuple[str, str],
+            tuple[str, str, int],
+            tuple[str, str, int, int],
+            tuple[str, str, int, int, float],
         ],
     ) -> int:
         if not isinstance(item, tuple):
@@ -82,10 +83,10 @@ def sort_files_by_type(
     def get_loc(
         item: Union[
             str,
-            Tuple[str, str],
-            Tuple[str, str, int],
-            Tuple[str, str, int, int],
-            Tuple[str, str, int, int, float],
+            tuple[str, str],
+            tuple[str, str, int],
+            tuple[str, str, int, int],
+            tuple[str, str, int, int, float],
         ],
     ) -> int:
         if not isinstance(item, tuple) or len(item) <= 2:
@@ -95,10 +96,10 @@ def sort_files_by_type(
     def get_mtime(
         item: Union[
             str,
-            Tuple[str, str],
-            Tuple[str, str, int],
-            Tuple[str, str, int, int],
-            Tuple[str, str, int, int, float],
+            tuple[str, str],
+            tuple[str, str, int],
+            tuple[str, str, int, int],
+            tuple[str, str, int, int, float],
         ],
     ) -> float:
         if not isinstance(item, tuple):
@@ -132,10 +133,10 @@ def sort_files_by_type(
     def get_filename(
         item: Union[
             str,
-            Tuple[str, str],
-            Tuple[str, str, int],
-            Tuple[str, str, int, int],
-            Tuple[str, str, int, int, float],
+            tuple[str, str],
+            tuple[str, str, int],
+            tuple[str, str, int, int],
+            tuple[str, str, int, int, float],
         ],
     ) -> str:
         if isinstance(item, tuple):
@@ -171,7 +172,7 @@ class DirectoryExporter:
 
     def __init__(
         self,
-        structure: Dict[str, Any],
+        structure: dict[str, Any],
         root_name: str,
         base_path: Optional[str] = None,
         sort_by_loc: bool = False,
@@ -213,10 +214,10 @@ class DirectoryExporter:
         """
 
         def _build_txt_tree(
-            structure: Dict[str, Any],
+            structure: dict[str, Any],
             prefix: str = "",
             path_prefix: str = "",
-        ) -> List[str]:
+        ) -> list[str]:
             lines = []
             items = sorted(structure.items())
             for i, (name, content) in enumerate(items):
@@ -539,8 +540,8 @@ class DirectoryExporter:
             or self.sort_by_mtime
         ):
 
-            def convert_structure_for_json(structure: Dict[str, Any]) -> Dict[str, Any]:
-                result: Dict[str, Any] = {}
+            def convert_structure_for_json(structure: dict[str, Any]) -> dict[str, Any]:
+                result: dict[str, Any] = {}
                 _git_markers_here = structure.get("_git_markers", {})
                 for k, v in structure.items():
                     if k == "_files":
@@ -575,8 +576,8 @@ class DirectoryExporter:
                             )
 
                             def _maybe_git(
-                                d: Dict[str, Any], _gs: str = _git_status
-                            ) -> Dict[str, Any]:
+                                d: dict[str, Any], _gs: str = _git_status
+                            ) -> dict[str, Any]:
                                 if _gs:
                                     d["git_status"] = _gs
                                 return d
@@ -754,7 +755,7 @@ class DirectoryExporter:
         """
 
         def _build_html_tree(
-            structure: Dict[str, Any],
+            structure: dict[str, Any],
             path_prefix: str = "",
         ) -> str:
             html_content = ["<ul>"]
@@ -1155,10 +1156,10 @@ class DirectoryExporter:
         """
 
         def _build_md_tree(
-            structure: Dict[str, Any],
+            structure: dict[str, Any],
             level: int = 0,
             path_prefix: str = "",
-        ) -> List[str]:
+        ) -> list[str]:
             lines = []
             indent = "    " * level
             if "_files" in structure:

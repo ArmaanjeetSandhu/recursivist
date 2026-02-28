@@ -1,7 +1,7 @@
 import json
 import os
 import re
-from typing import Any, List, Optional, Union
+from typing import Any, Optional, Union
 
 import pytest
 from typer.testing import CliRunner
@@ -21,7 +21,7 @@ from recursivist.cli import app, parse_list_option
     ],
 )
 def test_parse_list_option(
-    input_list: Optional[List[str]], expected: List[str]
+    input_list: Optional[list[str]], expected: list[str]
 ) -> None:
     result = parse_list_option(input_list)
     assert result == expected
@@ -56,7 +56,7 @@ def test_visualize_with_filtering_options(
     sample_directory: str,
     option_name: str,
     option_value: str,
-    expected_missing: List[str],
+    expected_missing: list[str],
 ) -> None:
     if "exclude_me" in expected_missing:
         exclude_dir = os.path.join(sample_directory, "exclude_me")
@@ -237,7 +237,7 @@ def test_visualize_with_sort_options(
     runner: CliRunner,
     sample_directory: str,
     option: str,
-    expected_in_output: Union[str, List[str]],
+    expected_in_output: Union[str, list[str]],
 ) -> None:
     result = runner.invoke(app, ["visualize", sample_directory, option])
     assert result.exit_code == 0

@@ -4,7 +4,7 @@ import random
 import re
 import string
 import time
-from typing import Any, Callable, Dict, List
+from typing import Any, Callable
 from unittest.mock import patch
 
 import pytest
@@ -83,8 +83,8 @@ class TestSortFilesByType:
     )
     def test_sort_by_extension(
         self,
-        input_files: List[str | tuple[str, str]],
-        expected_order: List[str | tuple[str, str]],
+        input_files: list[str | tuple[str, str]],
+        expected_order: list[str | tuple[str, str]],
     ) -> None:
         sorted_files = sort_files_by_type(input_files)
         sorted_names = [f if isinstance(f, str) else f[0] for f in sorted_files]
@@ -129,8 +129,8 @@ class TestSortFilesByType:
     def test_sort_by_statistics(
         self,
         sort_option: str,
-        files: List[tuple[Any, ...]],
-        expected_order: List[str],
+        files: list[tuple[Any, ...]],
+        expected_order: list[str],
     ) -> None:
         kwargs = {sort_option: True}
         sorted_files = sort_files_by_type(files, **kwargs)
@@ -264,7 +264,7 @@ def test_export_formats(
     output_dir: str,
     format_name: str,
     format_extension: str,
-    content_checks: List[Callable[[str], bool]],
+    content_checks: list[Callable[[str], bool]],
 ) -> None:
     """Test exporting to different formats."""
     structure, _ = get_directory_structure(sample_directory)
@@ -614,7 +614,7 @@ def test_export_with_excessive_loc(temp_dir: str, output_dir: str) -> None:
 
 def test_many_unique_extensions(output_dir: str) -> None:
     """Test export with many unique file extensions."""
-    many_extensions_structure: Dict[str, List[str]] = {"_files": []}
+    many_extensions_structure: dict[str, list[str]] = {"_files": []}
     for i in range(100):
         ext = random_string(5)
         many_extensions_structure["_files"].append(f"file_{i}.{ext}")
@@ -760,13 +760,13 @@ def test_combined_export_options(output_dir: str) -> None:
 
 def generate_large_structure(
     depth: int, files_per_dir: int, dir_branching: int
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Generate a large directory structure for testing."""
 
-    def _generate_recursive(current_depth: int) -> Dict[str, Any]:
+    def _generate_recursive(current_depth: int) -> dict[str, Any]:
         if current_depth > depth:
             return {}
-        structure: Dict[str, Any] = {}
+        structure: dict[str, Any] = {}
         structure["_files"] = []
         for i in range(files_per_dir):
             file_name = f"file_{current_depth}_{i}.txt"

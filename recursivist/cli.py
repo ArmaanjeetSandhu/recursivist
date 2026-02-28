@@ -23,7 +23,8 @@ All commands support a consistent set of filtering and display options:
 import logging
 import sys
 from pathlib import Path
-from typing import List, Optional, Pattern, Set, Union, cast
+from re import Pattern
+from typing import Optional, Union, cast
 
 import typer
 from rich.console import Console
@@ -73,7 +74,7 @@ def callback() -> None:
     pass
 
 
-def parse_list_option(option_value: Optional[List[str]]) -> List[str]:
+def parse_list_option(option_value: Optional[list[str]]) -> list[str]:
     """Parse a list option that may contain space-separated values.
 
     Handles various input formats for CLI options, supporting both:
@@ -102,25 +103,25 @@ def visualize(
     directory: Path = typer.Argument(
         ".", help="Directory path to visualize (defaults to current directory)"
     ),
-    exclude_dirs: Optional[List[str]] = typer.Option(
+    exclude_dirs: Optional[list[str]] = typer.Option(
         None,
         "--exclude",
         "-e",
         help="Directories to exclude (space-separated or multiple flags)",
     ),
-    exclude_extensions: Optional[List[str]] = typer.Option(
+    exclude_extensions: Optional[list[str]] = typer.Option(
         None,
         "--exclude-ext",
         "-x",
         help="File extensions to exclude (space-separated or multiple flags)",
     ),
-    exclude_patterns: Optional[List[str]] = typer.Option(
+    exclude_patterns: Optional[list[str]] = typer.Option(
         None,
         "--exclude-pattern",
         "-p",
         help="Patterns to exclude (space-separated or multiple flags)",
     ),
-    include_patterns: Optional[List[str]] = typer.Option(
+    include_patterns: Optional[list[str]] = typer.Option(
         None,
         "--include-pattern",
         "-i",
@@ -220,7 +221,7 @@ def visualize(
     parsed_exclude_exts = parse_list_option(exclude_extensions)
     parsed_exclude_patterns = parse_list_option(exclude_patterns)
     parsed_include_patterns = parse_list_option(include_patterns)
-    exclude_exts_set: Set[str] = set()
+    exclude_exts_set: set[str] = set()
     if parsed_exclude_exts:
         exclude_exts_set = {
             ext.lower() if ext.startswith(".") else f".{ext.lower()}"
@@ -255,10 +256,10 @@ def visualize(
                 )
             else:
                 compiled_exclude = cast(
-                    List[Union[str, Pattern[str]]], parsed_exclude_patterns
+                    list[Union[str, Pattern[str]]], parsed_exclude_patterns
                 )
                 compiled_include = cast(
-                    List[Union[str, Pattern[str]]], parsed_include_patterns
+                    list[Union[str, Pattern[str]]], parsed_include_patterns
                 )
             _, extensions = get_directory_structure(
                 str(directory),
@@ -301,7 +302,7 @@ def export(
     directory: Path = typer.Argument(
         ".", help="Directory path to export (defaults to current directory)"
     ),
-    formats: List[str] = typer.Option(
+    formats: list[str] = typer.Option(
         ["md"], "--format", "-f", help="Export formats: txt, json, html, md, jsx, svg"
     ),
     output_dir: Optional[Path] = typer.Option(
@@ -313,25 +314,25 @@ def export(
     output_prefix: Optional[str] = typer.Option(
         "structure", "--prefix", "-n", help="Prefix for exported filenames"
     ),
-    exclude_dirs: Optional[List[str]] = typer.Option(
+    exclude_dirs: Optional[list[str]] = typer.Option(
         None,
         "--exclude",
         "-e",
         help="Directories to exclude (space-separated or multiple flags)",
     ),
-    exclude_extensions: Optional[List[str]] = typer.Option(
+    exclude_extensions: Optional[list[str]] = typer.Option(
         None,
         "--exclude-ext",
         "-x",
         help="File extensions to exclude (space-separated or multiple flags)",
     ),
-    exclude_patterns: Optional[List[str]] = typer.Option(
+    exclude_patterns: Optional[list[str]] = typer.Option(
         None,
         "--exclude-pattern",
         "-p",
         help="Patterns to exclude (space-separated or multiple flags)",
     ),
-    include_patterns: Optional[List[str]] = typer.Option(
+    include_patterns: Optional[list[str]] = typer.Option(
         None,
         "--include-pattern",
         "-i",
@@ -432,7 +433,7 @@ def export(
     parsed_exclude_exts = parse_list_option(exclude_extensions)
     parsed_exclude_patterns = parse_list_option(exclude_patterns)
     parsed_include_patterns = parse_list_option(include_patterns)
-    exclude_exts_set: Set[str] = set()
+    exclude_exts_set: set[str] = set()
     if parsed_exclude_exts:
         exclude_exts_set = {
             ext.lower() if ext.startswith(".") else f".{ext.lower()}"
@@ -475,10 +476,10 @@ def export(
                 )
             else:
                 compiled_exclude = cast(
-                    List[Union[str, Pattern[str]]], parsed_exclude_patterns
+                    list[Union[str, Pattern[str]]], parsed_exclude_patterns
                 )
                 compiled_include = cast(
-                    List[Union[str, Pattern[str]]], parsed_include_patterns
+                    list[Union[str, Pattern[str]]], parsed_include_patterns
                 )
             structure, extensions = get_directory_structure(
                 str(directory),
@@ -604,25 +605,25 @@ def compare(
         file_okay=False,
         dir_okay=True,
     ),
-    exclude_dirs: Optional[List[str]] = typer.Option(
+    exclude_dirs: Optional[list[str]] = typer.Option(
         None,
         "--exclude",
         "-e",
         help="Directories to exclude (space-separated or multiple flags)",
     ),
-    exclude_extensions: Optional[List[str]] = typer.Option(
+    exclude_extensions: Optional[list[str]] = typer.Option(
         None,
         "--exclude-ext",
         "-x",
         help="File extensions to exclude (space-separated or multiple flags)",
     ),
-    exclude_patterns: Optional[List[str]] = typer.Option(
+    exclude_patterns: Optional[list[str]] = typer.Option(
         None,
         "--exclude-pattern",
         "-p",
         help="Patterns to exclude (space-separated or multiple flags)",
     ),
-    include_patterns: Optional[List[str]] = typer.Option(
+    include_patterns: Optional[list[str]] = typer.Option(
         None,
         "--include-pattern",
         "-i",
@@ -723,7 +724,7 @@ def compare(
     parsed_exclude_exts = parse_list_option(exclude_extensions)
     parsed_exclude_patterns = parse_list_option(exclude_patterns)
     parsed_include_patterns = parse_list_option(include_patterns)
-    exclude_exts_set: Set[str] = set()
+    exclude_exts_set: set[str] = set()
     if parsed_exclude_exts:
         exclude_exts_set = {
             ext.lower() if ext.startswith(".") else f".{ext.lower()}"

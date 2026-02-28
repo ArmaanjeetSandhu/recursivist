@@ -1,7 +1,7 @@
 import json
 import os
 import shutil
-from typing import Any, List, cast
+from typing import Any, cast
 
 import pytest
 from typer.testing import CliRunner
@@ -44,12 +44,12 @@ def test_get_directory_structure_with_no_depth_limit(
     ],
 )
 def test_get_directory_structure_with_depth_limits(
-    deeply_nested_directory: str, depth: int, max_depth_in_level: List[str]
+    deeply_nested_directory: str, depth: int, max_depth_in_level: list[str]
 ) -> None:
     """Test that structure is limited to specified depth."""
     structure, _ = get_directory_structure(deeply_nested_directory, max_depth=depth)
 
-    def check_path_has_max_depth(path_segments: List[str]) -> bool:
+    def check_path_has_max_depth(path_segments: list[str]) -> bool:
         current: dict[str, Any] = structure
         for segment in path_segments:
             if segment in current:
@@ -59,7 +59,7 @@ def test_get_directory_structure_with_depth_limits(
         return "_max_depth_reached" in current
 
     for path in max_depth_in_level:
-        segments: List[str] = path.split("/")
+        segments: list[str] = path.split("/")
         assert check_path_has_max_depth(segments), (
             f"No max_depth_reached flag in {path}"
         )

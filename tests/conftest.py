@@ -5,7 +5,8 @@ import os
 import shutil
 import tempfile
 import time
-from typing import Any, Dict, Generator, List, Optional, Tuple, Union
+from collections.abc import Generator
+from typing import Any, Optional, Union
 from unittest.mock import MagicMock
 
 import pytest
@@ -14,12 +15,12 @@ from typer.testing import CliRunner
 
 FileInfo = Union[
     str,
-    Tuple[str, str],
-    Tuple[str, str, int],
-    Tuple[str, str, int, int],
-    Tuple[str, str, int, int, float],
+    tuple[str, str],
+    tuple[str, str, int],
+    tuple[str, str, int, int],
+    tuple[str, str, int, int, float],
 ]
-DirStructure = Dict[str, Any]
+DirStructure = dict[str, Any]
 
 
 @pytest.fixture
@@ -168,7 +169,7 @@ def pattern_test_directory(temp_dir: str) -> str:
 
 
 @pytest.fixture
-def comparison_directories(temp_dir: str) -> Tuple[str, str]:
+def comparison_directories(temp_dir: str) -> tuple[str, str]:
     """Create two directories for comparison testing.
     Creates two directories with some common files and some
     unique files to each directory for comparison testing.
@@ -325,7 +326,7 @@ def mock_subtree() -> MagicMock:
 
 
 @pytest.fixture
-def color_map() -> Dict[str, str]:
+def color_map() -> dict[str, str]:
     """Create a sample color map for file extensions."""
     return {
         ".py": "#FF0000",
@@ -410,11 +411,11 @@ def create_test_file(
 
 
 def assert_structure_has_files(
-    structure: DirStructure, expected_files: List[str]
+    structure: DirStructure, expected_files: list[str]
 ) -> None:
     """Assert that a structure contains the expected files."""
     assert "_files" in structure
-    file_names: List[str] = []
+    file_names: list[str] = []
     for file_item in structure["_files"]:
         if isinstance(file_item, tuple):
             file_names.append(file_item[0])
@@ -425,7 +426,7 @@ def assert_structure_has_files(
 
 
 def assert_structure_has_dirs(
-    structure: DirStructure, expected_dirs: List[str]
+    structure: DirStructure, expected_dirs: list[str]
 ) -> None:
     """Assert that a structure contains the expected directories."""
     for expected_dir in expected_dirs:
@@ -451,11 +452,11 @@ def assert_stats_in_structure(structure: DirStructure) -> None:
                     assert isinstance(mtime, float)
 
 
-def assert_json_export_valid(file_path: str, root_name: str) -> Dict[str, Any]:
+def assert_json_export_valid(file_path: str, root_name: str) -> dict[str, Any]:
     """Assert that a JSON export file is valid and contains expected structure."""
     assert os.path.exists(file_path)
     with open(file_path, encoding="utf-8") as f:
-        data: Dict[str, Any] = json.load(f)
+        data: dict[str, Any] = json.load(f)
     assert "root" in data
     assert data["root"] == root_name
     assert "structure" in data
@@ -501,8 +502,8 @@ def assert_jsx_export_valid(file_path: str, root_name: str) -> str:
 
 def assert_cli_command_success(
     result: Any,
-    expected_items: Optional[List[str]] = None,
-    unexpected_items: Optional[List[str]] = None,
+    expected_items: Optional[list[str]] = None,
+    unexpected_items: Optional[list[str]] = None,
 ) -> None:
     """Assert that a CLI command succeeded and contains expected output."""
     assert result.exit_code == 0

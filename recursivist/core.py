@@ -22,8 +22,10 @@ import logging
 import math
 import os
 import re
+from collections.abc import Sequence
 from datetime import datetime as dt
-from typing import Any, Dict, List, Optional, Pattern, Sequence, Set, Tuple, Union, cast
+from re import Pattern
+from typing import Any, Optional, Union, cast
 
 from rich.console import Console
 from rich.text import Text
@@ -33,7 +35,7 @@ logger = logging.getLogger(__name__)
 
 
 def export_to_svg(
-    structure: Dict[str, Any],
+    structure: dict[str, Any],
     root_dir: str,
     output_path: str,
     show_full_path: bool = False,
@@ -44,7 +46,7 @@ def export_to_svg(
 ) -> None:
     """Export the directory structure to an SVG image using rich."""
 
-    def extract_extensions(struct: Dict[str, Any]) -> Set[str]:
+    def extract_extensions(struct: dict[str, Any]) -> set[str]:
         exts = set()
         for k, v in struct.items():
             if k == "_files":
@@ -108,7 +110,7 @@ def export_to_svg(
 
 
 def export_structure(
-    structure: Dict[str, Any],
+    structure: dict[str, Any],
     root_dir: str,
     format_type: str,
     output_path: str,
@@ -173,7 +175,7 @@ def export_structure(
     export_func(output_path)
 
 
-def parse_ignore_file(ignore_file_path: str) -> List[str]:
+def parse_ignore_file(ignore_file_path: str) -> list[str]:
     """Parse an ignore file (like .gitignore) and return patterns.
 
     Reads an ignore file and extracts patterns for excluding files and directories. Handles comments and trailing slashes in directories.
@@ -197,7 +199,7 @@ def parse_ignore_file(ignore_file_path: str) -> List[str]:
     return patterns
 
 
-def get_git_status(directory: str) -> Dict[str, str]:
+def get_git_status(directory: str) -> dict[str, str]:
     """Get Git status for files relative to a given directory.
 
     Runs ``git status --porcelain`` from the repository root and maps every
@@ -241,7 +243,7 @@ def get_git_status(directory: str) -> Dict[str, str]:
         if status_result.returncode != 0:
             return {}
 
-        status_map: Dict[str, str] = {}
+        status_map: dict[str, str] = {}
         for line in status_result.stdout.splitlines():
             if len(line) < 4:
                 continue
@@ -281,7 +283,7 @@ def get_git_status(directory: str) -> Dict[str, str]:
 
 def compile_regex_patterns(
     patterns: Sequence[str], is_regex: bool = False
-) -> List[Union[str, Pattern[str]]]:
+) -> list[Union[str, Pattern[str]]]:
     """Convert patterns to compiled regex objects when appropriate.
 
     When is_regex is True, compiles string patterns into regex pattern objects for efficient matching. For invalid regex patterns, logs a warning and keeps them as strings.
@@ -294,8 +296,8 @@ def compile_regex_patterns(
         List of patterns (strings for glob patterns or compiled regex objects)
     """
     if not is_regex:
-        return cast(List[Union[str, Pattern[str]]], patterns)
-    compiled_patterns: List[Union[str, Pattern[str]]] = []
+        return cast(list[Union[str, Pattern[str]]], patterns)
+    compiled_patterns: list[Union[str, Pattern[str]]] = []
     for pattern in patterns:
         try:
             compiled_patterns.append(re.compile(pattern))
@@ -307,8 +309,8 @@ def compile_regex_patterns(
 
 def should_exclude(
     path: str,
-    ignore_context: Dict[str, Any],
-    exclude_extensions: Optional[Set[str]] = None,
+    ignore_context: dict[str, Any],
+    exclude_extensions: Optional[set[str]] = None,
     exclude_patterns: Optional[Sequence[Union[str, Pattern[str]]]] = None,
     include_patterns: Optional[Sequence[Union[str, Pattern[str]]]] = None,
 ) -> bool:
@@ -380,10 +382,10 @@ def should_exclude(
     return False
 
 
-_EXTENSION_COLORS: Dict[str, str] = {}
+_EXTENSION_COLORS: dict[str, str] = {}
 
 
-def color_distance(color1: Tuple[int, int, int], color2: Tuple[int, int, int]) -> float:
+def color_distance(color1: tuple[int, int, int], color2: tuple[int, int, int]) -> float:
     """
     Calculate perceptual distance between two colors in RGB space.
 
@@ -407,11 +409,11 @@ def color_distance(color1: Tuple[int, int, int], color2: Tuple[int, int, int]) -
     return dist
 
 
-def hex_to_rgb(hex_color: str) -> Tuple[int, int, int]:
+def hex_to_rgb(hex_color: str) -> tuple[int, int, int]:
     """Convert hex color to RGB tuple."""
     hex_color = hex_color.lstrip("#")
     return cast(
-        Tuple[int, int, int], tuple(int(hex_color[i : i + 2], 16) for i in (0, 2, 4))
+        tuple[int, int, int], tuple(int(hex_color[i : i + 2], 16) for i in (0, 2, 4))
     )
 
 
@@ -484,7 +486,7 @@ def get_directory_structure(
     root_dir: str,
     exclude_dirs: Optional[Sequence[str]] = None,
     ignore_file: Optional[str] = None,
-    exclude_extensions: Optional[Set[str]] = None,
+    exclude_extensions: Optional[set[str]] = None,
     parent_ignore_patterns: Optional[Sequence[str]] = None,
     exclude_patterns: Optional[Sequence[Union[str, Pattern[str]]]] = None,
     include_patterns: Optional[Sequence[Union[str, Pattern[str]]]] = None,
@@ -496,8 +498,8 @@ def get_directory_structure(
     sort_by_size: bool = False,
     sort_by_mtime: bool = False,
     show_git_status: bool = False,
-    git_status_map: Optional[Dict[str, str]] = None,
-) -> Tuple[Dict[str, Any], Set[str]]:
+    git_status_map: Optional[dict[str, str]] = None,
+) -> tuple[dict[str, Any], set[str]]:
     """Build a nested dictionary representing a directory structure.
 
     Recursively traverses the file system applying filters and collecting statistics.
@@ -549,13 +551,13 @@ def get_directory_structure(
         current_ignore_patterns = parse_ignore_file(os.path.join(root_dir, ignore_file))
         ignore_patterns.extend(current_ignore_patterns)
     ignore_context = {"patterns": ignore_patterns, "current_dir": root_dir}
-    structure: Dict[str, Any] = {}
-    extensions_set: Set[str] = set()
+    structure: dict[str, Any] = {}
+    extensions_set: set[str] = set()
     total_loc = 0
     total_size = 0
     latest_mtime = 0.0
 
-    git_markers: Dict[str, str] = {}
+    git_markers: dict[str, str] = {}
     if show_git_status and git_status_map is not None:
         current_prefix = current_path.replace(os.sep, "/") if current_path else ""
         for git_path, status in git_status_map.items():
@@ -701,7 +703,7 @@ def get_directory_structure(
         structure["_mtime"] = latest_mtime
 
     if show_git_status and git_markers:
-        existing_names: Set[str] = set()
+        existing_names: set[str] = set()
         for f in structure.get("_files", []):
             existing_names.add(f[0] if isinstance(f, tuple) else f)
 
@@ -760,22 +762,22 @@ def sort_files_by_type(
     files: Sequence[
         Union[
             str,
-            Tuple[str, str],
-            Tuple[str, str, int],
-            Tuple[str, str, int, int],
-            Tuple[str, str, int, int, float],
+            tuple[str, str],
+            tuple[str, str, int],
+            tuple[str, str, int, int],
+            tuple[str, str, int, int, float],
         ]
     ],
     sort_by_loc: bool = False,
     sort_by_size: bool = False,
     sort_by_mtime: bool = False,
-) -> List[
+) -> list[
     Union[
         str,
-        Tuple[str, str],
-        Tuple[str, str, int],
-        Tuple[str, str, int, int],
-        Tuple[str, str, int, int, float],
+        tuple[str, str],
+        tuple[str, str, int],
+        tuple[str, str, int, int],
+        tuple[str, str, int, int, float],
     ]
 ]:
     """Sort files by extension and then by name, or by LOC/size/mtime if requested.
@@ -804,10 +806,10 @@ def sort_files_by_type(
     def get_size(
         item: Union[
             str,
-            Tuple[str, str],
-            Tuple[str, str, int],
-            Tuple[str, str, int, int],
-            Tuple[str, str, int, int, float],
+            tuple[str, str],
+            tuple[str, str, int],
+            tuple[str, str, int, int],
+            tuple[str, str, int, int, float],
         ],
     ) -> int:
         if not isinstance(item, tuple):
@@ -824,10 +826,10 @@ def sort_files_by_type(
     def get_loc(
         item: Union[
             str,
-            Tuple[str, str],
-            Tuple[str, str, int],
-            Tuple[str, str, int, int],
-            Tuple[str, str, int, int, float],
+            tuple[str, str],
+            tuple[str, str, int],
+            tuple[str, str, int, int],
+            tuple[str, str, int, int, float],
         ],
     ) -> int:
         if not isinstance(item, tuple) or len(item) <= 2:
@@ -837,10 +839,10 @@ def sort_files_by_type(
     def get_mtime(
         item: Union[
             str,
-            Tuple[str, str],
-            Tuple[str, str, int],
-            Tuple[str, str, int, int],
-            Tuple[str, str, int, int, float],
+            tuple[str, str],
+            tuple[str, str, int],
+            tuple[str, str, int, int],
+            tuple[str, str, int, int, float],
         ],
     ) -> float:
         if not isinstance(item, tuple):
@@ -874,10 +876,10 @@ def sort_files_by_type(
     def get_filename(
         item: Union[
             str,
-            Tuple[str, str],
-            Tuple[str, str, int],
-            Tuple[str, str, int, int],
-            Tuple[str, str, int, int, float],
+            tuple[str, str],
+            tuple[str, str, int],
+            tuple[str, str, int, int],
+            tuple[str, str, int, int, float],
         ],
     ) -> str:
         if isinstance(item, tuple):
@@ -894,9 +896,9 @@ def sort_files_by_type(
 
 
 def build_tree(
-    structure: Dict[str, Any],
+    structure: dict[str, Any],
     tree: Tree,
-    color_map: Dict[str, str],
+    color_map: dict[str, str],
     parent_name: str = "Root",
     show_full_path: bool = False,
     sort_by_loc: bool = False,
@@ -933,7 +935,7 @@ def build_tree(
         "A": ("green", "[A]"),
         "D": ("red", "[D]"),
     }
-    git_markers_dict: Dict[str, str] = (
+    git_markers_dict: dict[str, str] = (
         structure.get("_git_markers", {}) if show_git_status else {}
     )
     for folder, content in sorted(structure.items()):
@@ -1103,11 +1105,11 @@ def build_tree(
 
 def display_tree(
     root_dir: str,
-    exclude_dirs: Optional[List[str]] = None,
+    exclude_dirs: Optional[list[str]] = None,
     ignore_file: Optional[str] = None,
-    exclude_extensions: Optional[Set[str]] = None,
-    exclude_patterns: Optional[List[str]] = None,
-    include_patterns: Optional[List[str]] = None,
+    exclude_extensions: Optional[set[str]] = None,
+    exclude_patterns: Optional[list[str]] = None,
+    include_patterns: Optional[list[str]] = None,
     use_regex: bool = False,
     max_depth: int = 0,
     show_full_path: bool = False,
@@ -1157,7 +1159,7 @@ def display_tree(
     compiled_exclude = compile_regex_patterns(exclude_patterns, use_regex)
     compiled_include = compile_regex_patterns(include_patterns, use_regex)
 
-    git_status_map: Optional[Dict[str, str]] = None
+    git_status_map: Optional[dict[str, str]] = None
     if show_git_status:
         git_status_map = get_git_status(root_dir)
         if not git_status_map:

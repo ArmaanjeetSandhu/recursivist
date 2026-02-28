@@ -18,7 +18,7 @@ with minimal dependencies.
 
 import html
 import logging
-from typing import Any, Dict, Tuple, Union
+from typing import Any, Union
 
 from recursivist.core import format_size, format_timestamp
 
@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 
 def generate_jsx_component(
-    structure: Dict[str, Any],
+    structure: dict[str, Any],
     root_name: str,
     output_path: str,
     show_full_path: bool = False,
@@ -60,7 +60,7 @@ def generate_jsx_component(
     """
 
     def _build_structure_jsx(
-        structure: Dict[str, Any], level: int = 0, path_prefix: str = ""
+        structure: dict[str, Any], level: int = 0, path_prefix: str = ""
     ) -> str:
         jsx_content = []
         for name, content in sorted(
@@ -130,8 +130,8 @@ def generate_jsx_component(
                 return int(tup[idx]) if len(tup) > idx else default
 
             def sort_key_all(
-                f: Union[Tuple[Any, ...], str],
-            ) -> Tuple[int, int, int, str]:
+                f: Union[tuple[Any, ...], str],
+            ) -> tuple[int, int, int, str]:
                 if isinstance(f, tuple):
                     if len(f) == 0:
                         return (0, 0, 0, "")
@@ -143,8 +143,8 @@ def generate_jsx_component(
                 return (0, 0, 0, f.lower() if isinstance(f, str) else "")
 
             def sort_key_loc_size(
-                f: Union[Tuple[Any, ...], str],
-            ) -> Tuple[int, int, str]:
+                f: Union[tuple[Any, ...], str],
+            ) -> tuple[int, int, str]:
                 if isinstance(f, tuple):
                     if len(f) == 0:
                         return (0, 0, "")
@@ -155,8 +155,8 @@ def generate_jsx_component(
                 return (0, 0, f.lower() if isinstance(f, str) else "")
 
             def sort_key_loc_mtime(
-                f: Union[Tuple[Any, ...], str],
-            ) -> Tuple[int, int, str]:
+                f: Union[tuple[Any, ...], str],
+            ) -> tuple[int, int, str]:
                 if isinstance(f, tuple):
                     if len(f) == 0:
                         return (0, 0, "")
@@ -169,8 +169,8 @@ def generate_jsx_component(
                 return (0, 0, f.lower() if isinstance(f, str) else "")
 
             def sort_key_size_mtime(
-                f: Union[Tuple[Any, ...], str],
-            ) -> Tuple[int, int, str]:
+                f: Union[tuple[Any, ...], str],
+            ) -> tuple[int, int, str]:
                 if isinstance(f, tuple):
                     if len(f) == 0:
                         return (0, 0, "")
@@ -180,7 +180,7 @@ def generate_jsx_component(
                     return (-size, -mtime, file_name)
                 return (0, 0, f.lower() if isinstance(f, str) else "")
 
-            def sort_key_mtime(f: Union[Tuple[Any, ...], str]) -> Tuple[int, str]:
+            def sort_key_mtime(f: Union[tuple[Any, ...], str]) -> tuple[int, str]:
                 if isinstance(f, tuple):
                     if len(f) == 0:
                         return (0, "")
@@ -195,7 +195,7 @@ def generate_jsx_component(
                     return (-mtime, file_name)
                 return (0, f.lower() if isinstance(f, str) else "")
 
-            def sort_key_size(f: Union[Tuple[Any, ...], str]) -> Tuple[int, str]:
+            def sort_key_size(f: Union[tuple[Any, ...], str]) -> tuple[int, str]:
                 if isinstance(f, tuple):
                     if len(f) == 0:
                         return (0, "")
@@ -208,7 +208,7 @@ def generate_jsx_component(
                     return (-size, file_name)
                 return (0, f.lower() if isinstance(f, str) else "")
 
-            def sort_key_loc(f: Union[Tuple[Any, ...], str]) -> Tuple[int, str]:
+            def sort_key_loc(f: Union[tuple[Any, ...], str]) -> tuple[int, str]:
                 if isinstance(f, tuple):
                     if len(f) == 0:
                         return (0, "")
@@ -217,7 +217,7 @@ def generate_jsx_component(
                     return (-loc, file_name)
                 return (0, f.lower() if isinstance(f, str) else "")
 
-            def sort_key_name(f: Union[Tuple[Any, ...], str]) -> str:
+            def sort_key_name(f: Union[tuple[Any, ...], str]) -> str:
                 if isinstance(f, tuple):
                     if len(f) == 0:
                         return ""
