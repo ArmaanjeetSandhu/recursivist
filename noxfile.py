@@ -35,5 +35,5 @@ def typecheck(session: nox.Session) -> None:
 @nox.session(python="3.13")
 def docs(session: nox.Session) -> None:
     """Build the documentation (without deploying)."""
-    session.install("-r", "requirements-docs.txt")
+    session.install(".[docs]")
     session.run("mkdocs", "build", "--strict")

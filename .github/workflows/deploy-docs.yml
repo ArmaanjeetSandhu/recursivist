@@ -31,6 +31,9 @@ jobs:
       - name: Install nox
         run: uv pip install nox nox-uv --system
 
+      - name: Install docs dependencies
+        run: uv pip install ".[docs]" --system
+
       - name: Build docs
         run: nox -s docs
 
