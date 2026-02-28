@@ -6,16 +6,12 @@ repos:
         args: [--fix]
       - id: ruff-format
 
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.15.0
+  - repo: https://github.com/wntrblm/nox
+    rev: "2026.02.09"
     hooks:
-      - id: mypy
-        args: [--strict, --ignore-missing-imports]
-
-  - repo: https://github.com/RobertCraigie/pyright-python
-    rev: v1.1.408
-    hooks:
-      - id: pyright
+      - id: nox
+        name: typecheck (via nox)
+        args: ["-s", "typecheck"]
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0

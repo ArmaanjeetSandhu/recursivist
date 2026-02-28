@@ -22,7 +22,7 @@ ENV/
 .coverage
 coverage.xml
 .hypothesis/
-.tox/
+.nox/
 htmlcov/
 
 # Project specific

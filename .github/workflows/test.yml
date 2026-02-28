@@ -1,4 +1,4 @@
-name: Lint & Type Check
+name: Tests
 
 permissions:
   contents: read
@@ -10,7 +10,7 @@ on:
     branches: [main]
 
 jobs:
-  lint:
+  tests:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -18,13 +18,18 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v4
 
-      - name: Set up Python
+      - name: Set up Python versions
         uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          python-version: |
+            3.9
+            3.10
+            3.11
+            3.12
+            3.13
 
       - name: Install nox
         run: uv pip install nox nox-uv --system
 
-      - name: Run lint and type checks
-        run: nox -s lint typecheck
+      - name: Run tests across all Python versions
+        run: nox -s tests

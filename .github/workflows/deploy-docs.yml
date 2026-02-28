@@ -28,8 +28,11 @@ jobs:
         with:
           python-version: "3.13"
 
-      - name: Install dependencies
-        run: uv pip install -r requirements-docs.txt --system
+      - name: Install nox
+        run: uv pip install nox nox-uv --system
+
+      - name: Build docs
+        run: nox -s docs
 
       - name: Deploy documentation
         run: mkdocs gh-deploy --force --clean --verbose
