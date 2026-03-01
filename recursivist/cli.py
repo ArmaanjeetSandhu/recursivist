@@ -1,23 +1,29 @@
 #!/usr/bin/env python3
-"""
-Recursivist CLI - A beautiful directory structure visualization tool.
+"""Recursivist CLI - A beautiful directory structure visualization tool.
 
-This module provides the command-line interface for the recursivist package, allowing users to visualize directory structures, export them in various formats, compare structures side by side, and generate shell completion scripts.
+Provides the command-line interface for the recursivist package, letting
+users visualize directory structures, export them in various formats,
+compare two structures side-by-side, and generate shell completion
+scripts.
 
 Main commands:
-- visualize: Display a directory structure in the terminal with rich formatting
-- export: Export a directory structure to TXT, JSON, HTML, MD, or JSX
-- compare: Compare two directory structures with highlighted differences
-- version: Display the current version information
-- completion: Generate shell completion scripts for various shells
+    visualize: Display a directory structure in the terminal with rich
+        formatting and optional statistics.
+    export: Export a directory structure to TXT, JSON, HTML, MD, JSX,
+        or SVG.
+    compare: Compare two directory structures with highlighted
+        differences.
+    version: Display the current version information.
+    completion: Generate shell completion scripts for various shells.
 
-All commands support a consistent set of filtering and display options:
-- Exclude directories, file extensions, glob, or regex patterns
-- Include specific patterns (overriding exclusions)
-- Support for .gitignore and similar ignore files
-- Depth limitation for large directories
-- Full path display option
-- File statistics with sorting by lines of code, size, or modification time
+All commands share a consistent set of filtering and display options:
+    - Exclude directories, file extensions, glob, or regex patterns.
+    - Include specific patterns that override exclusions.
+    - Support for .gitignore and similar ignore files.
+    - Depth limitation for large directories.
+    - Full-path display option.
+    - File statistics with sorting by lines of code, size, or
+      modification time.
 """
 
 import logging
@@ -58,17 +64,18 @@ console = Console()
 
 @app.callback()
 def callback() -> None:
-    """
-    Recursivist CLI tool for directory visualization and export.
+    """Recursivist CLI tool for directory visualization and export.
 
-    This callback provides general information about the available commands in the Recursivist CLI tool.
+    Entry-point callback invoked by Typer before any subcommand is
+    dispatched. It sets up the application context and makes top-level
+    help text available.
 
-    Commands:
-    - visualize: Display a directory structure in the terminal
-    - export: Export a directory structure to various file formats
-    - compare: Compare two directory structures side by side
-    - version: Display the current version
-    - completion: Generate shell completion script for various shells
+    Available commands:
+        visualize: Display a directory structure in the terminal.
+        export: Export a directory structure to various file formats.
+        compare: Compare two directory structures side by side.
+        version: Display the current version.
+        completion: Generate a shell completion script.
     """
 
     pass
@@ -77,17 +84,30 @@ def callback() -> None:
 def parse_list_option(option_value: Optional[list[str]]) -> list[str]:
     """Parse a list option that may contain space-separated values.
 
-    Handles various input formats for CLI options, supporting both:
-    - Multiple uses of the option flag: --exclude dir1 --exclude dir2
-    - Space-separated values with a single flag: --exclude dir1 dir2 dir3
+    Handles two common CLI input styles for multi-value options:
 
-    Also normalizes file extensions with or without leading dots.
+    * Multiple flag repetitions: ``--exclude dir1 --exclude dir2``
+    * Space-separated tokens in a single flag: ``--exclude "dir1 dir2"``
+
+    Each raw value is split on whitespace and empty tokens are dropped,
+    so callers always receive a clean flat list.
 
     Args:
-        option_value: List of option values, potentially with space-separated items
+        option_value: Raw list of strings collected by Typer for a
+            repeatable option. Each element may itself contain
+            multiple space-separated tokens. Pass ``None`` when the
+            option was not provided.
 
     Returns:
-        List of individual items with each value separated
+        Flat list of non-empty, whitespace-stripped strings. Returns
+        an empty list when *option_value* is ``None`` or contains no
+        non-whitespace tokens.
+
+    Examples:
+        >>> parse_list_option(["node_modules .git", "__pycache__"])
+        ['node_modules', '.git', '__pycache__']
+        >>> parse_list_option(None)
+        []
     """
 
     if not option_value:
@@ -170,33 +190,80 @@ def visualize(
         False, "--verbose", "-v", help="Enable verbose output"
     ),
 ) -> None:
-    """
-    Visualize a directory structure as a tree in the terminal.
+    """Visualize a directory structure as a tree in the terminal.
 
-    Creates a rich, colorful tree visualization in the terminal with:
-    - Color-coding by file extension
-    - Flexible filtering options (directories, extensions, patterns)
-    - Support for .gitignore files and similar
-    - Depth limitation for large directories
-    - Full path display option
-    - Lines of code counting and sorting
-    - Progress indicators for large directories
-    - Optional Git status markers (--git-status)
+    Scans *directory* and renders a rich, color-coded tree to stdout.
+    File-extension colors, optional statistics, and Git status markers
+    can be enabled through the available options. An animated progress
+    indicator is shown while scanning large directories.
+
+    Args:
+        directory: Root directory to visualize. Must exist and be a
+            directory. Defaults to the current working directory.
+        exclude_dirs: Directory names to omit from the tree entirely
+            (e.g. ``["node_modules", ".git"]``).
+        exclude_extensions: File extensions to hide. Values are
+            normalized so both ``"pyc"`` and ``".pyc"`` are accepted.
+        exclude_patterns: Glob or regex patterns for file/directory
+            names to exclude. Interpretation depends on *use_regex*.
+        include_patterns: Patterns that *override* exclusions — any
+            path matching an include pattern is shown even if it
+            would otherwise be filtered out.
+        use_regex: When ``True``, treat *exclude_patterns* and
+            *include_patterns* as Python regular expressions instead
+            of glob patterns.
+        ignore_file: Filename of an ignore file located inside
+            *directory* (e.g. ``".gitignore"``). Entries in that file
+            are treated as additional exclusions.
+        max_depth: Maximum directory depth to display. ``0`` means
+            unlimited.
+        show_full_path: When ``True``, display absolute paths instead
+            of bare filenames.
+        sort_by_loc: When ``True``, sort files by lines-of-code count
+            (descending) and annotate each file with its LOC count.
+        sort_by_size: When ``True``, sort files by size (descending)
+            and annotate each file with its size.
+        sort_by_mtime: When ``True``, sort files by last-modification
+            time (newest first) and annotate each file with its
+            timestamp.
+        show_git_status: When ``True``, annotate files with their Git
+            status: ``[U]`` untracked, ``[M]`` modified, ``[A]``
+            added, ``[D]`` deleted.
+        verbose: When ``True``, lower the log level to DEBUG so that
+            internal processing steps are printed to the terminal.
+
+    Raises:
+        typer.Exit: With exit code ``1`` if *directory* does not exist
+            or is not a directory, or if any unhandled exception occurs
+            during scanning or rendering.
 
     Examples:
-        recursivist visualize                             # Display current directory
-        recursivist visualize /path/to/project            # Display specific directory
-        recursivist visualize -e node_modules .git        # Exclude directories
-        recursivist visualize -x .pyc .log                # Exclude file extensions
-        recursivist visualize -p "*.test.js" "*.spec.js"  # Exclude test files (glob pattern)
-        recursivist visualize -p ".*test.*" -r            # Exclude test files (regex pattern)
-        recursivist visualize -i "src/*" "*.md"           # Include only src dir and markdown files
-        recursivist visualize -d 2                        # Limit directory depth to 2 levels
-        recursivist visualize -l                          # Show full paths instead of just filenames
-        recursivist visualize -s                          # Sort by lines of code and show LOC counts
-        recursivist visualize -z                          # Sort by size and show file sizes
-        recursivist visualize -m                          # Sort by modification time
-        recursivist visualize -G                          # Show Git status markers
+        >>> # Display current directory
+        >>> recursivist visualize
+        >>> # Display a specific directory
+        >>> recursivist visualize /path/to/project
+        >>> # Exclude directories
+        >>> recursivist visualize -e node_modules .git
+        >>> # Exclude file extensions
+        >>> recursivist visualize -x .pyc .log
+        >>> # Exclude glob patterns
+        >>> recursivist visualize -p "*.test.js" "*.spec.js"
+        >>> # Exclude regex patterns
+        >>> recursivist visualize -p ".*test.*" -r
+        >>> # Include overrides
+        >>> recursivist visualize -i "src/*" "*.md"
+        >>> # Limit depth to 2
+        >>> recursivist visualize -d 2
+        >>> # Show full paths
+        >>> recursivist visualize -l
+        >>> # Sort by LOC
+        >>> recursivist visualize -s
+        >>> # Sort by size
+        >>> recursivist visualize -z
+        >>> # Sort by mtime
+        >>> recursivist visualize -m
+        >>> # Git status markers
+        >>> recursivist visualize -G
     """
 
     if verbose:
@@ -381,34 +448,94 @@ def export(
         False, "--verbose", "-v", help="Enable verbose output"
     ),
 ) -> None:
-    """
-    Export a directory structure to various formats without displaying in the terminal.
+    """Export a directory structure to one or more file formats.
 
-    Supports multiple export formats simultaneously, with all the same filtering options as the visualization command:
-    - Format options: txt, json, html, md, jsx
-    - Custom output directory and filename prefix
-    - Progress indicators for large directories
-    - Consistent styling across formats
-    - Lines of code counting and sorting
-    - Optional Git status markers (--git-status)
+    Scans *directory*, builds the internal tree representation, and
+    writes output files without rendering anything to the terminal.
+    Multiple formats can be requested in a single invocation; each
+    format produces a separate file named ``<prefix>.<format>`` inside
+    *output_dir*.
+
+    Args:
+        directory: Root directory to export. Must exist and be a
+            directory. Defaults to the current working directory.
+        formats: Export format identifiers. Supported values are
+            ``"txt"``, ``"json"``, ``"html"``, ``"md"``, ``"jsx"``,
+            and ``"svg"``. Multiple formats may be given as separate
+            flags or as a single space-separated string.
+        output_dir: Directory where exported files are written.
+            Created automatically if it does not exist. Defaults to
+            the current working directory.
+        output_prefix: Filename prefix shared by all exported files.
+            Defaults to ``"structure"``.
+        exclude_dirs: Directory names to omit from the exported tree.
+        exclude_extensions: File extensions to hide. Values are
+            normalized so both ``"pyc"`` and ``".pyc"`` are accepted.
+        exclude_patterns: Glob or regex patterns for file/directory
+            names to exclude. Interpretation depends on *use_regex*.
+        include_patterns: Patterns that override exclusions — any
+            path matching an include pattern is exported even if it
+            would otherwise be filtered out.
+        use_regex: When ``True``, treat *exclude_patterns* and
+            *include_patterns* as Python regular expressions instead
+            of glob patterns.
+        ignore_file: Filename of an ignore file inside *directory*
+            (e.g. ``".gitignore"``). Entries are treated as additional
+            exclusions.
+        max_depth: Maximum directory depth to include in the export.
+            ``0`` means unlimited.
+        show_full_path: When ``True``, write absolute paths instead of
+            bare filenames.
+        sort_by_loc: When ``True``, sort files by lines-of-code count
+            (descending) and annotate each file with its LOC count.
+        sort_by_size: When ``True``, sort files by size (descending)
+            and annotate each file with its size.
+        sort_by_mtime: When ``True``, sort files by last-modification
+            time (newest first) and annotate each file with its
+            timestamp.
+        show_git_status: When ``True``, annotate files with their Git
+            status markers in the exported output.
+        verbose: When ``True``, lower the log level to DEBUG so that
+            internal processing steps are printed to the terminal.
+
+    Raises:
+        typer.Exit: With exit code ``1`` if *directory* is invalid,
+            an unsupported format is requested, or an unhandled
+            exception occurs during scanning or file writing.
 
     Examples:
-        recursivist export                             # Export current directory to MD
-        recursivist export /path/to/project            # Export specific directory
-        recursivist export -f "json md html"           # Export to multiple formats (quoted)
-        recursivist export -f json -f md -f html       # Export to multiple formats (multiple flags)
-        recursivist export -e node_modules .git        # Exclude directories
-        recursivist export -x .pyc .log                # Exclude file extensions
-        recursivist export -p "*.test.js" "*.spec.js"  # Exclude test files (glob pattern)
-        recursivist export -p ".*test.*" -r            # Exclude test files (regex pattern)
-        recursivist export -i "src/*" "*.md"           # Include only src dir and markdown files
-        recursivist export -d 2                        # Limit directory depth to 2 levels
-        recursivist export -l                          # Show full paths instead of just filenames
-        recursivist export -o ./exports                # Export to custom directory
-        recursivist export -s                          # Sort by lines of code and show LOC counts
-        recursivist export -z                          # Sort by file size and show file sizes
-        recursivist export -m                          # Sort by modification time
-        recursivist export -G                          # Annotate files with Git status markers
+        >>> # Export current directory to Markdown
+        >>> recursivist export
+        >>> # Export a specific directory
+        >>> recursivist export /path/to/project
+        >>> # Multiple formats (space-separated)
+        >>> recursivist export -f "json md html"
+        >>> # Multiple formats (separate flags)
+        >>> recursivist export -f json -f md -f html
+        >>> # Exclude directories
+        >>> recursivist export -e node_modules .git
+        >>> # Exclude file extensions
+        >>> recursivist export -x .pyc .log
+        >>> # Exclude glob patterns
+        >>> recursivist export -p "*.test.js" "*.spec.js"
+        >>> # Exclude regex patterns
+        >>> recursivist export -p ".*test.*" -r
+        >>> # Include overrides
+        >>> recursivist export -i "src/*" "*.md"
+        >>> # Limit depth to 2
+        >>> recursivist export -d 2
+        >>> # Show full paths
+        >>> recursivist export -l
+        >>> # Custom output directory
+        >>> recursivist export -o ./exports
+        >>> # Sort by LOC
+        >>> recursivist export -s
+        >>> # Sort by size
+        >>> recursivist export -z
+        >>> # Sort by mtime
+        >>> recursivist export -m
+        >>> # Git status markers
+        >>> recursivist export -G
     """
 
     if verbose:
@@ -540,19 +667,26 @@ def export(
 def completion(
     shell: str = typer.Argument(..., help="Shell type (bash, zsh, fish, powershell)"),
 ) -> None:
-    """
-    Generate shell completion script.
+    """Generate a shell completion script for the recursivist CLI.
 
-    Creates a shell-specific script that enables command completion for the recursivist CLI. The output script can be sourced to provide tab completion for commands, options, and arguments.
-
-    Supported shells:
-    - bash: Bash shell completion
-    - zsh: Z shell completion
-    - fish: Fish shell completion
-    - powershell: PowerShell completion
+    Writes a shell-specific snippet to stdout that can be sourced (or
+    piped into the shell's eval mechanism) to enable tab-completion for
+    all recursivist commands, options, and arguments.
 
     Args:
-        shell: Shell type to generate completion for ('bash', 'zsh', 'fish', 'powershell')
+        shell: Target shell for the completion script. Must be one of
+            ``"bash"``, ``"zsh"``, ``"fish"``, or ``"powershell"``
+            (case-insensitive).
+
+    Raises:
+        typer.Exit: With exit code ``1`` if *shell* is not a supported
+            value or if an error occurs while generating the script.
+
+    Examples:
+        >>> recursivist completion bash        # Bash
+        >>> recursivist completion zsh         # Zsh
+        >>> recursivist completion fish        # Fish
+        >>> recursivist completion powershell  # PowerShell
     """
 
     try:
@@ -581,7 +715,9 @@ def completion(
 def version() -> None:
     """Display the current version of recursivist.
 
-    Reads and outputs the version information from the package metadata.
+    Reads the version string from the installed package metadata and
+    prints it to stdout in the format
+    ``"Recursivist version: <version>"``.
     """
 
     from recursivist import __version__
@@ -681,29 +817,87 @@ def compare(
         False, "--verbose", "-v", help="Enable verbose output"
     ),
 ) -> None:
-    """
-    Compare two directory structures side by side.
+    """Compare two directory structures side by side.
 
-    Creates a side-by-side comparison of two directory structures with:
-    - Color highlighting for items unique to each directory
-    - Same filtering options as visualization (dirs, extensions, patterns)
-    - Optional export to HTML for better sharing and viewing
-    - Visual legend explaining the highlighting
-    - Optional sorting and display of lines of code counts
+    Builds the tree for each directory using identical filtering
+    options, then renders a color-highlighted side-by-side diff.
+    Items present only in *dir1* are highlighted in one color; items
+    present only in *dir2* in another; shared items are shown normally.
+    A legend is included in the output. When *save_as_html* is
+    ``True`` the comparison is written to an HTML file instead.
+
+    Args:
+        dir1: First directory to compare. Must exist and be a
+            directory (validated by Typer before the function runs).
+        dir2: Second directory to compare. Must exist and be a
+            directory (validated by Typer before the function runs).
+        exclude_dirs: Directory names to omit from both trees.
+        exclude_extensions: File extensions to hide from both trees.
+            Values are normalized so both ``"pyc"`` and ``".pyc"``
+            are accepted.
+        exclude_patterns: Glob or regex patterns for file/directory
+            names to exclude from both trees. Interpretation depends
+            on *use_regex*.
+        include_patterns: Patterns that override exclusions — any
+            path matching an include pattern is shown even if it
+            would otherwise be filtered out.
+        use_regex: When ``True``, treat *exclude_patterns* and
+            *include_patterns* as Python regular expressions instead
+            of glob patterns.
+        ignore_file: Filename of an ignore file to look for inside
+            each directory (e.g. ``".gitignore"``).
+        max_depth: Maximum directory depth to display. ``0`` means
+            unlimited.
+        save_as_html: When ``True``, write the comparison to an HTML
+            file rather than printing to the terminal.
+        output_dir: Directory where the HTML file is written when
+            *save_as_html* is ``True``. Created if it does not exist.
+            Defaults to the current working directory.
+        output_prefix: Filename prefix for the exported HTML file.
+            Defaults to ``"comparison"``.
+        show_full_path: When ``True``, display absolute paths instead
+            of bare filenames.
+        sort_by_loc: When ``True``, sort files by lines-of-code count
+            (descending) and annotate each file with its LOC count.
+        sort_by_size: When ``True``, sort files by size (descending)
+            and annotate each file with its size.
+        sort_by_mtime: When ``True``, sort files by last-modification
+            time (newest first) and annotate each file with its
+            timestamp.
+        verbose: When ``True``, lower the log level to DEBUG so that
+            internal processing steps are printed to the terminal.
+
+    Raises:
+        typer.Exit: With exit code ``1`` if an unhandled exception
+            occurs during comparison or export.
 
     Examples:
-        recursivist compare dir1 dir2                   # Compare two directories
-        recursivist compare dir1 dir2 -e node_modules   # Exclude directories
-        recursivist compare dir1 dir2 -x .pyc .log      # Exclude file extensions
-        recursivist compare dir1 dir2 -p "*.test.js"    # Exclude test files (glob pattern)
-        recursivist compare dir1 dir2 -p ".*test.*" -r  # Exclude test files (regex pattern)
-        recursivist compare dir1 dir2 -i "src/*"        # Include only src directory
-        recursivist compare dir1 dir2 -d 2              # Limit directory depth to 2 levels
-        recursivist compare dir1 dir2 -l                # Show full paths instead of just filenames
-        recursivist compare dir1 dir2 -f                # Export comparison to HTML
-        recursivist compare dir1 dir2 -s                # Sort by lines of code and show LOC counts
-        recursivist compare dir1 dir2 -z                # Sort by file size and show file sizes
-        recursivist compare dir1 dir2 -m                # Sort by modification time
+        >>> # Basic comparison
+        >>> recursivist compare dir1 dir2
+        >>> # Exclude a directory
+        >>> recursivist compare dir1 dir2 -e node_modules
+        >>> # Exclude extensions
+        >>> recursivist compare dir1 dir2 -x .pyc .log
+        >>> # Exclude glob patterns
+        >>> recursivist compare dir1 dir2 -p "*.test.js"
+        >>> # Exclude regex patterns
+        >>> recursivist compare dir1 dir2 -p ".*test.*" -r
+        >>> # Include overrides
+        >>> recursivist compare dir1 dir2 -i "src/*"
+        >>> # Limit depth to 2
+        >>> recursivist compare dir1 dir2 -d 2
+        >>> # Show full paths
+        >>> recursivist compare dir1 dir2 -l
+        >>> # Export to HTML
+        >>> recursivist compare dir1 dir2 -f
+        >>> # HTML to custom directory
+        >>> recursivist compare dir1 dir2 -f -o ./out
+        >>> # Sort by LOC
+        >>> recursivist compare dir1 dir2 -s
+        >>> # Sort by size
+        >>> recursivist compare dir1 dir2 -z
+        >>> # Sort by mtime
+        >>> recursivist compare dir1 dir2 -m
     """
 
     if verbose:
@@ -797,9 +991,12 @@ def compare(
 
 
 def main() -> None:
-    """Entry point for the CLI.
+    """Entry point for the recursivist CLI application.
 
-    Invokes the Typer application to process command-line arguments and execute the appropriate command.
+    Invokes the Typer application, which parses command-line arguments
+    and dispatches to the appropriate subcommand function. This
+    function is registered as the ``recursivist`` console-script entry
+    point in the package configuration.
     """
 
     app()

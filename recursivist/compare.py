@@ -1672,7 +1672,22 @@ def _export_comparison_to_html(
         return "\n".join(html_content)
 
     def format_timestamp_js() -> str:
-        """Returns JavaScript function to format timestamps in HTML."""
+        """Return a JavaScript helper function for human-readable timestamps.
+
+        Generates a ``formatTimestamp(timestamp)`` JS function that converts
+        a Unix epoch value (seconds) to a context-sensitive string using the
+        same relative-date logic as :func:`~recursivist.core.format_timestamp`:
+
+        * **Today** – ``"Today HH:MM"``
+        * **Yesterday** – ``"Yesterday HH:MM"``
+        * **Last 7 days** – ``"Day HH:MM"`` (e.g., ``"Mon 14:30"``)
+        * **This year** – ``"Month Day"`` (e.g., ``"Mar 15"``)
+        * **Older** – ``"YYYY-MM-DD"``
+
+        Returns:
+            A string containing a self-contained JavaScript function
+            definition ready to be embedded inside an HTML ``<script>`` block.
+        """
         return """
         function formatTimestamp(timestamp) {
             const dt = new Date(timestamp * 1000);

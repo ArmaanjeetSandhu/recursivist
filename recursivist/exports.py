@@ -49,7 +49,33 @@ def sort_files_by_type(
         tuple[str, str, int, int, float],
     ]
 ]:
-    """Sort files by extension and then by name, or by LOC/size/mtime if requested."""
+    """Sort a list of file entries by extension/name or by a requested statistic.
+
+    When one or more sort flags are set, files are ordered by the corresponding
+    statistic in descending order (highest first). When multiple flags are set,
+    they are applied as a compound sort key in the order LOC > size > mtime.
+    When no sort flag is set, files are grouped by extension and then sorted
+    alphabetically within each group.
+
+    *files* may contain plain strings (filename only) or tuples whose layout
+    depends on which statistics were collected:
+
+    * ``(name, display_path)``
+    * ``(name, display_path, loc)``
+    * ``(name, display_path, loc, size)``
+    * ``(name, display_path, loc, size, mtime)``
+
+    Args:
+        files: Sequence of file entries to sort. An empty sequence is
+            returned unchanged.
+        sort_by_loc: When ``True``, include lines-of-code in the sort key.
+        sort_by_size: When ``True``, include file size in the sort key.
+        sort_by_mtime: When ``True``, include modification time in the sort
+            key (newest first).
+
+    Returns:
+        A new sorted list containing the same elements as *files*.
+    """
     if not files:
         return []
     has_loc = any(isinstance(item, tuple) and len(item) > 2 for item in files)

@@ -1,7 +1,8 @@
 """
 React component export functionality for the Recursivist directory visualization tool.
 
-This module generates a JSX file containing a sophisticated, interactive directory viewer React component with advanced features:
+This module generates a JSX file containing a sophisticated, interactive directory
+viewer React component with advanced features:
 
 - Folder expansion/collapse functionality
 - Breadcrumb navigation
@@ -49,14 +50,14 @@ def generate_jsx_component(
     - Mobile-responsive design
 
     Args:
-        structure: Directory structure dictionary
-        root_name: Root directory name
-        output_path: Path where the React component file will be saved
-        show_full_path: Whether to show full paths instead of just filenames
-        sort_by_loc: Whether to show lines of code counts and sort by them
-        sort_by_size: Whether to show file sizes and sort by them
-        sort_by_mtime: Whether to show file modification times and sort by them
-        show_git_status: Whether to show Git status markers on files
+      structure: Directory structure dictionary
+      root_name: Root directory name
+      output_path: Path where the React component file will be saved
+      show_full_path: Whether to show full paths instead of just filenames
+      sort_by_loc: Whether to show lines of code counts and sort by them
+      sort_by_size: Whether to show file sizes and sort by them
+      sort_by_mtime: Whether to show file modification times and sort by them
+      show_git_status: Whether to show Git status markers on files
     """
 
     def _build_structure_jsx(
@@ -933,7 +934,6 @@ def generate_jsx_component(
                 >
     {_build_structure_jsx(structure, 1, root_name if show_full_path else "")}
                 </DirectoryItem>
-                {{/* Empty state for search */}}
                 {{searchTerm && openFolders.size <= 1 && (
                   <div className="py-8 text-center">
                     <Info className={{`w-12 h-12 mx-auto mb-3 ${{darkMode ? 'text-gray-600' : 'text-gray-300'}}`}} />
