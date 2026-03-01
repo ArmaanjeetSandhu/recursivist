@@ -7,7 +7,6 @@ Thank you for your interest in contributing to Recursivist! This document provid
 - [Code of Conduct](#code-of-conduct)
 - [Getting Started](#getting-started)
   - [Setting Up Your Development Environment](#setting-up-your-development-environment)
-  - [Understanding the Project Structure](#understanding-the-project-structure)
 - [Development Workflow](#development-workflow)
   - [Creating a Branch](#creating-a-branch)
   - [Making Changes](#making-changes)
@@ -35,52 +34,48 @@ By participating in this project, you agree to abide by our Code of Conduct. Ple
 ### Setting Up Your Development Environment
 
 1. **Fork the repository**:
-
    - Visit the [Recursivist repository](https://github.com/ArmaanjeetSandhu/recursivist) and click the "Fork" button to create your own copy.
 
 2. **Clone your fork**:
 
    ```bash
-   git clone https://github.com/ArmaanjeetSandhu/recursivist.git
+   git clone https://github.com/YOUR_USERNAME/recursivist.git
    cd recursivist
    ```
 
-3. **Set up the upstream remote**:
+3. **Install uv** (used for all environment and dependency management):
 
    ```bash
-   git remote add upstream https://github.com/ArmaanjeetSandhu/recursivist.git
+   # macOS/Linux
+   curl -LsSf https://astral.sh/uv/install.sh | sh
+
+   # Windows
+   powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
    ```
 
-4. **Create a virtual environment**:
+4. **Create a virtual environment and install development dependencies**:
 
    ```bash
-   python -m venv venv
-
-   # Activate the virtual environment
-   # On Windows
-   venv\Scripts\activate
-   # On macOS/Linux
-   source venv/bin/activate
+   uv venv
+   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+   uv pip install -e ".[dev]"
    ```
 
-5. **Install development dependencies**:
+5. **Install pre-commit hooks**:
+
    ```bash
-   pip install -e ".[dev]"
+   uv pip install pre-commit
+   pre-commit install
    ```
+
+   The pre-commit hooks will automatically run Ruff (lint + format) and mypy/pyright type checks on every commit.
 
 ## Development Workflow
 
 ### Creating a Branch
 
-1. **Make sure your fork is up to date**:
+1. **Create a new branch for your feature or bugfix**:
 
-   ```bash
-   git checkout main
-   git pull upstream main
-   git push origin main
-   ```
-
-2. **Create a new branch for your feature or bugfix**:
    ```bash
    git checkout -b feature/your-feature-name
    # or
@@ -98,20 +93,38 @@ By participating in this project, you agree to abide by our Code of Conduct. Ple
    git commit -m "Add feature: description of what you added"
    ```
 
-3. **Keep your branch updated** with the upstream repository:
+   Pre-commit hooks will run automatically on commit. If they flag issues, fix them and commit again.
+
+3. **Keep your branch updated** with the upstream repository by syncing your fork on GitHub and pulling locally:
+
    ```bash
-   git pull upstream main
+   git pull origin main
    ```
 
 ### Testing Your Changes
 
-1. **Run the tests** to make sure your changes don't break existing functionality:
+We use [Nox](https://nox.thea.codes/) as the task runner. All sessions run inside isolated uv-managed virtual environments.
+
+1. **Run the full test suite** across all supported Python versions:
 
    ```bash
-   pytest
+   nox -s tests
    ```
 
-2. **Test the CLI** to verify it works as expected:
+2. **Run linting and type checks**:
+
+   ```bash
+   nox -s lint typecheck
+   ```
+
+3. **Build and preview the documentation**:
+
+   ```bash
+   nox -s docs
+   ```
+
+4. **Test the CLI** to verify it works as expected:
+
    ```bash
    python -m recursivist --help
    ```
@@ -125,14 +138,12 @@ By participating in this project, you agree to abide by our Code of Conduct. Ple
    ```
 
 2. **Create a Pull Request** from your fork to the main repository:
-
    - Go to the [Recursivist repository](https://github.com/ArmaanjeetSandhu/recursivist)
    - Click "Pull Requests" > "New Pull Request"
    - Select "compare across forks" and choose your fork and branch
    - Click "Create Pull Request"
 
 3. **Describe your changes** in the PR:
-
    - What problem does it solve?
    - How can it be tested?
    - Any dependencies or breaking changes?
@@ -143,35 +154,20 @@ By participating in this project, you agree to abide by our Code of Conduct. Ple
 
 ### Code Style
 
-We follow PEP 8 and use the following tools to maintain code quality:
+We use [Ruff](https://docs.astral.sh/ruff/) for both linting and formatting. You can run it directly or via Nox:
 
-- **Black** for code formatting:
+```bash
+# Lint and auto-fix
+ruff check --fix .
 
-  ```bash
-  pip install black
-  black recursivist/
-  ```
+# Format
+ruff format .
 
-- **Flake8** for linting:
+# Or run both via Nox
+nox -s lint
+```
 
-  ```bash
-  pip install flake8
-  flake8 recursivist/
-  ```
-
-- **isort** for import sorting:
-
-  ```bash
-  pip install isort
-  isort recursivist/
-  ```
-
-- **mypy** for type checking:
-
-  ```bash
-  pip install mypy
-  mypy recursivist/
-  ```
+Ruff is also run automatically by the pre-commit hooks on every commit.
 
 ### Documentation
 
@@ -182,56 +178,64 @@ Example docstring:
 
 ```python
 def function(arg1: str, arg2: int) -> bool:
-    """A short description of the function.
+   """A short description of the function.
 
-    A more detailed description explaining the behavior, edge cases, and implementation details if relevant.
+   A more detailed description explaining the behavior, edge cases,
+   and implementation details if relevant.
 
-    Args:
-        arg1: Description of the first argument
-        arg2: Description of the second argument
+   Args:
+      arg1: Description of the first argument
+      arg2: Description of the second argument
 
-    Returns:
-        Description of the return value
+   Returns:
+      Description of the return value
 
-    Raises:
-        ValueError: When the input is invalid
-    """
+   Raises:
+      ValueError: When the input is invalid
+   """
 ```
 
 ### Type Annotations
 
-We use Python type hints for better code quality and IDE support:
+All code must pass both **mypy** (strict mode) and **pyright** type checks. Use standard type hints:
 
 ```python
-from typing import Dict, List, Optional, Set
-
-def process_data(data: Dict[str, List[str]],
-                 options: Optional[Set[str]] = None) -> bool:
-    # Function implementation
-    return True
+def process_data(
+   data: dict[str, list[str]],
+   options: set[str] | None = None,
+) -> bool:
+   return True
 ```
+
+Run type checks via Nox:
+
+```bash
+nox -s typecheck
+```
+
+This will run both `mypy --strict` and `pyright` against the codebase.
 
 ## Testing
 
 ### Running Tests
 
-We use pytest for testing:
+We use [pytest](https://pytest.org/) via Nox. Coverage reporting is enabled by default (configured in `pyproject.toml`).
 
 ```bash
-# Run all tests
+# Run tests across all supported Python versions (3.9–3.13)
+nox -s tests
+
+# Pass extra arguments to pytest (e.g. run a specific test)
+nox -s tests -- -k test_something
+
+# Run pytest directly in your active environment
 pytest
-
-# Run with coverage report
-pytest --cov=recursivist
-
-# Run tests from a specific file
-pytest tests/test_core.py
 ```
 
 ### Writing Tests
 
 - Write tests for all new features and bug fixes.
-- Place tests in the `tests/` directory with a name that matches the module being tested.
+- Place tests in the `tests/` directory with a name matching the module being tested (e.g. `tests/test_core.py`).
 - Follow the test style used in existing tests.
 
 Example test:
@@ -241,16 +245,16 @@ Example test:
 from recursivist.core import generate_color_for_extension
 
 def test_generate_color_for_extension():
-    # Given
-    extension = ".py"
+   # Given
+   extension = ".py"
 
-    # When
-    color = generate_color_for_extension(extension)
+   # When
+   color = generate_color_for_extension(extension)
 
-    # Then
-    assert isinstance(color, str)
-    assert color.startswith("#")
-    assert len(color) == 7
+   # Then
+   assert isinstance(color, str)
+   assert color.startswith("#")
+   assert len(color) == 7
 ```
 
 ## Bug Reports and Feature Requests
@@ -277,21 +281,26 @@ We welcome feature requests! Please open an issue with:
 
 ## Release Process
 
-1. **Version bump**:
+Releases are largely automated via GitHub Actions.
 
-   - Update version in `__init__.py` and `pyproject.toml`
-   - Update the changelog
+1. **Bump the version** in `pyproject.toml`:
 
-2. **Create a release commit**:
-
-   ```bash
-   git add .
-   git commit -m "Release v0.2.0"
-   git tag v0.2.0
-   git push origin main --tags
+   ```toml
+   version = "X.Y.Z"
    ```
 
-3. **Build and publish**:
+2. **Commit and push to `main`**:
+
+   ```bash
+   git add pyproject.toml
+   git commit -m "Release vX.Y.Z"
+   git push origin main
+   ```
+
+3. **Automatic tagging**: The `tag-release` workflow detects the version change in `pyproject.toml`, checks that the tag doesn't already exist, and creates and pushes the Git tag automatically. No manual tagging is required.
+
+4. **Publish to PyPI** (maintainers only):
+
    ```bash
    python -m build
    python -m twine upload dist/*
@@ -299,9 +308,9 @@ We welcome feature requests! Please open an issue with:
 
 ## Community
 
-- **GitHub Discussions**: Use this for questions and general discussion.
-- **Issues**: Bug reports and feature requests.
-- **Pull Requests**: Submit changes to the codebase.
+- **GitHub Discussions** Use this for questions and general discussion.
+- **Issues** Bug reports and feature requests.
+- **Pull Requests** Submit changes to the codebase.
 
 ---
 

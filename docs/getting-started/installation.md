@@ -4,7 +4,7 @@ Recursivist is available on PyPI and can be installed with pip, the Python packa
 
 ## Requirements
 
-- Python 3.7 or higher
+- Python 3.9 or higher
 - pip (Python package manager)
 
 ## Installing from PyPI

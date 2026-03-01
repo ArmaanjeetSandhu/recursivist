@@ -17,36 +17,35 @@ Recursivist uses pytest for testing. The test suite covers:
 
 ### Basic Test Commands
 
+We use [Nox](https://nox.thea.codes/) as the task runner. All test sessions run inside isolated uv-managed virtual environments.
+
 ```bash
-# Run all tests
+# Run tests across all supported Python versions (3.9–3.13)
+nox -s tests
+
+# Pass extra arguments to pytest via Nox
+nox -s tests -- -v
+nox -s tests -- -xvs
+nox -s tests -- tests/test_core.py
+nox -s tests -- -k "pattern"
+
+# Run pytest directly in your active environment
 pytest
-
-# Run with verbose output
 pytest -v
-
-# Stop on first failure and show traceback
 pytest -xvs
-
-# Run a specific test file
 pytest tests/test_core.py
-
-# Run tests matching a specific name
 pytest -k "pattern"
 ```
 
-### Coverage Testing
+### Coverage
 
-To see how much of the codebase is covered by tests:
+Coverage reporting is enabled by default via `addopts` in `pyproject.toml` and produces a terminal report automatically on every test run. No extra flags are needed:
 
 ```bash
-# Basic coverage report
-pytest --cov=recursivist
-
-# Detailed HTML coverage report
-pytest --cov=recursivist --cov-report=html
+nox -s tests
+# or
+pytest
 ```
-
-This creates an HTML report in the `htmlcov` directory that shows which lines of code are covered by tests.
 
 ## Test Organization
 
@@ -221,7 +220,6 @@ def simple_dir_structure(tmp_path):
     return tmp_path
 
 def test_directory_traversal(simple_dir_structure):
-    # Now you can use the fixture
     structure, extensions = get_directory_structure(str(simple_dir_structure))
 
     # Verify structure
@@ -253,10 +251,7 @@ def test_count_lines_of_code():
     # Apply mocks
     with patch('builtins.open', mock_open):
         with patch('recursivist.core.open', mock_open):
-            # Run function with mocked file operations
             result = count_lines_of_code("fake_file.py")
-
-            # Verify result
             assert result == 3
 ```
 
@@ -405,23 +400,25 @@ def test_cli_options(tmp_path, options, expected_in_output, expected_not_in_outp
 
 When a test fails:
 
-1. Run with `-xvs` to stop at the first failure and show detailed output:
+1. Run with `-xvs` to stop at the first failure and show detailed output. You can pass extra arguments through Nox or run pytest directly:
 
    ```bash
-   pytest -xvs tests/test_file.py::test_function
+   nox -s tests -- -xvs tests/test_core.py::test_function
+   # or
+   pytest -xvs tests/test_core.py::test_function
    ```
 
-2. Add print statements or use `pytest.set_trace()` for debugging:
+2. Add `breakpoint()` in your test code to drop into an interactive debugger at that point:
 
    ```python
    def test_function():
        result = function_under_test()
        print(f"Result: {result}")  # Will show in pytest output with -v
-       import pytest; pytest.set_trace()  # Will stop and start a debugger
+       breakpoint()               # Drops into the debugger here
        assert result == expected
    ```
 
-3. Use the `--pdb` flag to drop into the debugger on failures:
+3. Use the `--pdb` flag to drop into the debugger automatically on any failure:
 
    ```bash
    pytest --pdb
@@ -429,10 +426,13 @@ When a test fails:
 
 ## Testing Complex Directory Structures
 
-For testing complex directory hierarchies:
+For testing complex directory hierarchies, define the helper as a proper pytest fixture so that `tmp_path` is injected correctly:
 
 ```python
-def create_complex_structure(tmp_path):
+import pytest
+
+@pytest.fixture
+def complex_structure(tmp_path):
     """Create a more complex directory structure for testing."""
     # Project root files
     (tmp_path / "README.md").write_text("# Project\n\nDescription")
@@ -462,10 +462,9 @@ def create_complex_structure(tmp_path):
 
     return tmp_path
 
-def test_large_directory_structure():
+def test_large_directory_structure(complex_structure):
     """Test handling of a larger directory structure."""
-    tmp_path = create_complex_structure(tmp_path_factory.getbasetemp())
-
+    structure, extensions = get_directory_structure(str(complex_structure))
     # Test various scenarios with the complex structure
     # ...
 ```
@@ -477,7 +476,6 @@ Always test edge cases and potential failure conditions:
 ```python
 def test_empty_directory(tmp_path):
     """Test behavior with an empty directory."""
-    # Empty directory
     structure, extensions = get_directory_structure(str(tmp_path))
     assert "_files" not in structure
     assert len(extensions) == 0
@@ -489,7 +487,6 @@ def test_nonexistent_directory():
 
 def test_permission_denied(tmp_path, monkeypatch):
     """Test behavior when permission is denied."""
-    # Mock os.listdir to raise PermissionError
     def mock_listdir(path):
         raise PermissionError("Permission denied")
 
@@ -502,62 +499,26 @@ def test_permission_denied(tmp_path, monkeypatch):
 
 def test_with_binary_files(tmp_path):
     """Test behavior with binary files."""
-    # Create a binary file
     binary_file = tmp_path / "binary.bin"
     with open(binary_file, "wb") as f:
         f.write(b"\x00\x01\x02\x03")
 
-    # Should handle binary files properly for LOC counting
+    # Binary files should have 0 lines when LOC counting is enabled
     structure, _ = get_directory_structure(str(tmp_path), sort_by_loc=True)
-
-    # Binary files should have 0 lines
     assert structure["_loc"] == 0
 ```
 
-## Continuous Integration Testing
+## Continuous Integration
 
-Run tests in CI environments to catch platform-specific issues:
-
-```yaml
-# Example GitHub Actions workflow
-name: Tests
-
-on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
-
-jobs:
-  test:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        python-version: ["3.7", "3.8", "3.9", "3.10", "3.11"]
-
-    steps:
-      - uses: actions/checkout@v3
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
-        with:
-          python-version: ${{ matrix.python-version }}
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev]"
-      - name: Run tests
-        run: |
-          pytest --cov=recursivist
-```
+Tests run automatically on every push and pull request via GitHub Actions (see `.github/workflows/test.yml`). The workflow runs the full test suite across Python 3.9–3.13 using Nox and uv. You don't need to configure anything — just push your branch and check the results.
 
 ## Test-Driven Development
 
 For adding new features, consider using Test-Driven Development (TDD):
 
-1. Write a failing test that defines the expected behavior
-2. Implement the minimal code to make the test pass
-3. Refactor the code while keeping the tests passing
+1. Write a failing test that defines the expected behavior.
+2. Implement the minimal code to make the test pass.
+3. Refactor the code while keeping the tests passing.
 
 This approach ensures your new feature has test coverage from the start and helps clarify the requirements before implementation.
 

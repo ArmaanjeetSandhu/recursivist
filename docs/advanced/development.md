@@ -6,38 +6,40 @@ This guide provides information for developers who want to contribute to or exte
 
 ### Prerequisites
 
-- Python 3.7 or higher
+- Python 3.9 or higher
 - Git
-- pip (Python package manager)
+- [uv](https://docs.astral.sh/uv/) (Python package and environment manager)
 
 ### Clone the Repository
 
 ```bash
-git clone https://github.com/username/recursivist.git
+git clone https://github.com/YOUR_USERNAME/recursivist.git
 cd recursivist
 ```
 
 ### Create a Virtual Environment
 
 ```bash
-# Create a virtual environment
-python -m venv venv
-
-# Activate the virtual environment
-# On Windows
-venv\Scripts\activate
-# On macOS/Linux
-source venv/bin/activate
+uv venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 ```
 
 ### Install Development Dependencies
 
 ```bash
-# Install the package in development mode with development dependencies
-pip install -e ".[dev]"
+uv pip install -e ".[dev]"
 ```
 
-This installs Recursivist in "editable" mode, so your changes to the source code will be reflected immediately without reinstalling.
+This installs Recursivist in editable mode, so your changes to the source code will be reflected immediately without reinstalling.
+
+### Install Pre-commit Hooks
+
+```bash
+uv pip install pre-commit
+pre-commit install
+```
+
+The hooks run Ruff (lint + format) and mypy/pyright type checks automatically on every commit.
 
 ## Project Structure
 
@@ -76,7 +78,7 @@ recursivist/
 3. Run the tests to ensure your changes don't break existing functionality:
 
    ```bash
-   pytest
+   nox -s tests
    ```
 
 4. Add and commit your changes:
@@ -85,6 +87,8 @@ recursivist/
    git add .
    git commit -m "Add your meaningful commit message here"
    ```
+
+   Pre-commit hooks will run automatically on commit. If they flag issues, fix them and commit again.
 
 5. Push your changes:
 
@@ -96,24 +100,26 @@ recursivist/
 
 ### Code Style
 
-Recursivist follows PEP 8 style guidelines. We recommend using the following tools for code formatting and linting:
+We use [Ruff](https://docs.astral.sh/ruff/) for both linting and formatting. You can run it directly or via Nox:
 
-- **Black** for code formatting:
+```bash
+# Lint and auto-fix
+ruff check --fix .
 
-  ```bash
-  black recursivist tests
-  ```
+# Format
+ruff format .
 
-- **Flake8** for code linting:
+# Or run both via Nox
+nox -s lint
+```
 
-  ```bash
-  flake8 recursivist tests
-  ```
+For type checking, we run both mypy (strict mode) and pyright:
 
-- **MyPy** for type checking:
-  ```bash
-  mypy recursivist
-  ```
+```bash
+nox -s typecheck
+```
+
+Ruff and type checks are also run automatically by the pre-commit hooks on every commit.
 
 ## Adding a New Feature
 
@@ -158,9 +164,7 @@ def to_your_format(self, output_path: str) -> None:
     Args:
         output_path: Path where the export file will be saved
     """
-    # Implement export to your format
     try:
-        # Your export logic here
         with open(output_path, "w", encoding="utf-8") as f:
             # Write your formatted output
             pass
@@ -178,6 +182,7 @@ format_map = {
     "html": exporter.to_html,
     "md": exporter.to_markdown,
     "jsx": exporter.to_jsx,
+    "svg": exporter.to_svg,
     "your_format": exporter.to_your_format,  # Add your format here
 }
 ```
@@ -200,18 +205,20 @@ For detailed information about testing, see the [Testing Guide](testing.md).
 
 ### Basic Testing
 
+We use [pytest](https://pytest.org/) via Nox. Coverage reporting is enabled by default (configured in `pyproject.toml`).
+
 ```bash
-# Run all tests
+# Run tests across all supported Python versions (3.9–3.13)
+nox -s tests
+
+# Pass extra arguments to pytest (e.g. run a specific test)
+nox -s tests -- -k "pattern"
+
+# Run pytest directly in your active environment
 pytest
 
-# Run tests with code coverage
-pytest --cov=recursivist --cov-report=html
-
-# Run specific test file
+# Run a specific test file
 pytest tests/test_core.py
-
-# Run tests matching a pattern
-pytest -k "pattern"
 ```
 
 ## Debugging
@@ -228,14 +235,13 @@ This provides more information about what's happening during execution, which ca
 
 ### Using a Debugger
 
-For complex issues, you can use a debugger:
+Use the built-in `breakpoint()` to drop into the debugger at any point:
 
 ```python
-import pdb
-pdb.set_trace()  # Add this line at the point where you want to start debugging
+breakpoint()  # Add this line where you want to start debugging
 ```
 
-With modern IDEs like VSCode or PyCharm, you can also set breakpoints and use their built-in debuggers.
+With modern IDEs like VSCode or PyCharm, you can also set breakpoints and use their built-in debuggers without modifying code.
 
 ## Documentation
 
@@ -244,7 +250,7 @@ With modern IDEs like VSCode or PyCharm, you can also set breakpoints and use th
 Use Google-style docstrings for all functions, classes, and methods:
 
 ```python
-def function_name(param1: Type1, param2: Type2) -> ReturnType:
+def function_name(param1: str, param2: int) -> bool:
     """Short description of the function.
 
     More detailed description if needed.
@@ -257,7 +263,7 @@ def function_name(param1: Type1, param2: Type2) -> ReturnType:
         Description of return value
 
     Raises:
-        ExceptionType: When and why this exception is raised
+        ValueError: When and why this exception is raised
     """
     # Function implementation
 ```
@@ -330,28 +336,26 @@ Recursivist follows Semantic Versioning (SemVer):
 
 ### Creating a Release
 
-1. Update the version in `__init__.py`.
-2. Update the CHANGELOG.md file.
-3. Commit the changes:
-   ```bash
-   git add .
-   git commit -m "Prepare for release x.y.z"
+1. Update the version in `pyproject.toml`:
+
+   ```toml
+   version = "X.Y.Z"
    ```
-4. Create a tag for the release:
+
+2. Commit and push to `main`:
+
    ```bash
-   git tag -a vx.y.z -m "Release x.y.z"
-   ```
-5. Push the changes and tag:
-   ```bash
+   git add pyproject.toml
+   git commit -m "Release vX.Y.Z"
    git push origin main
-   git push origin vx.y.z
    ```
-6. Build the package:
+
+3. The `tag-release` GitHub Actions workflow will automatically detect the version change, verify the tag doesn't already exist, and create and push the Git tag. No manual tagging is required.
+
+4. Build and upload to PyPI (maintainers only):
+
    ```bash
    python -m build
-   ```
-7. Upload to PyPI:
-   ```bash
    twine upload dist/*
    ```
 
@@ -383,7 +387,6 @@ def display_tree(
     # Existing parameters...
     new_option: bool = False,
 ):
-    # Use the new option in your function
     if new_option:
         # Do something
         pass
