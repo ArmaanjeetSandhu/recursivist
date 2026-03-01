@@ -43,7 +43,6 @@ theme:
         name: Switch to light mode
 
 extra:
-  homepage: true
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/ArmaanjeetSandhu
@@ -51,11 +50,6 @@ extra:
       link: https://linkedin.com/in/armaanjeetsandhu
   version:
     provider: mike
-  consent:
-    title: Cookie consent
-    description: >-
-      We use cookies to recognize your repeated visits and preferences, as well
-      as to measure the effectiveness of our documentation.
 
 markdown_extensions:
   - abbr
