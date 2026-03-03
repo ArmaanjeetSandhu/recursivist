@@ -1,7 +1,7 @@
 import json
 import os
 import re
-from typing import Any
+from typing import Any, Callable, cast
 
 import yaml
 
@@ -10,7 +10,7 @@ SITEMAP_FILE = "docs/sitemap.md"
 DOCS_DIR = "docs"
 
 
-def parse_markdown_headers(filepath: str) -> list[dict[str, Any]]:
+def parse_markdown_headers(filepath: str, path_prefix: str) -> list[dict[str, Any]]:
     """Parses markdown files to extract headers H1-H4 and builds a tree."""
     if not os.path.exists(filepath):
         return []
@@ -36,14 +36,28 @@ def parse_markdown_headers(filepath: str) -> list[dict[str, Any]]:
 
             title = re.sub(r"\[(.*?)\]\(.*?\)", r"\1", title)
 
+            slug = title.lower().replace(" ", "-").replace("`", "")
+
+            if stack:
+                parent_id = stack[-1][1]["id"]
+                node_id = f"{parent_id}/{slug}"
+            else:
+                node_id = f"{path_prefix}/{slug}"
+
             node = {
-                "id": title.lower().replace(" ", "-").replace("`", ""),
+                "id": node_id,
                 "label": title,
                 "children": [],
             }
 
             while stack and stack[-1][0] >= level:
                 stack.pop()
+
+            if stack:
+                parent_id = stack[-1][1]["id"]
+                node["id"] = f"{parent_id}/{slug}"
+            else:
+                node["id"] = f"{path_prefix}/{slug}"
 
             if not stack:
                 root_nodes.append(node)
@@ -63,25 +77,34 @@ def parse_markdown_headers(filepath: str) -> list[dict[str, Any]]:
     return root_nodes
 
 
-def process_nav(nav_item: object) -> dict[str, Any] | None:
+def process_nav(nav_item: object, parent_id: str = "root") -> dict[str, Any] | None:
     """Recursively processes the mkdocs nav structure."""
     if isinstance(nav_item, str):
         title = os.path.basename(nav_item).replace(".md", "").replace("-", " ").title()
-        children = parse_markdown_headers(os.path.join(DOCS_DIR, nav_item))
-        node: dict[str, Any] = {"id": nav_item, "label": title}
+        node_id = nav_item
+        children = parse_markdown_headers(
+            os.path.join(DOCS_DIR, nav_item), path_prefix=node_id
+        )
+        node: dict[str, Any] = {"id": node_id, "label": title}
         if children:
             node["children"] = children
         return node
 
     elif isinstance(nav_item, dict):
         for key, value in nav_item.items():
-            node = {"id": key.lower().replace(" ", "-"), "label": key}
+            slug = key.lower().replace(" ", "-")
+            node_id = f"{parent_id}/{slug}"
+            node = {"id": node_id, "label": key}
             if isinstance(value, str):
-                children = parse_markdown_headers(os.path.join(DOCS_DIR, value))
+                children = parse_markdown_headers(
+                    os.path.join(DOCS_DIR, value), path_prefix=node_id
+                )
                 if children:
                     node["children"] = children
             elif isinstance(value, list):
-                node["children"] = [process_nav(item) for item in value]
+                node["children"] = [
+                    process_nav(item, parent_id=node_id) for item in value
+                ]
             return node
 
     return None
@@ -94,8 +117,12 @@ def _ignore_python_tags(
 
 
 def main() -> None:
-    yaml.SafeLoader.add_multi_constructor(  # type: ignore[no-untyped-call]
-        "tag:yaml.org,2002:python/name:", _ignore_python_tags
+    yaml.SafeLoader.add_multi_constructor(
+        "tag:yaml.org,2002:python/name:",
+        cast(
+            Callable[[yaml.constructor.BaseConstructor, str, yaml.Node], None],
+            _ignore_python_tags,
+        ),
     )
 
     with open(MKDOCS_FILE, encoding="utf-8") as f:
@@ -106,7 +133,7 @@ def main() -> None:
     tree = {
         "id": "root",
         "label": "Recursivist",
-        "children": [process_nav(item) for item in nav_list if item],
+        "children": [process_nav(item, parent_id="root") for item in nav_list if item],
     }
 
     js_tree = "const TREE = " + json.dumps(tree, indent=2) + ";"
