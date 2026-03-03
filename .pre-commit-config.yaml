@@ -24,3 +24,12 @@ repos:
         args: [--unsafe]
       - id: check-toml
       - id: check-merge-conflict
+
+  - repo: local
+    hooks:
+      - id: generate-sitemap
+        name: Generate Sitemap Map
+        entry: uv run --with pyyaml python scripts/generate_sitemap.py
+        language: system
+        files: ^(mkdocs\.yml|docs/.*\.md)$
+        pass_filenames: false

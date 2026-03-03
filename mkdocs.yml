@@ -14,7 +14,6 @@ theme:
     - navigation.tabs
     - navigation.sections
     - navigation.path
-    - navigation.top
     - navigation.tracking
     - navigation.indexes
     - search.suggest
@@ -141,3 +140,4 @@ nav:
       - Development: advanced/development.md
       - Testing: advanced/testing.md
   - Contributing: contributing.md
+  - Sitemap: sitemap.md
