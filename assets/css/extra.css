@@ -66,12 +66,13 @@ body {
 }
 
 .md-header {
-  background-color: var(--md-primary-fg-color);
+  background-color: #0d1117;
   backdrop-filter: blur(12px) saturate(1.4);
   -webkit-backdrop-filter: blur(12px) saturate(1.4);
   box-shadow: 0 1px 0 rgba(0, 0, 0, 0.15);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
   transition: box-shadow var(--duration-base) var(--ease-out);
+  color: #ffffff;
 }
 
 [data-md-color-scheme="slate"] .md-header {
@@ -963,4 +964,31 @@ body {
 .md-footer {
   font-family: "IBM Plex Mono", monospace;
   font-size: 0.75rem;
+}
+
+.mm-sidebar-panel {
+  padding: 0.9rem 0.75rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.mm-sidebar-label {
+  display: block;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted, rgba(0, 0, 0, 0.45));
+  margin-bottom: 4px;
+  padding-left: 2px;
+}
+
+[data-md-color-scheme="slate"] .mm-sidebar-label {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.md-sidebar--primary .mm-controls {
+  margin: 0;
 }
