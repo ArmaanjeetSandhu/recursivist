@@ -1,7 +1,7 @@
 import json
 import os
 import re
-from typing import Any, Callable, cast
+from typing import Any
 
 import yaml
 
@@ -117,12 +117,10 @@ def _ignore_python_tags(
 
 
 def main() -> None:
-    yaml.SafeLoader.add_multi_constructor(
+    yaml.add_multi_constructor(
         "tag:yaml.org,2002:python/name:",
-        cast(
-            Callable[[yaml.constructor.BaseConstructor, str, yaml.Node], None],
-            _ignore_python_tags,
-        ),
+        _ignore_python_tags,
+        Loader=yaml.SafeLoader,
     )
 
     with open(MKDOCS_FILE, encoding="utf-8") as f:
