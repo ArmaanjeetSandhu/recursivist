@@ -269,6 +269,7 @@ def visualize(
     if verbose:
         logger.setLevel(logging.DEBUG)
         logger.debug("Verbose mode enabled")
+    directory = directory.resolve()
     if not directory.exists() or not directory.is_dir():
         logger.error(f"Error: {directory} is not a valid directory")
         raise typer.Exit(1)
@@ -541,6 +542,7 @@ def export(
     if verbose:
         logger.setLevel(logging.DEBUG)
         logger.debug("Verbose mode enabled")
+    directory = directory.resolve()
     if not directory.exists() or not directory.is_dir():
         logger.error(f"Error: {directory} is not a valid directory")
         raise typer.Exit(1)
