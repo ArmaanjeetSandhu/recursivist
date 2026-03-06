@@ -233,7 +233,7 @@ class TestDirectoryExporter:
             "md",
             "md",
             [
-                lambda c: "# 📂" in c,
+                lambda c: "# 📁" in c,
                 lambda c: "- 📄 `file1.txt`" in c,
                 lambda c: "- 📁 **subdir**" in c,
             ],
@@ -352,9 +352,25 @@ def test_export_with_options(
         )
     else:
         structure, _ = get_directory_structure(sample_directory)
-    export_kwargs = {option_name: option_value}
     output_path = os.path.join(output_dir, f"structure_{option_name}.txt")
-    export_structure(structure, sample_directory, "txt", output_path, **export_kwargs)
+    if option_name == "show_full_path":
+        export_structure(
+            structure, sample_directory, "txt", output_path, show_full_path=option_value
+        )
+    elif option_name == "sort_by_loc":
+        export_structure(
+            structure, sample_directory, "txt", output_path, sort_by_loc=option_value
+        )
+    elif option_name == "sort_by_size":
+        export_structure(
+            structure, sample_directory, "txt", output_path, sort_by_size=option_value
+        )
+    elif option_name == "sort_by_mtime":
+        export_structure(
+            structure, sample_directory, "txt", output_path, sort_by_mtime=option_value
+        )
+    else:
+        export_structure(structure, sample_directory, "txt", output_path)
     assert os.path.exists(output_path)
     with open(output_path, encoding="utf-8") as f:
         content = f.read()
@@ -482,7 +498,7 @@ def test_large_structure_export(output_dir: str) -> None:
         with open(output_path, encoding="utf-8") as f:
             content = f.read()
         if fmt == "txt":
-            assert "📂 large_root" in content
+            assert "📁 large_root" in content
             assert "file_1_0.txt" in content
         elif fmt == "json":
             assert '"root": "large_root"' in content
@@ -492,7 +508,7 @@ def test_large_structure_export(output_dir: str) -> None:
             assert "<!DOCTYPE html>" in content
             assert "large_root" in content
         elif fmt == "md":
-            assert "# 📂 large_root" in content
+            assert "# 📁 large_root" in content
         elif fmt == "jsx":
             assert "import React" in content
             assert 'name="large_root"' in content

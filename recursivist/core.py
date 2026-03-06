@@ -31,6 +31,8 @@ from rich.console import Console
 from rich.text import Text
 from rich.tree import Tree
 
+from recursivist.icons import get_icon
+
 logger = logging.getLogger(__name__)
 
 
@@ -43,8 +45,33 @@ def export_to_svg(
     sort_by_size: bool = False,
     sort_by_mtime: bool = False,
     show_git_status: bool = False,
+    icon_style: str = "emoji",
 ) -> None:
-    """Export the directory structure to an SVG image using rich."""
+    """Export the directory structure to an SVG image.
+
+    Renders the directory tree using Rich's SVG export capability, producing
+    a self-contained SVG file suitable for embedding in documentation or
+    sharing as a standalone image. The tree is rendered with the same color
+    coding and statistics annotations as the terminal output.
+
+    Args:
+        structure: Directory structure dictionary produced by
+            ``get_directory_structure``.
+        root_dir: Absolute path to the root directory; its basename is used
+            as the tree root label and the SVG title.
+        output_path: Destination file path for the exported SVG.
+        show_full_path: When ``True``, display absolute file paths instead of
+            bare filenames.
+        sort_by_loc: When ``True``, annotate files and directories with lines-
+            of-code counts and sort files by LOC descending.
+        sort_by_size: When ``True``, annotate files and directories with their
+            sizes and sort files by size descending.
+        sort_by_mtime: When ``True``, annotate files and directories with
+            their modification timestamps and sort files by newest first.
+        show_git_status: When ``True``, append Git status markers to each
+            file (``[U]`` untracked, ``[M]`` modified, ``[A]`` added,
+            ``[D]`` deleted).
+    """
 
     def extract_extensions(struct: dict[str, Any]) -> set[str]:
         exts = set()
@@ -61,7 +88,8 @@ def export_to_svg(
     color_map = {ext: generate_color_for_extension(ext) for ext in extensions}
 
     root_name = os.path.basename(root_dir)
-    root_label = f"📂 {root_name}"
+    root_icon = get_icon(root_name, is_dir=True, style=icon_style)
+    root_label = f"{root_icon} {root_name}"
 
     if (
         sort_by_loc
@@ -71,26 +99,28 @@ def export_to_svg(
         and "_size" in structure
         and "_mtime" in structure
     ):
-        root_label = f"📂 {root_name} ({structure['_loc']} lines, {format_size(structure['_size'])}, {format_timestamp(structure['_mtime'])})"
+        root_label = f"{root_icon} {root_name} ({structure['_loc']} lines, {format_size(structure['_size'])}, {format_timestamp(structure['_mtime'])})"
     elif sort_by_loc and sort_by_size and "_loc" in structure and "_size" in structure:
-        root_label = f"📂 {root_name} ({structure['_loc']} lines, {format_size(structure['_size'])})"
+        root_label = f"{root_icon} {root_name} ({structure['_loc']} lines, {format_size(structure['_size'])})"
     elif (
         sort_by_loc and sort_by_mtime and "_loc" in structure and "_mtime" in structure
     ):
-        root_label = f"📂 {root_name} ({structure['_loc']} lines, {format_timestamp(structure['_mtime'])})"
+        root_label = f"{root_icon} {root_name} ({structure['_loc']} lines, {format_timestamp(structure['_mtime'])})"
     elif (
         sort_by_size
         and sort_by_mtime
         and "_size" in structure
         and "_mtime" in structure
     ):
-        root_label = f"📂 {root_name} ({format_size(structure['_size'])}, {format_timestamp(structure['_mtime'])})"
+        root_label = f"{root_icon} {root_name} ({format_size(structure['_size'])}, {format_timestamp(structure['_mtime'])})"
     elif sort_by_loc and "_loc" in structure:
-        root_label = f"📂 {root_name} ({structure['_loc']} lines)"
+        root_label = f"{root_icon} {root_name} ({structure['_loc']} lines)"
     elif sort_by_size and "_size" in structure:
-        root_label = f"📂 {root_name} ({format_size(structure['_size'])})"
+        root_label = f"{root_icon} {root_name} ({format_size(structure['_size'])})"
     elif sort_by_mtime and "_mtime" in structure:
-        root_label = f"📂 {root_name} ({format_timestamp(structure['_mtime'])})"
+        root_label = (
+            f"{root_icon} {root_name} ({format_timestamp(structure['_mtime'])})"
+        )
 
     tree = Tree(root_label)
 
@@ -103,6 +133,7 @@ def export_to_svg(
         sort_by_size=sort_by_size,
         sort_by_mtime=sort_by_mtime,
         show_git_status=show_git_status,
+        icon_style=icon_style,
     )
     console = Console(record=True, width=120)
     console.print(tree)
@@ -119,6 +150,7 @@ def export_structure(
     sort_by_size: bool = False,
     sort_by_mtime: bool = False,
     show_git_status: bool = False,
+    icon_style: str = "emoji",
 ) -> None:
     """Export the directory structure to various formats.
 
@@ -148,6 +180,7 @@ def export_structure(
             sort_by_size=sort_by_size,
             sort_by_mtime=sort_by_mtime,
             show_git_status=show_git_status,
+            icon_style=icon_style,
         )
         return
 
@@ -161,6 +194,7 @@ def export_structure(
         sort_by_size,
         sort_by_mtime,
         show_git_status,
+        icon_style=icon_style,
     )
     format_map = {
         "txt": exporter.to_txt,
@@ -213,7 +247,7 @@ def get_git_status(directory: str) -> dict[str, str]:
     - ``'D'``: Deleted (working-tree or staged deletion)
 
     Args:
-        directory: Absolute path to the directory being visualised.  Must be
+        directory: Absolute path to the directory being visualised. Must be
             inside a Git repository.
 
     Returns:
@@ -386,17 +420,21 @@ _EXTENSION_COLORS: dict[str, str] = {}
 
 
 def color_distance(color1: tuple[int, int, int], color2: tuple[int, int, int]) -> float:
-    """
-    Calculate perceptual distance between two colors in RGB space.
+    """Calculate the perceptual distance between two RGB colors.
 
-    Using a weighted Euclidean distance that accounts for human perception.
+    Uses a weighted Euclidean distance formula that approximates human color
+    perception by emphasising the green channel over red and blue.
 
     Args:
-        color1: First color as (r, g, b) tuple with values 0-255
-        color2: Second color as (r, g, b) tuple with values 0-255
+        color1: First color as an ``(r, g, b)`` tuple with component values
+            in the range ``0``\u2013``255``.
+        color2: Second color as an ``(r, g, b)`` tuple with component values
+            in the range ``0``\u2013``255``.
 
     Returns:
-        Float representing perceptual distance
+        A non-negative float representing the perceptual distance; ``0.0``
+        means the colors are identical and larger values indicate greater
+        visual difference.
     """
     r1, g1, b1 = [x / 255 for x in color1]
     r2, g2, b2 = [x / 255 for x in color2]
@@ -410,7 +448,16 @@ def color_distance(color1: tuple[int, int, int], color2: tuple[int, int, int]) -
 
 
 def hex_to_rgb(hex_color: str) -> tuple[int, int, int]:
-    """Convert hex color to RGB tuple."""
+    """Convert a CSS hex color string to an ``(r, g, b)`` tuple.
+
+    Args:
+        hex_color: Six-digit hex color string, optionally prefixed with
+            ``'#'`` (e.g., ``"#FF5733"`` or ``"FF5733"``).
+
+    Returns:
+        A three-tuple of integers ``(red, green, blue)`` in the range
+        ``0``–``255``.
+    """
     hex_color = hex_color.lstrip("#")
     return cast(
         tuple[int, int, int], tuple(int(hex_color[i : i + 2], 16) for i in (0, 2, 4))
@@ -420,7 +467,7 @@ def hex_to_rgb(hex_color: str) -> tuple[int, int, int]:
 def generate_color_for_extension(extension: str) -> str:
     """Generate a consistent color for a file extension with collision detection.
 
-    Creates a deterministic color based on the extension string using a hash function.  The same extension will always get the same color within a session, and different extensions get visually distinct colors.
+    Creates a deterministic color based on the extension string using a hash function. The same extension will always get the same color within a session, and different extensions get visually distinct colors.
 
     Args:
         extension: File extension (with or without leading dot)
@@ -905,6 +952,7 @@ def build_tree(
     sort_by_size: bool = False,
     sort_by_mtime: bool = False,
     show_git_status: bool = False,
+    icon_style: str = "emoji",
 ) -> None:
     """Build the tree structure with colored file names.
 
@@ -915,7 +963,7 @@ def build_tree(
     When sort_by_mtime is True, displays file modification times.
     When show_git_status is True, appends a coloured Git status marker to each file:
     ``[U]`` untracked (grey), ``[M]`` modified (yellow), ``[A]`` added (green),
-    ``[D]`` deleted (red).  Deleted files that no longer exist on disk are shown
+    ``[D]`` deleted (red). Deleted files that no longer exist on disk are shown
     with a strikethrough style.
 
     Args:
@@ -992,7 +1040,8 @@ def build_tree(
                 name_style = f"{color} strike" if is_deleted else color
 
                 colored_text = Text()
-                colored_text.append("📄 ", style=color)
+                icon = get_icon(file_name, is_dir=False, style=icon_style)
+                colored_text.append(f"{icon} ", style=color)
 
                 if sort_by_loc and sort_by_size and sort_by_mtime and loc > 0:
                     colored_text.append(
@@ -1048,7 +1097,8 @@ def build_tree(
         ):
             pass
         else:
-            folder_display = f"📁 {folder}"
+            folder_icon = get_icon(folder, is_dir=True, style=icon_style)
+            folder_display = f"{folder_icon} {folder}"
             if (
                 sort_by_loc
                 and sort_by_size
@@ -1059,33 +1109,33 @@ def build_tree(
                     folder_loc = content["_loc"]
                     folder_size = content["_size"]
                     folder_mtime = content["_mtime"]
-                    folder_display = f"📁 {folder} ({folder_loc} lines, {format_size(folder_size)}, {format_timestamp(folder_mtime)})"
+                    folder_display = f"{folder_icon} {folder} ({folder_loc} lines, {format_size(folder_size)}, {format_timestamp(folder_mtime)})"
             elif sort_by_loc and sort_by_size and isinstance(content, dict):
                 if "_loc" in content and "_size" in content:
                     folder_loc = content["_loc"]
                     folder_size = content["_size"]
-                    folder_display = (
-                        f"📁 {folder} ({folder_loc} lines, {format_size(folder_size)})"
-                    )
+                    folder_display = f"{folder_icon} {folder} ({folder_loc} lines, {format_size(folder_size)})"
             elif sort_by_loc and sort_by_mtime and isinstance(content, dict):
                 if "_loc" in content and "_mtime" in content:
                     folder_loc = content["_loc"]
                     folder_mtime = content["_mtime"]
-                    folder_display = f"📁 {folder} ({folder_loc} lines, {format_timestamp(folder_mtime)})"
+                    folder_display = f"{folder_icon} {folder} ({folder_loc} lines, {format_timestamp(folder_mtime)})"
             elif sort_by_size and sort_by_mtime and isinstance(content, dict):
                 if "_size" in content and "_mtime" in content:
                     folder_size = content["_size"]
                     folder_mtime = content["_mtime"]
-                    folder_display = f"📁 {folder} ({format_size(folder_size)}, {format_timestamp(folder_mtime)})"
+                    folder_display = f"{folder_icon} {folder} ({format_size(folder_size)}, {format_timestamp(folder_mtime)})"
             elif sort_by_loc and isinstance(content, dict) and "_loc" in content:
                 folder_loc = content["_loc"]
-                folder_display = f"📁 {folder} ({folder_loc} lines)"
+                folder_display = f"{folder_icon} {folder} ({folder_loc} lines)"
             elif sort_by_size and isinstance(content, dict) and "_size" in content:
                 folder_size = content["_size"]
-                folder_display = f"📁 {folder} ({format_size(folder_size)})"
+                folder_display = f"{folder_icon} {folder} ({format_size(folder_size)})"
             elif sort_by_mtime and isinstance(content, dict) and "_mtime" in content:
                 folder_mtime = content["_mtime"]
-                folder_display = f"📁 {folder} ({format_timestamp(folder_mtime)})"
+                folder_display = (
+                    f"{folder_icon} {folder} ({format_timestamp(folder_mtime)})"
+                )
             subtree = tree.add(folder_display)
             if isinstance(content, dict) and content.get("_max_depth_reached"):
                 subtree.add(Text("⋯ (max depth reached)", style="dim"))
@@ -1100,6 +1150,7 @@ def build_tree(
                     sort_by_size,
                     sort_by_mtime,
                     show_git_status,
+                    icon_style,
                 )
 
 
@@ -1117,6 +1168,7 @@ def display_tree(
     sort_by_size: bool = False,
     sort_by_mtime: bool = False,
     show_git_status: bool = False,
+    icon_style: str = "emoji",
 ) -> None:
     """Display a directory tree in the terminal with rich formatting.
 
@@ -1143,6 +1195,7 @@ def display_tree(
         sort_by_size: Whether to show and sort by file size
         sort_by_mtime: Whether to show and sort by modification time
         show_git_status: Whether to annotate files with Git status markers
+        icon_style: Style for displaying icons ("emoji" or "nerd")
     """
     if exclude_dirs is None:
         exclude_dirs = []
@@ -1186,7 +1239,10 @@ def display_tree(
     )
     color_map = {ext: generate_color_for_extension(ext) for ext in extensions}
     console = Console()
-    root_label = f"📂 {os.path.basename(root_dir)}"
+
+    root_base = os.path.basename(root_dir)
+    root_icon = get_icon(root_base, is_dir=True, style=icon_style)
+    root_label = f"{root_icon} {root_base}"
     if (
         sort_by_loc
         and sort_by_size
@@ -1195,29 +1251,27 @@ def display_tree(
         and "_size" in structure
         and "_mtime" in structure
     ):
-        root_label = f"📂 {os.path.basename(root_dir)} ({structure['_loc']} lines, {format_size(structure['_size'])}, {format_timestamp(structure['_mtime'])})"
+        root_label = f"{root_icon} {root_base} ({structure['_loc']} lines, {format_size(structure['_size'])}, {format_timestamp(structure['_mtime'])})"
     elif sort_by_loc and sort_by_size and "_loc" in structure and "_size" in structure:
-        root_label = f"📂 {os.path.basename(root_dir)} ({structure['_loc']} lines, {format_size(structure['_size'])})"
+        root_label = f"{root_icon} {root_base} ({structure['_loc']} lines, {format_size(structure['_size'])})"
     elif (
         sort_by_loc and sort_by_mtime and "_loc" in structure and "_mtime" in structure
     ):
-        root_label = f"📂 {os.path.basename(root_dir)} ({structure['_loc']} lines, {format_timestamp(structure['_mtime'])})"
+        root_label = f"{root_icon} {root_base} ({structure['_loc']} lines, {format_timestamp(structure['_mtime'])})"
     elif (
         sort_by_size
         and sort_by_mtime
         and "_size" in structure
         and "_mtime" in structure
     ):
-        root_label = f"📂 {os.path.basename(root_dir)} ({format_size(structure['_size'])}, {format_timestamp(structure['_mtime'])})"
+        root_label = f"{root_icon} {root_base} ({format_size(structure['_size'])}, {format_timestamp(structure['_mtime'])})"
     elif sort_by_loc and "_loc" in structure:
-        root_label = f"📂 {os.path.basename(root_dir)} ({structure['_loc']} lines)"
+        root_label = f"{root_icon} {root_base} ({structure['_loc']} lines)"
     elif sort_by_size and "_size" in structure:
-        root_label = (
-            f"📂 {os.path.basename(root_dir)} ({format_size(structure['_size'])})"
-        )
+        root_label = f"{root_icon} {root_base} ({format_size(structure['_size'])})"
     elif sort_by_mtime and "_mtime" in structure:
         root_label = (
-            f"📂 {os.path.basename(root_dir)} ({format_timestamp(structure['_mtime'])})"
+            f"{root_icon} {root_base} ({format_timestamp(structure['_mtime'])})"
         )
     tree = Tree(root_label)
     build_tree(
@@ -1229,6 +1283,7 @@ def display_tree(
         sort_by_size=sort_by_size,
         sort_by_mtime=sort_by_mtime,
         show_git_status=show_git_status,
+        icon_style=icon_style,
     )
     console.print(tree)
 
@@ -1302,11 +1357,14 @@ def count_lines_of_code(file_path: str) -> int:
 
 
 def get_file_size(file_path: str) -> int:
-    """Get the size of a file in bytes.
+    """Return the size of a file in bytes.
+
     Args:
-        file_path: Path to the file
+        file_path: Path to the file whose size should be retrieved.
+
     Returns:
-        Size of the file in bytes, or 0 if the file cannot be accessed
+        Size of the file in bytes, or ``0`` when the file cannot be
+        accessed (e.g., permission error or the path no longer exists).
     """
     try:
         return os.path.getsize(file_path)

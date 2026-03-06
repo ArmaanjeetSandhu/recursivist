@@ -352,8 +352,32 @@ class TestBuildTree:
         mock_tree = MagicMock(spec=Tree)
         mock_subtree = MagicMock(spec=Tree)
         mock_tree.add.return_value = mock_subtree
-        kwargs = {option: True}
-        build_tree(structure_with_stats, mock_tree, color_map, parent_name="", **kwargs)
+        if option == "sort_by_loc":
+            build_tree(
+                structure_with_stats,
+                mock_tree,
+                color_map,
+                parent_name="",
+                sort_by_loc=True,
+            )
+        elif option == "sort_by_size":
+            build_tree(
+                structure_with_stats,
+                mock_tree,
+                color_map,
+                parent_name="",
+                sort_by_size=True,
+            )
+        elif option == "sort_by_mtime":
+            build_tree(
+                structure_with_stats,
+                mock_tree,
+                color_map,
+                parent_name="",
+                sort_by_mtime=True,
+            )
+        else:
+            build_tree(structure_with_stats, mock_tree, color_map, parent_name="")
         calls = [str(call.args[0]) for call in mock_tree.add.call_args_list]
         if isinstance(expected_indicator, list):
             found = False
@@ -438,7 +462,7 @@ class TestDisplayTree:
     [
         ("json", "json", ["root", "structure"]),
         ("txt", "txt", ["file1.txt", "file2.py", "subdir"]),
-        ("md", "md", ["# 📂", "file1.txt", "file2.py", "**subdir**"]),
+        ("md", "md", ["# 📁", "file1.txt", "file2.py", "**subdir**"]),
         (
             "html",
             "html",
@@ -533,8 +557,28 @@ def test_export_structure_with_options(
         sort_by_mtime,
     )
     output_path = os.path.join(output_dir, f"structure_{option_name}.json")
-    export_kwargs = {option_name: option_value}
-    export_structure(structure, sample_directory, "json", output_path, **export_kwargs)
+    if option_name == "show_full_path":
+        export_structure(
+            structure,
+            sample_directory,
+            "json",
+            output_path,
+            show_full_path=option_value,
+        )
+    elif option_name == "sort_by_loc":
+        export_structure(
+            structure, sample_directory, "json", output_path, sort_by_loc=option_value
+        )
+    elif option_name == "sort_by_size":
+        export_structure(
+            structure, sample_directory, "json", output_path, sort_by_size=option_value
+        )
+    elif option_name == "sort_by_mtime":
+        export_structure(
+            structure, sample_directory, "json", output_path, sort_by_mtime=option_value
+        )
+    else:
+        export_structure(structure, sample_directory, "json", output_path)
     assert os.path.exists(output_path)
     with open(output_path, encoding="utf-8") as f:
         data = json.load(f)

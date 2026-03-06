@@ -33,6 +33,7 @@ from recursivist.core import (
     get_directory_structure,
     sort_files_by_type,
 )
+from recursivist.icons import get_icon
 
 logger = logging.getLogger(__name__)
 
@@ -113,6 +114,7 @@ def build_comparison_tree(
     sort_by_loc: bool = False,
     sort_by_size: bool = False,
     sort_by_mtime: bool = False,
+    icon_style: str = "emoji",
 ) -> None:
     """
     Build a tree structure with highlighted differences.
@@ -136,6 +138,7 @@ def build_comparison_tree(
         sort_by_loc: Whether to display lines of code counts
         sort_by_size: Whether to display file sizes
         sort_by_mtime: Whether to display file modification times
+        icon_style: The style of icons to use ('emoji' or 'nerd')
     """
 
     if "_files" in structure:
@@ -154,6 +157,8 @@ def build_comparison_tree(
             else:
                 file_name = file_item
 
+            file_icon = get_icon(file_name, is_dir=False, style=icon_style)
+
             if (
                 sort_by_loc
                 and sort_by_size
@@ -166,12 +171,12 @@ def build_comparison_tree(
                 color = color_map.get(ext, "#FFFFFF")
                 if file_name not in files_in_other_names:
                     colored_text = Text(
-                        f"📄 {full_path} ({loc} lines, {format_size(size)}, {format_timestamp(mtime)})",
+                        f"{file_icon} {full_path} ({loc} lines, {format_size(size)}, {format_timestamp(mtime)})",
                         style=f"{color} on green",
                     )
                 else:
                     colored_text = Text(
-                        f"📄 {full_path} ({loc} lines, {format_size(size)}, {format_timestamp(mtime)})",
+                        f"{file_icon} {full_path} ({loc} lines, {format_size(size)}, {format_timestamp(mtime)})",
                         style=color,
                     )
                 tree.add(colored_text)
@@ -189,12 +194,12 @@ def build_comparison_tree(
                 color = color_map.get(ext, "#FFFFFF")
                 if file_name not in files_in_other_names:
                     colored_text = Text(
-                        f"📄 {full_path} ({loc} lines, {format_timestamp(mtime)})",
+                        f"{file_icon} {full_path} ({loc} lines, {format_timestamp(mtime)})",
                         style=f"{color} on green",
                     )
                 else:
                     colored_text = Text(
-                        f"📄 {full_path} ({loc} lines, {format_timestamp(mtime)})",
+                        f"{file_icon} {full_path} ({loc} lines, {format_timestamp(mtime)})",
                         style=color,
                     )
                 tree.add(colored_text)
@@ -212,12 +217,12 @@ def build_comparison_tree(
                 color = color_map.get(ext, "#FFFFFF")
                 if file_name not in files_in_other_names:
                     colored_text = Text(
-                        f"📄 {full_path} ({format_size(size)}, {format_timestamp(mtime)})",
+                        f"{file_icon} {full_path} ({format_size(size)}, {format_timestamp(mtime)})",
                         style=f"{color} on green",
                     )
                 else:
                     colored_text = Text(
-                        f"📄 {full_path} ({format_size(size)}, {format_timestamp(mtime)})",
+                        f"{file_icon} {full_path} ({format_size(size)}, {format_timestamp(mtime)})",
                         style=color,
                     )
                 tree.add(colored_text)
@@ -235,12 +240,12 @@ def build_comparison_tree(
                 color = color_map.get(ext, "#FFFFFF")
                 if file_name not in files_in_other_names:
                     colored_text = Text(
-                        f"📄 {full_path} ({loc} lines, {format_size(size)})",
+                        f"{file_icon} {full_path} ({loc} lines, {format_size(size)})",
                         style=f"{color} on green",
                     )
                 else:
                     colored_text = Text(
-                        f"📄 {full_path} ({loc} lines, {format_size(size)})",
+                        f"{file_icon} {full_path} ({loc} lines, {format_size(size)})",
                         style=color,
                     )
                 tree.add(colored_text)
@@ -255,12 +260,12 @@ def build_comparison_tree(
                 color = color_map.get(ext, "#FFFFFF")
                 if file_name not in files_in_other_names:
                     colored_text = Text(
-                        f"📄 {full_path} ({format_timestamp(mtime)})",
+                        f"{file_icon} {full_path} ({format_timestamp(mtime)})",
                         style=f"{color} on green",
                     )
                 else:
                     colored_text = Text(
-                        f"📄 {full_path} ({format_timestamp(mtime)})",
+                        f"{file_icon} {full_path} ({format_timestamp(mtime)})",
                         style=color,
                     )
                 tree.add(colored_text)
@@ -276,12 +281,12 @@ def build_comparison_tree(
                 color = color_map.get(ext, "#FFFFFF")
                 if file_name not in files_in_other_names:
                     colored_text = Text(
-                        f"📄 {full_path} ({format_size(size)})",
+                        f"{file_icon} {full_path} ({format_size(size)})",
                         style=f"{color} on green",
                     )
                 else:
                     colored_text = Text(
-                        f"📄 {full_path} ({format_size(size)})",
+                        f"{file_icon} {full_path} ({format_size(size)})",
                         style=color,
                     )
                 tree.add(colored_text)
@@ -296,12 +301,12 @@ def build_comparison_tree(
                 color = color_map.get(ext, "#FFFFFF")
                 if file_name not in files_in_other_names:
                     colored_text = Text(
-                        f"📄 {full_path} ({loc} lines)",
+                        f"{file_icon} {full_path} ({loc} lines)",
                         style=f"{color} on green",
                     )
                 else:
                     colored_text = Text(
-                        f"📄 {full_path} ({loc} lines)",
+                        f"{file_icon} {full_path} ({loc} lines)",
                         style=color,
                     )
                 tree.add(colored_text)
@@ -317,17 +322,21 @@ def build_comparison_tree(
                 ext = os.path.splitext(file_name)[1].lower()
                 color = color_map.get(ext, "#FFFFFF")
                 if file_name not in files_in_other_names:
-                    colored_text = Text(f"📄 {full_path}", style=f"{color} on green")
+                    colored_text = Text(
+                        f"{file_icon} {full_path}", style=f"{color} on green"
+                    )
                 else:
-                    colored_text = Text(f"📄 {full_path}", style=color)
+                    colored_text = Text(f"{file_icon} {full_path}", style=color)
                 tree.add(colored_text)
             else:
                 ext = os.path.splitext(file_name)[1].lower()
                 color = color_map.get(ext, "#FFFFFF")
                 if file_name not in files_in_other_names:
-                    colored_text = Text(f"📄 {file_name}", style=f"{color} on green")
+                    colored_text = Text(
+                        f"{file_icon} {file_name}", style=f"{color} on green"
+                    )
                 else:
-                    colored_text = Text(f"📄 {file_name}", style=color)
+                    colored_text = Text(f"{file_icon} {file_name}", style=color)
                 tree.add(colored_text)
     for folder, content in sorted(structure.items()):
         if (
@@ -338,6 +347,9 @@ def build_comparison_tree(
             or folder == "_mtime"
         ):
             continue
+
+        folder_icon = get_icon(folder, is_dir=True, style=icon_style)
+
         other_content = other_structure.get(folder, {}) if other_structure else {}
         if folder not in (other_structure or {}):
             if (
@@ -354,7 +366,7 @@ def build_comparison_tree(
                 folder_mtime = content["_mtime"]
                 subtree = tree.add(
                     Text(
-                        f"📁 {folder} ({folder_loc} lines, {format_size(folder_size)}, {format_timestamp(folder_mtime)})",
+                        f"{folder_icon} {folder} ({folder_loc} lines, {format_size(folder_size)}, {format_timestamp(folder_mtime)})",
                         style="green",
                     )
                 )
@@ -369,7 +381,7 @@ def build_comparison_tree(
                 folder_size = content["_size"]
                 subtree = tree.add(
                     Text(
-                        f"📁 {folder} ({folder_loc} lines, {format_size(folder_size)})",
+                        f"{folder_icon} {folder} ({folder_loc} lines, {format_size(folder_size)})",
                         style="green",
                     )
                 )
@@ -384,7 +396,7 @@ def build_comparison_tree(
                 folder_mtime = content["_mtime"]
                 subtree = tree.add(
                     Text(
-                        f"📁 {folder} ({folder_loc} lines, {format_timestamp(folder_mtime)})",
+                        f"{folder_icon} {folder} ({folder_loc} lines, {format_timestamp(folder_mtime)})",
                         style="green",
                     )
                 )
@@ -399,29 +411,33 @@ def build_comparison_tree(
                 folder_mtime = content["_mtime"]
                 subtree = tree.add(
                     Text(
-                        f"📁 {folder} ({format_size(folder_size)}, {format_timestamp(folder_mtime)})",
+                        f"{folder_icon} {folder} ({format_size(folder_size)}, {format_timestamp(folder_mtime)})",
                         style="green",
                     )
                 )
             elif sort_by_loc and isinstance(content, dict) and "_loc" in content:
                 folder_loc = content["_loc"]
                 subtree = tree.add(
-                    Text(f"📁 {folder} ({folder_loc} lines)", style="green")
+                    Text(f"{folder_icon} {folder} ({folder_loc} lines)", style="green")
                 )
             elif sort_by_size and isinstance(content, dict) and "_size" in content:
                 folder_size = content["_size"]
                 subtree = tree.add(
-                    Text(f"📁 {folder} ({format_size(folder_size)})", style="green")
+                    Text(
+                        f"{folder_icon} {folder} ({format_size(folder_size)})",
+                        style="green",
+                    )
                 )
             elif sort_by_mtime and isinstance(content, dict) and "_mtime" in content:
                 folder_mtime = content["_mtime"]
                 subtree = tree.add(
                     Text(
-                        f"📁 {folder} ({format_timestamp(folder_mtime)})", style="green"
+                        f"{folder_icon} {folder} ({format_timestamp(folder_mtime)})",
+                        style="green",
                     )
                 )
             else:
-                subtree = tree.add(Text(f"📁 {folder}", style="green"))
+                subtree = tree.add(Text(f"{folder_icon} {folder}", style="green"))
         else:
             if (
                 sort_by_loc
@@ -436,7 +452,7 @@ def build_comparison_tree(
                 folder_size = content["_size"]
                 folder_mtime = content["_mtime"]
                 subtree = tree.add(
-                    f"📁 {folder} ({folder_loc} lines, {format_size(folder_size)}, {format_timestamp(folder_mtime)})"
+                    f"{folder_icon} {folder} ({folder_loc} lines, {format_size(folder_size)}, {format_timestamp(folder_mtime)})"
                 )
             elif (
                 sort_by_loc
@@ -448,7 +464,7 @@ def build_comparison_tree(
                 folder_loc = content["_loc"]
                 folder_size = content["_size"]
                 subtree = tree.add(
-                    f"📁 {folder} ({folder_loc} lines, {format_size(folder_size)})"
+                    f"{folder_icon} {folder} ({folder_loc} lines, {format_size(folder_size)})"
                 )
             elif (
                 sort_by_loc
@@ -460,7 +476,7 @@ def build_comparison_tree(
                 folder_loc = content["_loc"]
                 folder_mtime = content["_mtime"]
                 subtree = tree.add(
-                    f"📁 {folder} ({folder_loc} lines, {format_timestamp(folder_mtime)})"
+                    f"{folder_icon} {folder} ({folder_loc} lines, {format_timestamp(folder_mtime)})"
                 )
             elif (
                 sort_by_size
@@ -472,19 +488,23 @@ def build_comparison_tree(
                 folder_size = content["_size"]
                 folder_mtime = content["_mtime"]
                 subtree = tree.add(
-                    f"📁 {folder} ({format_size(folder_size)}, {format_timestamp(folder_mtime)})"
+                    f"{folder_icon} {folder} ({format_size(folder_size)}, {format_timestamp(folder_mtime)})"
                 )
             elif sort_by_loc and isinstance(content, dict) and "_loc" in content:
                 folder_loc = content["_loc"]
-                subtree = tree.add(f"📁 {folder} ({folder_loc} lines)")
+                subtree = tree.add(f"{folder_icon} {folder} ({folder_loc} lines)")
             elif sort_by_size and isinstance(content, dict) and "_size" in content:
                 folder_size = content["_size"]
-                subtree = tree.add(f"📁 {folder} ({format_size(folder_size)})")
+                subtree = tree.add(
+                    f"{folder_icon} {folder} ({format_size(folder_size)})"
+                )
             elif sort_by_mtime and isinstance(content, dict) and "_mtime" in content:
                 folder_mtime = content["_mtime"]
-                subtree = tree.add(f"📁 {folder} ({format_timestamp(folder_mtime)})")
+                subtree = tree.add(
+                    f"{folder_icon} {folder} ({format_timestamp(folder_mtime)})"
+                )
             else:
-                subtree = tree.add(f"📁 {folder}")
+                subtree = tree.add(f"{folder_icon} {folder}")
         if isinstance(content, dict) and content.get("_max_depth_reached"):
             subtree.add(Text("⋯ (max depth reached)", style="dim"))
         else:
@@ -498,6 +518,7 @@ def build_comparison_tree(
                 sort_by_loc,
                 sort_by_size,
                 sort_by_mtime,
+                icon_style=icon_style,
             )
     if other_structure and "_files" in other_structure:
         files_in_this_names = []
@@ -516,6 +537,8 @@ def build_comparison_tree(
                 file_name = file_item
 
             if file_name not in files_in_this_names:
+                file_icon = get_icon(file_name, is_dir=False, style=icon_style)
+
                 if (
                     sort_by_loc
                     and sort_by_size
@@ -527,7 +550,7 @@ def build_comparison_tree(
                     ext = os.path.splitext(file_name)[1].lower()
                     color = color_map.get(ext, "#FFFFFF")
                     colored_text = Text(
-                        f"📄 {display_path} ({loc} lines, {format_size(size)}, {format_timestamp(mtime)})",
+                        f"{file_icon} {display_path} ({loc} lines, {format_size(size)}, {format_timestamp(mtime)})",
                         style=f"{color} on red",
                     )
                     tree.add(colored_text)
@@ -544,7 +567,7 @@ def build_comparison_tree(
                     ext = os.path.splitext(file_name)[1].lower()
                     color = color_map.get(ext, "#FFFFFF")
                     colored_text = Text(
-                        f"📄 {display_path} ({loc} lines, {format_timestamp(mtime)})",
+                        f"{file_icon} {display_path} ({loc} lines, {format_timestamp(mtime)})",
                         style=f"{color} on red",
                     )
                     tree.add(colored_text)
@@ -561,7 +584,7 @@ def build_comparison_tree(
                     ext = os.path.splitext(file_name)[1].lower()
                     color = color_map.get(ext, "#FFFFFF")
                     colored_text = Text(
-                        f"📄 {display_path} ({format_size(size)}, {format_timestamp(mtime)})",
+                        f"{file_icon} {display_path} ({format_size(size)}, {format_timestamp(mtime)})",
                         style=f"{color} on red",
                     )
                     tree.add(colored_text)
@@ -578,7 +601,7 @@ def build_comparison_tree(
                     ext = os.path.splitext(file_name)[1].lower()
                     color = color_map.get(ext, "#FFFFFF")
                     colored_text = Text(
-                        f"📄 {display_path} ({loc} lines, {format_size(size)})",
+                        f"{file_icon} {display_path} ({loc} lines, {format_size(size)})",
                         style=f"{color} on red",
                     )
                     tree.add(colored_text)
@@ -596,7 +619,7 @@ def build_comparison_tree(
                     ext = os.path.splitext(file_name)[1].lower()
                     color = color_map.get(ext, "#FFFFFF")
                     colored_text = Text(
-                        f"📄 {full_path} ({format_timestamp(mtime)})",
+                        f"{file_icon} {full_path} ({format_timestamp(mtime)})",
                         style=f"{color} on red",
                     )
                     tree.add(colored_text)
@@ -613,7 +636,7 @@ def build_comparison_tree(
                     ext = os.path.splitext(file_name)[1].lower()
                     color = color_map.get(ext, "#FFFFFF")
                     colored_text = Text(
-                        f"📄 {full_path} ({format_size(size)})",
+                        f"{file_icon} {full_path} ({format_size(size)})",
                         style=f"{color} on red",
                     )
                     tree.add(colored_text)
@@ -630,7 +653,7 @@ def build_comparison_tree(
                     ext = os.path.splitext(file_name)[1].lower()
                     color = color_map.get(ext, "#FFFFFF")
                     colored_text = Text(
-                        f"📄 {full_path} ({loc} lines)",
+                        f"{file_icon} {full_path} ({loc} lines)",
                         style=f"{color} on red",
                     )
                     tree.add(colored_text)
@@ -645,12 +668,16 @@ def build_comparison_tree(
                         _, full_path = file_item
                     ext = os.path.splitext(file_name)[1].lower()
                     color = color_map.get(ext, "#FFFFFF")
-                    colored_text = Text(f"📄 {full_path}", style=f"{color} on red")
+                    colored_text = Text(
+                        f"{file_icon} {full_path}", style=f"{color} on red"
+                    )
                     tree.add(colored_text)
                 else:
                     ext = os.path.splitext(file_name)[1].lower()
                     color = color_map.get(ext, "#FFFFFF")
-                    colored_text = Text(f"📄 {file_name}", style=f"{color} on red")
+                    colored_text = Text(
+                        f"{file_icon} {file_name}", style=f"{color} on red"
+                    )
                     tree.add(colored_text)
     if other_structure:
         for folder in sorted(other_structure.keys()):
@@ -663,6 +690,8 @@ def build_comparison_tree(
                 and folder not in structure
             ):
                 other_content = other_structure[folder]
+                folder_icon = get_icon(folder, is_dir=True, style=icon_style)
+
                 if (
                     sort_by_loc
                     and sort_by_size
@@ -677,7 +706,7 @@ def build_comparison_tree(
                     folder_mtime = other_content["_mtime"]
                     subtree = tree.add(
                         Text(
-                            f"📁 {folder} ({folder_loc} lines, {format_size(folder_size)}, {format_timestamp(folder_mtime)})",
+                            f"{folder_icon} {folder} ({folder_loc} lines, {format_size(folder_size)}, {format_timestamp(folder_mtime)})",
                             style="red",
                         )
                     )
@@ -692,7 +721,7 @@ def build_comparison_tree(
                     folder_size = other_content["_size"]
                     subtree = tree.add(
                         Text(
-                            f"📁 {folder} ({folder_loc} lines, {format_size(folder_size)})",
+                            f"{folder_icon} {folder} ({folder_loc} lines, {format_size(folder_size)})",
                             style="red",
                         )
                     )
@@ -707,7 +736,7 @@ def build_comparison_tree(
                     folder_mtime = other_content["_mtime"]
                     subtree = tree.add(
                         Text(
-                            f"📁 {folder} ({folder_loc} lines, {format_timestamp(folder_mtime)})",
+                            f"{folder_icon} {folder} ({folder_loc} lines, {format_timestamp(folder_mtime)})",
                             style="red",
                         )
                     )
@@ -722,7 +751,7 @@ def build_comparison_tree(
                     folder_mtime = other_content["_mtime"]
                     subtree = tree.add(
                         Text(
-                            f"📁 {folder} ({format_size(folder_size)}, {format_timestamp(folder_mtime)})",
+                            f"{folder_icon} {folder} ({format_size(folder_size)}, {format_timestamp(folder_mtime)})",
                             style="red",
                         )
                     )
@@ -733,7 +762,9 @@ def build_comparison_tree(
                 ):
                     folder_loc = other_content["_loc"]
                     subtree = tree.add(
-                        Text(f"📁 {folder} ({folder_loc} lines)", style="red")
+                        Text(
+                            f"{folder_icon} {folder} ({folder_loc} lines)", style="red"
+                        )
                     )
                 elif (
                     sort_by_size
@@ -742,7 +773,10 @@ def build_comparison_tree(
                 ):
                     folder_size = other_content["_size"]
                     subtree = tree.add(
-                        Text(f"📁 {folder} ({format_size(folder_size)})", style="red")
+                        Text(
+                            f"{folder_icon} {folder} ({format_size(folder_size)})",
+                            style="red",
+                        )
                     )
                 elif (
                     sort_by_mtime
@@ -752,12 +786,12 @@ def build_comparison_tree(
                     folder_mtime = other_content["_mtime"]
                     subtree = tree.add(
                         Text(
-                            f"📁 {folder} ({format_timestamp(folder_mtime)})",
+                            f"{folder_icon} {folder} ({format_timestamp(folder_mtime)})",
                             style="red",
                         )
                     )
                 else:
-                    subtree = tree.add(Text(f"📁 {folder}", style="red"))
+                    subtree = tree.add(Text(f"{folder_icon} {folder}", style="red"))
                 if isinstance(other_content, dict) and other_content.get(
                     "_max_depth_reached"
                 ):
@@ -773,6 +807,7 @@ def build_comparison_tree(
                         sort_by_loc,
                         sort_by_size,
                         sort_by_mtime,
+                        icon_style=icon_style,
                     )
 
 
@@ -790,6 +825,7 @@ def display_comparison(
     sort_by_loc: bool = False,
     sort_by_size: bool = False,
     sort_by_mtime: bool = False,
+    icon_style: str = "emoji",
 ) -> None:
     """Display two directory trees side by side with highlighted differences.
 
@@ -814,6 +850,7 @@ def display_comparison(
         sort_by_loc: Whether to show and sort by lines of code
         sort_by_size: Whether to show and sort by file size
         sort_by_mtime: Whether to show and sort by modification time
+        icon_style: The style of icons to display ("emoji" or "nerd")
     """
 
     if exclude_dirs is None:
@@ -846,6 +883,12 @@ def display_comparison(
     )
     color_map = {ext: generate_color_for_extension(ext) for ext in extensions}
     console = Console()
+
+    root_base1 = os.path.basename(dir1)
+    root_base2 = os.path.basename(dir2)
+    root_icon1 = get_icon(root_base1, is_dir=True, style=icon_style)
+    root_icon2 = get_icon(root_base2, is_dir=True, style=icon_style)
+
     if (
         sort_by_loc
         and sort_by_size
@@ -856,7 +899,7 @@ def display_comparison(
     ):
         tree1 = Tree(
             Text(
-                f"📂 {os.path.basename(dir1)} ({structure1['_loc']} lines, {format_size(structure1['_size'])}, {format_timestamp(structure1['_mtime'])})",
+                f"{root_icon1} {root_base1} ({structure1['_loc']} lines, {format_size(structure1['_size'])}, {format_timestamp(structure1['_mtime'])})",
                 style="bold",
             )
         )
@@ -865,7 +908,7 @@ def display_comparison(
     ):
         tree1 = Tree(
             Text(
-                f"📂 {os.path.basename(dir1)} ({structure1['_loc']} lines, {format_size(structure1['_size'])})",
+                f"{root_icon1} {root_base1} ({structure1['_loc']} lines, {format_size(structure1['_size'])})",
                 style="bold",
             )
         )
@@ -877,7 +920,7 @@ def display_comparison(
     ):
         tree1 = Tree(
             Text(
-                f"📂 {os.path.basename(dir1)} ({structure1['_loc']} lines, {format_timestamp(structure1['_mtime'])})",
+                f"{root_icon1} {root_base1} ({structure1['_loc']} lines, {format_timestamp(structure1['_mtime'])})",
                 style="bold",
             )
         )
@@ -889,33 +932,34 @@ def display_comparison(
     ):
         tree1 = Tree(
             Text(
-                f"📂 {os.path.basename(dir1)} ({format_size(structure1['_size'])}, {format_timestamp(structure1['_mtime'])})",
+                f"{root_icon1} {root_base1} ({format_size(structure1['_size'])}, {format_timestamp(structure1['_mtime'])})",
                 style="bold",
             )
         )
     elif sort_by_loc and "_loc" in structure1:
         tree1 = Tree(
             Text(
-                f"📂 {os.path.basename(dir1)} ({structure1['_loc']} lines)",
+                f"{root_icon1} {root_base1} ({structure1['_loc']} lines)",
                 style="bold",
             )
         )
     elif sort_by_size and "_size" in structure1:
         tree1 = Tree(
             Text(
-                f"📂 {os.path.basename(dir1)} ({format_size(structure1['_size'])})",
+                f"{root_icon1} {root_base1} ({format_size(structure1['_size'])})",
                 style="bold",
             )
         )
     elif sort_by_mtime and "_mtime" in structure1:
         tree1 = Tree(
             Text(
-                f"📂 {os.path.basename(dir1)} ({format_timestamp(structure1['_mtime'])})",
+                f"{root_icon1} {root_base1} ({format_timestamp(structure1['_mtime'])})",
                 style="bold",
             )
         )
     else:
-        tree1 = Tree(Text(f"📂 {os.path.basename(dir1)}", style="bold"))
+        tree1 = Tree(Text(f"{root_icon1} {root_base1}", style="bold"))
+
     if (
         sort_by_loc
         and sort_by_size
@@ -926,7 +970,7 @@ def display_comparison(
     ):
         tree2 = Tree(
             Text(
-                f"📂 {os.path.basename(dir2)} ({structure2['_loc']} lines, {format_size(structure2['_size'])}, {format_timestamp(structure2['_mtime'])})",
+                f"{root_icon2} {root_base2} ({structure2['_loc']} lines, {format_size(structure2['_size'])}, {format_timestamp(structure2['_mtime'])})",
                 style="bold",
             )
         )
@@ -935,7 +979,7 @@ def display_comparison(
     ):
         tree2 = Tree(
             Text(
-                f"📂 {os.path.basename(dir2)} ({structure2['_loc']} lines, {format_size(structure2['_size'])})",
+                f"{root_icon2} {root_base2} ({structure2['_loc']} lines, {format_size(structure2['_size'])})",
                 style="bold",
             )
         )
@@ -947,7 +991,7 @@ def display_comparison(
     ):
         tree2 = Tree(
             Text(
-                f"📂 {os.path.basename(dir2)} ({structure2['_loc']} lines, {format_timestamp(structure2['_mtime'])})",
+                f"{root_icon2} {root_base2} ({structure2['_loc']} lines, {format_timestamp(structure2['_mtime'])})",
                 style="bold",
             )
         )
@@ -959,33 +1003,34 @@ def display_comparison(
     ):
         tree2 = Tree(
             Text(
-                f"📂 {os.path.basename(dir2)} ({format_size(structure2['_size'])}, {format_timestamp(structure2['_mtime'])})",
+                f"{root_icon2} {root_base2} ({format_size(structure2['_size'])}, {format_timestamp(structure2['_mtime'])})",
                 style="bold",
             )
         )
     elif sort_by_loc and "_loc" in structure2:
         tree2 = Tree(
             Text(
-                f"📂 {os.path.basename(dir2)} ({structure2['_loc']} lines)",
+                f"{root_icon2} {root_base2} ({structure2['_loc']} lines)",
                 style="bold",
             )
         )
     elif sort_by_size and "_size" in structure2:
         tree2 = Tree(
             Text(
-                f"📂 {os.path.basename(dir2)} ({format_size(structure2['_size'])})",
+                f"{root_icon2} {root_base2} ({format_size(structure2['_size'])})",
                 style="bold",
             )
         )
     elif sort_by_mtime and "_mtime" in structure2:
         tree2 = Tree(
             Text(
-                f"📂 {os.path.basename(dir2)} ({format_timestamp(structure2['_mtime'])})",
+                f"{root_icon2} {root_base2} ({format_timestamp(structure2['_mtime'])})",
                 style="bold",
             )
         )
     else:
-        tree2 = Tree(Text(f"📂 {os.path.basename(dir2)}", style="bold"))
+        tree2 = Tree(Text(f"{root_icon2} {root_base2}", style="bold"))
+
     build_comparison_tree(
         structure1,
         structure2,
@@ -995,6 +1040,7 @@ def display_comparison(
         sort_by_loc=sort_by_loc,
         sort_by_size=sort_by_size,
         sort_by_mtime=sort_by_mtime,
+        icon_style=icon_style,
     )
     build_comparison_tree(
         structure2,
@@ -1005,6 +1051,7 @@ def display_comparison(
         sort_by_loc=sort_by_loc,
         sort_by_size=sort_by_size,
         sort_by_mtime=sort_by_mtime,
+        icon_style=icon_style,
     )
     legend_text = Text()
     legend_text.append("Legend: ", style="bold")
@@ -1056,12 +1103,12 @@ def display_comparison(
             [
                 Panel(
                     tree1,
-                    title=f"Directory 1: {os.path.basename(dir1)}",
+                    title=f"Directory 1: {root_base1}",
                     border_style="blue",
                 ),
                 Panel(
                     tree2,
-                    title=f"Directory 2: {os.path.basename(dir2)}",
+                    title=f"Directory 2: {root_base2}",
                     border_style="green",
                 ),
             ],
@@ -1087,6 +1134,7 @@ def export_comparison(
     sort_by_loc: bool = False,
     sort_by_size: bool = False,
     sort_by_mtime: bool = False,
+    icon_style: str = "emoji",
 ) -> None:
     """Export directory comparison to HTML format.
 
@@ -1163,13 +1211,13 @@ def export_comparison(
         },
     }
     if format_type == "html":
-        _export_comparison_to_html(comparison_data, output_path)
+        _export_comparison_to_html(comparison_data, output_path, icon_style)
     else:
         raise ValueError("Only HTML format is supported for comparison export")
 
 
 def _export_comparison_to_html(
-    comparison_data: dict[str, Any], output_path: str
+    comparison_data: dict[str, Any], output_path: str, icon_style: str = "emoji"
 ) -> None:
     """Export comparison to HTML format.
 
@@ -1178,6 +1226,7 @@ def _export_comparison_to_html(
     Args:
         comparison_data: Dictionary containing comparison structures and metadata
         output_path: Path where the HTML file will be saved
+        icon_style: The icon style to use ('emoji' or 'nerd')
     """
 
     def _build_html_tree(
@@ -1333,6 +1382,7 @@ def _export_comparison_to_html(
                 else:
                     file_name = file_item
                     display_text = html.escape(file_name)
+
                 if file_name not in files_in_other_names:
                     file_class = (
                         ' class="file-unique-left"'
@@ -1341,8 +1391,10 @@ def _export_comparison_to_html(
                     )
                 else:
                     file_class = ""
+
+                file_icon = get_icon(file_name, is_dir=False, style=icon_style)
                 html_content.append(
-                    f'<li{file_class}><span class="file">📄 {display_text}</span></li>'
+                    f'<li{file_class}><span class="file">{file_icon} {display_text}</span></li>'
                 )
         for name, content in sorted(structure.items()):
             if (
@@ -1361,6 +1413,9 @@ def _export_comparison_to_html(
                 )
             else:
                 dir_class = ""
+
+            folder_icon = get_icon(name, is_dir=True, style=icon_style)
+
             if (
                 sort_by_loc
                 and sort_by_size
@@ -1374,7 +1429,7 @@ def _export_comparison_to_html(
                 size_count = content["_size"]
                 mtime_count = content["_mtime"]
                 html_content.append(
-                    f'<li{dir_class}><span class="directory">📁 {html.escape(name)} ({loc_count} lines, {format_size(size_count)}, {format_timestamp(mtime_count)})</span>'
+                    f'<li{dir_class}><span class="directory">{folder_icon} {html.escape(name)} ({loc_count} lines, {format_size(size_count)}, {format_timestamp(mtime_count)})</span>'
                 )
             elif (
                 sort_by_loc
@@ -1386,7 +1441,7 @@ def _export_comparison_to_html(
                 loc_count = content["_loc"]
                 size_count = content["_size"]
                 html_content.append(
-                    f'<li{dir_class}><span class="directory">📁 {html.escape(name)} ({loc_count} lines, {format_size(size_count)})</span>'
+                    f'<li{dir_class}><span class="directory">{folder_icon} {html.escape(name)} ({loc_count} lines, {format_size(size_count)})</span>'
                 )
             elif (
                 sort_by_loc
@@ -1398,7 +1453,7 @@ def _export_comparison_to_html(
                 loc_count = content["_loc"]
                 mtime_count = content["_mtime"]
                 html_content.append(
-                    f'<li{dir_class}><span class="directory">📁 {html.escape(name)} ({loc_count} lines, {format_timestamp(mtime_count)})</span>'
+                    f'<li{dir_class}><span class="directory">{folder_icon} {html.escape(name)} ({loc_count} lines, {format_timestamp(mtime_count)})</span>'
                 )
             elif (
                 sort_by_size
@@ -1410,26 +1465,26 @@ def _export_comparison_to_html(
                 size_count = content["_size"]
                 mtime_count = content["_mtime"]
                 html_content.append(
-                    f'<li{dir_class}><span class="directory">📁 {html.escape(name)} ({format_size(size_count)}, {format_timestamp(mtime_count)})</span>'
+                    f'<li{dir_class}><span class="directory">{folder_icon} {html.escape(name)} ({format_size(size_count)}, {format_timestamp(mtime_count)})</span>'
                 )
             elif sort_by_loc and isinstance(content, dict) and "_loc" in content:
                 loc_count = content["_loc"]
                 html_content.append(
-                    f'<li{dir_class}><span class="directory">📁 {html.escape(name)} ({loc_count} lines)</span>'
+                    f'<li{dir_class}><span class="directory">{folder_icon} {html.escape(name)} ({loc_count} lines)</span>'
                 )
             elif sort_by_size and isinstance(content, dict) and "_size" in content:
                 size_count = content["_size"]
                 html_content.append(
-                    f'<li{dir_class}><span class="directory">📁 {html.escape(name)} ({format_size(size_count)})</span>'
+                    f'<li{dir_class}><span class="directory">{folder_icon} {html.escape(name)} ({format_size(size_count)})</span>'
                 )
             elif sort_by_mtime and isinstance(content, dict) and "_mtime" in content:
                 mtime_count = content["_mtime"]
                 html_content.append(
-                    f'<li{dir_class}><span class="directory">📁 {html.escape(name)} ({format_timestamp(mtime_count)})</span>'
+                    f'<li{dir_class}><span class="directory">{folder_icon} {html.escape(name)} ({format_timestamp(mtime_count)})</span>'
                 )
             else:
                 html_content.append(
-                    f'<li{dir_class}><span class="directory">📁 {html.escape(name)}</span>'
+                    f'<li{dir_class}><span class="directory">{folder_icon} {html.escape(name)}</span>'
                 )
             if isinstance(content, dict) and content.get("_max_depth_reached"):
                 html_content.append(
@@ -1564,14 +1619,16 @@ def _export_comparison_to_html(
                 else:
                     file_name = file_item
                     display_text = html.escape(file_name)
+
                 if file_name not in files_in_this_names:
                     file_class = (
                         ' class="file-unique-right"'
                         if is_left_tree
                         else ' class="file-unique-left"'
                     )
+                    file_icon = get_icon(file_name, is_dir=False, style=icon_style)
                     html_content.append(
-                        f'<li{file_class}><span class="file">📄 {display_text}</span></li>'
+                        f'<li{file_class}><span class="file">{file_icon} {display_text}</span></li>'
                     )
         if other_structure:
             for name, content in sorted(other_structure.items()):
@@ -1589,6 +1646,9 @@ def _export_comparison_to_html(
                     if is_left_tree
                     else ' class="directory-unique-left"'
                 )
+
+                folder_icon = get_icon(name, is_dir=True, style=icon_style)
+
                 if (
                     sort_by_loc
                     and sort_by_size
@@ -1602,7 +1662,7 @@ def _export_comparison_to_html(
                     size_count = content["_size"]
                     mtime_count = content["_mtime"]
                     html_content.append(
-                        f'<li{dir_class}><span class="directory">📁 {html.escape(name)} ({loc_count} lines, {format_size(size_count)}, {format_timestamp(mtime_count)})</span>'
+                        f'<li{dir_class}><span class="directory">{folder_icon} {html.escape(name)} ({loc_count} lines, {format_size(size_count)}, {format_timestamp(mtime_count)})</span>'
                     )
                 elif (
                     sort_by_loc
@@ -1614,7 +1674,7 @@ def _export_comparison_to_html(
                     loc_count = content["_loc"]
                     size_count = content["_size"]
                     html_content.append(
-                        f'<li{dir_class}><span class="directory">📁 {html.escape(name)} ({loc_count} lines, {format_size(size_count)})</span>'
+                        f'<li{dir_class}><span class="directory">{folder_icon} {html.escape(name)} ({loc_count} lines, {format_size(size_count)})</span>'
                     )
                 elif (
                     sort_by_loc
@@ -1626,7 +1686,7 @@ def _export_comparison_to_html(
                     loc_count = content["_loc"]
                     mtime_count = content["_mtime"]
                     html_content.append(
-                        f'<li{dir_class}><span class="directory">📁 {html.escape(name)} ({loc_count} lines, {format_timestamp(mtime_count)})</span>'
+                        f'<li{dir_class}><span class="directory">{folder_icon} {html.escape(name)} ({loc_count} lines, {format_timestamp(mtime_count)})</span>'
                     )
                 elif (
                     sort_by_size
@@ -1638,28 +1698,28 @@ def _export_comparison_to_html(
                     size_count = content["_size"]
                     mtime_count = content["_mtime"]
                     html_content.append(
-                        f'<li{dir_class}><span class="directory">📁 {html.escape(name)} ({format_size(size_count)}, {format_timestamp(mtime_count)})</span>'
+                        f'<li{dir_class}><span class="directory">{folder_icon} {html.escape(name)} ({format_size(size_count)}, {format_timestamp(mtime_count)})</span>'
                     )
                 elif sort_by_loc and isinstance(content, dict) and "_loc" in content:
                     loc_count = content["_loc"]
                     html_content.append(
-                        f'<li{dir_class}><span class="directory">📁 {html.escape(name)} ({loc_count} lines)</span>'
+                        f'<li{dir_class}><span class="directory">{folder_icon} {html.escape(name)} ({loc_count} lines)</span>'
                     )
                 elif sort_by_size and isinstance(content, dict) and "_size" in content:
                     size_count = content["_size"]
                     html_content.append(
-                        f'<li{dir_class}><span class="directory">📁 {html.escape(name)} ({format_size(size_count)})</span>'
+                        f'<li{dir_class}><span class="directory">{folder_icon} {html.escape(name)} ({format_size(size_count)})</span>'
                     )
                 elif (
                     sort_by_mtime and isinstance(content, dict) and "_mtime" in content
                 ):
                     mtime_count = content["_mtime"]
                     html_content.append(
-                        f'<li{dir_class}><span class="directory">📁 {html.escape(name)} ({format_timestamp(mtime_count)})</span>'
+                        f'<li{dir_class}><span class="directory">{folder_icon} {html.escape(name)} ({format_timestamp(mtime_count)})</span>'
                     )
                 else:
                     html_content.append(
-                        f'<li{dir_class}><span class="directory">📁 {html.escape(name)}</span>'
+                        f'<li{dir_class}><span class="directory">{folder_icon} {html.escape(name)}</span>'
                     )
                 if isinstance(content, dict) and content.get("_max_depth_reached"):
                     html_content.append(
@@ -1810,9 +1870,14 @@ def _export_comparison_to_html(
             dir1_title = f"{dir1_name} ({format_timestamp(dir1_structure['_mtime'])})"
         if "_mtime" in dir2_structure:
             dir2_title = f"{dir2_name} ({format_timestamp(dir2_structure['_mtime'])})"
+
     js_format_timestamp = ""
     if metadata.get("sort_by_mtime"):
         js_format_timestamp = format_timestamp_js()
+
+    root_icon1 = get_icon(dir1_name, is_dir=True, style=icon_style)
+    root_icon2 = get_icon(dir2_name, is_dir=True, style=icon_style)
+
     html_template = f"""
     <!DOCTYPE html>
     <html>
@@ -1943,12 +2008,12 @@ def _export_comparison_to_html(
         </div>
         <div class="comparison-container">
             <div class="directory-tree">
-                <h3>📂 {dir1_title}</h3>
+                <h3>{root_icon1} {dir1_title}</h3>
                 <p><em>Path: {dir1_path}</em></p>
                 {_build_html_tree(dir1_structure, dir2_structure, True)}
             </div>
             <div class="directory-tree">
-                <h3>📂 {dir2_title}</h3>
+                <h3>{root_icon2} {dir2_title}</h3>
                 <p><em>Path: {dir2_path}</em></p>
                 {_build_html_tree(dir2_structure, dir1_structure, False)}
             </div>

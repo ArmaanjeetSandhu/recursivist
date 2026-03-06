@@ -95,8 +95,32 @@ class TestBuildTree:
         expected_indicator: str | list[str],
     ) -> None:
         """Test building a tree with file statistics."""
-        kwargs = {option: True}
-        build_tree(structure_with_stats, mock_tree, color_map, parent_name="", **kwargs)
+        if option == "sort_by_loc":
+            build_tree(
+                structure_with_stats,
+                mock_tree,
+                color_map,
+                parent_name="",
+                sort_by_loc=True,
+            )
+        elif option == "sort_by_size":
+            build_tree(
+                structure_with_stats,
+                mock_tree,
+                color_map,
+                parent_name="",
+                sort_by_size=True,
+            )
+        elif option == "sort_by_mtime":
+            build_tree(
+                structure_with_stats,
+                mock_tree,
+                color_map,
+                parent_name="",
+                sort_by_mtime=True,
+            )
+        else:
+            build_tree(structure_with_stats, mock_tree, color_map, parent_name="")
         calls = [str(call.args[0]) for call in mock_tree.add.call_args_list]
         if isinstance(expected_indicator, list):
             found = False
@@ -377,8 +401,8 @@ class TestDirectoryExporter:
     @pytest.mark.parametrize(
         "format_name,format_method,expected_content",
         [
-            ("txt", "to_txt", ["📂 test_root", "file1.txt", "file2.py", "file3.md"]),
-            ("md", "to_markdown", ["# 📂 test_root", "`file1.txt`"]),
+            ("txt", "to_txt", ["📁 test_root", "file1.txt", "file2.py", "file3.md"]),
+            ("md", "to_markdown", ["# 📁 test_root", "`file1.txt`"]),
             (
                 "html",
                 "to_html",

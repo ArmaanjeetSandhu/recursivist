@@ -22,6 +22,7 @@ from collections.abc import Sequence
 from typing import Any, Optional, Union
 
 from recursivist.core import format_size, format_timestamp, generate_color_for_extension
+from recursivist.icons import get_icon
 from recursivist.jsx_export import generate_jsx_component
 
 logger = logging.getLogger(__name__)
@@ -205,6 +206,7 @@ class DirectoryExporter:
         sort_by_size: bool = False,
         sort_by_mtime: bool = False,
         show_git_status: bool = False,
+        icon_style: str = "emoji",
     ):
         """Initialize the exporter with directory structure and root name.
 
@@ -226,6 +228,7 @@ class DirectoryExporter:
         self.sort_by_size = sort_by_size
         self.sort_by_mtime = sort_by_mtime
         self.show_git_status = show_git_status
+        self.icon_style = icon_style
 
     _GIT_MARKER_LABELS = {"U": "[U]", "M": "[M]", "A": "[A]", "D": "[D]"}
     _GIT_TXT_SUFFIX = {"U": " [U]", "M": " [M]", "A": " [A]", "D": " [D]"}
@@ -273,6 +276,10 @@ class DirectoryExporter:
                             else ""
                         )
 
+                        file_icon = get_icon(
+                            _fname, is_dir=False, style=self.icon_style
+                        )
+
                         if (
                             self.sort_by_loc
                             and self.sort_by_size
@@ -282,7 +289,7 @@ class DirectoryExporter:
                         ):
                             _, display_path, loc, size, mtime = file_item
                             lines.append(
-                                f"{item_prefix}📄 {display_path} ({loc} lines, {format_size(size)}, {format_timestamp(mtime)}){_git_suffix}"
+                                f"{item_prefix}{file_icon} {display_path} ({loc} lines, {format_size(size)}, {format_timestamp(mtime)}){_git_suffix}"
                             )
                         elif (
                             self.sort_by_loc
@@ -292,7 +299,7 @@ class DirectoryExporter:
                         ):
                             _, display_path, loc, _, mtime = file_item
                             lines.append(
-                                f"{item_prefix}📄 {display_path} ({loc} lines, {format_timestamp(mtime)}){_git_suffix}"
+                                f"{item_prefix}{file_icon} {display_path} ({loc} lines, {format_timestamp(mtime)}){_git_suffix}"
                             )
                         elif (
                             self.sort_by_size
@@ -302,7 +309,7 @@ class DirectoryExporter:
                         ):
                             _, display_path, _, size, mtime = file_item
                             lines.append(
-                                f"{item_prefix}📄 {display_path} ({format_size(size)}, {format_timestamp(mtime)}){_git_suffix}"
+                                f"{item_prefix}{file_icon} {display_path} ({format_size(size)}, {format_timestamp(mtime)}){_git_suffix}"
                             )
                         elif (
                             self.sort_by_loc
@@ -315,7 +322,7 @@ class DirectoryExporter:
                             else:
                                 _, display_path, loc, size = file_item
                             lines.append(
-                                f"{item_prefix}📄 {display_path} ({loc} lines, {format_size(size)}){_git_suffix}"
+                                f"{item_prefix}{file_icon} {display_path} ({loc} lines, {format_size(size)}){_git_suffix}"
                             )
                         elif (
                             self.sort_by_mtime
@@ -329,7 +336,7 @@ class DirectoryExporter:
                             else:
                                 _, display_path, mtime = file_item
                             lines.append(
-                                f"{item_prefix}📄 {display_path} ({format_timestamp(mtime)}){_git_suffix}"
+                                f"{item_prefix}{file_icon} {display_path} ({format_timestamp(mtime)}){_git_suffix}"
                             )
                         elif (
                             self.sort_by_size
@@ -343,7 +350,7 @@ class DirectoryExporter:
                             else:
                                 _, display_path, size = file_item
                             lines.append(
-                                f"{item_prefix}📄 {display_path} ({format_size(size)}){_git_suffix}"
+                                f"{item_prefix}{file_icon} {display_path} ({format_size(size)}){_git_suffix}"
                             )
                         elif (
                             self.sort_by_loc
@@ -357,7 +364,7 @@ class DirectoryExporter:
                             else:
                                 _, display_path, loc = file_item
                             lines.append(
-                                f"{item_prefix}📄 {display_path} ({loc} lines){_git_suffix}"
+                                f"{item_prefix}{file_icon} {display_path} ({loc} lines){_git_suffix}"
                             )
                         elif self.show_full_path and isinstance(file_item, tuple):
                             if len(file_item) > 4:
@@ -372,7 +379,9 @@ class DirectoryExporter:
                                 full_path = (
                                     file_item[0] if len(file_item) > 0 else "unknown"
                                 )
-                            lines.append(f"{item_prefix}📄 {full_path}{_git_suffix}")
+                            lines.append(
+                                f"{item_prefix}{file_icon} {full_path}{_git_suffix}"
+                            )
                         else:
                             if isinstance(file_item, tuple):
                                 file_name = (
@@ -380,7 +389,9 @@ class DirectoryExporter:
                                 )
                             else:
                                 file_name = file_item
-                            lines.append(f"{item_prefix}📄 {file_name}{_git_suffix}")
+                            lines.append(
+                                f"{item_prefix}{file_icon} {file_name}{_git_suffix}"
+                            )
                         if not is_last_item:
                             next_prefix = prefix + "│   "
                         else:
@@ -424,6 +435,7 @@ class DirectoryExporter:
                     )
                     item_prefix = prefix + ("└── " if is_last_item else "├── ")
                     next_path = os.path.join(path_prefix, name) if path_prefix else name
+                    folder_icon = get_icon(name, is_dir=True, style=self.icon_style)
                     if isinstance(content, dict):
                         if (
                             self.sort_by_loc
@@ -437,7 +449,7 @@ class DirectoryExporter:
                             folder_size = content["_size"]
                             folder_mtime = content["_mtime"]
                             lines.append(
-                                f"{item_prefix}📁 {name} ({folder_loc} lines, {format_size(folder_size)}, {format_timestamp(folder_mtime)})"
+                                f"{item_prefix}{folder_icon} {name} ({folder_loc} lines, {format_size(folder_size)}, {format_timestamp(folder_mtime)})"
                             )
                         elif (
                             self.sort_by_loc
@@ -448,7 +460,7 @@ class DirectoryExporter:
                             folder_loc = content["_loc"]
                             folder_size = content["_size"]
                             lines.append(
-                                f"{item_prefix}📁 {name} ({folder_loc} lines, {format_size(folder_size)})"
+                                f"{item_prefix}{folder_icon} {name} ({folder_loc} lines, {format_size(folder_size)})"
                             )
                         elif (
                             self.sort_by_loc
@@ -459,7 +471,7 @@ class DirectoryExporter:
                             folder_loc = content["_loc"]
                             folder_mtime = content["_mtime"]
                             lines.append(
-                                f"{item_prefix}📁 {name} ({folder_loc} lines, {format_timestamp(folder_mtime)})"
+                                f"{item_prefix}{folder_icon} {name} ({folder_loc} lines, {format_timestamp(folder_mtime)})"
                             )
                         elif (
                             self.sort_by_size
@@ -470,23 +482,25 @@ class DirectoryExporter:
                             folder_size = content["_size"]
                             folder_mtime = content["_mtime"]
                             lines.append(
-                                f"{item_prefix}📁 {name} ({format_size(folder_size)}, {format_timestamp(folder_mtime)})"
+                                f"{item_prefix}{folder_icon} {name} ({format_size(folder_size)}, {format_timestamp(folder_mtime)})"
                             )
                         elif self.sort_by_loc and "_loc" in content:
                             folder_loc = content["_loc"]
-                            lines.append(f"{item_prefix}📁 {name} ({folder_loc} lines)")
+                            lines.append(
+                                f"{item_prefix}{folder_icon} {name} ({folder_loc} lines)"
+                            )
                         elif self.sort_by_size and "_size" in content:
                             folder_size = content["_size"]
                             lines.append(
-                                f"{item_prefix}📁 {name} ({format_size(folder_size)})"
+                                f"{item_prefix}{folder_icon} {name} ({format_size(folder_size)})"
                             )
                         elif self.sort_by_mtime and "_mtime" in content:
                             folder_mtime = content["_mtime"]
                             lines.append(
-                                f"{item_prefix}📁 {name} ({format_timestamp(folder_mtime)})"
+                                f"{item_prefix}{folder_icon} {name} ({format_timestamp(folder_mtime)})"
                             )
                         else:
-                            lines.append(f"{item_prefix}📁 {name}")
+                            lines.append(f"{item_prefix}{folder_icon} {name}")
                         if content.get("_max_depth_reached"):
                             next_prefix = prefix + ("    " if is_last_item else "│   ")
                             lines.append(f"{next_prefix}└── ⋯ (max depth reached)")
@@ -495,10 +509,11 @@ class DirectoryExporter:
                             sublines = _build_txt_tree(content, next_prefix, next_path)
                             lines.extend(sublines)
                     else:
-                        lines.append(f"{item_prefix}📁 {name}")
+                        lines.append(f"{item_prefix}{folder_icon} {name}")
             return lines
 
-        root_label = f"📂 {self.root_name}"
+        root_icon = get_icon(self.root_name, is_dir=True, style=self.icon_style)
+        root_label = f"{root_icon} {self.root_name}"
         if (
             self.sort_by_loc
             and self.sort_by_size
@@ -507,36 +522,38 @@ class DirectoryExporter:
             and "_size" in self.structure
             and "_mtime" in self.structure
         ):
-            root_label = f"📂 {self.root_name} ({self.structure['_loc']} lines, {format_size(self.structure['_size'])}, {format_timestamp(self.structure['_mtime'])})"
+            root_label = f"{root_icon} {self.root_name} ({self.structure['_loc']} lines, {format_size(self.structure['_size'])}, {format_timestamp(self.structure['_mtime'])})"
         elif (
             self.sort_by_loc
             and self.sort_by_size
             and "_loc" in self.structure
             and "_size" in self.structure
         ):
-            root_label = f"📂 {self.root_name} ({self.structure['_loc']} lines, {format_size(self.structure['_size'])})"
+            root_label = f"{root_icon} {self.root_name} ({self.structure['_loc']} lines, {format_size(self.structure['_size'])})"
         elif (
             self.sort_by_loc
             and self.sort_by_mtime
             and "_loc" in self.structure
             and "_mtime" in self.structure
         ):
-            root_label = f"📂 {self.root_name} ({self.structure['_loc']} lines, {format_timestamp(self.structure['_mtime'])})"
+            root_label = f"{root_icon} {self.root_name} ({self.structure['_loc']} lines, {format_timestamp(self.structure['_mtime'])})"
         elif (
             self.sort_by_size
             and self.sort_by_mtime
             and "_size" in self.structure
             and "_mtime" in self.structure
         ):
-            root_label = f"📂 {self.root_name} ({format_size(self.structure['_size'])}, {format_timestamp(self.structure['_mtime'])})"
+            root_label = f"{root_icon} {self.root_name} ({format_size(self.structure['_size'])}, {format_timestamp(self.structure['_mtime'])})"
         elif self.sort_by_loc and "_loc" in self.structure:
-            root_label = f"📂 {self.root_name} ({self.structure['_loc']} lines)"
-        elif self.sort_by_size and "_size" in self.structure:
-            root_label = f"📂 {self.root_name} ({format_size(self.structure['_size'])})"
-        elif self.sort_by_mtime and "_mtime" in self.structure:
             root_label = (
-                f"📂 {self.root_name} ({format_timestamp(self.structure['_mtime'])})"
+                f"{root_icon} {self.root_name} ({self.structure['_loc']} lines)"
             )
+        elif self.sort_by_size and "_size" in self.structure:
+            root_label = (
+                f"{root_icon} {self.root_name} ({format_size(self.structure['_size'])})"
+            )
+        elif self.sort_by_mtime and "_mtime" in self.structure:
+            root_label = f"{root_icon} {self.root_name} ({format_timestamp(self.structure['_mtime'])})"
         tree_lines = [root_label]
         tree_lines.extend(
             _build_txt_tree(
@@ -849,6 +866,8 @@ class DirectoryExporter:
                     ext = os.path.splitext(file_name)[1].lower()
                     color = generate_color_for_extension(ext)
 
+                    file_icon = get_icon(file_name, is_dir=False, style=self.icon_style)
+
                     _git_markers_here = structure.get("_git_markers", {})
                     _git_marker = (
                         _git_markers_here.get(file_name, "")
@@ -880,35 +899,35 @@ class DirectoryExporter:
 
                     if self.sort_by_loc and self.sort_by_size and self.sort_by_mtime:
                         html_content.append(
-                            f'<li class="file" style="{_file_style}">📄 {_name_open}{html.escape(display_path)}{_name_close} ({loc} lines, {format_size(size)}, {format_timestamp(mtime)}){_git_badge}</li>'
+                            f'<li class="file" style="{_file_style}">{file_icon} {_name_open}{html.escape(display_path)}{_name_close} ({loc} lines, {format_size(size)}, {format_timestamp(mtime)}){_git_badge}</li>'
                         )
                     elif self.sort_by_loc and self.sort_by_mtime:
                         html_content.append(
-                            f'<li class="file" style="{_file_style}">📄 {_name_open}{html.escape(display_path)}{_name_close} ({loc} lines, {format_timestamp(mtime)}){_git_badge}</li>'
+                            f'<li class="file" style="{_file_style}">{file_icon} {_name_open}{html.escape(display_path)}{_name_close} ({loc} lines, {format_timestamp(mtime)}){_git_badge}</li>'
                         )
                     elif self.sort_by_size and self.sort_by_mtime:
                         html_content.append(
-                            f'<li class="file" style="{_file_style}">📄 {_name_open}{html.escape(display_path)}{_name_close} ({format_size(size)}, {format_timestamp(mtime)}){_git_badge}</li>'
+                            f'<li class="file" style="{_file_style}">{file_icon} {_name_open}{html.escape(display_path)}{_name_close} ({format_size(size)}, {format_timestamp(mtime)}){_git_badge}</li>'
                         )
                     elif self.sort_by_loc and self.sort_by_size:
                         html_content.append(
-                            f'<li class="file" style="{_file_style}">📄 {_name_open}{html.escape(display_path)}{_name_close} ({loc} lines, {format_size(size)}){_git_badge}</li>'
+                            f'<li class="file" style="{_file_style}">{file_icon} {_name_open}{html.escape(display_path)}{_name_close} ({loc} lines, {format_size(size)}){_git_badge}</li>'
                         )
                     elif self.sort_by_mtime:
                         html_content.append(
-                            f'<li class="file" style="{_file_style}">📄 {_name_open}{html.escape(display_path)}{_name_close} ({format_timestamp(mtime)}){_git_badge}</li>'
+                            f'<li class="file" style="{_file_style}">{file_icon} {_name_open}{html.escape(display_path)}{_name_close} ({format_timestamp(mtime)}){_git_badge}</li>'
                         )
                     elif self.sort_by_size:
                         html_content.append(
-                            f'<li class="file" style="{_file_style}">📄 {_name_open}{html.escape(display_path)}{_name_close} ({format_size(size)}){_git_badge}</li>'
+                            f'<li class="file" style="{_file_style}">{file_icon} {_name_open}{html.escape(display_path)}{_name_close} ({format_size(size)}){_git_badge}</li>'
                         )
                     elif self.sort_by_loc:
                         html_content.append(
-                            f'<li class="file" style="{_file_style}">📄 {_name_open}{html.escape(display_path)}{_name_close} ({loc} lines){_git_badge}</li>'
+                            f'<li class="file" style="{_file_style}">{file_icon} {_name_open}{html.escape(display_path)}{_name_close} ({loc} lines){_git_badge}</li>'
                         )
                     else:
                         html_content.append(
-                            f'<li class="file" style="{_file_style}">📄 {_name_open}{html.escape(display_path)}{_name_close}{_git_badge}</li>'
+                            f'<li class="file" style="{_file_style}">{file_icon} {_name_open}{html.escape(display_path)}{_name_close}{_git_badge}</li>'
                         )
             for name, content in sorted(structure.items()):
                 if (
@@ -920,6 +939,9 @@ class DirectoryExporter:
                     or name == "_git_markers"
                 ):
                     continue
+
+                folder_icon = get_icon(name, is_dir=True, style=self.icon_style)
+
                 if (
                     self.sort_by_loc
                     and self.sort_by_size
@@ -933,7 +955,7 @@ class DirectoryExporter:
                     size_count = content["_size"]
                     mtime_count = content["_mtime"]
                     html_content.append(
-                        f'<li class="directory">📁 <span class="dir-name">{html.escape(name)}</span> '
+                        f'<li class="directory">{folder_icon} <span class="dir-name">{html.escape(name)}</span> '
                         f'<span class="metric-count">({loc_count} lines, {format_size(size_count)}, {format_timestamp(mtime_count)})</span>'
                     )
                 elif (
@@ -946,7 +968,7 @@ class DirectoryExporter:
                     loc_count = content["_loc"]
                     size_count = content["_size"]
                     html_content.append(
-                        f'<li class="directory">📁 <span class="dir-name">{html.escape(name)}</span> '
+                        f'<li class="directory">{folder_icon} <span class="dir-name">{html.escape(name)}</span> '
                         f'<span class="metric-count">({loc_count} lines, {format_size(size_count)})</span>'
                     )
                 elif (
@@ -959,7 +981,7 @@ class DirectoryExporter:
                     loc_count = content["_loc"]
                     mtime_count = content["_mtime"]
                     html_content.append(
-                        f'<li class="directory">📁 <span class="dir-name">{html.escape(name)}</span> '
+                        f'<li class="directory">{folder_icon} <span class="dir-name">{html.escape(name)}</span> '
                         f'<span class="metric-count">({loc_count} lines, {format_timestamp(mtime_count)})</span>'
                     )
                 elif (
@@ -972,7 +994,7 @@ class DirectoryExporter:
                     size_count = content["_size"]
                     mtime_count = content["_mtime"]
                     html_content.append(
-                        f'<li class="directory">📁 <span class="dir-name">{html.escape(name)}</span> '
+                        f'<li class="directory">{folder_icon} <span class="dir-name">{html.escape(name)}</span> '
                         f'<span class="metric-count">({format_size(size_count)}, {format_timestamp(mtime_count)})</span>'
                     )
                 elif (
@@ -980,7 +1002,7 @@ class DirectoryExporter:
                 ):
                     loc_count = content["_loc"]
                     html_content.append(
-                        f'<li class="directory">📁 <span class="dir-name">{html.escape(name)}</span> '
+                        f'<li class="directory">{folder_icon} <span class="dir-name">{html.escape(name)}</span> '
                         f'<span class="loc-count">({loc_count} lines)</span>'
                     )
                 elif (
@@ -990,7 +1012,7 @@ class DirectoryExporter:
                 ):
                     size_count = content["_size"]
                     html_content.append(
-                        f'<li class="directory">📁 <span class="dir-name">{html.escape(name)}</span> '
+                        f'<li class="directory">{folder_icon} <span class="dir-name">{html.escape(name)}</span> '
                         f'<span class="size-count">({format_size(size_count)})</span>'
                     )
                 elif (
@@ -1000,12 +1022,12 @@ class DirectoryExporter:
                 ):
                     mtime_count = content["_mtime"]
                     html_content.append(
-                        f'<li class="directory">📁 <span class="dir-name">{html.escape(name)}</span> '
+                        f'<li class="directory">{folder_icon} <span class="dir-name">{html.escape(name)}</span> '
                         f'<span class="mtime-count">({format_timestamp(mtime_count)})</span>'
                     )
                 else:
                     html_content.append(
-                        f'<li class="directory">📁 <span class="dir-name">{html.escape(name)}</span>'
+                        f'<li class="directory">{folder_icon} <span class="dir-name">{html.escape(name)}</span>'
                     )
                 next_path = os.path.join(path_prefix, name) if path_prefix else name
                 if isinstance(content, dict):
@@ -1019,7 +1041,9 @@ class DirectoryExporter:
             html_content.append("</ul>")
             return "\n".join(html_content)
 
-        title = f"📂 {html.escape(self.root_name)}"
+        root_icon = get_icon(self.root_name, is_dir=True, style=self.icon_style)
+
+        title = f"{root_icon} {html.escape(self.root_name)}"
         if (
             self.sort_by_loc
             and self.sort_by_size
@@ -1028,34 +1052,34 @@ class DirectoryExporter:
             and "_size" in self.structure
             and "_mtime" in self.structure
         ):
-            title = f"📂 {html.escape(self.root_name)} ({self.structure['_loc']} lines, {format_size(self.structure['_size'])}, {format_timestamp(self.structure['_mtime'])})"
+            title = f"{root_icon} {html.escape(self.root_name)} ({self.structure['_loc']} lines, {format_size(self.structure['_size'])}, {format_timestamp(self.structure['_mtime'])})"
         elif (
             self.sort_by_loc
             and self.sort_by_size
             and "_loc" in self.structure
             and "_size" in self.structure
         ):
-            title = f"📂 {html.escape(self.root_name)} ({self.structure['_loc']} lines, {format_size(self.structure['_size'])})"
+            title = f"{root_icon} {html.escape(self.root_name)} ({self.structure['_loc']} lines, {format_size(self.structure['_size'])})"
         elif (
             self.sort_by_loc
             and self.sort_by_mtime
             and "_loc" in self.structure
             and "_mtime" in self.structure
         ):
-            title = f"📂 {html.escape(self.root_name)} ({self.structure['_loc']} lines, {format_timestamp(self.structure['_mtime'])})"
+            title = f"{root_icon} {html.escape(self.root_name)} ({self.structure['_loc']} lines, {format_timestamp(self.structure['_mtime'])})"
         elif (
             self.sort_by_size
             and self.sort_by_mtime
             and "_size" in self.structure
             and "_mtime" in self.structure
         ):
-            title = f"📂 {html.escape(self.root_name)} ({format_size(self.structure['_size'])}, {format_timestamp(self.structure['_mtime'])})"
+            title = f"{root_icon} {html.escape(self.root_name)} ({format_size(self.structure['_size'])}, {format_timestamp(self.structure['_mtime'])})"
         elif self.sort_by_loc and "_loc" in self.structure:
-            title = f"📂 {html.escape(self.root_name)} ({self.structure['_loc']} lines)"
+            title = f"{root_icon} {html.escape(self.root_name)} ({self.structure['_loc']} lines)"
         elif self.sort_by_size and "_size" in self.structure:
-            title = f"📂 {html.escape(self.root_name)} ({format_size(self.structure['_size'])})"
+            title = f"{root_icon} {html.escape(self.root_name)} ({format_size(self.structure['_size'])})"
         elif self.sort_by_mtime and "_mtime" in self.structure:
-            title = f"📂 {html.escape(self.root_name)} ({format_timestamp(self.structure['_mtime'])})"
+            title = f"{root_icon} {html.escape(self.root_name)} ({format_timestamp(self.structure['_mtime'])})"
         loc_styles = (
             """
             .loc-count {
@@ -1253,6 +1277,9 @@ class DirectoryExporter:
                         if isinstance(file_item, tuple) and len(file_item) > 0
                         else (file_item if isinstance(file_item, str) else "unknown")
                     )
+
+                    file_icon = get_icon(_fname_md, is_dir=False, style=self.icon_style)
+
                     _git_markers_md = structure.get("_git_markers", {})
                     _git_marker_md = (
                         _git_markers_md.get(_fname_md, "")
@@ -1277,34 +1304,36 @@ class DirectoryExporter:
 
                     if self.sort_by_loc and self.sort_by_size and self.sort_by_mtime:
                         lines.append(
-                            f"{indent}- 📄 {_md_display} ({loc} lines, {format_size(size)}, {format_timestamp(mtime)}){_md_git_suffix}"
+                            f"{indent}- {file_icon} {_md_display} ({loc} lines, {format_size(size)}, {format_timestamp(mtime)}){_md_git_suffix}"
                         )
                     elif self.sort_by_loc and self.sort_by_mtime:
                         lines.append(
-                            f"{indent}- 📄 {_md_display} ({loc} lines, {format_timestamp(mtime)}){_md_git_suffix}"
+                            f"{indent}- {file_icon} {_md_display} ({loc} lines, {format_timestamp(mtime)}){_md_git_suffix}"
                         )
                     elif self.sort_by_size and self.sort_by_mtime:
                         lines.append(
-                            f"{indent}- 📄 {_md_display} ({format_size(size)}, {format_timestamp(mtime)}){_md_git_suffix}"
+                            f"{indent}- {file_icon} {_md_display} ({format_size(size)}, {format_timestamp(mtime)}){_md_git_suffix}"
                         )
                     elif self.sort_by_loc and self.sort_by_size:
                         lines.append(
-                            f"{indent}- 📄 {_md_display} ({loc} lines, {format_size(size)}){_md_git_suffix}"
+                            f"{indent}- {file_icon} {_md_display} ({loc} lines, {format_size(size)}){_md_git_suffix}"
                         )
                     elif self.sort_by_mtime:
                         lines.append(
-                            f"{indent}- 📄 {_md_display} ({format_timestamp(mtime)}){_md_git_suffix}"
+                            f"{indent}- {file_icon} {_md_display} ({format_timestamp(mtime)}){_md_git_suffix}"
                         )
                     elif self.sort_by_size:
                         lines.append(
-                            f"{indent}- 📄 {_md_display} ({format_size(size)}){_md_git_suffix}"
+                            f"{indent}- {file_icon} {_md_display} ({format_size(size)}){_md_git_suffix}"
                         )
                     elif self.sort_by_loc:
                         lines.append(
-                            f"{indent}- 📄 {_md_display} ({loc} lines){_md_git_suffix}"
+                            f"{indent}- {file_icon} {_md_display} ({loc} lines){_md_git_suffix}"
                         )
                     else:
-                        lines.append(f"{indent}- 📄 {_md_display}{_md_git_suffix}")
+                        lines.append(
+                            f"{indent}- {file_icon} {_md_display}{_md_git_suffix}"
+                        )
             for name, content in sorted(structure.items()):
                 if (
                     name == "_files"
@@ -1315,6 +1344,9 @@ class DirectoryExporter:
                     or name == "_git_markers"
                 ):
                     continue
+
+                folder_icon = get_icon(name, is_dir=True, style=self.icon_style)
+
                 if (
                     self.sort_by_loc
                     and self.sort_by_size
@@ -1328,7 +1360,7 @@ class DirectoryExporter:
                     size_count = content["_size"]
                     mtime_count = content["_mtime"]
                     lines.append(
-                        f"{indent}- 📁 **{name}** ({loc_count} lines, {format_size(size_count)}, {format_timestamp(mtime_count)})"
+                        f"{indent}- {folder_icon} **{name}** ({loc_count} lines, {format_size(size_count)}, {format_timestamp(mtime_count)})"
                     )
                 elif (
                     self.sort_by_loc
@@ -1340,7 +1372,7 @@ class DirectoryExporter:
                     loc_count = content["_loc"]
                     size_count = content["_size"]
                     lines.append(
-                        f"{indent}- 📁 **{name}** ({loc_count} lines, {format_size(size_count)})"
+                        f"{indent}- {folder_icon} **{name}** ({loc_count} lines, {format_size(size_count)})"
                     )
                 elif (
                     self.sort_by_loc
@@ -1352,7 +1384,7 @@ class DirectoryExporter:
                     loc_count = content["_loc"]
                     mtime_count = content["_mtime"]
                     lines.append(
-                        f"{indent}- 📁 **{name}** ({loc_count} lines, {format_timestamp(mtime_count)})"
+                        f"{indent}- {folder_icon} **{name}** ({loc_count} lines, {format_timestamp(mtime_count)})"
                     )
                 elif (
                     self.sort_by_size
@@ -1364,20 +1396,24 @@ class DirectoryExporter:
                     size_count = content["_size"]
                     mtime_count = content["_mtime"]
                     lines.append(
-                        f"{indent}- 📁 **{name}** ({format_size(size_count)}, {format_timestamp(mtime_count)})"
+                        f"{indent}- {folder_icon} **{name}** ({format_size(size_count)}, {format_timestamp(mtime_count)})"
                     )
                 elif (
                     self.sort_by_loc and isinstance(content, dict) and "_loc" in content
                 ):
                     loc_count = content["_loc"]
-                    lines.append(f"{indent}- 📁 **{name}** ({loc_count} lines)")
+                    lines.append(
+                        f"{indent}- {folder_icon} **{name}** ({loc_count} lines)"
+                    )
                 elif (
                     self.sort_by_size
                     and isinstance(content, dict)
                     and "_size" in content
                 ):
                     size_count = content["_size"]
-                    lines.append(f"{indent}- 📁 **{name}** ({format_size(size_count)})")
+                    lines.append(
+                        f"{indent}- {folder_icon} **{name}** ({format_size(size_count)})"
+                    )
                 elif (
                     self.sort_by_mtime
                     and isinstance(content, dict)
@@ -1385,10 +1421,10 @@ class DirectoryExporter:
                 ):
                     mtime_count = content["_mtime"]
                     lines.append(
-                        f"{indent}- 📁 **{name}** ({format_timestamp(mtime_count)})"
+                        f"{indent}- {folder_icon} **{name}** ({format_timestamp(mtime_count)})"
                     )
                 else:
-                    lines.append(f"{indent}- 📁 **{name}**")
+                    lines.append(f"{indent}- {folder_icon} **{name}**")
                 next_path = os.path.join(path_prefix, name) if path_prefix else name
                 if isinstance(content, dict):
                     if content.get("_max_depth_reached"):
@@ -1396,6 +1432,8 @@ class DirectoryExporter:
                     else:
                         lines.extend(_build_md_tree(content, level + 1, next_path))
             return lines
+
+        root_icon = get_icon(self.root_name, is_dir=True, style=self.icon_style)
 
         if (
             self.sort_by_loc
@@ -1406,7 +1444,7 @@ class DirectoryExporter:
             and "_mtime" in self.structure
         ):
             md_content = [
-                f"# 📂 {self.root_name} ({self.structure['_loc']} lines, {format_size(self.structure['_size'])}, {format_timestamp(self.structure['_mtime'])})",
+                f"# {root_icon} {self.root_name} ({self.structure['_loc']} lines, {format_size(self.structure['_size'])}, {format_timestamp(self.structure['_mtime'])})",
                 "",
             ]
         elif (
@@ -1416,7 +1454,7 @@ class DirectoryExporter:
             and "_size" in self.structure
         ):
             md_content = [
-                f"# 📂 {self.root_name} ({self.structure['_loc']} lines, {format_size(self.structure['_size'])})",
+                f"# {root_icon} {self.root_name} ({self.structure['_loc']} lines, {format_size(self.structure['_size'])})",
                 "",
             ]
         elif (
@@ -1426,7 +1464,7 @@ class DirectoryExporter:
             and "_mtime" in self.structure
         ):
             md_content = [
-                f"# 📂 {self.root_name} ({self.structure['_loc']} lines, {format_timestamp(self.structure['_mtime'])})",
+                f"# {root_icon} {self.root_name} ({self.structure['_loc']} lines, {format_timestamp(self.structure['_mtime'])})",
                 "",
             ]
         elif (
@@ -1436,23 +1474,26 @@ class DirectoryExporter:
             and "_mtime" in self.structure
         ):
             md_content = [
-                f"# 📂 {self.root_name} ({format_size(self.structure['_size'])}, {format_timestamp(self.structure['_mtime'])})",
+                f"# {root_icon} {self.root_name} ({format_size(self.structure['_size'])}, {format_timestamp(self.structure['_mtime'])})",
                 "",
             ]
         elif self.sort_by_loc and "_loc" in self.structure:
-            md_content = [f"# 📂 {self.root_name} ({self.structure['_loc']} lines)", ""]
+            md_content = [
+                f"# {root_icon} {self.root_name} ({self.structure['_loc']} lines)",
+                "",
+            ]
         elif self.sort_by_size and "_size" in self.structure:
             md_content = [
-                f"# 📂 {self.root_name} ({format_size(self.structure['_size'])})",
+                f"# {root_icon} {self.root_name} ({format_size(self.structure['_size'])})",
                 "",
             ]
         elif self.sort_by_mtime and "_mtime" in self.structure:
             md_content = [
-                f"# 📂 {self.root_name} ({format_timestamp(self.structure['_mtime'])})",
+                f"# {root_icon} {self.root_name} ({format_timestamp(self.structure['_mtime'])})",
                 "",
             ]
         else:
-            md_content = [f"# 📂 {self.root_name}", ""]
+            md_content = [f"# {root_icon} {self.root_name}", ""]
         md_content.extend(
             _build_md_tree(
                 self.structure, 0, self.root_name if self.show_full_path else ""

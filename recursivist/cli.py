@@ -3,8 +3,8 @@
 
 Provides the command-line interface for the recursivist package, letting
 users visualize directory structures, export them in various formats,
-compare two structures side-by-side, and generate shell completion
-scripts.
+compare two structures side-by-side, manage user configurations, and
+generate shell completion scripts.
 
 Main commands:
     visualize: Display a directory structure in the terminal with rich
@@ -13,6 +13,7 @@ Main commands:
         or SVG.
     compare: Compare two directory structures with highlighted
         differences.
+    config: Manage persistent user preferences like icon styles.
     version: Display the current version information.
     completion: Generate shell completion scripts for various shells.
 
@@ -41,6 +42,7 @@ from recursivist.compare import (
     display_comparison,
     export_comparison,
 )
+from recursivist.config import load_config, save_config
 from recursivist.core import (
     compile_regex_patterns,
     display_tree,
@@ -61,6 +63,45 @@ app = typer.Typer(
 )
 console = Console()
 
+USER_CONFIG = load_config()
+
+config_app = typer.Typer(help="Manage recursivist user configuration")
+app.add_typer(config_app, name="config")
+
+
+@config_app.command("set")
+def config_set(
+    key: str = typer.Argument(..., help="Configuration key (e.g., icon-style)"),
+    value: str = typer.Argument(..., help="Configuration value (e.g., nerd or emoji)"),
+) -> None:
+    """Set a persistent configuration value.
+
+    Writes a user preference to the global configuration file.
+    Currently supports setting the `icon-style` to either `emoji` or `nerd`.
+
+    Args:
+        key: The configuration key to set (e.g., "icon-style").
+        value: The value to assign to the key.
+
+    Raises:
+        typer.Exit: With exit code ``1`` if an invalid key or value
+            is provided.
+
+    Examples:
+        >>> recursivist config set icon-style nerd
+        >>> recursivist config set icon-style emoji
+    """
+    config_key = key.replace("-", "_")
+
+    if config_key == "icon_style" and value not in ["emoji", "nerd"]:
+        logger.error("Invalid value for icon-style. Use 'emoji' or 'nerd'.")
+        raise typer.Exit(1)
+
+    config = load_config()
+    config[config_key] = value
+    save_config(config)
+    typer.echo(f"Configuration updated: {key} = '{value}'")
+
 
 @app.callback()
 def callback() -> None:
@@ -74,6 +115,7 @@ def callback() -> None:
         visualize: Display a directory structure in the terminal.
         export: Export a directory structure to various file formats.
         compare: Compare two directory structures side by side.
+        config: Manage user preferences.
         version: Display the current version.
         completion: Generate a shell completion script.
     """
@@ -186,6 +228,11 @@ def visualize(
         "-G",
         help="Annotate files with Git status markers: [U] untracked, [M] modified, [A] added, [D] deleted",
     ),
+    icon_style: Optional[str] = typer.Option(
+        None,
+        "--icon-style",
+        help="Override icon style ('emoji' or 'nerd'). Defaults to user config.",
+    ),
     verbose: bool = typer.Option(
         False, "--verbose", "-v", help="Enable verbose output"
     ),
@@ -229,6 +276,8 @@ def visualize(
         show_git_status: When ``True``, annotate files with their Git
             status: ``[U]`` untracked, ``[M]`` modified, ``[A]``
             added, ``[D]`` deleted.
+        icon_style: Icon style to use for file/folder markers. If not
+            provided, falls back to the persistent user config.
         verbose: When ``True``, lower the log level to DEBUG so that
             internal processing steps are printed to the terminal.
 
@@ -254,21 +303,16 @@ def visualize(
         >>> recursivist visualize -i "src/*" "*.md"
         >>> # Limit depth to 2
         >>> recursivist visualize -d 2
-        >>> # Show full paths
-        >>> recursivist visualize -l
-        >>> # Sort by LOC
-        >>> recursivist visualize -s
-        >>> # Sort by size
-        >>> recursivist visualize -z
-        >>> # Sort by mtime
-        >>> recursivist visualize -m
-        >>> # Git status markers
-        >>> recursivist visualize -G
+        >>> # Override icon style for this run
+        >>> recursivist visualize --icon-style nerd
     """
 
     if verbose:
         logger.setLevel(logging.DEBUG)
         logger.debug("Verbose mode enabled")
+
+    resolved_style = icon_style or USER_CONFIG.get("icon_style", "emoji")
+
     directory = directory.resolve()
     if not directory.exists() or not directory.is_dir():
         logger.error(f"Error: {directory} is not a valid directory")
@@ -359,6 +403,7 @@ def visualize(
             sort_by_size,
             sort_by_mtime,
             show_git_status,
+            icon_style=resolved_style,
         )
     except Exception as e:
         logger.error(f"Error: {e}", exc_info=verbose)
@@ -445,6 +490,11 @@ def export(
         "-G",
         help="Annotate files with Git status markers: [U] untracked, [M] modified, [A] added, [D] deleted",
     ),
+    icon_style: Optional[str] = typer.Option(
+        None,
+        "--icon-style",
+        help="Override icon style. Defaults to 'emoji' for safe file exports.",
+    ),
     verbose: bool = typer.Option(
         False, "--verbose", "-v", help="Enable verbose output"
     ),
@@ -455,7 +505,9 @@ def export(
     writes output files without rendering anything to the terminal.
     Multiple formats can be requested in a single invocation; each
     format produces a separate file named ``<prefix>.<format>`` inside
-    *output_dir*.
+    *output_dir*. By default, this forces the `emoji` icon style to
+    ensure cross-platform compatibility in external viewers, unless
+    explicitly overridden.
 
     Args:
         directory: Root directory to export. Must exist and be a
@@ -496,6 +548,8 @@ def export(
             timestamp.
         show_git_status: When ``True``, annotate files with their Git
             status markers in the exported output.
+        icon_style: Icon style to enforce on the export. Defaults to
+            'emoji' for external compatibility unless provided.
         verbose: When ``True``, lower the log level to DEBUG so that
             internal processing steps are printed to the terminal.
 
@@ -511,37 +565,16 @@ def export(
         >>> recursivist export /path/to/project
         >>> # Multiple formats (space-separated)
         >>> recursivist export -f "json md html"
-        >>> # Multiple formats (separate flags)
-        >>> recursivist export -f json -f md -f html
-        >>> # Exclude directories
-        >>> recursivist export -e node_modules .git
-        >>> # Exclude file extensions
-        >>> recursivist export -x .pyc .log
-        >>> # Exclude glob patterns
-        >>> recursivist export -p "*.test.js" "*.spec.js"
-        >>> # Exclude regex patterns
-        >>> recursivist export -p ".*test.*" -r
-        >>> # Include overrides
-        >>> recursivist export -i "src/*" "*.md"
-        >>> # Limit depth to 2
-        >>> recursivist export -d 2
-        >>> # Show full paths
-        >>> recursivist export -l
-        >>> # Custom output directory
-        >>> recursivist export -o ./exports
-        >>> # Sort by LOC
-        >>> recursivist export -s
-        >>> # Sort by size
-        >>> recursivist export -z
-        >>> # Sort by mtime
-        >>> recursivist export -m
-        >>> # Git status markers
-        >>> recursivist export -G
+        >>> # Force export with nerd fonts
+        >>> recursivist export --icon-style nerd
     """
 
     if verbose:
         logger.setLevel(logging.DEBUG)
         logger.debug("Verbose mode enabled")
+
+    resolved_style = icon_style or "emoji"
+
     directory = directory.resolve()
     if not directory.exists() or not directory.is_dir():
         logger.error(f"Error: {directory} is not a valid directory")
@@ -656,6 +689,7 @@ def export(
                     sort_by_size,
                     sort_by_mtime,
                     show_git_status,
+                    icon_style=resolved_style,
                 )
                 logger.info(f"Successfully exported to {output_path}")
             except Exception as e:
@@ -815,6 +849,11 @@ def compare(
         "-m",
         help="Sort files by modification time and display timestamps",
     ),
+    icon_style: Optional[str] = typer.Option(
+        None,
+        "--icon-style",
+        help="Override icon style. Defaults to 'emoji' if saving to HTML, else user config.",
+    ),
     verbose: bool = typer.Option(
         False, "--verbose", "-v", help="Enable verbose output"
     ),
@@ -827,6 +866,10 @@ def compare(
     present only in *dir2* in another; shared items are shown normally.
     A legend is included in the output. When *save_as_html* is
     ``True`` the comparison is written to an HTML file instead.
+
+    By default, uses the persistent user configuration for icon styling
+    in the terminal. If exported to HTML, strictly falls back to
+    the 'emoji' style to ensure cross-platform compatibility.
 
     Args:
         dir1: First directory to compare. Must exist and be a
@@ -866,6 +909,9 @@ def compare(
         sort_by_mtime: When ``True``, sort files by last-modification
             time (newest first) and annotate each file with its
             timestamp.
+        icon_style: Style to use for folder and file icons. Will use
+            the user configuration when visualizing in terminal, and
+            default to 'emoji' when outputting to HTML.
         verbose: When ``True``, lower the log level to DEBUG so that
             internal processing steps are printed to the terminal.
 
@@ -892,14 +938,8 @@ def compare(
         >>> recursivist compare dir1 dir2 -l
         >>> # Export to HTML
         >>> recursivist compare dir1 dir2 -f
-        >>> # HTML to custom directory
-        >>> recursivist compare dir1 dir2 -f -o ./out
-        >>> # Sort by LOC
-        >>> recursivist compare dir1 dir2 -s
-        >>> # Sort by size
-        >>> recursivist compare dir1 dir2 -z
-        >>> # Sort by mtime
-        >>> recursivist compare dir1 dir2 -m
+        >>> # Override icon styling
+        >>> recursivist compare dir1 dir2 --icon-style nerd
     """
 
     if verbose:
@@ -916,6 +956,14 @@ def compare(
         logger.info("Sorting files by size and displaying file sizes")
     if sort_by_mtime:
         logger.info("Sorting files by modification time and displaying timestamps")
+
+    if icon_style:
+        resolved_style = icon_style
+    elif save_as_html:
+        resolved_style = "emoji"
+    else:
+        resolved_style = USER_CONFIG.get("icon_style", "emoji")
+
     parsed_exclude_dirs = parse_list_option(exclude_dirs)
     parsed_exclude_exts = parse_list_option(exclude_extensions)
     parsed_exclude_patterns = parse_list_option(exclude_patterns)
@@ -967,6 +1015,7 @@ def compare(
                     sort_by_loc=sort_by_loc,
                     sort_by_size=sort_by_size,
                     sort_by_mtime=sort_by_mtime,
+                    icon_style=resolved_style,
                 )
                 logger.info(f"Successfully exported to {output_path}")
             except Exception as e:
@@ -986,6 +1035,7 @@ def compare(
                 sort_by_loc=sort_by_loc,
                 sort_by_size=sort_by_size,
                 sort_by_mtime=sort_by_mtime,
+                icon_style=resolved_style,
             )
     except Exception as e:
         logger.error(f"Error: {e}", exc_info=verbose)
