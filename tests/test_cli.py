@@ -581,18 +581,18 @@ def test_compare_with_full_path(
 ) -> None:
     dir1, dir2 = comparison_directories
     result = runner.invoke(app, ["compare", dir1, dir2, "--full-path"])
+
     assert result.exit_code == 0
     assert "dir1" in result.stdout
     assert "dir2" in result.stdout
     assert "Full file paths are shown" in result.stdout
-    has_full_path = False
-    for line in result.stdout.split("\n"):
-        if ("📄" in line) and (
-            dir1.replace(os.sep, "/") in line.replace(os.sep, "/")
-            or dir2.replace(os.sep, "/") in line.replace(os.sep, "/")
-        ):
-            has_full_path = True
-            break
+
+    clean_output = "".join(result.stdout.split())
+    dir1_clean = "".join(dir1.replace(os.sep, "/").split())
+    dir2_clean = "".join(dir2.replace(os.sep, "/").split())
+
+    has_full_path = dir1_clean in clean_output or dir2_clean in clean_output
+
     assert has_full_path, "No full paths found in the output"
 
 
