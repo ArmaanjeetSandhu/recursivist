@@ -24,16 +24,16 @@
     </div>
     <div style="height: 6px;"></div>
     <div class="terminal-output">
-      <pre>📂 my-project (1262 lines)
-├── 📁 src (1055 lines)
-│   ├── 📄 <span style="color: #83e43d;">main.py</span> (245 lines)
-│   ├── 📄 <span style="color: #83e43d;">utils.py</span> (157 lines)
-│   └── 📁 tests (653 lines)
-│       ├── 📄 <span style="color: #83e43d;">test_main.py</span> (412 lines)
-│       └── 📄 <span style="color: #83e43d;">test_utils.py</span> (241 lines)
-├── 📄 <span style="color: #f1fa8c;">README.md</span> (124 lines)
-├── 📄 <span style="color: #bd93f9;">requirements.txt</span> (18 lines)
-└── 📄 <span style="color: #83e43d;">setup.py</span> (65 lines)</pre>
+      <pre> my-project (1262 lines)
+├──  src (1055 lines)
+│   ├── <span style="color: #83e43d;"> main.py</span> (245 lines)
+│   ├── <span style="color: #83e43d;"> utils.py</span> (157 lines)
+│   └──  tests (653 lines)
+│       ├── <span style="color: #83e43d;"> test_main.py</span> (412 lines)
+│       └── <span style="color: #83e43d;"> test_utils.py</span> (241 lines)
+├── <span style="color: #f1fa8c;"> README.md</span> (124 lines)
+├── <span style="color: #bd93f9;"> requirements.txt</span> (18 lines)
+└── <span style="color: #83e43d;"> setup.py</span> (65 lines)</pre>
     </div>
   </div>
 </div>

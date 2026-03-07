@@ -1,5 +1,14 @@
 @import url("https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=IBM+Plex+Mono:ital,wght@0,300;0,400;0,500;0,600;1,400&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap");
 
+@font-face {
+  font-family: "JetBrainsMono NFM";
+  src: url("../fonts/JetBrainsMonoNerdFontMono-Regular.ttf")
+    format("truetype");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   --duration-fast: 0.15s;
   --duration-base: 0.25s;
@@ -62,7 +71,7 @@ body {
 
 .md-typeset code,
 .md-typeset pre {
-  font-family: "IBM Plex Mono", monospace;
+  font-family: "JetBrainsMono NFM", "IBM Plex Mono", monospace;
 }
 
 .md-header {
@@ -202,7 +211,7 @@ body {
   flex: 1;
   text-align: center;
   color: rgba(255, 255, 255, 0.45);
-  font-family: "IBM Plex Mono", monospace;
+  font-family: "JetBrainsMono NFM", "IBM Plex Mono", monospace;
   font-size: 0.72rem;
   letter-spacing: 0.04em;
 }
@@ -211,9 +220,10 @@ body {
   padding: 1.25rem 1.5rem;
   color: #e6edf3 !important;
   background: #0d1117 !important;
-  font-family: "IBM Plex Mono", monospace;
+  font-family: "JetBrainsMono NFM", "IBM Plex Mono", monospace;
   font-size: 0.82rem;
   line-height: 1.65;
+  overflow-x: auto;
 }
 
 .terminal-body pre,
@@ -223,7 +233,7 @@ body {
   background: transparent !important;
   color: inherit !important;
   box-shadow: none !important;
-  font-family: "IBM Plex Mono", monospace !important;
+  font-family: "JetBrainsMono NFM", "IBM Plex Mono", monospace !important;
   font-size: inherit !important;
   padding: 0 !important;
   margin: 0 !important;
@@ -991,4 +1001,12 @@ body {
 
 .md-sidebar--primary .mm-controls {
   margin: 0;
+}
+
+@media screen and (max-width: 768px) {
+  .md-typeset h1 {
+    font-size: 1.6rem !important;
+    margin-bottom: 0.2rem !important;
+    line-height: 1.2 !important;
+  }
 }
