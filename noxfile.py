@@ -12,8 +12,6 @@ def tests(session: nox.Session) -> None:
     """Run the test suite against multiple Python versions."""
     session.install(".[dev]")
     session.run("pytest", *session.posargs)
-    # session.posargs lets you pass extra args through, e.g.:
-    #   nox -s tests -- -k test_something
 
 
 @nox.session(python="3.13")

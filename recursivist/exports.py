@@ -9,6 +9,7 @@ Supported export formats:
 - HTML: Interactive web page with styling
 - Markdown: Clean representation for documentation
 - JSX: React component for web integration
+- SVG: Image format for visual representation
 
 Each format maintains consistent styling and organization, with support for
 showing lines of code, file sizes, and modification times.
@@ -21,7 +22,15 @@ import os
 from collections.abc import Sequence
 from typing import Any, Optional, Union
 
-from recursivist.core import format_size, format_timestamp, generate_color_for_extension
+from rich.console import Console
+from rich.tree import Tree
+
+from recursivist.core import (
+    build_tree,
+    format_size,
+    format_timestamp,
+    generate_color_for_extension,
+)
 from recursivist.icons import get_icon
 from recursivist.jsx_export import generate_jsx_component
 
@@ -1529,3 +1538,91 @@ class DirectoryExporter:
         except Exception as e:
             logger.error(f"Error exporting to React component: {e}")
             raise
+
+    def to_svg(self, output_path: str) -> None:
+        """Export directory structure to an SVG image.
+
+        Renders the directory tree using Rich's SVG export capability, producing
+        a self-contained SVG file. The tree is rendered with the same color
+        coding and stats annotations as the terminal output.
+
+        Args:
+            output_path: Path where the SVG file will be saved
+        """
+
+        def extract_extensions(struct: dict[str, Any]) -> set[str]:
+            exts = set()
+            for k, v in struct.items():
+                if k == "_files":
+                    for f in v:
+                        name = f[0] if isinstance(f, tuple) else f
+                        exts.add(os.path.splitext(name)[1].lower())
+                elif isinstance(v, dict):
+                    exts.update(extract_extensions(v))
+            return exts
+
+        extensions = extract_extensions(self.structure)
+        color_map = {ext: generate_color_for_extension(ext) for ext in extensions}
+
+        root_icon = get_icon(self.root_name, is_dir=True, style=self.icon_style)
+        root_label = f"{root_icon} {self.root_name}"
+
+        if (
+            self.sort_by_loc
+            and self.sort_by_size
+            and self.sort_by_mtime
+            and "_loc" in self.structure
+            and "_size" in self.structure
+            and "_mtime" in self.structure
+        ):
+            root_label = f"{root_icon} {self.root_name} ({self.structure['_loc']} lines, {format_size(self.structure['_size'])}, {format_timestamp(self.structure['_mtime'])})"
+        elif (
+            self.sort_by_loc
+            and self.sort_by_size
+            and "_loc" in self.structure
+            and "_size" in self.structure
+        ):
+            root_label = f"{root_icon} {self.root_name} ({self.structure['_loc']} lines, {format_size(self.structure['_size'])})"
+        elif (
+            self.sort_by_loc
+            and self.sort_by_mtime
+            and "_loc" in self.structure
+            and "_mtime" in self.structure
+        ):
+            root_label = f"{root_icon} {self.root_name} ({self.structure['_loc']} lines, {format_timestamp(self.structure['_mtime'])})"
+        elif (
+            self.sort_by_size
+            and self.sort_by_mtime
+            and "_size" in self.structure
+            and "_mtime" in self.structure
+        ):
+            root_label = f"{root_icon} {self.root_name} ({format_size(self.structure['_size'])}, {format_timestamp(self.structure['_mtime'])})"
+        elif self.sort_by_loc and "_loc" in self.structure:
+            root_label = (
+                f"{root_icon} {self.root_name} ({self.structure['_loc']} lines)"
+            )
+        elif self.sort_by_size and "_size" in self.structure:
+            root_label = (
+                f"{root_icon} {self.root_name} ({format_size(self.structure['_size'])})"
+            )
+        elif self.sort_by_mtime and "_mtime" in self.structure:
+            root_label = f"{root_icon} {self.root_name} ({format_timestamp(self.structure['_mtime'])})"
+
+        tree = Tree(root_label)
+
+        build_tree(
+            structure=self.structure,
+            tree=tree,
+            color_map=color_map,
+            parent_name=self.root_name,
+            show_full_path=self.show_full_path,
+            sort_by_loc=self.sort_by_loc,
+            sort_by_size=self.sort_by_size,
+            sort_by_mtime=self.sort_by_mtime,
+            show_git_status=self.show_git_status,
+            icon_style=self.icon_style,
+        )
+
+        console = Console(record=True, width=120)
+        console.print(tree)
+        console.save_svg(output_path, title=f"Directory Structure - {self.root_name}")

@@ -36,110 +36,6 @@ from recursivist.icons import get_icon
 logger = logging.getLogger(__name__)
 
 
-def export_to_svg(
-    structure: dict[str, Any],
-    root_dir: str,
-    output_path: str,
-    show_full_path: bool = False,
-    sort_by_loc: bool = False,
-    sort_by_size: bool = False,
-    sort_by_mtime: bool = False,
-    show_git_status: bool = False,
-    icon_style: str = "emoji",
-) -> None:
-    """Export the directory structure to an SVG image.
-
-    Renders the directory tree using Rich's SVG export capability, producing
-    a self-contained SVG file suitable for embedding in documentation or
-    sharing as a standalone image. The tree is rendered with the same color
-    coding and statistics annotations as the terminal output.
-
-    Args:
-        structure: Directory structure dictionary produced by
-            ``get_directory_structure``.
-        root_dir: Absolute path to the root directory; its basename is used
-            as the tree root label and the SVG title.
-        output_path: Destination file path for the exported SVG.
-        show_full_path: When ``True``, display absolute file paths instead of
-            bare filenames.
-        sort_by_loc: When ``True``, annotate files and directories with lines-
-            of-code counts and sort files by LOC descending.
-        sort_by_size: When ``True``, annotate files and directories with their
-            sizes and sort files by size descending.
-        sort_by_mtime: When ``True``, annotate files and directories with
-            their modification timestamps and sort files by newest first.
-        show_git_status: When ``True``, append Git status markers to each
-            file (``[U]`` untracked, ``[M]`` modified, ``[A]`` added,
-            ``[D]`` deleted).
-    """
-
-    def extract_extensions(struct: dict[str, Any]) -> set[str]:
-        exts = set()
-        for k, v in struct.items():
-            if k == "_files":
-                for f in v:
-                    name = f[0] if isinstance(f, tuple) else f
-                    exts.add(os.path.splitext(name)[1].lower())
-            elif isinstance(v, dict):
-                exts.update(extract_extensions(v))
-        return exts
-
-    extensions = extract_extensions(structure)
-    color_map = {ext: generate_color_for_extension(ext) for ext in extensions}
-
-    root_name = os.path.basename(root_dir)
-    root_icon = get_icon(root_name, is_dir=True, style=icon_style)
-    root_label = f"{root_icon} {root_name}"
-
-    if (
-        sort_by_loc
-        and sort_by_size
-        and sort_by_mtime
-        and "_loc" in structure
-        and "_size" in structure
-        and "_mtime" in structure
-    ):
-        root_label = f"{root_icon} {root_name} ({structure['_loc']} lines, {format_size(structure['_size'])}, {format_timestamp(structure['_mtime'])})"
-    elif sort_by_loc and sort_by_size and "_loc" in structure and "_size" in structure:
-        root_label = f"{root_icon} {root_name} ({structure['_loc']} lines, {format_size(structure['_size'])})"
-    elif (
-        sort_by_loc and sort_by_mtime and "_loc" in structure and "_mtime" in structure
-    ):
-        root_label = f"{root_icon} {root_name} ({structure['_loc']} lines, {format_timestamp(structure['_mtime'])})"
-    elif (
-        sort_by_size
-        and sort_by_mtime
-        and "_size" in structure
-        and "_mtime" in structure
-    ):
-        root_label = f"{root_icon} {root_name} ({format_size(structure['_size'])}, {format_timestamp(structure['_mtime'])})"
-    elif sort_by_loc and "_loc" in structure:
-        root_label = f"{root_icon} {root_name} ({structure['_loc']} lines)"
-    elif sort_by_size and "_size" in structure:
-        root_label = f"{root_icon} {root_name} ({format_size(structure['_size'])})"
-    elif sort_by_mtime and "_mtime" in structure:
-        root_label = (
-            f"{root_icon} {root_name} ({format_timestamp(structure['_mtime'])})"
-        )
-
-    tree = Tree(root_label)
-
-    build_tree(
-        structure,
-        tree,
-        color_map,
-        show_full_path=show_full_path,
-        sort_by_loc=sort_by_loc,
-        sort_by_size=sort_by_size,
-        sort_by_mtime=sort_by_mtime,
-        show_git_status=show_git_status,
-        icon_style=icon_style,
-    )
-    console = Console(record=True, width=120)
-    console.print(tree)
-    console.save_svg(output_path, title=f"Directory Structure - {root_name}")
-
-
 def export_structure(
     structure: dict[str, Any],
     root_dir: str,
@@ -154,12 +50,12 @@ def export_structure(
 ) -> None:
     """Export the directory structure to various formats.
 
-    Maps the requested format to the appropriate export method using DirectoryExporter. Handles txt, json, html, md, and jsx formats with consistent styling.
+    Maps the requested format to the appropriate export method using DirectoryExporter. Handles txt, json, html, md, jsx, and svg formats with consistent styling.
 
     Args:
         structure: Directory structure dictionary
         root_dir: Root directory name
-        format_type: Export format ('txt', 'json', 'html', 'md', 'jsx')
+        format_type: Export format ('txt', 'json', 'html', 'md', 'jsx', 'svg')
         output_path: Path where the export file will be saved
         show_full_path: Whether to show full paths instead of just filenames
         sort_by_loc: Whether to include lines of code counts in the export
@@ -170,20 +66,6 @@ def export_structure(
     Raises:
         ValueError: If the format_type is not supported
     """
-    if format_type.lower() == "svg":
-        export_to_svg(
-            structure=structure,
-            root_dir=root_dir,
-            output_path=output_path,
-            show_full_path=show_full_path,
-            sort_by_loc=sort_by_loc,
-            sort_by_size=sort_by_size,
-            sort_by_mtime=sort_by_mtime,
-            show_git_status=show_git_status,
-            icon_style=icon_style,
-        )
-        return
-
     from recursivist.exports import DirectoryExporter
 
     exporter = DirectoryExporter(
@@ -202,6 +84,7 @@ def export_structure(
         "html": exporter.to_html,
         "md": exporter.to_markdown,
         "jsx": exporter.to_jsx,
+        "svg": exporter.to_svg,
     }
     if format_type.lower() not in format_map:
         raise ValueError(f"Unsupported format: {format_type}")
