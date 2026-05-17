@@ -13,6 +13,7 @@ build/
 coverage.xml
 .hypothesis/
 .nox/
+.vscode/
 htmlcov/
 structure.*
 comparison.*
