@@ -65,6 +65,26 @@ console = Console()
 
 USER_CONFIG = load_config()
 
+HELP_EXCLUDE_DIRS = "Directories to exclude (space-separated or multiple flags)"
+HELP_EXCLUDE_EXTS = "File extensions to exclude (space-separated or multiple flags)"
+HELP_EXCLUDE_PATTERNS = "Patterns to exclude (space-separated or multiple flags)"
+HELP_INCLUDE_PATTERNS = (
+    "Patterns to include (overrides exclusions, space-separated or multiple flags)"
+)
+HELP_USE_REGEX = "Treat patterns as regex instead of glob patterns"
+HELP_IGNORE_FILE = "Ignore file to use (e.g., .gitignore)"
+HELP_SHOW_FULL_PATH = "Show full paths instead of just filenames"
+HELP_SORT_BY_LOC = "Sort files by lines of code and display LOC counts"
+HELP_SORT_BY_SIZE = "Sort files by size and display file sizes"
+HELP_SORT_BY_MTIME = "Sort files by modification time and display timestamps"
+HELP_VERBOSE = "Enable verbose output"
+
+MSG_VERBOSE = "Verbose mode enabled"
+MSG_FULL_PATH = "Showing full paths instead of just filenames"
+MSG_SORT_LOC = "Sorting files by lines of code and displaying LOC counts"
+MSG_SORT_SIZE = "Sorting files by size and displaying file sizes"
+MSG_SORT_MTIME = "Sorting files by modification time and displaying timestamps"
+
 config_app = typer.Typer(help="Manage recursivist user configuration")
 app.add_typer(config_app, name="config")
 
@@ -169,58 +189,58 @@ def visualize(
         None,
         "--exclude",
         "-e",
-        help="Directories to exclude (space-separated or multiple flags)",
+        help=HELP_EXCLUDE_DIRS,
     ),
     exclude_extensions: Optional[list[str]] = typer.Option(
         None,
         "--exclude-ext",
         "-x",
-        help="File extensions to exclude (space-separated or multiple flags)",
+        help=HELP_EXCLUDE_EXTS,
     ),
     exclude_patterns: Optional[list[str]] = typer.Option(
         None,
         "--exclude-pattern",
         "-p",
-        help="Patterns to exclude (space-separated or multiple flags)",
+        help=HELP_EXCLUDE_PATTERNS,
     ),
     include_patterns: Optional[list[str]] = typer.Option(
         None,
         "--include-pattern",
         "-i",
-        help="Patterns to include (overrides exclusions, space-separated or multiple flags)",
+        help=HELP_INCLUDE_PATTERNS,
     ),
     use_regex: bool = typer.Option(
         False,
         "--regex",
         "-r",
-        help="Treat patterns as regex instead of glob patterns",
+        help=HELP_USE_REGEX,
     ),
     ignore_file: Optional[str] = typer.Option(
-        None, "--ignore-file", "-g", help="Ignore file to use (e.g., .gitignore)"
+        None, "--ignore-file", "-g", help=HELP_IGNORE_FILE
     ),
     max_depth: int = typer.Option(
         0, "--depth", "-d", help="Maximum depth to display (0 for unlimited)"
     ),
     show_full_path: bool = typer.Option(
-        False, "--full-path", "-l", help="Show full paths instead of just filenames"
+        False, "--full-path", "-l", help=HELP_SHOW_FULL_PATH
     ),
     sort_by_loc: bool = typer.Option(
         False,
         "--sort-by-loc",
         "-s",
-        help="Sort files by lines of code and display LOC counts",
+        help=HELP_SORT_BY_LOC,
     ),
     sort_by_size: bool = typer.Option(
         False,
         "--sort-by-size",
         "-z",
-        help="Sort files by size and display file sizes",
+        help=HELP_SORT_BY_SIZE,
     ),
     sort_by_mtime: bool = typer.Option(
         False,
         "--sort-by-mtime",
         "-m",
-        help="Sort files by modification time and display timestamps",
+        help=HELP_SORT_BY_MTIME,
     ),
     show_git_status: bool = typer.Option(
         False,
@@ -233,9 +253,7 @@ def visualize(
         "--icon-style",
         help="Override icon style ('emoji' or 'nerd'). Defaults to user config.",
     ),
-    verbose: bool = typer.Option(
-        False, "--verbose", "-v", help="Enable verbose output"
-    ),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help=HELP_VERBOSE),
 ) -> None:
     """Visualize a directory structure as a tree in the terminal.
 
@@ -309,7 +327,7 @@ def visualize(
 
     if verbose:
         logger.setLevel(logging.DEBUG)
-        logger.debug("Verbose mode enabled")
+        logger.debug(MSG_VERBOSE)
 
     resolved_style = icon_style or USER_CONFIG.get("icon_style", "emoji")
 
@@ -320,13 +338,13 @@ def visualize(
     if max_depth > 0:
         logger.info(f"Limiting depth to {max_depth} levels")
     if show_full_path:
-        logger.info("Showing full paths instead of just filenames")
+        logger.info(MSG_FULL_PATH)
     if sort_by_loc:
-        logger.info("Sorting files by lines of code and displaying LOC counts")
+        logger.info(MSG_SORT_LOC)
     if sort_by_size:
-        logger.info("Sorting files by size and displaying file sizes")
+        logger.info(MSG_SORT_SIZE)
     if sort_by_mtime:
-        logger.info("Sorting files by modification time and displaying timestamps")
+        logger.info(MSG_SORT_MTIME)
     if show_git_status:
         logger.info("Showing Git status markers for changed files")
     parsed_exclude_dirs = parse_list_option(exclude_dirs)
@@ -431,58 +449,58 @@ def export(
         None,
         "--exclude",
         "-e",
-        help="Directories to exclude (space-separated or multiple flags)",
+        help=HELP_EXCLUDE_DIRS,
     ),
     exclude_extensions: Optional[list[str]] = typer.Option(
         None,
         "--exclude-ext",
         "-x",
-        help="File extensions to exclude (space-separated or multiple flags)",
+        help=HELP_EXCLUDE_EXTS,
     ),
     exclude_patterns: Optional[list[str]] = typer.Option(
         None,
         "--exclude-pattern",
         "-p",
-        help="Patterns to exclude (space-separated or multiple flags)",
+        help=HELP_EXCLUDE_PATTERNS,
     ),
     include_patterns: Optional[list[str]] = typer.Option(
         None,
         "--include-pattern",
         "-i",
-        help="Patterns to include (overrides exclusions, space-separated or multiple flags)",
+        help=HELP_INCLUDE_PATTERNS,
     ),
     use_regex: bool = typer.Option(
         False,
         "--regex",
         "-r",
-        help="Treat patterns as regex instead of glob patterns",
+        help=HELP_USE_REGEX,
     ),
     ignore_file: Optional[str] = typer.Option(
-        None, "--ignore-file", "-g", help="Ignore file to use (e.g., .gitignore)"
+        None, "--ignore-file", "-g", help=HELP_IGNORE_FILE
     ),
     max_depth: int = typer.Option(
         0, "--depth", "-d", help="Maximum depth to export (0 for unlimited)"
     ),
     show_full_path: bool = typer.Option(
-        False, "--full-path", "-l", help="Show full paths instead of just filenames"
+        False, "--full-path", "-l", help=HELP_SHOW_FULL_PATH
     ),
     sort_by_loc: bool = typer.Option(
         False,
         "--sort-by-loc",
         "-s",
-        help="Sort files by lines of code and display LOC counts",
+        help=HELP_SORT_BY_LOC,
     ),
     sort_by_size: bool = typer.Option(
         False,
         "--sort-by-size",
         "-z",
-        help="Sort files by size and display file sizes",
+        help=HELP_SORT_BY_SIZE,
     ),
     sort_by_mtime: bool = typer.Option(
         False,
         "--sort-by-mtime",
         "-m",
-        help="Sort files by modification time and display timestamps",
+        help=HELP_SORT_BY_MTIME,
     ),
     show_git_status: bool = typer.Option(
         False,
@@ -495,9 +513,7 @@ def export(
         "--icon-style",
         help="Override icon style. Defaults to 'emoji' for safe file exports.",
     ),
-    verbose: bool = typer.Option(
-        False, "--verbose", "-v", help="Enable verbose output"
-    ),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help=HELP_VERBOSE),
 ) -> None:
     """Export a directory structure to one or more file formats.
 
@@ -571,7 +587,7 @@ def export(
 
     if verbose:
         logger.setLevel(logging.DEBUG)
-        logger.debug("Verbose mode enabled")
+        logger.debug(MSG_VERBOSE)
 
     resolved_style = icon_style or "emoji"
 
@@ -582,13 +598,13 @@ def export(
     if max_depth > 0:
         logger.info(f"Limiting depth to {max_depth} levels")
     if show_full_path:
-        logger.info("Showing full paths instead of just filenames")
+        logger.info(MSG_FULL_PATH)
     if sort_by_loc:
-        logger.info("Sorting files by lines of code and displaying LOC counts")
+        logger.info(MSG_SORT_LOC)
     if sort_by_size:
-        logger.info("Sorting files by size and displaying file sizes")
+        logger.info(MSG_SORT_SIZE)
     if sort_by_mtime:
-        logger.info("Sorting files by modification time and displaying timestamps")
+        logger.info(MSG_SORT_MTIME)
     if show_git_status:
         logger.info("Annotating files with Git status markers")
     parsed_exclude_dirs = parse_list_option(exclude_dirs)
@@ -781,34 +797,34 @@ def compare(
         None,
         "--exclude",
         "-e",
-        help="Directories to exclude (space-separated or multiple flags)",
+        help=HELP_EXCLUDE_DIRS,
     ),
     exclude_extensions: Optional[list[str]] = typer.Option(
         None,
         "--exclude-ext",
         "-x",
-        help="File extensions to exclude (space-separated or multiple flags)",
+        help=HELP_EXCLUDE_EXTS,
     ),
     exclude_patterns: Optional[list[str]] = typer.Option(
         None,
         "--exclude-pattern",
         "-p",
-        help="Patterns to exclude (space-separated or multiple flags)",
+        help=HELP_EXCLUDE_PATTERNS,
     ),
     include_patterns: Optional[list[str]] = typer.Option(
         None,
         "--include-pattern",
         "-i",
-        help="Patterns to include (overrides exclusions, space-separated or multiple flags)",
+        help=HELP_INCLUDE_PATTERNS,
     ),
     use_regex: bool = typer.Option(
         False,
         "--regex",
         "-r",
-        help="Treat patterns as regex instead of glob patterns",
+        help=HELP_USE_REGEX,
     ),
     ignore_file: Optional[str] = typer.Option(
-        None, "--ignore-file", "-g", help="Ignore file to use (e.g., .gitignore)"
+        None, "--ignore-file", "-g", help=HELP_IGNORE_FILE
     ),
     max_depth: int = typer.Option(
         0, "--depth", "-d", help="Maximum depth to display (0 for unlimited)"
@@ -829,34 +845,32 @@ def compare(
         "comparison", "--prefix", "-n", help="Prefix for exported filenames"
     ),
     show_full_path: bool = typer.Option(
-        False, "--full-path", "-l", help="Show full paths instead of just filenames"
+        False, "--full-path", "-l", help=HELP_SHOW_FULL_PATH
     ),
     sort_by_loc: bool = typer.Option(
         False,
         "--sort-by-loc",
         "-s",
-        help="Sort files by lines of code and display LOC counts",
+        help=HELP_SORT_BY_LOC,
     ),
     sort_by_size: bool = typer.Option(
         False,
         "--sort-by-size",
         "-z",
-        help="Sort files by size and display file sizes",
+        help=HELP_SORT_BY_SIZE,
     ),
     sort_by_mtime: bool = typer.Option(
         False,
         "--sort-by-mtime",
         "-m",
-        help="Sort files by modification time and display timestamps",
+        help=HELP_SORT_BY_MTIME,
     ),
     icon_style: Optional[str] = typer.Option(
         None,
         "--icon-style",
         help="Override icon style. Defaults to 'emoji' if saving to HTML, else user config.",
     ),
-    verbose: bool = typer.Option(
-        False, "--verbose", "-v", help="Enable verbose output"
-    ),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help=HELP_VERBOSE),
 ) -> None:
     """Compare two directory structures side by side.
 
@@ -944,18 +958,18 @@ def compare(
 
     if verbose:
         logger.setLevel(logging.DEBUG)
-        logger.debug("Verbose mode enabled")
+        logger.debug(MSG_VERBOSE)
     logger.info(f"Comparing directories: {dir1} and {dir2}")
     if max_depth > 0:
         logger.info(f"Limiting depth to {max_depth} levels")
     if show_full_path:
-        logger.info("Showing full paths instead of just filenames")
+        logger.info(MSG_FULL_PATH)
     if sort_by_loc:
-        logger.info("Sorting files by lines of code and displaying LOC counts")
+        logger.info(MSG_SORT_LOC)
     if sort_by_size:
-        logger.info("Sorting files by size and displaying file sizes")
+        logger.info(MSG_SORT_SIZE)
     if sort_by_mtime:
-        logger.info("Sorting files by modification time and displaying timestamps")
+        logger.info(MSG_SORT_MTIME)
 
     if icon_style:
         resolved_style = icon_style
