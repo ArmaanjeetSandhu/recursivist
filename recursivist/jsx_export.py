@@ -136,7 +136,7 @@ def generate_jsx_component(
                 if isinstance(f, tuple):
                     if len(f) == 0:
                         return (0, 0, 0, "")
-                    file_name = f[0].lower() if len(f) > 0 else ""
+                    file_name = f[0].lower()
                     loc = safe_get(f, 2) if len(f) > 2 else 0
                     size = safe_get(f, 3) if len(f) > 3 else 0
                     mtime = safe_get(f, 4) if len(f) > 4 else 0
@@ -149,7 +149,7 @@ def generate_jsx_component(
                 if isinstance(f, tuple):
                     if len(f) == 0:
                         return (0, 0, "")
-                    file_name = f[0].lower() if len(f) > 0 else ""
+                    file_name = f[0].lower()
                     loc = safe_get(f, 2) if len(f) > 2 else 0
                     size = safe_get(f, 3) if len(f) > 3 else 0
                     return (-loc, -size, file_name)
@@ -161,7 +161,7 @@ def generate_jsx_component(
                 if isinstance(f, tuple):
                     if len(f) == 0:
                         return (0, 0, "")
-                    file_name = f[0].lower() if len(f) > 0 else ""
+                    file_name = f[0].lower()
                     loc = safe_get(f, 2) if len(f) > 2 else 0
                     mtime = safe_get(f, 3) if len(f) > 3 and sort_by_loc else 0
                     if len(f) > 4 and sort_by_loc and sort_by_size:
@@ -175,7 +175,7 @@ def generate_jsx_component(
                 if isinstance(f, tuple):
                     if len(f) == 0:
                         return (0, 0, "")
-                    file_name = f[0].lower() if len(f) > 0 else ""
+                    file_name = f[0].lower()
                     size = safe_get(f, 2) if len(f) > 2 else 0
                     mtime = safe_get(f, 3) if len(f) > 3 else 0
                     return (-size, -mtime, file_name)
@@ -185,7 +185,7 @@ def generate_jsx_component(
                 if isinstance(f, tuple):
                     if len(f) == 0:
                         return (0, "")
-                    file_name = f[0].lower() if len(f) > 0 else ""
+                    file_name = f[0].lower()
                     mtime = 0
                     if len(f) > 4 and sort_by_loc and sort_by_size:
                         mtime = safe_get(f, 4)
@@ -200,7 +200,7 @@ def generate_jsx_component(
                 if isinstance(f, tuple):
                     if len(f) == 0:
                         return (0, "")
-                    file_name = f[0].lower() if len(f) > 0 else ""
+                    file_name = f[0].lower()
                     size = 0
                     if len(f) > 3 and sort_by_loc:
                         size = safe_get(f, 3)
@@ -213,7 +213,7 @@ def generate_jsx_component(
                 if isinstance(f, tuple):
                     if len(f) == 0:
                         return (0, "")
-                    file_name = f[0].lower() if len(f) > 0 else ""
+                    file_name = f[0].lower()
                     loc = safe_get(f, 2) if len(f) > 2 else 0
                     return (-loc, file_name)
                 return (0, f.lower() if isinstance(f, str) else "")
@@ -222,7 +222,7 @@ def generate_jsx_component(
                 if isinstance(f, tuple):
                     if len(f) == 0:
                         return ""
-                    return f[0].lower() if len(f) > 0 else ""
+                    return f[0].lower()
                 return f.lower() if isinstance(f, str) else ""
 
             if sort_by_loc and sort_by_size and sort_by_mtime:
@@ -253,7 +253,7 @@ def generate_jsx_component(
                     if len(file_item) == 0:
                         continue
 
-                    file_name = file_item[0] if len(file_item) > 0 else "unknown"
+                    file_name = file_item[0]
                     display_path = file_item[1] if len(file_item) > 1 else file_name
 
                     if (
