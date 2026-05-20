@@ -266,13 +266,12 @@ class DirectoryExporter:
                         is_last_item = is_last_file and i == len(items) - 1
                         item_prefix = prefix + ("└── " if is_last_item else "├── ")
 
-                        _fname = (
-                            file_item[0]
-                            if isinstance(file_item, tuple) and len(file_item) > 0
-                            else (
-                                file_item if isinstance(file_item, str) else "unknown"
-                            )
-                        )
+                        if isinstance(file_item, tuple) and len(file_item) > 0:
+                            _fname = file_item[0]
+                        elif isinstance(file_item, str):
+                            _fname = file_item
+                        else:
+                            _fname = "unknown"
                         _git_markers = structure.get("_git_markers", {})
                         _git_marker = (
                             _git_markers.get(_fname, "") if self.show_git_status else ""
@@ -1273,11 +1272,12 @@ class DirectoryExporter:
                     else:
                         display_path = file_item
 
-                    _fname_md = (
-                        file_item[0]
-                        if isinstance(file_item, tuple) and len(file_item) > 0
-                        else (file_item if isinstance(file_item, str) else "unknown")
-                    )
+                    if isinstance(file_item, tuple) and len(file_item) > 0:
+                        _fname_md = file_item[0]
+                    elif isinstance(file_item, str):
+                        _fname_md = file_item
+                    else:
+                        _fname_md = "unknown"
 
                     file_icon = get_icon(_fname_md, is_dir=False, style=self.icon_style)
 
