@@ -243,8 +243,6 @@ def generate_jsx_component(
                 sorted_files = sorted(valid_files, key=sort_key_name)
 
             for file_item in sorted_files:
-                file_name = "unknown"
-                display_path = "unknown"
                 loc = 0
                 size = 0
                 mtime = 0

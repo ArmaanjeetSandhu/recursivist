@@ -401,10 +401,6 @@ class DirectoryExporter:
                             lines.append(
                                 f"{item_prefix}{file_icon} {file_name}{_git_suffix}"
                             )
-                        if not is_last_item:
-                            next_prefix = prefix + "│   "
-                        else:
-                            next_prefix = prefix + "    "
                 elif (
                     name == "_loc"
                     or name == "_size"
@@ -819,7 +815,6 @@ class DirectoryExporter:
                     self.sort_by_mtime,
                 ):
                     file_name = "unknown"
-                    display_path = "unknown"
                     loc = 0
                     size = 0
                     mtime = 0
@@ -1228,7 +1223,6 @@ class DirectoryExporter:
                     self.sort_by_size,
                     self.sort_by_mtime,
                 ):
-                    display_path = ""
                     loc = 0
                     size = 0
                     mtime = 0
