@@ -976,7 +976,7 @@ def build_tree(
             or folder == "_max_depth_reached"
             or folder == "_git_markers"
         ):
-            pass
+            continue
         else:
             folder_icon = get_icon(folder, is_dir=True, style=icon_style)
             folder_display = f"{folder_icon} {folder}"

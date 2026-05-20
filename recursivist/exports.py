@@ -761,7 +761,7 @@ class DirectoryExporter:
                             result[k] = v
                             result["_mtime_formatted"] = format_timestamp(v)
                     elif k == "_git_markers":
-                        pass
+                        continue
                     elif k == "_max_depth_reached":
                         result[k] = v
                     elif isinstance(v, dict):
