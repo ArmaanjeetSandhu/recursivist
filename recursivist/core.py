@@ -370,7 +370,7 @@ def generate_color_for_extension(extension: str) -> str:
         color = _EXTENSION_COLORS[normalized_ext]
         _EXTENSION_COLORS[extension] = color
         return color
-    hash_bytes = hashlib.md5(normalized_ext.encode()).digest()
+    hash_bytes = hashlib.md5(normalized_ext.encode(), usedforsecurity=False).digest()
     hue_int = int.from_bytes(hash_bytes[0:4], byteorder="big")
     hue = (hue_int % 360) / 360.0
     sat_int = hash_bytes[4]
