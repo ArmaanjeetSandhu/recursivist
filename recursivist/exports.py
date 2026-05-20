@@ -573,7 +573,7 @@ class DirectoryExporter:
             with open(output_path, "w", encoding="utf-8") as f:
                 f.write("\n".join(tree_lines))
         except Exception as e:
-            logger.error(f"Error exporting to TXT: {e}")
+            logger.exception(f"Error exporting to TXT: {e}")
             raise
 
     def to_json(self, output_path: str) -> None:
@@ -794,7 +794,7 @@ class DirectoryExporter:
                     indent=2,
                 )
         except Exception as e:
-            logger.error(f"Error exporting to JSON: {e}")
+            logger.exception(f"Error exporting to JSON: {e}")
             raise
 
     def to_html(self, output_path: str) -> None:
@@ -1202,7 +1202,7 @@ class DirectoryExporter:
             with open(output_path, "w", encoding="utf-8") as f:
                 f.write(html_template)
         except Exception as e:
-            logger.error(f"Error exporting to HTML: {e}")
+            logger.exception(f"Error exporting to HTML: {e}")
             raise
 
     def to_markdown(self, output_path: str) -> None:
@@ -1512,7 +1512,7 @@ class DirectoryExporter:
             with open(output_path, "w", encoding="utf-8") as f:
                 f.write("\n".join(md_content))
         except Exception as e:
-            logger.error(f"Error exporting to Markdown: {e}")
+            logger.exception(f"Error exporting to Markdown: {e}")
             raise
 
     def to_jsx(self, output_path: str) -> None:
@@ -1536,7 +1536,7 @@ class DirectoryExporter:
                 self.show_git_status,
             )
         except Exception as e:
-            logger.error(f"Error exporting to React component: {e}")
+            logger.exception(f"Error exporting to React component: {e}")
             raise
 
     def to_svg(self, output_path: str) -> None:

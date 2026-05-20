@@ -506,7 +506,7 @@ def get_directory_structure(
         logger.warning(f"Permission denied: {root_dir}")
         return structure, extensions_set
     except Exception as e:
-        logger.error(f"Error reading directory {root_dir}: {e}")
+        logger.exception(f"Error reading directory {root_dir}: {e}")
         return structure, extensions_set
     for item in items:
         item_path = os.path.join(root_dir, item)

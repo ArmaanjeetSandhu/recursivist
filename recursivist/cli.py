@@ -693,7 +693,7 @@ def export(
                 )
                 logger.info(f"Successfully exported to {output_path}")
             except Exception as e:
-                logger.error(f"Failed to export to {fmt}: {e}")
+                logger.exception(f"Failed to export to {fmt}: {e}")
     except Exception as e:
         logger.error(f"Error: {e}", exc_info=verbose)
         raise typer.Exit(1) from None
@@ -743,7 +743,7 @@ def completion(
         typer.echo(completion_script)
         logger.info(f"Generated completion script for {shell}")
     except Exception as e:
-        logger.error(f"Error generating completion script: {e}")
+        logger.exception(f"Error generating completion script: {e}")
         raise typer.Exit(1) from None
 
 
@@ -1019,7 +1019,7 @@ def compare(
                 )
                 logger.info(f"Successfully exported to {output_path}")
             except Exception as e:
-                logger.error(f"Failed to export to HTML: {e}")
+                logger.exception(f"Failed to export to HTML: {e}")
         else:
             display_comparison(
                 str(dir1),

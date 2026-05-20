@@ -977,5 +977,5 @@ def generate_jsx_component(
             f.write(component_template)
         logger.info(f"Successfully exported to React component: {output_path}")
     except Exception as e:
-        logger.error(f"Error exporting to React component: {e}")
+        logger.exception(f"Error exporting to React component: {e}")
         raise
