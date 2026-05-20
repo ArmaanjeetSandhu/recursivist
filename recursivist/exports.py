@@ -1606,7 +1606,6 @@ class DirectoryExporter:
             structure=self.structure,
             tree=tree,
             color_map=color_map,
-            parent_name=self.root_name,
             show_full_path=self.show_full_path,
             sort_by_loc=self.sort_by_loc,
             sort_by_size=self.sort_by_size,

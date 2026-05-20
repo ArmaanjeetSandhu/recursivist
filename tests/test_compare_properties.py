@@ -327,7 +327,6 @@ class TestBuildComparisonTree:
             structure2,
             mock_tree,
             color_map,
-            parent_name="root",
             show_full_path=True,
             sort_by_loc=True,
             sort_by_size=True,

@@ -100,7 +100,6 @@ class TestBuildTree:
                 structure_with_stats,
                 mock_tree,
                 color_map,
-                parent_name="",
                 sort_by_loc=True,
             )
         elif option == "sort_by_size":
@@ -108,7 +107,6 @@ class TestBuildTree:
                 structure_with_stats,
                 mock_tree,
                 color_map,
-                parent_name="",
                 sort_by_size=True,
             )
         elif option == "sort_by_mtime":
@@ -116,11 +114,10 @@ class TestBuildTree:
                 structure_with_stats,
                 mock_tree,
                 color_map,
-                parent_name="",
                 sort_by_mtime=True,
             )
         else:
-            build_tree(structure_with_stats, mock_tree, color_map, parent_name="")
+            build_tree(structure_with_stats, mock_tree, color_map)
         calls = [str(call.args[0]) for call in mock_tree.add.call_args_list]
         if isinstance(expected_indicator, list):
             found = False

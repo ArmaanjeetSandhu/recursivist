@@ -109,7 +109,6 @@ def build_comparison_tree(
     other_structure: dict[str, Any],
     tree: Tree,
     color_map: dict[str, str],
-    parent_name: str = "Root",
     show_full_path: bool = False,
     sort_by_loc: bool = False,
     sort_by_size: bool = False,
@@ -133,7 +132,6 @@ def build_comparison_tree(
         other_structure: Dictionary representation of the comparison directory structure
         tree: Rich Tree object to build upon
         color_map: Mapping of file extensions to colors
-        parent_name: Name of the parent directory
         show_full_path: Whether to show full paths instead of just filenames
         sort_by_loc: Whether to display lines of code counts
         sort_by_size: Whether to display file sizes
@@ -513,7 +511,6 @@ def build_comparison_tree(
                 other_content,
                 subtree,
                 color_map,
-                folder,
                 show_full_path,
                 sort_by_loc,
                 sort_by_size,
@@ -802,7 +799,6 @@ def build_comparison_tree(
                         other_content,
                         subtree,
                         color_map,
-                        folder,
                         show_full_path,
                         sort_by_loc,
                         sort_by_size,
