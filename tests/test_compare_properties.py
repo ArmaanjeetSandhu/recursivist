@@ -130,15 +130,27 @@ def comparison_pair(
             else:
                 modified_files.append(new_filename)
         modified_structure["_files"] = modified_files
-    if "_loc" in base_structure and draw(st.booleans()):
+    if (
+        "_loc" in base_structure
+        and isinstance(base_structure["_loc"], int)
+        and draw(st.booleans())
+    ):
         modified_structure["_loc"] = base_structure["_loc"] + draw(
             st.integers(min_value=-100, max_value=100)
         )
-    if "_size" in base_structure and draw(st.booleans()):
+    if (
+        "_size" in base_structure
+        and isinstance(base_structure["_size"], int)
+        and draw(st.booleans())
+    ):
         modified_structure["_size"] = base_structure["_size"] + draw(
             st.integers(min_value=-1024, max_value=1024)
         )
-    if "_mtime" in base_structure and draw(st.booleans()):
+    if (
+        "_mtime" in base_structure
+        and isinstance(base_structure["_mtime"], (int, float))
+        and draw(st.booleans())
+    ):
         modified_structure["_mtime"] = base_structure["_mtime"] + draw(
             st.floats(min_value=-86400, max_value=86400)
         )

@@ -745,9 +745,7 @@ def sort_files_by_type(
         if not isinstance(item, tuple):
             return 0
         if len(item) > 3:
-            if sort_by_loc and sort_by_size:
-                return item[3]
-            elif sort_by_size and not sort_by_loc:
+            if sort_by_size:
                 return item[3]
         elif len(item) == 3 and sort_by_size:
             return item[2]
