@@ -28,6 +28,7 @@ All commands share a consistent set of filtering and display options:
 """
 
 import logging
+import os
 import sys
 from pathlib import Path
 from re import Pattern
@@ -46,9 +47,9 @@ from recursivist.config import load_config, save_config
 from recursivist.core import (
     compile_regex_patterns,
     display_tree,
-    export_structure,
     get_directory_structure,
 )
+from recursivist.exporters import get_exporter
 
 logging.basicConfig(
     level=logging.INFO,
@@ -695,18 +696,18 @@ def export(
         for fmt in parsed_formats:
             output_path = output_dir / f"{output_prefix}.{fmt.lower()}"
             try:
-                export_structure(
-                    structure,
-                    str(directory),
-                    fmt.lower(),
-                    str(output_path),
-                    show_full_path,
-                    sort_by_loc,
-                    sort_by_size,
-                    sort_by_mtime,
-                    show_git_status,
+                exporter = get_exporter(
+                    format_type=fmt.lower(),
+                    structure=structure,
+                    root_name=os.path.basename(str(directory)),
+                    base_path=str(directory) if show_full_path else None,
+                    sort_by_loc=sort_by_loc,
+                    sort_by_size=sort_by_size,
+                    sort_by_mtime=sort_by_mtime,
+                    show_git_status=show_git_status,
                     icon_style=resolved_style,
                 )
+                exporter.export(str(output_path))
                 logger.info(f"Successfully exported to {output_path}")
             except Exception as e:
                 logger.exception(f"Failed to export to {fmt}: {e}")

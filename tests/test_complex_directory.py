@@ -9,7 +9,8 @@ from typer.testing import CliRunner
 
 from recursivist.cli import app
 from recursivist.compare import compare_directory_structures, export_comparison
-from recursivist.core import export_structure, get_directory_structure
+from recursivist.core import get_directory_structure
+from recursivist.exporters import get_exporter
 
 
 def test_cli_with_complex_structure(
@@ -157,14 +158,15 @@ def test_full_path_display_with_complex_directory(
         file_name, full_path = file_item
         assert os.path.isabs(full_path.replace("/", os.sep))
         assert file_name in os.path.basename(full_path)
+
     output_path = os.path.join(output_dir, "full_path.json")
-    export_structure(
-        structure,
-        complex_directory,
+    get_exporter(
         "json",
-        output_path,
-        show_full_path=True,
-    )
+        structure=structure,
+        root_name=os.path.basename(complex_directory),
+        base_path=complex_directory,
+    ).export(output_path)
+
     with open(output_path, encoding="utf-8") as f:
         data = json.load(f)
     assert "structure" in data
@@ -296,15 +298,16 @@ def test_export_formats_with_statistics(
         temp_dir, sort_by_loc=True, sort_by_size=True, sort_by_mtime=True
     )
     output_path = os.path.join(output_dir, f"stats_export.{fmt}")
-    export_structure(
-        structure,
-        temp_dir,
+
+    get_exporter(
         fmt,
-        output_path,
+        structure=structure,
+        root_name=os.path.basename(temp_dir),
         sort_by_loc=True,
         sort_by_size=True,
         sort_by_mtime=True,
-    )
+    ).export(output_path)
+
     assert os.path.exists(output_path)
     with open(output_path, encoding="utf-8") as f:
         content = f.read()
@@ -375,8 +378,12 @@ def test_pathlib_compatibility(temp_dir: str, output_dir: str) -> None:
         if file_name == "test.txt":
             file_found = True
     assert file_found, "File not found when using pathlib.Path"
+
     output_path = Path(output_dir) / "pathlib_test.json"
-    export_structure(structure, str(path_obj), "json", str(output_path))
+    get_exporter(
+        "json", structure=structure, root_name=os.path.basename(str(path_obj))
+    ).export(str(output_path))
+
     assert output_path.exists()
     with open(output_path, encoding="utf-8") as f:
         data = json.load(f)

@@ -13,10 +13,10 @@ import pytest
 from pytest_mock import MockerFixture
 
 from recursivist.core import (
-    export_structure,
     get_directory_structure,
+    sort_files_by_type,
 )
-from recursivist.exports import DirectoryExporter, sort_files_by_type
+from recursivist.exporters import get_exporter
 
 
 class TestSortFilesByType:
@@ -158,30 +158,32 @@ class TestSortFilesByType:
         )
 
 
-class TestDirectoryExporter:
+class TestExporters:
     def test_init(self) -> None:
-        """Test initializing DirectoryExporter."""
+        """Test initializing an exporter through the factory."""
         structure = {"_files": ["file1.txt"], "dir1": {"_files": ["file2.py"]}}
-        exporter = DirectoryExporter(structure, "test_root")
+        exporter = get_exporter("txt", structure=structure, root_name="test_root")
         assert exporter.structure == structure
         assert exporter.root_name == "test_root"
         assert exporter.base_path is None
         assert not exporter.show_full_path
 
     def test_init_with_full_path(self) -> None:
-        """Test initializing DirectoryExporter with full paths."""
+        """Test initializing an exporter with full paths."""
         structure = {
             "_files": [("file1.txt", "/path/to/file1.txt")],
             "dir1": {"_files": [("file2.py", "/path/to/dir1/file2.py")]},
         }
-        exporter = DirectoryExporter(structure, "test_root", base_path="/path/to")
+        exporter = get_exporter(
+            "txt", structure=structure, root_name="test_root", base_path="/path/to"
+        )
         assert exporter.structure == structure
         assert exporter.root_name == "test_root"
         assert exporter.base_path == "/path/to"
         assert exporter.show_full_path
 
     def test_init_with_statistics(self) -> None:
-        """Test initializing DirectoryExporter with statistics."""
+        """Test initializing an exporter with statistics."""
         now = time.time()
         structure = {
             "_loc": 100,
@@ -195,9 +197,10 @@ class TestDirectoryExporter:
                 "_files": [("file2.py", "/path/to/dir1/file2.py", 50, 512, now)],
             },
         }
-        exporter = DirectoryExporter(
-            structure,
-            "test_root",
+        exporter = get_exporter(
+            "txt",
+            structure=structure,
+            root_name="test_root",
             base_path="/path/to",
             sort_by_loc=True,
             sort_by_size=True,
@@ -271,7 +274,14 @@ def test_export_formats(
     """Test exporting to different formats."""
     structure, _ = get_directory_structure(sample_directory)
     output_path = os.path.join(output_dir, f"structure.{format_extension}")
-    export_structure(structure, sample_directory, format_name, output_path)
+
+    exporter = get_exporter(
+        format_name,
+        structure=structure,
+        root_name=os.path.basename(sample_directory),
+    )
+    exporter.export(output_path)
+
     assert os.path.exists(output_path)
     with open(output_path, encoding="utf-8") as f:
         content = f.read()
@@ -334,43 +344,24 @@ def test_export_with_options(
         "sort_by_mtime",
     ]:
         get_structure_kwargs[option_name] = option_value
-    if option_name == "show_full_path":
-        structure, _ = get_directory_structure(
-            sample_directory, show_full_path=option_value
-        )
-    elif option_name == "sort_by_loc":
-        structure, _ = get_directory_structure(
-            sample_directory, sort_by_loc=option_value
-        )
-    elif option_name == "sort_by_size":
-        structure, _ = get_directory_structure(
-            sample_directory, sort_by_size=option_value
-        )
-    elif option_name == "sort_by_mtime":
-        structure, _ = get_directory_structure(
-            sample_directory, sort_by_mtime=option_value
-        )
-    else:
-        structure, _ = get_directory_structure(sample_directory)
+
+    structure, _ = get_directory_structure(sample_directory, **get_structure_kwargs)
     output_path = os.path.join(output_dir, f"structure_{option_name}.txt")
+
+    kwargs = {}
     if option_name == "show_full_path":
-        export_structure(
-            structure, sample_directory, "txt", output_path, show_full_path=option_value
-        )
-    elif option_name == "sort_by_loc":
-        export_structure(
-            structure, sample_directory, "txt", output_path, sort_by_loc=option_value
-        )
-    elif option_name == "sort_by_size":
-        export_structure(
-            structure, sample_directory, "txt", output_path, sort_by_size=option_value
-        )
-    elif option_name == "sort_by_mtime":
-        export_structure(
-            structure, sample_directory, "txt", output_path, sort_by_mtime=option_value
-        )
-    else:
-        export_structure(structure, sample_directory, "txt", output_path)
+        kwargs["base_path"] = sample_directory if option_value else None
+    elif option_name in ["sort_by_loc", "sort_by_size", "sort_by_mtime"]:
+        kwargs[option_name] = option_value
+
+    exporter = get_exporter(
+        "txt",
+        structure=structure,
+        root_name=os.path.basename(sample_directory),
+        **kwargs,
+    )
+    exporter.export(output_path)
+
     assert os.path.exists(output_path)
     with open(output_path, encoding="utf-8") as f:
         content = f.read()
@@ -385,9 +376,16 @@ def test_export_nested_structure(sample_directory: str, output_dir: str) -> None
     os.makedirs(nested_dir, exist_ok=True)
     with open(os.path.join(nested_dir, "deep_file.txt"), "w") as f:
         f.write("Deep nested file")
+
     structure, _ = get_directory_structure(sample_directory)
     output_path = os.path.join(output_dir, "nested_structure.json")
-    export_structure(structure, sample_directory, "json", output_path)
+
+    get_exporter(
+        "json",
+        structure=structure,
+        root_name=os.path.basename(sample_directory),
+    ).export(output_path)
+
     with open(output_path, encoding="utf-8") as f:
         data = json.load(f)
     assert "nested" in data["structure"]
@@ -400,9 +398,14 @@ def test_export_invalid_format(temp_dir: str, output_dir: str) -> None:
     """Test exporting with invalid format."""
     structure = {"_files": ["file1.txt"]}
     output_path = os.path.join(output_dir, "test_export.invalid")
+
     with pytest.raises(ValueError) as excinfo:
-        export_structure(structure, temp_dir, "invalid", output_path)
-    assert "Unsupported format" in str(excinfo.value)
+        get_exporter(
+            "invalid",
+            structure=structure,
+            root_name=os.path.basename(temp_dir),
+        ).export(output_path)
+    assert "Unsupported export format" in str(excinfo.value)
 
 
 def test_export_error_handling(
@@ -413,9 +416,14 @@ def test_export_error_handling(
     """Test error handling during export."""
     structure, _ = get_directory_structure(sample_directory)
     output_path = os.path.join(output_dir, "structure.txt")
+
     mocker.patch("builtins.open", side_effect=PermissionError("Permission denied"))
     with pytest.raises(PermissionError):
-        export_structure(structure, sample_directory, "txt", output_path)
+        get_exporter(
+            "txt",
+            structure=structure,
+            root_name=os.path.basename(sample_directory),
+        ).export(output_path)
 
 
 def test_export_with_max_depth_indicator(temp_dir: str, output_dir: str) -> None:
@@ -426,6 +434,7 @@ def test_export_with_max_depth_indicator(temp_dir: str, output_dir: str) -> None
     os.makedirs(level3, exist_ok=True)
     with open(os.path.join(level1, "file1.txt"), "w") as f:
         f.write("Level 1 file")
+
     structure, _ = get_directory_structure(temp_dir, max_depth=2)
     format_indicators = {
         "txt": "⋯ (max depth reached)",
@@ -434,9 +443,15 @@ def test_export_with_max_depth_indicator(temp_dir: str, output_dir: str) -> None
         "md": "*(max depth reached)*",
         "jsx": "max depth reached",
     }
+
     for fmt, indicator in format_indicators.items():
         output_path = os.path.join(output_dir, f"max_depth.{fmt}")
-        export_structure(structure, temp_dir, fmt, output_path)
+        get_exporter(
+            fmt,
+            structure=structure,
+            root_name=os.path.basename(temp_dir),
+        ).export(output_path)
+
         with open(output_path, encoding="utf-8") as f:
             content = f.read()
         assert indicator in content, (
@@ -454,31 +469,32 @@ def test_export_with_statistics(sample_directory: str, output_dir: str) -> None:
             r"lines",
             r"[KMG]?B",
             r"Today|Yesterday|\d{4}-\d{2}-\d{2}",
-        ],  # Fixed pattern
+        ],
         "json": [r'"show_loc": true', r'"show_size": true', r'"show_mtime": true'],
         "html": [
             r"lines",
-            r"[KMG]?B",  # Fixed pattern
+            r"[KMG]?B",
             r"Today|Yesterday|\d{4}-\d{2}-\d{2}|format_timestamp",
         ],
         "md": [
             r"lines",
             r"[KMG]?B",
             r"Today|Yesterday|\d{4}-\d{2}-\d{2}",
-        ],  # Fixed pattern
+        ],
         "jsx": [r"locCount", r"sizeCount", r"mtimeCount"],
     }
+
     for fmt, patterns in format_indicators.items():
         output_path = os.path.join(output_dir, f"stats_export.{fmt}")
-        export_structure(
-            structure,
-            sample_directory,
+        get_exporter(
             fmt,
-            output_path,
+            structure=structure,
+            root_name=os.path.basename(sample_directory),
             sort_by_loc=True,
             sort_by_size=True,
             sort_by_mtime=True,
-        )
+        ).export(output_path)
+
         with open(output_path, encoding="utf-8") as f:
             content = f.read()
         for pattern in patterns:
@@ -490,9 +506,13 @@ def test_export_with_statistics(sample_directory: str, output_dir: str) -> None:
 def test_large_structure_export(output_dir: str) -> None:
     """Test exporting a large directory structure."""
     structure = generate_large_structure(depth=5, files_per_dir=10, dir_branching=3)
+
     for fmt in ["txt", "json", "html", "md", "jsx"]:
         output_path = os.path.join(output_dir, f"large_structure.{fmt}")
-        export_structure(structure, "large_root", fmt, output_path)
+        get_exporter(fmt, structure=structure, root_name="large_root").export(
+            output_path
+        )
+
         assert os.path.exists(output_path)
         assert os.path.getsize(output_path) > 0, f"Exported {fmt} file is empty"
         with open(output_path, encoding="utf-8") as f:
@@ -535,9 +555,13 @@ def test_unicode_file_names(output_dir: str) -> None:
             },
         },
     }
+
     for fmt in ["txt", "json", "html", "md", "jsx"]:
         output_path = os.path.join(output_dir, f"unicode.{fmt}")
-        export_structure(unicode_structure, "unicode_root", fmt, output_path)
+        get_exporter(fmt, structure=unicode_structure, root_name="unicode_root").export(
+            output_path
+        )
+
         assert os.path.exists(output_path)
         with open(output_path, encoding="utf-8") as f:
             content = f.read()
@@ -577,9 +601,14 @@ def test_export_structure_error_types(
         error = OSError(28, error_msg)
     else:
         error = error_type(error_msg)
-    with patch("recursivist.exports.DirectoryExporter.to_txt", side_effect=error):
+
+    with patch("recursivist.exporters.txt.TxtExporter.export", side_effect=error):
         with pytest.raises(Exception) as excinfo:
-            export_structure(structure, sample_directory, "txt", output_path)
+            get_exporter(
+                "txt",
+                structure=structure,
+                root_name=os.path.basename(sample_directory),
+            ).export(output_path)
         assert error_msg in str(excinfo.value)
 
 
@@ -596,8 +625,11 @@ def test_to_jsx_with_long_paths(output_dir: str) -> None:
         },
     }
     output_path = os.path.join(output_dir, "long_names.jsx")
-    exporter = DirectoryExporter(long_structure, "long_root")
-    exporter.to_jsx(output_path)
+
+    get_exporter("jsx", structure=long_structure, root_name="long_root").export(
+        output_path
+    )
+
     assert os.path.exists(output_path)
     with open(output_path, encoding="utf-8") as f:
         content = f.read()
@@ -613,10 +645,18 @@ def test_export_with_excessive_loc(temp_dir: str, output_dir: str) -> None:
     with open(test_file, "w") as f:
         for i in range(10000):
             f.write(f"print('Line {i}')\n")
+
     structure, _ = get_directory_structure(temp_dir, sort_by_loc=True)
+
     for fmt in ["txt", "json", "html", "md", "jsx"]:
         output_path = os.path.join(output_dir, f"large_loc.{fmt}")
-        export_structure(structure, temp_dir, fmt, output_path, sort_by_loc=True)
+        get_exporter(
+            fmt,
+            structure=structure,
+            root_name=os.path.basename(temp_dir),
+            sort_by_loc=True,
+        ).export(output_path)
+
         assert os.path.exists(output_path)
         with open(output_path, encoding="utf-8") as f:
             content = f.read()
@@ -636,8 +676,14 @@ def test_many_unique_extensions(output_dir: str) -> None:
     for i in range(100):
         ext = random_string(5)
         many_extensions_structure["_files"].append(f"file_{i}.{ext}")
+
     output_path = os.path.join(output_dir, "many_extensions.html")
-    export_structure(many_extensions_structure, "extensions_test", "html", output_path)
+    get_exporter(
+        "html",
+        structure=many_extensions_structure,
+        root_name="extensions_test",
+    ).export(output_path)
+
     assert os.path.exists(output_path)
     with open(output_path, encoding="utf-8") as f:
         content = f.read()
@@ -667,9 +713,13 @@ def test_problematic_filenames(output_dir: str) -> None:
             "_files": ["nested problematic.txt"],
         },
     }
+
     for fmt in ["txt", "json", "html", "md", "jsx"]:
         output_path = os.path.join(output_dir, f"escaping.{fmt}")
-        export_structure(problematic_structure, "escape_test", fmt, output_path)
+        get_exporter(
+            fmt, structure=problematic_structure, root_name="escape_test"
+        ).export(output_path)
+
         assert os.path.exists(output_path)
         try:
             if fmt == "json":
@@ -720,18 +770,19 @@ def test_combined_export_options(output_dir: str) -> None:
             },
         },
     }
+
     for fmt in ["txt", "json", "html", "md", "jsx"]:
         output_path = os.path.join(output_dir, f"combined_options.{fmt}")
-        export_structure(
-            complex_structure,
-            "complex_root",
+        get_exporter(
             fmt,
-            output_path,
-            show_full_path=True,
+            structure=complex_structure,
+            root_name="complex_root",
+            base_path="/path/to/complex_root",
             sort_by_loc=True,
             sort_by_size=True,
             sort_by_mtime=True,
-        )
+        ).export(output_path)
+
         assert os.path.exists(output_path)
         with open(output_path, encoding="utf-8") as f:
             content = f.read().replace("&quot;", '"')

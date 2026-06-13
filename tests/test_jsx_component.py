@@ -1,4 +1,4 @@
-"""Property-based tests for the jsx_export.py module."""
+"""Property-based tests for the JsxExporter."""
 
 import os
 import tempfile
@@ -9,7 +9,7 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from recursivist.jsx_export import generate_jsx_component
+from recursivist.exporters import get_exporter
 
 
 @st.composite
@@ -60,18 +60,18 @@ file_tuple_list = st.lists(
 
 
 class TestJSXSort:
-    """Focused property-based tests for sorting functions in jsx_export.py."""
+    """Focused property-based tests for sorting functions within JsxExporter."""
 
     def safe_get(
         self, tup: Union[str, tuple[Any, ...]], idx: int, default: int = 0
     ) -> int:
-        """Reimplementation of safe_get from jsx_export.py."""
+        """Reimplementation of safe_get from JsxExporter."""
         if not isinstance(tup, tuple):
             return default
         return tup[idx] if len(tup) > idx else default
 
     def sort_key_all(self, f: Union[str, tuple[Any, ...]]) -> tuple[int, int, int, str]:
-        """Reimplementation of sort_key_all from jsx_export.py."""
+        """Reimplementation of sort_key_all from JsxExporter."""
         if isinstance(f, tuple):
             if len(f) == 0:
                 return (0, 0, 0, "")
@@ -83,7 +83,7 @@ class TestJSXSort:
         return (0, 0, 0, f.lower() if isinstance(f, str) else "")
 
     def sort_key_loc_size(self, f: Union[str, tuple[Any, ...]]) -> tuple[int, int, str]:
-        """Reimplementation of sort_key_loc_size from jsx_export.py."""
+        """Reimplementation of sort_key_loc_size from JsxExporter."""
         if isinstance(f, tuple):
             if len(f) == 0:
                 return (0, 0, "")
@@ -96,7 +96,7 @@ class TestJSXSort:
     def sort_key_loc_mtime(
         self, f: Union[str, tuple[Any, ...]]
     ) -> tuple[int, int, str]:
-        """Reimplementation of sort_key_loc_mtime from jsx_export.py."""
+        """Reimplementation of sort_key_loc_mtime from JsxExporter."""
         if isinstance(f, tuple):
             if len(f) == 0:
                 return (0, 0, "")
@@ -109,7 +109,7 @@ class TestJSXSort:
     def sort_key_size_mtime(
         self, f: Union[str, tuple[Any, ...]]
     ) -> tuple[int, int, str]:
-        """Reimplementation of sort_key_size_mtime from jsx_export.py."""
+        """Reimplementation of sort_key_size_mtime from JsxExporter."""
         if isinstance(f, tuple):
             if len(f) == 0:
                 return (0, 0, "")
@@ -120,7 +120,7 @@ class TestJSXSort:
         return (0, 0, f.lower() if isinstance(f, str) else "")
 
     def sort_key_mtime(self, f: Union[str, tuple[Any, ...]]) -> tuple[int, str]:
-        """Reimplementation of sort_key_mtime from jsx_export.py."""
+        """Reimplementation of sort_key_mtime from JsxExporter."""
         if isinstance(f, tuple):
             if len(f) == 0:
                 return (0, "")
@@ -136,7 +136,7 @@ class TestJSXSort:
         return (0, f.lower() if isinstance(f, str) else "")
 
     def sort_key_size(self, f: Union[str, tuple[Any, ...]]) -> tuple[int, str]:
-        """Reimplementation of sort_key_size from jsx_export.py."""
+        """Reimplementation of sort_key_size from JsxExporter."""
         if isinstance(f, tuple):
             if len(f) == 0:
                 return (0, "")
@@ -150,7 +150,7 @@ class TestJSXSort:
         return (0, f.lower() if isinstance(f, str) else "")
 
     def sort_key_loc(self, f: Union[str, tuple[Any, ...]]) -> tuple[int, str]:
-        """Reimplementation of sort_key_loc from jsx_export.py."""
+        """Reimplementation of sort_key_loc from JsxExporter."""
         if isinstance(f, tuple):
             if len(f) == 0:
                 return (0, "")
@@ -160,7 +160,7 @@ class TestJSXSort:
         return (0, f.lower() if isinstance(f, str) else "")
 
     def sort_key_name(self, f: Union[str, tuple[Any, ...]]) -> str:
-        """Reimplementation of sort_key_name from jsx_export.py."""
+        """Reimplementation of sort_key_name from JsxExporter."""
         if isinstance(f, tuple):
             if len(f) == 0:
                 return ""
@@ -353,21 +353,25 @@ def jsx_directory_structure(draw: st.DrawFn) -> Any:
 
 
 class TestJSXComponent:
-    """Test the JSX component generation functionality."""
+    """Test the JSX component generation functionality using the Factory Exporter."""
 
     @given(
         dir_structure=jsx_directory_structure(),
         root_name=st.text(min_size=1, max_size=20),
     )
     @settings(max_examples=20)
-    def test_generate_jsx_component_basics(
+    def test_export_jsx_basics(
         self, dir_structure: dict[str, Any], root_name: str
     ) -> None:
         """Test basic generation of JSX component."""
         with unittest.mock.patch(
             "builtins.open", unittest.mock.mock_open()
         ) as mock_open:
-            generate_jsx_component(dir_structure, root_name, "output.jsx")
+            get_exporter(
+                "jsx",
+                structure=dir_structure,
+                root_name=root_name,
+            ).export("output.jsx")
             mock_open.assert_called_once_with("output.jsx", "w", encoding="utf-8")
             mock_file = mock_open()
             assert mock_file.write.call_count > 0, "No data was written to the file"
@@ -391,7 +395,12 @@ class TestJSXComponent:
         with tempfile.NamedTemporaryFile(suffix=".jsx", delete=False) as temp_file:
             output_path = temp_file.name
         try:
-            generate_jsx_component(dir_structure, root_name, output_path)
+            get_exporter(
+                "jsx",
+                structure=dir_structure,
+                root_name=root_name,
+            ).export(output_path)
+
             assert os.path.exists(output_path), "The JSX file was not created"
             assert os.path.getsize(output_path) > 0, "The JSX file is empty"
             with open(output_path, encoding="utf-8") as f:
@@ -445,15 +454,16 @@ class TestJSXComponent:
         with unittest.mock.patch(
             "builtins.open", unittest.mock.mock_open()
         ) as mock_open:
-            generate_jsx_component(
-                dir_structure,
-                root_name,
-                "output.jsx",
-                show_full_path,
-                sort_by_loc,
-                sort_by_size,
-                sort_by_mtime,
-            )
+            get_exporter(
+                "jsx",
+                structure=dir_structure,
+                root_name=root_name,
+                base_path="base/path" if show_full_path else None,
+                sort_by_loc=sort_by_loc,
+                sort_by_size=sort_by_size,
+                sort_by_mtime=sort_by_mtime,
+            ).export("output.jsx")
+
             mock_open.assert_called_once_with("output.jsx", "w", encoding="utf-8")
             mock_file = mock_open()
             write_calls = [args[0] for args, _ in mock_file.write.call_args_list]

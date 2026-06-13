@@ -36,62 +36,6 @@ from recursivist.icons import get_icon
 logger = logging.getLogger(__name__)
 
 
-def export_structure(
-    structure: dict[str, Any],
-    root_dir: str,
-    format_type: str,
-    output_path: str,
-    show_full_path: bool = False,
-    sort_by_loc: bool = False,
-    sort_by_size: bool = False,
-    sort_by_mtime: bool = False,
-    show_git_status: bool = False,
-    icon_style: str = "emoji",
-) -> None:
-    """Export the directory structure to various formats.
-
-    Maps the requested format to the appropriate export method using DirectoryExporter. Handles txt, json, html, md, jsx, and svg formats with consistent styling.
-
-    Args:
-        structure: Directory structure dictionary
-        root_dir: Root directory name
-        format_type: Export format ('txt', 'json', 'html', 'md', 'jsx', 'svg')
-        output_path: Path where the export file will be saved
-        show_full_path: Whether to show full paths instead of just filenames
-        sort_by_loc: Whether to include lines of code counts in the export
-        sort_by_size: Whether to include file size information in the export
-        sort_by_mtime: Whether to include file modification times in the export
-        show_git_status: Whether to annotate files with Git status markers
-
-    Raises:
-        ValueError: If the format_type is not supported
-    """
-    from recursivist.exports import DirectoryExporter
-
-    exporter = DirectoryExporter(
-        structure,
-        os.path.basename(root_dir),
-        root_dir if show_full_path else None,
-        sort_by_loc,
-        sort_by_size,
-        sort_by_mtime,
-        show_git_status,
-        icon_style=icon_style,
-    )
-    format_map = {
-        "txt": exporter.to_txt,
-        "json": exporter.to_json,
-        "html": exporter.to_html,
-        "md": exporter.to_markdown,
-        "jsx": exporter.to_jsx,
-        "svg": exporter.to_svg,
-    }
-    if format_type.lower() not in format_map:
-        raise ValueError(f"Unsupported format: {format_type}")
-    export_func = format_map[format_type.lower()]
-    export_func(output_path)
-
-
 def parse_ignore_file(ignore_file_path: str) -> list[str]:
     """Parse an ignore file (like .gitignore) and return patterns.
 

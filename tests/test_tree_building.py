@@ -12,7 +12,7 @@ from rich.text import Text
 
 from recursivist.compare import build_comparison_tree
 from recursivist.core import build_tree
-from recursivist.exports import DirectoryExporter
+from recursivist.exporters import get_exporter
 
 
 class TestBuildTree:
@@ -394,18 +394,17 @@ class TestBuildComparisonTree:
         assert any("max depth reached" in text.plain for text in subtree_calls)
 
 
-class TestDirectoryExporter:
+class TestExporters:
     @pytest.mark.parametrize(
-        "format_name,format_method,expected_content",
+        "format_name,expected_content",
         [
-            ("txt", "to_txt", ["📁 test_root", "file1.txt", "file2.py", "file3.md"]),
-            ("md", "to_markdown", ["# 📁 test_root", "`file1.txt`"]),
+            ("txt", ["📁 test_root", "file1.txt", "file2.py", "file3.md"]),
+            ("md", ["# 📁 test_root", "`file1.txt`"]),
             (
                 "html",
-                "to_html",
                 ["<!DOCTYPE html>", "<html>", 'class="file"'],
             ),
-            ("json", "to_json", ["root", "structure", "_files"]),
+            ("json", ["root", "structure", "_files"]),
         ],
     )
     def test_export_formats(
@@ -413,13 +412,14 @@ class TestDirectoryExporter:
         simple_structure: dict[str, Any],
         tmp_path: Path,
         format_name: str,
-        format_method: str,
         expected_content: list[str],
     ) -> None:
-        """Test DirectoryExporter's format-specific export methods."""
+        """Test Exporter format-specific exports."""
         output_path = os.path.join(tmp_path, f"test_output.{format_name}")
-        exporter = DirectoryExporter(simple_structure, "test_root")
-        getattr(exporter, format_method)(output_path)
+        get_exporter(
+            format_name, structure=simple_structure, root_name="test_root"
+        ).export(output_path)
+
         assert os.path.exists(output_path)
         with open(output_path, encoding="utf-8") as f:
             content = f.read()
@@ -431,14 +431,17 @@ class TestDirectoryExporter:
     ) -> None:
         """Test that directories are properly formatted in exports."""
         md_output_path = os.path.join(tmp_path, "test_dirs.md")
-        md_exporter = DirectoryExporter(nested_structure, "test_root")
-        md_exporter.to_markdown(md_output_path)
+        get_exporter("md", structure=nested_structure, root_name="test_root").export(
+            md_output_path
+        )
         with open(md_output_path, encoding="utf-8") as f:
             md_content = f.read()
         assert "**subdir1**" in md_content or "**subdir2**" in md_content
+
         html_output_path = os.path.join(tmp_path, "test_dirs.html")
-        html_exporter = DirectoryExporter(nested_structure, "test_root")
-        html_exporter.to_html(html_output_path)
+        get_exporter("html", structure=nested_structure, root_name="test_root").export(
+            html_output_path
+        )
         with open(html_output_path, encoding="utf-8") as f:
             html_content = f.read()
         assert 'class="directory"' in html_content
@@ -462,8 +465,11 @@ class TestDirectoryExporter:
         """Test exporting with statistics options."""
         output_path = os.path.join(tmp_path, f"test_output_{option_name}.txt")
         kwargs: dict[str, Any] = {option_name: option_value}
-        exporter = DirectoryExporter(structure_with_stats, "test_root", **kwargs)
-        exporter.to_txt(output_path)
+
+        get_exporter(
+            "txt", structure=structure_with_stats, root_name="test_root", **kwargs
+        ).export(output_path)
+
         assert os.path.exists(output_path)
         with open(output_path, encoding="utf-8") as f:
             content = f.read()
@@ -481,10 +487,13 @@ class TestDirectoryExporter:
     ) -> None:
         """Test exporting with full file paths."""
         output_path = os.path.join(tmp_path, "test_output_fullpath.txt")
-        exporter = DirectoryExporter(
-            structure_with_stats, "test_root", base_path="/path/to"
-        )
-        exporter.to_txt(output_path)
+        get_exporter(
+            "txt",
+            structure=structure_with_stats,
+            root_name="test_root",
+            base_path="/path/to",
+        ).export(output_path)
+
         with open(output_path, encoding="utf-8") as f:
             content = f.read()
         assert "/path/to/" in content
@@ -505,7 +514,9 @@ class TestDirectoryExporter:
     ) -> None:
         """Test error handling during export."""
         output_path = os.path.join(tmp_path, "test_output.txt")
-        exporter = DirectoryExporter(simple_structure, "test_root")
+        exporter = get_exporter(
+            "txt", structure=simple_structure, root_name="test_root"
+        )
         error: Exception
         if error_type is OSError:
             error = OSError(28, error_msg)
@@ -513,62 +524,58 @@ class TestDirectoryExporter:
             error = error_type(error_msg)
         with patch("builtins.open", side_effect=error):
             with pytest.raises(Exception) as excinfo:
-                exporter.to_txt(output_path)
+                exporter.export(output_path)
             assert error_msg in str(excinfo.value)
 
     def test_export_with_max_depth(
         self, max_depth_structure: dict[str, Any], tmp_path: Path
     ) -> None:
         """Test exporting with max depth indicators."""
-        exporter = DirectoryExporter(max_depth_structure, "max_depth_root")
         txt_path = os.path.join(tmp_path, "max_depth.txt")
-        exporter.to_txt(txt_path)
+        get_exporter(
+            "txt", structure=max_depth_structure, root_name="max_depth_root"
+        ).export(txt_path)
         with open(txt_path, encoding="utf-8") as f:
             content = f.read()
         assert "⋯ (max depth reached)" in content
+
         md_path = os.path.join(tmp_path, "max_depth.md")
-        exporter.to_markdown(md_path)
+        get_exporter(
+            "md", structure=max_depth_structure, root_name="max_depth_root"
+        ).export(md_path)
         with open(md_path, encoding="utf-8") as f:
             content = f.read()
         assert "⋯ *(max depth reached)*" in content
+
         html_path = os.path.join(tmp_path, "max_depth.html")
-        exporter.to_html(html_path)
+        get_exporter(
+            "html", structure=max_depth_structure, root_name="max_depth_root"
+        ).export(html_path)
         with open(html_path, encoding="utf-8") as f:
             content = f.read()
         assert "max-depth" in content
 
     def test_jsx_export(self, nested_structure: dict[str, Any], tmp_path: Path) -> None:
-        """Test JSX export with mock."""
+        """Test JSX export output matches expected basic structure."""
         output_path = os.path.join(tmp_path, "test_output.jsx")
-        with patch("recursivist.exports.generate_jsx_component") as mock_generate:
-            exporter = DirectoryExporter(nested_structure, "test_root")
-            exporter.to_jsx(output_path)
-            mock_generate.assert_called_once_with(
-                nested_structure,
-                "test_root",
-                output_path,
-                False,
-                False,
-                False,
-                False,
-                False,
-            )
-            mock_generate.reset_mock()
-            exporter = DirectoryExporter(
-                nested_structure,
-                "test_root",
-                sort_by_loc=True,
-                sort_by_size=True,
-                sort_by_mtime=True,
-            )
-            exporter.to_jsx(output_path)
-            mock_generate.assert_called_once_with(
-                nested_structure,
-                "test_root",
-                output_path,
-                False,
-                True,
-                True,
-                True,
-                False,
-            )
+
+        get_exporter("jsx", structure=nested_structure, root_name="test_root").export(
+            output_path
+        )
+        assert os.path.exists(output_path)
+        with open(output_path, encoding="utf-8") as f:
+            content = f.read()
+        assert "import React" in content
+
+        get_exporter(
+            "jsx",
+            structure=nested_structure,
+            root_name="test_root",
+            sort_by_loc=True,
+            sort_by_size=True,
+            sort_by_mtime=True,
+        ).export(output_path)
+        assert os.path.exists(output_path)
+        with open(output_path, encoding="utf-8") as f:
+            content = f.read()
+        assert "import React" in content

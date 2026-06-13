@@ -21,7 +21,7 @@ from recursivist.core import (
     should_exclude,
     sort_files_by_type,
 )
-from recursivist.exports import DirectoryExporter
+from recursivist.exporters import get_exporter
 
 simple_filename = st.text(
     alphabet=st.characters(
@@ -385,10 +385,10 @@ class TestFormatFunctions:
 
 
 class TestJSXExportSortingFunctions:
-    """Property-based tests for sorting functions in jsx_export.py."""
+    """Property-based tests for sorting functions implemented in recursivist.exporters.jsx."""
 
     def get_sort_key_all(self, f: Any) -> tuple[int, int, int, str]:
-        """Reimplementation of sort_key_all from jsx_export.py."""
+        """Reimplementation of sort_key_all from recursivist.exporters.jsx."""
         if isinstance(f, tuple):
             if len(f) == 0:
                 return (0, 0, 0, "")
@@ -400,7 +400,7 @@ class TestJSXExportSortingFunctions:
         return (0, 0, 0, f.lower() if isinstance(f, str) else "")
 
     def get_sort_key_loc_size(self, f: Any) -> tuple[int, int, str]:
-        """Reimplementation of sort_key_loc_size from jsx_export.py."""
+        """Reimplementation of sort_key_loc_size from recursivist.exporters.jsx."""
         if isinstance(f, tuple):
             if len(f) == 0:
                 return (0, 0, "")
@@ -411,7 +411,7 @@ class TestJSXExportSortingFunctions:
         return (0, 0, f.lower() if isinstance(f, str) else "")
 
     def get_safe_get(self, tup: Any, idx: int, default: Any = None) -> Any:
-        """Reimplementation of safe_get from jsx_export.py."""
+        """Reimplementation of safe_get from recursivist.exporters.jsx."""
         if not isinstance(tup, tuple):
             return default
         return tup[idx] if len(tup) > idx else default
@@ -514,23 +514,21 @@ class TestJSXExportSortingFunctions:
             )
 
 
-class TestDirectoryExporterToJSX:
-    """Property-based tests for DirectoryExporter.to_jsx method."""
+class TestJsxExporter:
+    """Property-based tests for JsxExporter.export method."""
 
-    def test_to_jsx_basic(self) -> None:
-        """Basic test for to_jsx without property testing."""
+    def test_export_basic(self) -> None:
+        """Basic test for export without property testing."""
         structure = {"_files": ["file1.txt"]}
         root_name = "test_root"
-        with patch("recursivist.exports.generate_jsx_component") as mock_generate:
-            exporter = DirectoryExporter(structure, root_name)
+        with patch("builtins.open", MagicMock()) as mock_open:
+            exporter = get_exporter("jsx", structure=structure, root_name=root_name)
             output_path = "test_output.jsx"
-            exporter.to_jsx(output_path)
-            mock_generate.assert_called_once_with(
-                structure, root_name, output_path, False, False, False, False, False
-            )
+            exporter.export(output_path)
+            mock_open.assert_called_once_with(output_path, "w", encoding="utf-8")
 
-    def test_to_jsx_with_options_basic(self) -> None:
-        """Basic test for to_jsx with options, without property testing."""
+    def test_export_with_options_basic(self) -> None:
+        """Basic test for export with options, without property testing."""
         structure = {"_files": ["file1.txt"]}
         root_name = "test_root"
         option_combinations = [
@@ -544,10 +542,11 @@ class TestDirectoryExporterToJSX:
             (True, True, True),
         ]
         for sort_by_loc, sort_by_size, sort_by_mtime in option_combinations:
-            with patch("recursivist.exports.generate_jsx_component") as mock_generate:
-                exporter = DirectoryExporter(
-                    structure,
-                    root_name,
+            with patch("builtins.open", MagicMock()) as mock_open:
+                exporter = get_exporter(
+                    "jsx",
+                    structure=structure,
+                    root_name=root_name,
                     base_path=(
                         "base/path"
                         if any([sort_by_loc, sort_by_size, sort_by_mtime])
@@ -558,17 +557,8 @@ class TestDirectoryExporterToJSX:
                     sort_by_mtime=sort_by_mtime,
                 )
                 output_path = "test_output.jsx"
-                exporter.to_jsx(output_path)
-                mock_generate.assert_called_once_with(
-                    structure,
-                    root_name,
-                    output_path,
-                    exporter.show_full_path,
-                    sort_by_loc,
-                    sort_by_size,
-                    sort_by_mtime,
-                    False,
-                )
+                exporter.export(output_path)
+                mock_open.assert_called_once_with(output_path, "w", encoding="utf-8")
 
 
 class TestShouldExclude:
@@ -643,22 +633,21 @@ class TestGetDirectoryStructure:
         assert ".md" in extensions, ".md should be in extensions"
 
 
-class TestGenerateJSXComponent:
-    """Property-based tests for generate_jsx_component function."""
+class TestJsxExporterFileWriting:
+    """Tests for JsxExporter file writing."""
 
     def test_generate_jsx_component_basic(self) -> None:
-        """Basic test for generate_jsx_component without property testing."""
+        """Basic test for JsxExporter without property testing."""
         structure = {"_files": ["file1.txt"]}
         root_name = "test_root"
-        with (
-            patch("builtins.open", MagicMock()) as mock_open,
-            patch("recursivist.jsx_export.logger") as _,
-        ):
+        with patch("builtins.open", MagicMock()) as mock_open:
             mock_file = MagicMock()
             mock_open.return_value.__enter__.return_value = mock_file
-            from recursivist.jsx_export import generate_jsx_component
 
-            generate_jsx_component(structure, root_name, "output.jsx")
+            get_exporter("jsx", structure=structure, root_name=root_name).export(
+                "output.jsx"
+            )
+
             mock_open.assert_called_once_with("output.jsx", "w", encoding="utf-8")
             assert mock_file.write.call_count > 0, "No data was written to the file"
 

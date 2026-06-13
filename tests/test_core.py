@@ -16,7 +16,6 @@ from recursivist.core import (
     compile_regex_patterns,
     count_lines_of_code,
     display_tree,
-    export_structure,
     format_size,
     format_timestamp,
     generate_color_for_extension,
@@ -27,6 +26,7 @@ from recursivist.core import (
     should_exclude,
     sort_files_by_type,
 )
+from recursivist.exporters import get_exporter
 
 
 class TestFileSize:
@@ -482,7 +482,9 @@ def test_export_structure(
     """Test exporting structure to different formats."""
     structure, _ = get_directory_structure(sample_directory)
     output_path = os.path.join(output_dir, f"structure.{format_extension}")
-    export_structure(structure, sample_directory, format_name, output_path)
+    get_exporter(
+        format_name, structure=structure, root_name=os.path.basename(sample_directory)
+    ).export(output_path)
     assert os.path.exists(output_path)
     with open(output_path, encoding="utf-8") as f:
         content = f.read()
@@ -554,28 +556,24 @@ def test_export_structure_with_options(
         sort_by_mtime,
     )
     output_path = os.path.join(output_dir, f"structure_{option_name}.json")
+
+    kwargs: dict[str, Any] = {}
     if option_name == "show_full_path":
-        export_structure(
-            structure,
-            sample_directory,
-            "json",
-            output_path,
-            show_full_path=option_value,
-        )
+        kwargs["base_path"] = sample_directory if option_value else None
     elif option_name == "sort_by_loc":
-        export_structure(
-            structure, sample_directory, "json", output_path, sort_by_loc=option_value
-        )
+        kwargs["sort_by_loc"] = option_value
     elif option_name == "sort_by_size":
-        export_structure(
-            structure, sample_directory, "json", output_path, sort_by_size=option_value
-        )
+        kwargs["sort_by_size"] = option_value
     elif option_name == "sort_by_mtime":
-        export_structure(
-            structure, sample_directory, "json", output_path, sort_by_mtime=option_value
-        )
-    else:
-        export_structure(structure, sample_directory, "json", output_path)
+        kwargs["sort_by_mtime"] = option_value
+
+    get_exporter(
+        "json",
+        structure=structure,
+        root_name=os.path.basename(sample_directory),
+        **kwargs,
+    ).export(output_path)
+
     assert os.path.exists(output_path)
     with open(output_path, encoding="utf-8") as f:
         data = json.load(f)
@@ -598,8 +596,11 @@ def test_export_invalid_format(temp_dir: str, output_dir: str) -> None:
     """Test exporting with an invalid format."""
     structure = {"_files": ["file1.txt"]}
     output_path = os.path.join(output_dir, "test_export.invalid")
-    with pytest.raises(ValueError):
-        export_structure(structure, temp_dir, "invalid", output_path)
+    with pytest.raises(ValueError) as excinfo:
+        get_exporter(
+            "invalid", structure=structure, root_name=os.path.basename(temp_dir)
+        ).export(output_path)
+    assert "Unsupported export format" in str(excinfo.value)
 
 
 @pytest.mark.parametrize(
