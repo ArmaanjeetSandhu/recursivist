@@ -332,7 +332,7 @@ def generate_color_for_extension(extension: str) -> str:
             _EXTENSION_COLORS[normalized_ext] = hex_color
         return hex_color
     best_color = initial_color
-    best_min_distance = 0
+    best_min_distance = 0.0
     for attempt in range(max_attempts):
         test_hue = (hue + (attempt * 0.1)) % 1.0
         test_sat = min(1.0, saturation + (attempt * 0.02))
@@ -345,7 +345,7 @@ def generate_color_for_extension(extension: str) -> str:
             distance = color_distance(test_color, existing_rgb)
             min_distance = min(min_distance, distance)
         if min_distance > best_min_distance:
-            best_min_distance = int(min_distance)
+            best_min_distance = min_distance
             best_color = test_color
         if min_distance >= min_acceptable_distance:
             break
