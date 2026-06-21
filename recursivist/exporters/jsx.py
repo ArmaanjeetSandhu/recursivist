@@ -122,9 +122,7 @@ class JsxExporter(BaseExporter):
                             return (0, 0, "")
                         file_name = f[0].lower()
                         loc = safe_get(f, 2) if len(f) > 2 else 0
-                        mtime = safe_get(f, 3) if len(f) > 3 and self.sort_by_loc else 0
-                        if len(f) > 4 and self.sort_by_loc and self.sort_by_size:
-                            mtime = safe_get(f, 4)
+                        mtime = safe_get(f, 4) if len(f) > 4 else 0
                         return (-loc, -mtime, file_name)
                     return (0, 0, f.lower() if isinstance(f, str) else "")
 
@@ -135,8 +133,8 @@ class JsxExporter(BaseExporter):
                         if len(f) == 0:
                             return (0, 0, "")
                         file_name = f[0].lower()
-                        size = safe_get(f, 2) if len(f) > 2 else 0
-                        mtime = safe_get(f, 3) if len(f) > 3 else 0
+                        size = safe_get(f, 3) if len(f) > 3 else 0
+                        mtime = safe_get(f, 4) if len(f) > 4 else 0
                         return (-size, -mtime, file_name)
                     return (0, 0, f.lower() if isinstance(f, str) else "")
 
@@ -232,17 +230,17 @@ class JsxExporter(BaseExporter):
                         elif (
                             self.sort_by_loc
                             and self.sort_by_mtime
-                            and len(file_item) > 3
+                            and len(file_item) > 4
                         ):
                             loc = file_item[2]
-                            mtime = file_item[3]
+                            mtime = file_item[4]
                         elif (
                             self.sort_by_size
                             and self.sort_by_mtime
-                            and len(file_item) > 3
+                            and len(file_item) > 4
                         ):
-                            size = file_item[2]
-                            mtime = file_item[3]
+                            size = file_item[3]
+                            mtime = file_item[4]
                         elif self.sort_by_loc and len(file_item) > 2:
                             loc = file_item[2]
                         elif self.sort_by_size and len(file_item) > 2:
