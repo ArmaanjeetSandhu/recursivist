@@ -809,110 +809,111 @@ def build_tree(
     git_markers_dict: dict[str, str] = (
         structure.get("_git_markers", {}) if show_git_status else {}
     )
-    for folder, content in sorted(structure.items()):
-        if folder == "_files":
-            for file_item in sort_files_by_type(
-                content, sort_by_loc, sort_by_size, sort_by_mtime
-            ):
-                file_name = ""
-                full_path = ""
-                loc = 0
-                size = 0
-                mtime = 0.0
-                if isinstance(file_item, tuple):
-                    file_name = file_item[0]
-                    if len(file_item) > 1:
-                        full_path = file_item[1]
-                    else:
-                        full_path = file_name
-                    if len(file_item) > 2:
-                        if (
-                            sort_by_loc
-                            and sort_by_size
-                            and sort_by_mtime
-                            and len(file_item) > 4
-                        ):
-                            loc = file_item[2]
-                            size = file_item[3]
-                            mtime = file_item[4]
-                        elif sort_by_loc and sort_by_size and len(file_item) > 3:
-                            loc = file_item[2]
-                            size = file_item[3]
-                        elif sort_by_loc and sort_by_mtime and len(file_item) > 4:
-                            loc = file_item[2]
-                            mtime = file_item[4]
-                        elif sort_by_size and sort_by_mtime and len(file_item) > 4:
-                            size = file_item[3]
-                            mtime = file_item[4]
-                        elif sort_by_loc and len(file_item) > 2:
-                            loc = file_item[2]
-                        elif sort_by_size and len(file_item) > 2:
-                            size = file_item[2]
-                        elif sort_by_mtime and len(file_item) > 2:
-                            mtime = file_item[2]
+    if "_files" in structure:
+        for file_item in sort_files_by_type(
+            structure["_files"], sort_by_loc, sort_by_size, sort_by_mtime
+        ):
+            file_name = ""
+            full_path = ""
+            loc = 0
+            size = 0
+            mtime = 0.0
+            if isinstance(file_item, tuple):
+                file_name = file_item[0]
+                if len(file_item) > 1:
+                    full_path = file_item[1]
                 else:
-                    file_name = file_item
                     full_path = file_name
-                display_path = full_path if show_full_path else file_name
-                ext = os.path.splitext(file_name)[1].lower()
-                color = color_map.get(ext, "#FFFFFF")
+                if len(file_item) > 2:
+                    if (
+                        sort_by_loc
+                        and sort_by_size
+                        and sort_by_mtime
+                        and len(file_item) > 4
+                    ):
+                        loc = file_item[2]
+                        size = file_item[3]
+                        mtime = file_item[4]
+                    elif sort_by_loc and sort_by_size and len(file_item) > 3:
+                        loc = file_item[2]
+                        size = file_item[3]
+                    elif sort_by_loc and sort_by_mtime and len(file_item) > 4:
+                        loc = file_item[2]
+                        mtime = file_item[4]
+                    elif sort_by_size and sort_by_mtime and len(file_item) > 4:
+                        size = file_item[3]
+                        mtime = file_item[4]
+                    elif sort_by_loc and len(file_item) > 2:
+                        loc = file_item[2]
+                    elif sort_by_size and len(file_item) > 2:
+                        size = file_item[2]
+                    elif sort_by_mtime and len(file_item) > 2:
+                        mtime = file_item[2]
+            else:
+                file_name = file_item
+                full_path = file_name
+            display_path = full_path if show_full_path else file_name
+            ext = os.path.splitext(file_name)[1].lower()
+            color = color_map.get(ext, "#FFFFFF")
 
-                git_marker = git_markers_dict.get(file_name, "")
-                is_deleted = git_marker == "D"
+            git_marker = git_markers_dict.get(file_name, "")
+            is_deleted = git_marker == "D"
 
-                name_style = f"{color} strike" if is_deleted else color
+            name_style = f"{color} strike" if is_deleted else color
 
-                colored_text = Text()
-                icon = get_icon(file_name, is_dir=False, style=icon_style)
-                colored_text.append(f"{icon} ", style=color)
+            colored_text = Text()
+            icon = get_icon(file_name, is_dir=False, style=icon_style)
+            colored_text.append(f"{icon} ", style=color)
 
-                if sort_by_loc and sort_by_size and sort_by_mtime and loc > 0:
-                    colored_text.append(
-                        f"{display_path} ({loc} lines, {format_size(size)}, {format_timestamp(mtime)})",
-                        style=name_style,
-                    )
-                elif sort_by_loc and sort_by_mtime and loc > 0:
-                    colored_text.append(
-                        f"{display_path} ({loc} lines, {format_timestamp(mtime)})",
-                        style=name_style,
-                    )
-                elif sort_by_size and sort_by_mtime and size > 0:
-                    colored_text.append(
-                        f"{display_path} ({format_size(size)}, {format_timestamp(mtime)})",
-                        style=name_style,
-                    )
-                elif sort_by_loc and sort_by_size and loc > 0:
-                    colored_text.append(
-                        f"{display_path} ({loc} lines, {format_size(size)})",
-                        style=name_style,
-                    )
-                elif sort_by_loc and loc > 0:
-                    colored_text.append(
-                        f"{display_path} ({loc} lines)",
-                        style=name_style,
-                    )
-                elif sort_by_size and size > 0:
-                    colored_text.append(
-                        f"{display_path} ({format_size(size)})",
-                        style=name_style,
-                    )
-                elif sort_by_mtime and mtime > 0:
-                    colored_text.append(
-                        f"{display_path} ({format_timestamp(mtime)})",
-                        style=name_style,
-                    )
-                else:
-                    colored_text.append(display_path, style=name_style)
+            if sort_by_loc and sort_by_size and sort_by_mtime and loc > 0:
+                colored_text.append(
+                    f"{display_path} ({loc} lines, {format_size(size)}, {format_timestamp(mtime)})",
+                    style=name_style,
+                )
+            elif sort_by_loc and sort_by_mtime and loc > 0:
+                colored_text.append(
+                    f"{display_path} ({loc} lines, {format_timestamp(mtime)})",
+                    style=name_style,
+                )
+            elif sort_by_size and sort_by_mtime and size > 0:
+                colored_text.append(
+                    f"{display_path} ({format_size(size)}, {format_timestamp(mtime)})",
+                    style=name_style,
+                )
+            elif sort_by_loc and sort_by_size and loc > 0:
+                colored_text.append(
+                    f"{display_path} ({loc} lines, {format_size(size)})",
+                    style=name_style,
+                )
+            elif sort_by_loc and loc > 0:
+                colored_text.append(
+                    f"{display_path} ({loc} lines)",
+                    style=name_style,
+                )
+            elif sort_by_size and size > 0:
+                colored_text.append(
+                    f"{display_path} ({format_size(size)})",
+                    style=name_style,
+                )
+            elif sort_by_mtime and mtime > 0:
+                colored_text.append(
+                    f"{display_path} ({format_timestamp(mtime)})",
+                    style=name_style,
+                )
+            else:
+                colored_text.append(display_path, style=name_style)
 
-                if show_git_status and git_marker:
-                    marker_style, badge = _GIT_MARKER_STYLES.get(
-                        git_marker, ("dim", f"[{git_marker}]")
-                    )
-                    colored_text.append(f" {badge}", style=marker_style)
+            if show_git_status and git_marker:
+                marker_style, badge = _GIT_MARKER_STYLES.get(
+                    git_marker, ("dim", f"[{git_marker}]")
+                )
+                colored_text.append(f" {badge}", style=marker_style)
 
-                tree.add(colored_text)
-        elif (
-            folder == "_loc"
+            tree.add(colored_text)
+    for folder, content in sorted(structure.items()):
+        if (
+            folder == "_files"
+            or folder == "_loc"
             or folder == "_size"
             or folder == "_mtime"
             or folder == "_max_depth_reached"
