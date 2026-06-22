@@ -1380,11 +1380,7 @@ def _export_comparison_to_html(
                     display_text = html.escape(file_name)
 
                 if file_name not in files_in_other_names:
-                    file_class = (
-                        ' class="file-unique-left"'
-                        if is_left_tree
-                        else ' class="file-unique-right"'
-                    )
+                    file_class = ' class="file-unique-left"'
                 else:
                     file_class = ""
 
@@ -1402,11 +1398,7 @@ def _export_comparison_to_html(
             ):
                 continue
             if name not in other_structure:
-                dir_class = (
-                    ' class="directory-unique-left"'
-                    if is_left_tree
-                    else ' class="directory-unique-right"'
-                )
+                dir_class = ' class="directory-unique-left"'
             else:
                 dir_class = ""
 
@@ -1617,11 +1609,7 @@ def _export_comparison_to_html(
                     display_text = html.escape(file_name)
 
                 if file_name not in files_in_this_names:
-                    file_class = (
-                        ' class="file-unique-right"'
-                        if is_left_tree
-                        else ' class="file-unique-left"'
-                    )
+                    file_class = ' class="file-unique-right"'
                     file_icon = get_icon(file_name, is_dir=False, style=icon_style)
                     html_content.append(
                         f'<li{file_class}><span class="file">{file_icon} {display_text}</span></li>'
@@ -1637,11 +1625,7 @@ def _export_comparison_to_html(
                     or name in structure
                 ):
                     continue
-                dir_class = (
-                    ' class="directory-unique-right"'
-                    if is_left_tree
-                    else ' class="directory-unique-left"'
-                )
+                dir_class = ' class="directory-unique-right"'
 
                 folder_icon = get_icon(name, is_dir=True, style=icon_style)
 
