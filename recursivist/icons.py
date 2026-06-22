@@ -23,6 +23,8 @@ EXACT_MATCH_ICONS = {
     ".gitconfig": "\ue702",
     ".gitattributes": "\ue702",
     ".gitmodules": "\ue702",
+    # Environment
+    ".env": "\uf415",
     # Docker
     "dockerfile": "\uf308",  # nf-linux-docker
     "docker-compose.yml": "\uf308",
