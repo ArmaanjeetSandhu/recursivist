@@ -48,6 +48,7 @@ from recursivist.core import (
     compile_regex_patterns,
     display_tree,
     get_directory_structure,
+    get_git_status,
 )
 from recursivist.exporters import get_exporter
 
@@ -374,6 +375,14 @@ def visualize(
         else:
             logger.warning(f"Ignore file not found: {ignore_path}")
     try:
+        git_status_map: Optional[dict[str, str]] = None
+        if show_git_status:
+            git_status_map = get_git_status(str(directory))
+            if not git_status_map:
+                logger.debug(
+                    "Git status requested but no data returned — "
+                    "directory may not be inside a Git repository, or there are no changes."
+                )
         with Progress() as progress:
             task_scan = progress.add_task(
                 "[cyan]Scanning directory structure...", total=None
@@ -392,7 +401,7 @@ def visualize(
                 compiled_include = cast(
                     list[Union[str, Pattern[str]]], parsed_include_patterns
                 )
-            _, extensions = get_directory_structure(
+            structure, extensions = get_directory_structure(
                 str(directory),
                 parsed_exclude_dirs,
                 ignore_file,
@@ -404,6 +413,8 @@ def visualize(
                 sort_by_loc=sort_by_loc,
                 sort_by_size=sort_by_size,
                 sort_by_mtime=sort_by_mtime,
+                show_git_status=show_git_status,
+                git_status_map=git_status_map,
             )
             progress.update(task_scan, completed=True)
             logger.debug(f"Found {len(extensions)} unique file extensions")
@@ -423,6 +434,8 @@ def visualize(
             sort_by_mtime,
             show_git_status,
             icon_style=resolved_style,
+            structure=structure,
+            extensions=extensions,
         )
     except Exception as e:
         logger.error(f"Error: {e}", exc_info=verbose)

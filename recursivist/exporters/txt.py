@@ -58,7 +58,7 @@ class TxtExporter(BaseExporter):
                         _git_markers.get(_fname, "") if self.show_git_status else ""
                     )
                     _git_suffix = (
-                        f" {self._GIT_TXT_SUFFIX.get(_git_marker, _git_marker)}"
+                        self._GIT_TXT_SUFFIX.get(_git_marker, f" {_git_marker}")
                         if _git_marker
                         else ""
                     )

@@ -992,6 +992,8 @@ def display_tree(
     sort_by_mtime: bool = False,
     show_git_status: bool = False,
     icon_style: str = "emoji",
+    structure: Optional[dict[str, Any]] = None,
+    extensions: Optional[set[str]] = None,
 ) -> None:
     """Display a directory tree in the terminal with rich formatting.
 
@@ -1028,38 +1030,40 @@ def display_tree(
         exclude_patterns = []
     if include_patterns is None:
         include_patterns = []
-    exclude_extensions = {
-        ext.lower() if ext.startswith(".") else f".{ext.lower()}"
-        for ext in exclude_extensions
-    }
-    compiled_exclude = compile_regex_patterns(exclude_patterns, use_regex)
-    compiled_include = compile_regex_patterns(include_patterns, use_regex)
 
-    git_status_map: Optional[dict[str, str]] = None
-    if show_git_status:
-        git_status_map = get_git_status(root_dir)
-        if not git_status_map:
-            logger.debug(
-                "Git status requested but no data returned — "
-                "directory may not be inside a Git repository, or there are no changes."
-            )
+    if structure is None or extensions is None:
+        exclude_extensions = {
+            ext.lower() if ext.startswith(".") else f".{ext.lower()}"
+            for ext in exclude_extensions
+        }
+        compiled_exclude = compile_regex_patterns(exclude_patterns, use_regex)
+        compiled_include = compile_regex_patterns(include_patterns, use_regex)
 
-    structure, extensions = get_directory_structure(
-        root_dir=root_dir,
-        exclude_dirs=exclude_dirs,
-        ignore_file=ignore_file,
-        exclude_extensions=exclude_extensions,
-        parent_ignore_patterns=None,
-        exclude_patterns=compiled_exclude,
-        include_patterns=compiled_include,
-        max_depth=max_depth,
-        show_full_path=show_full_path,
-        sort_by_loc=sort_by_loc,
-        sort_by_size=sort_by_size,
-        sort_by_mtime=sort_by_mtime,
-        show_git_status=show_git_status,
-        git_status_map=git_status_map,
-    )
+        git_status_map: Optional[dict[str, str]] = None
+        if show_git_status:
+            git_status_map = get_git_status(root_dir)
+            if not git_status_map:
+                logger.debug(
+                    "Git status requested but no data returned — "
+                    "directory may not be inside a Git repository, or there are no changes."
+                )
+
+        structure, extensions = get_directory_structure(
+            root_dir=root_dir,
+            exclude_dirs=exclude_dirs,
+            ignore_file=ignore_file,
+            exclude_extensions=exclude_extensions,
+            parent_ignore_patterns=None,
+            exclude_patterns=compiled_exclude,
+            include_patterns=compiled_include,
+            max_depth=max_depth,
+            show_full_path=show_full_path,
+            sort_by_loc=sort_by_loc,
+            sort_by_size=sort_by_size,
+            sort_by_mtime=sort_by_mtime,
+            show_git_status=show_git_status,
+            git_status_map=git_status_map,
+        )
     color_map = {ext: generate_color_for_extension(ext) for ext in extensions}
     console = Console()
 
