@@ -199,7 +199,7 @@ def should_exclude(
     if os.name == "nt":
         rel_path = rel_path.replace("\\", "/")
     basename = os.path.basename(path)
-    if include_patterns:
+    if include_patterns and not os.path.isdir(path):
         included = False
         for pattern in include_patterns:
             if isinstance(pattern, Pattern):
