@@ -1727,50 +1727,6 @@ def _export_comparison_to_html(
         html_content.append("</ul>")
         return "\n".join(html_content)
 
-    def format_timestamp_js() -> str:
-        """Return a JavaScript helper function for human-readable timestamps.
-
-        Generates a ``formatTimestamp(timestamp)`` JS function that converts
-        a Unix epoch value (seconds) to a context-sensitive string using the
-        same relative-date logic as :func:`~recursivist.core.format_timestamp`:
-
-        * **Today** – ``"Today HH:MM"``
-        * **Yesterday** – ``"Yesterday HH:MM"``
-        * **Last 7 days** – ``"Day HH:MM"`` (e.g., ``"Mon 14:30"``)
-        * **This year** – ``"Month Day"`` (e.g., ``"Mar 15"``)
-        * **Older** – ``"YYYY-MM-DD"``
-
-        Returns:
-            A string containing a self-contained JavaScript function
-            definition ready to be embedded inside an HTML ``<script>`` block.
-        """
-        return """
-        function formatTimestamp(timestamp) {
-            const dt = new Date(timestamp * 1000);
-            const now = new Date();
-            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-            const yesterday = new Date(today);
-            yesterday.setDate(yesterday.getDate() - 1);
-            if (dt >= today) {
-                return `Today ${dt.getHours().toString().padStart(2, '0')}:${dt.getMinutes().toString().padStart(2, '0')}`;
-            }
-            else if (dt >= yesterday) {
-                return `Yesterday ${dt.getHours().toString().padStart(2, '0')}:${dt.getMinutes().toString().padStart(2, '0')}`;
-            }
-            else if ((today - dt) / (1000 * 60 * 60 * 24) < 7) {
-                const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-                return `${days[dt.getDay()]} ${dt.getHours().toString().padStart(2, '0')}:${dt.getMinutes().toString().padStart(2, '0')}`;
-            }
-            else if (dt.getFullYear() === now.getFullYear()) {
-                const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-                return `${months[dt.getMonth()]} ${dt.getDate()}`;
-            }
-            else {
-                return `${dt.getFullYear()}-${(dt.getMonth() + 1).toString().padStart(2, '0')}-${dt.getDate().toString().padStart(2, '0')}`;
-            }
-        }
-        """
-
     dir1_name = html.escape(comparison_data["dir1"]["name"])
     dir2_name = html.escape(comparison_data["dir2"]["name"])
     dir1_path = html.escape(comparison_data["dir1"]["path"])
@@ -1866,10 +1822,6 @@ def _export_comparison_to_html(
             dir1_title = f"{dir1_name} ({format_timestamp(dir1_structure['_mtime'])})"
         if "_mtime" in dir2_structure:
             dir2_title = f"{dir2_name} ({format_timestamp(dir2_structure['_mtime'])})"
-
-    js_format_timestamp = ""
-    if metadata.get("sort_by_mtime"):
-        js_format_timestamp = format_timestamp_js()
 
     root_icon1 = get_icon(dir1_name, is_dir=True, style=icon_style)
     root_icon2 = get_icon(dir2_name, is_dir=True, style=icon_style)
@@ -1980,9 +1932,6 @@ def _export_comparison_to_html(
                 font-size: 0.9em;
             }}
         </style>
-        <script>
-            {js_format_timestamp}
-        </script>
     </head>
     <body>
         <h1>Directory Comparison</h1>
