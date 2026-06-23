@@ -865,37 +865,37 @@ def build_tree(
             icon = get_icon(file_name, is_dir=False, style=icon_style)
             colored_text.append(f"{icon} ", style=color)
 
-            if sort_by_loc and sort_by_size and sort_by_mtime and loc > 0:
+            if sort_by_loc and sort_by_size and sort_by_mtime:
                 colored_text.append(
                     f"{display_path} ({loc} lines, {format_size(size)}, {format_timestamp(mtime)})",
                     style=name_style,
                 )
-            elif sort_by_loc and sort_by_mtime and loc > 0:
+            elif sort_by_loc and sort_by_mtime:
                 colored_text.append(
                     f"{display_path} ({loc} lines, {format_timestamp(mtime)})",
                     style=name_style,
                 )
-            elif sort_by_size and sort_by_mtime and size > 0:
+            elif sort_by_size and sort_by_mtime:
                 colored_text.append(
                     f"{display_path} ({format_size(size)}, {format_timestamp(mtime)})",
                     style=name_style,
                 )
-            elif sort_by_loc and sort_by_size and loc > 0:
+            elif sort_by_loc and sort_by_size:
                 colored_text.append(
                     f"{display_path} ({loc} lines, {format_size(size)})",
                     style=name_style,
                 )
-            elif sort_by_loc and loc > 0:
+            elif sort_by_loc:
                 colored_text.append(
                     f"{display_path} ({loc} lines)",
                     style=name_style,
                 )
-            elif sort_by_size and size > 0:
+            elif sort_by_size:
                 colored_text.append(
                     f"{display_path} ({format_size(size)})",
                     style=name_style,
                 )
-            elif sort_by_mtime and mtime > 0:
+            elif sort_by_mtime:
                 colored_text.append(
                     f"{display_path} ({format_timestamp(mtime)})",
                     style=name_style,
