@@ -63,7 +63,7 @@ def parse_ignore_file(ignore_file_path: str) -> list[str]:
 def get_git_status(directory: str) -> dict[str, str]:
     """Get Git status for files relative to a given directory.
 
-    Runs ``git status --porcelain`` from the repository root and maps every
+    Runs ``git status --porcelain -z`` from the repository root and maps every
     changed/untracked path back to a path relative to *directory*, filtering
     out files that live outside of it.
 
@@ -96,7 +96,7 @@ def get_git_status(directory: str) -> dict[str, str]:
         git_root = root_result.stdout.strip()
 
         status_result = subprocess.run(
-            ["git", "status", "--porcelain"],
+            ["git", "status", "--porcelain", "-z"],
             cwd=git_root,
             capture_output=True,
             text=True,
@@ -105,16 +105,19 @@ def get_git_status(directory: str) -> dict[str, str]:
             return {}
 
         status_map: dict[str, str] = {}
-        for line in status_result.stdout.splitlines():
-            if len(line) < 4:
+        records = status_result.stdout.split("\0")
+        i = 0
+        while i < len(records):
+            entry = records[i]
+            i += 1
+            if len(entry) < 4:
                 continue
-            xy = line[:2]
-            path = line[3:]
-            if " -> " in path:
-                path = path.split(" -> ", 1)[1]
-            path = path.strip().strip('"')
+            xy = entry[:2]
+            path = entry[3:]
 
             x, y = xy[0], xy[1]
+            if x == "R" or x == "C":
+                i += 1
             if x == "?" and y == "?":
                 status = "U"
             elif x == "D" or y == "D":
