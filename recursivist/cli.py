@@ -647,9 +647,7 @@ def export(
         else:
             logger.warning(f"Ignore file not found: {ignore_path}")
     try:
-        from recursivist.core import get_git_status as _get_git_status
-
-        git_status_map = _get_git_status(str(directory)) if show_git_status else None
+        git_status_map = get_git_status(str(directory)) if show_git_status else None
         if show_git_status and not git_status_map:
             logger.debug(
                 "Git status requested but no data returned — "
@@ -762,13 +760,13 @@ def completion(
             logger.info(f"Supported shells: {', '.join(valid_shells)}")
             raise typer.Exit(1)
         completion_script = ""
-        if shell == "bash":
+        if shell.lower() == "bash":
             completion_script = f'eval "$({sys.argv[0]} --completion-script bash)"'
-        elif shell == "zsh":
+        elif shell.lower() == "zsh":
             completion_script = f'eval "$({sys.argv[0]} --completion-script zsh)"'
-        elif shell == "fish":
+        elif shell.lower() == "fish":
             completion_script = f"{sys.argv[0]} --completion-script fish | source"
-        elif shell == "powershell":
+        elif shell.lower() == "powershell":
             completion_script = f"& {sys.argv[0]} --completion-script powershell | Out-String | Invoke-Expression"
         typer.echo(completion_script)
         logger.info(f"Generated completion script for {shell}")

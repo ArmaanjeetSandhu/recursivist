@@ -1228,7 +1228,6 @@ def _export_comparison_to_html(
     def _build_html_tree(
         structure: dict[str, Any],
         other_structure: dict[str, Any],
-        is_left_tree: bool = True,
     ) -> str:
         """Export comparison to HTML format.
 
@@ -1480,9 +1479,7 @@ def _export_comparison_to_html(
                 )
             else:
                 other_content = other_structure.get(name, {}) if other_structure else {}
-                html_content.append(
-                    _build_html_tree(content, other_content, is_left_tree)
-                )
+                html_content.append(_build_html_tree(content, other_content))
             html_content.append("</li>")
         if other_structure and "_files" in other_structure:
             files_in_this_names = []
@@ -1706,7 +1703,7 @@ def _export_comparison_to_html(
                         '<ul><li class="max-depth">⋯ (max depth reached)</li></ul>'
                     )
                 else:
-                    html_content.append(_build_html_tree({}, content, is_left_tree))
+                    html_content.append(_build_html_tree({}, content))
                 html_content.append("</li>")
         html_content.append("</ul>")
         return "\n".join(html_content)
@@ -1939,12 +1936,12 @@ def _export_comparison_to_html(
             <div class="directory-tree">
                 <h3>{root_icon1} {dir1_title}</h3>
                 <p><em>Path: {dir1_path}</em></p>
-                {_build_html_tree(dir1_structure, dir2_structure, True)}
+                {_build_html_tree(dir1_structure, dir2_structure)}
             </div>
             <div class="directory-tree">
                 <h3>{root_icon2} {dir2_title}</h3>
                 <p><em>Path: {dir2_path}</em></p>
-                {_build_html_tree(dir2_structure, dir1_structure, False)}
+                {_build_html_tree(dir2_structure, dir1_structure)}
             </div>
         </div>
     </body>
