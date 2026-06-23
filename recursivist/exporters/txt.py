@@ -2,10 +2,10 @@ import logging
 import os
 from typing import Any
 
-from recursivist.core import format_size, format_timestamp
+from recursivist.core import format_size, format_timestamp, sort_files_by_type
 from recursivist.icons import get_icon
 
-from .base import BaseExporter, sort_files_by_type
+from .base import BaseExporter
 
 logger = logging.getLogger(__name__)
 
