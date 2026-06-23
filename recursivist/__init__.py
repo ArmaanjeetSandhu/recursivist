@@ -1,6 +1,6 @@
 """Recursivist: A directory structure visualization tool."""
 
-__version__ = "1.6.4"
+__version__ = "1.6.5"
 __author__ = "Armaanjeet Singh Sandhu"
 __license__ = "MIT"
 __email__ = "armaanjeetsandhu430@gmail.com"

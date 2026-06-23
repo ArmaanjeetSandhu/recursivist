@@ -343,6 +343,7 @@ def build_comparison_tree(
             or folder == "_loc"
             or folder == "_size"
             or folder == "_mtime"
+            or folder == "_git_markers"
         ):
             continue
 
@@ -684,6 +685,7 @@ def build_comparison_tree(
                 and folder != "_loc"
                 and folder != "_size"
                 and folder != "_mtime"
+                and folder != "_git_markers"
                 and folder not in structure
             ):
                 other_content = other_structure[folder]
@@ -1394,6 +1396,7 @@ def _export_comparison_to_html(
                 or name == "_loc"
                 or name == "_size"
                 or name == "_mtime"
+                or name == "_git_markers"
             ):
                 continue
             if name not in other_structure:
@@ -1619,6 +1622,7 @@ def _export_comparison_to_html(
                     or name == "_loc"
                     or name == "_size"
                     or name == "_mtime"
+                    or name == "_git_markers"
                     or name in structure
                 ):
                     continue
