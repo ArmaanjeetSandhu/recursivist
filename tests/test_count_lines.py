@@ -228,17 +228,6 @@ class TestCountLinesOfCode:
             "UnicodeDecodeError should return 0 lines"
         )
 
-    def test_file_with_bin_extension(self) -> None:
-        """Test that files with .bin extension are handled correctly."""
-        with tempfile.NamedTemporaryFile(suffix=".bin", mode="w", delete=False) as f:
-            f.write("This is a text file with .bin extension\nIt has multiple lines\n")
-            file_path: str = f.name
-        try:
-            line_count: int = count_lines_of_code(file_path)
-            assert line_count == 0, "Files with .bin extension should return 0 lines"
-        finally:
-            os.unlink(file_path)
-
 
 if __name__ == "__main__":
     pytest.main()

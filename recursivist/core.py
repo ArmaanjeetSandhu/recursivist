@@ -1136,8 +1136,6 @@ def count_lines_of_code(file_path: str) -> int:
     Returns:
         Number of lines in the file, or 0 if the file cannot be read or is binary
     """
-    if file_path.lower().endswith(".bin"):
-        return 0
     try:
         with open(file_path, "rb") as binary_file:
             sample = binary_file.read(4096)
