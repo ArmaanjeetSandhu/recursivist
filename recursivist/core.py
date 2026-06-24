@@ -564,6 +564,12 @@ def get_directory_structure(
                 show_git_status,
                 git_status_map,
             )
+            if include_patterns and not (
+                substructure.get("_files")
+                or substructure.get("_max_depth_reached")
+                or any(not k.startswith("_") for k in substructure)
+            ):
+                continue
             structure[item] = substructure
             extensions_set.update(sub_extensions)
             if sort_by_loc and "_loc" in substructure:
