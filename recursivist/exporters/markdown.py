@@ -1,3 +1,4 @@
+import html
 import logging
 import os
 from typing import Any
@@ -8,6 +9,28 @@ from recursivist.icons import get_icon
 from .base import BaseExporter
 
 logger = logging.getLogger(__name__)
+
+
+def _md_inline_code(text: str) -> str:
+    """Render arbitrary text as an inline-code span that cannot be broken out of."""
+    longest = current = 0
+    for ch in text:
+        if ch == "`":
+            current += 1
+            longest = max(longest, current)
+        else:
+            current = 0
+    fence = "`" * (longest + 1)
+    if text.startswith("`") or text.endswith("`"):
+        return f"{fence} {text} {fence}"
+    return f"{fence}{text}{fence}"
+
+
+def _md_escape_text(text: str) -> str:
+    """Escape text used in non-code Markdown contexts (bold dir names, headings)."""
+    for ch in ("\\", "`", "*", "[", "]"):
+        text = text.replace(ch, "\\" + ch)
+    return html.escape(text, quote=False)
 
 
 class MarkdownExporter(BaseExporter):
@@ -99,10 +122,11 @@ class MarkdownExporter(BaseExporter):
                         "A": "**[A]**",
                         "D": "**[D]**",
                     }
+                    _md_code = _md_inline_code(display_path)
                     if _git_marker_md == "D":
-                        _md_display = f"~~`{display_path}`~~"
+                        _md_display = f"~~{_md_code}~~"
                     else:
-                        _md_display = f"`{display_path}`"
+                        _md_display = _md_code
                     _md_git_suffix = (
                         f" {_GIT_MD_BADGE[_git_marker_md]}"
                         if _git_marker_md in _GIT_MD_BADGE
@@ -167,7 +191,7 @@ class MarkdownExporter(BaseExporter):
                     size_count = content["_size"]
                     mtime_count = content["_mtime"]
                     lines.append(
-                        f"{indent}- {folder_icon} **{name}** ({loc_count} lines, {format_size(size_count)}, {format_timestamp(mtime_count)})"
+                        f"{indent}- {folder_icon} **{_md_escape_text(name)}** ({loc_count} lines, {format_size(size_count)}, {format_timestamp(mtime_count)})"
                     )
                 elif (
                     self.sort_by_loc
@@ -179,7 +203,7 @@ class MarkdownExporter(BaseExporter):
                     loc_count = content["_loc"]
                     size_count = content["_size"]
                     lines.append(
-                        f"{indent}- {folder_icon} **{name}** ({loc_count} lines, {format_size(size_count)})"
+                        f"{indent}- {folder_icon} **{_md_escape_text(name)}** ({loc_count} lines, {format_size(size_count)})"
                     )
                 elif (
                     self.sort_by_loc
@@ -191,7 +215,7 @@ class MarkdownExporter(BaseExporter):
                     loc_count = content["_loc"]
                     mtime_count = content["_mtime"]
                     lines.append(
-                        f"{indent}- {folder_icon} **{name}** ({loc_count} lines, {format_timestamp(mtime_count)})"
+                        f"{indent}- {folder_icon} **{_md_escape_text(name)}** ({loc_count} lines, {format_timestamp(mtime_count)})"
                     )
                 elif (
                     self.sort_by_size
@@ -203,14 +227,14 @@ class MarkdownExporter(BaseExporter):
                     size_count = content["_size"]
                     mtime_count = content["_mtime"]
                     lines.append(
-                        f"{indent}- {folder_icon} **{name}** ({format_size(size_count)}, {format_timestamp(mtime_count)})"
+                        f"{indent}- {folder_icon} **{_md_escape_text(name)}** ({format_size(size_count)}, {format_timestamp(mtime_count)})"
                     )
                 elif (
                     self.sort_by_loc and isinstance(content, dict) and "_loc" in content
                 ):
                     loc_count = content["_loc"]
                     lines.append(
-                        f"{indent}- {folder_icon} **{name}** ({loc_count} lines)"
+                        f"{indent}- {folder_icon} **{_md_escape_text(name)}** ({loc_count} lines)"
                     )
                 elif (
                     self.sort_by_size
@@ -219,7 +243,7 @@ class MarkdownExporter(BaseExporter):
                 ):
                     size_count = content["_size"]
                     lines.append(
-                        f"{indent}- {folder_icon} **{name}** ({format_size(size_count)})"
+                        f"{indent}- {folder_icon} **{_md_escape_text(name)}** ({format_size(size_count)})"
                     )
                 elif (
                     self.sort_by_mtime
@@ -228,10 +252,10 @@ class MarkdownExporter(BaseExporter):
                 ):
                     mtime_count = content["_mtime"]
                     lines.append(
-                        f"{indent}- {folder_icon} **{name}** ({format_timestamp(mtime_count)})"
+                        f"{indent}- {folder_icon} **{_md_escape_text(name)}** ({format_timestamp(mtime_count)})"
                     )
                 else:
-                    lines.append(f"{indent}- {folder_icon} **{name}**")
+                    lines.append(f"{indent}- {folder_icon} **{_md_escape_text(name)}**")
                 next_path = os.path.join(path_prefix, name) if path_prefix else name
                 if isinstance(content, dict):
                     if content.get("_max_depth_reached"):
@@ -251,7 +275,7 @@ class MarkdownExporter(BaseExporter):
             and "_mtime" in self.structure
         ):
             md_content = [
-                f"# {root_icon} {self.root_name} ({self.structure['_loc']} lines, {format_size(self.structure['_size'])}, {format_timestamp(self.structure['_mtime'])})",
+                f"# {root_icon} {_md_escape_text(self.root_name)} ({self.structure['_loc']} lines, {format_size(self.structure['_size'])}, {format_timestamp(self.structure['_mtime'])})",
                 "",
             ]
         elif (
@@ -261,7 +285,7 @@ class MarkdownExporter(BaseExporter):
             and "_size" in self.structure
         ):
             md_content = [
-                f"# {root_icon} {self.root_name} ({self.structure['_loc']} lines, {format_size(self.structure['_size'])})",
+                f"# {root_icon} {_md_escape_text(self.root_name)} ({self.structure['_loc']} lines, {format_size(self.structure['_size'])})",
                 "",
             ]
         elif (
@@ -271,7 +295,7 @@ class MarkdownExporter(BaseExporter):
             and "_mtime" in self.structure
         ):
             md_content = [
-                f"# {root_icon} {self.root_name} ({self.structure['_loc']} lines, {format_timestamp(self.structure['_mtime'])})",
+                f"# {root_icon} {_md_escape_text(self.root_name)} ({self.structure['_loc']} lines, {format_timestamp(self.structure['_mtime'])})",
                 "",
             ]
         elif (
@@ -281,26 +305,26 @@ class MarkdownExporter(BaseExporter):
             and "_mtime" in self.structure
         ):
             md_content = [
-                f"# {root_icon} {self.root_name} ({format_size(self.structure['_size'])}, {format_timestamp(self.structure['_mtime'])})",
+                f"# {root_icon} {_md_escape_text(self.root_name)} ({format_size(self.structure['_size'])}, {format_timestamp(self.structure['_mtime'])})",
                 "",
             ]
         elif self.sort_by_loc and "_loc" in self.structure:
             md_content = [
-                f"# {root_icon} {self.root_name} ({self.structure['_loc']} lines)",
+                f"# {root_icon} {_md_escape_text(self.root_name)} ({self.structure['_loc']} lines)",
                 "",
             ]
         elif self.sort_by_size and "_size" in self.structure:
             md_content = [
-                f"# {root_icon} {self.root_name} ({format_size(self.structure['_size'])})",
+                f"# {root_icon} {_md_escape_text(self.root_name)} ({format_size(self.structure['_size'])})",
                 "",
             ]
         elif self.sort_by_mtime and "_mtime" in self.structure:
             md_content = [
-                f"# {root_icon} {self.root_name} ({format_timestamp(self.structure['_mtime'])})",
+                f"# {root_icon} {_md_escape_text(self.root_name)} ({format_timestamp(self.structure['_mtime'])})",
                 "",
             ]
         else:
-            md_content = [f"# {root_icon} {self.root_name}", ""]
+            md_content = [f"# {root_icon} {_md_escape_text(self.root_name)}", ""]
 
         md_content.extend(
             _build_md_tree(
