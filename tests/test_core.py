@@ -231,10 +231,11 @@ class TestFormatTimestamp:
         formatted = format_timestamp(previous_year)
         assert re.match(r"\d{4}-\d{2}-\d{2}", formatted)
 
+    def test_old_date(self) -> None:
+        assert re.match(r"\d{4}-\d{2}-\d{2}", format_timestamp(978307200))
+
     def test_epoch(self) -> None:
-        epoch_time = 0
-        formatted = format_timestamp(epoch_time)
-        assert re.match(r"\d{4}-\d{2}-\d{2}", formatted)
+        assert format_timestamp(0) == "-"
 
 
 class TestGenerateColorForExtension:

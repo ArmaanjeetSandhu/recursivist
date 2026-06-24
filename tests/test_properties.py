@@ -372,14 +372,14 @@ class TestFormatFunctions:
             "GB",
         ], f"Unit should be one of B, KB, MB, GB, got {unit}"
 
-    @given(st.floats(min_value=0, max_value=1672531200))
+    @given(st.floats(min_value=1, max_value=1672531200))
     @settings(max_examples=100)
     def test_format_timestamp(self, timestamp: float) -> None:
-        """Test that format_timestamp always returns a string representation."""
+        """Real (non-sentinel) timestamps always yield a recognizable string."""
         result = format_timestamp(timestamp)
-        assert isinstance(result, str), "format_timestamp should return a string"
+        assert isinstance(result, str)
         assert re.search(
-            r"Today \d{2}:\d{2}|Yesterday \d{2}:\d{2}|[A-Z][a-z]{2} \d{2}:\d{2}|[A-Z][a-z]{2} \d{1,2}|\d{4}-\d{2}-\d{2}",
+            r"Today \d{2}:\d{2}|Yesterday \d{2}:\d{2}|[A-Z][a-z]{2} \d{2}:\d{2}|[A-Z][a-z]{2} \d{1,2}|\d{4}-\d{2}-\d{2}|^-$",
             result,
         ), f"Invalid timestamp format: {result}"
 

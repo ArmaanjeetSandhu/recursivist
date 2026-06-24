@@ -1256,7 +1256,12 @@ def format_timestamp(timestamp: float) -> str:
     Returns:
         Human-readable date/time string
     """
-    dt_object = dt.fromtimestamp(timestamp)
+    if not timestamp:
+        return "-"
+    try:
+        dt_object = dt.fromtimestamp(timestamp)
+    except (OSError, OverflowError, ValueError):
+        return "-"
     current_dt = dt.now()
     current_date = current_dt.date()
     if dt_object.date() == current_date:
