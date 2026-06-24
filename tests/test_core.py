@@ -1,6 +1,7 @@
 import json
 import os
 import re
+import tempfile
 import time
 from pathlib import Path
 from typing import Any, Optional, Union
@@ -685,6 +686,114 @@ def test_should_exclude(
 
 
 @pytest.mark.parametrize(
+    "patterns,rel_path,is_dir,expected",
+    [
+        (["/build"], "build", True, True),
+        (["/build"], "src/build", True, False),
+        (["build"], "build", True, True),
+        (["build"], "src/nested/build", True, True),
+        (["src/build"], "src/build", True, True),
+        (["src/build"], "build", True, False),
+        (["src/build"], "other/src/build", True, False),
+        (["build/"], "build", True, True),
+        (["build/"], "build", False, False),
+        (["*.log"], "foo.log", False, True),
+        (["*.log"], "src/deep/foo.log", False, True),
+        (["*.log"], "foo.log.txt", False, False),
+        (["*.log", "!keep.log"], "keep.log", False, False),
+        (["*.log", "!keep.log"], "other.log", False, True),
+        (["!keep.log", "*.log"], "keep.log", False, True),
+    ],
+)
+def test_should_exclude_gitignore_patterns(
+    temp_dir: str,
+    patterns: list[str],
+    rel_path: str,
+    is_dir: bool,
+    expected: bool,
+) -> None:
+    """Gitignore-style matching in should_exclude: root-relative anchoring,
+    directory-only markers, '*' not crossing '/', and order-sensitive negation."""
+    target, current_dir, rel_dir = _make_entry(temp_dir, rel_path, is_dir)
+    ignore_context = {
+        "patterns": patterns,
+        "current_dir": current_dir,
+        "rel_dir": rel_dir,
+    }
+    assert should_exclude(target, ignore_context) is expected
+
+
+@pytest.mark.parametrize(
+    "ignore_patterns,exclude_patterns,exclude_extensions,include_patterns,rel_path,expected",
+    [
+        (["*.log", "!keep.log"], None, None, None, "keep.log", False),
+        (["*.log", "!keep.log"], ["keep.log"], None, None, "keep.log", True),
+        (["*.log", "!keep.log"], ["*.log"], None, None, "keep.log", True),
+        (["*.log", "!keep.log"], None, {".log"}, None, "keep.log", True),
+        (["*.log"], None, None, ["*.log"], "keep.log", False),
+        (["!keep.log"], None, None, ["*.md"], "keep.log", True),
+    ],
+)
+def test_should_exclude_filter_precedence(
+    temp_dir: str,
+    ignore_patterns: list[str],
+    exclude_patterns: Optional[list[str]],
+    exclude_extensions: Optional[set[str]],
+    include_patterns: Optional[list[str]],
+    rel_path: str,
+    expected: bool,
+) -> None:
+    """CLI excludes and excluded extensions take priority over the gitignore
+    stage, and include_patterns bypasses it; the gitignore negation only decides
+    the outcome when no higher-priority filter applies."""
+    target, current_dir, rel_dir = _make_entry(temp_dir, rel_path, is_dir=False)
+    ignore_context = {
+        "patterns": ignore_patterns,
+        "current_dir": current_dir,
+        "rel_dir": rel_dir,
+    }
+    result = should_exclude(
+        target,
+        ignore_context,
+        exclude_extensions=exclude_extensions,
+        exclude_patterns=exclude_patterns,
+        include_patterns=include_patterns,
+    )
+    assert result is expected
+
+
+@pytest.mark.parametrize(
+    "ignore_patterns,rel_path,is_dir,expected",
+    [
+        (["doc/**/*.txt"], "doc/a.txt", False, True),
+        (["doc/**/*.txt"], "doc/sub/deep/a.txt", False, True),
+        (["doc/**/*.txt"], "doc/a.md", False, False),
+        (["doc/**/*.txt"], "src/doc/a.txt", False, False),
+        (["doc/**/*.txt"], "doc/sub", True, False),
+        (["**/build"], "build", True, True),
+        (["**/build"], "a/b/build", True, True),
+    ],
+)
+def test_should_exclude_double_star(
+    temp_dir: str,
+    ignore_patterns: list[str],
+    rel_path: str,
+    is_dir: bool,
+    expected: bool,
+) -> None:
+    """'**' spans directory boundaries: 'doc/**/*.txt' matches at any depth under
+    doc/, '**/foo' floats a name anywhere, and intermediate directories are not
+    incidentally matched."""
+    target, current_dir, rel_dir = _make_entry(temp_dir, rel_path, is_dir=is_dir)
+    ignore_context = {
+        "patterns": ignore_patterns,
+        "current_dir": current_dir,
+        "rel_dir": rel_dir,
+    }
+    assert should_exclude(target, ignore_context) is expected
+
+
+@pytest.mark.parametrize(
     "patterns,is_regex,expected_count,expected_types",
     [
         (["*.py", "test_*"], False, 2, [str, str]),
@@ -712,12 +821,12 @@ def test_compile_regex_patterns(
     [
         (
             "# This is a comment\n*.log\n\nnode_modules/\ndist\n# Another comment\n",
-            ["*.log", "node_modules", "dist"],
+            ["*.log", "node_modules/", "dist"],
         ),
         ("", []),
         (
             "# Logs\n*.log\nlogs/\n!important.log\n# Directories\nnode_modules/\ndist/\n",
-            ["*.log", "logs", "!important.log", "node_modules", "dist"],
+            ["*.log", "logs/", "!important.log", "node_modules/", "dist/"],
         ),
     ],
 )
@@ -744,6 +853,46 @@ def test_get_directory_structure(sample_directory: Any) -> None:
     assert ".py" in extensions
     assert ".md" in extensions
     assert ".json" in extensions
+
+
+def test_get_directory_structure_gitignore_end_to_end(temp_dir: str) -> None:
+    """End-to-end: get_directory_structure reads a real .gitignore and applies
+    anchoring, depth-aware negation, and directory pruning to the final tree.
+
+    .gitignore is:  *.log  /  !keep.log  /  /build
+      - '*.log' floats: excludes app.log (root) and src/debug.log (depth)
+      - '!keep.log' re-includes keep.log at both root and depth (last match wins)
+      - '/build' is anchored: the root build/ is pruned wholesale, but src/build/
+        survives because the pattern only anchors at the scan root
+    """
+    root = os.path.join(temp_dir, "project")
+    os.makedirs(root, exist_ok=True)
+    _materialize_tree(
+        root,
+        {
+            ".gitignore": "*.log\n!keep.log\n/build\n",
+            "app.log": "x",
+            "keep.log": "x",
+            "main.py": "x",
+            "build/output.txt": "x",
+            "src/debug.log": "x",
+            "src/keep.log": "x",
+            "src/helper.py": "x",
+            "src/build/nested.py": "x",
+        },
+    )
+
+    structure, extensions = get_directory_structure(root, ignore_file=".gitignore")
+
+    assert _normalize_structure(structure) == {
+        "_files": {".gitignore", "keep.log", "main.py"},
+        "src": {
+            "_files": {"helper.py", "keep.log"},
+            "build": {"_files": {"nested.py"}},
+        },
+    }
+
+    assert extensions == {".log", ".py"}
 
 
 @pytest.mark.parametrize(
@@ -834,3 +983,53 @@ def test_build_tree_combined(mocker: MockerFixture) -> None:
     texts = [call.args[0].plain for call in calls if isinstance(call.args[0], Text)]
     for file_name in ["file1.txt", "file2.py", "file3.md", "file4.json", "file5.js"]:
         assert any(file_name in text for text in texts)
+
+
+def _make_entry(base_dir: str, rel_path: str, is_dir: bool) -> tuple[str, str, str]:
+    """Create *rel_path* (relative to a fresh scan root under *base_dir*) on disk
+    and return ``(path, current_dir, rel_dir)`` exactly as get_directory_structure
+    would hand them to should_exclude for a direct child entry.
+
+    A fresh scan root per call keeps the cases order- and fixture-scope-independent
+    (so a dir named ``build`` in one case can't collide with a file named ``build``
+    in another).
+    """
+    scan_root = tempfile.mkdtemp(dir=base_dir)
+    rel_path = rel_path.replace("/", os.sep)
+    parent_rel, name = os.path.split(rel_path)
+    parent = os.path.join(scan_root, parent_rel) if parent_rel else scan_root
+    os.makedirs(parent, exist_ok=True)
+    target = os.path.join(parent, name)
+    if is_dir:
+        os.makedirs(target, exist_ok=True)
+    else:
+        with open(target, "w") as fh:
+            fh.write("x")
+    return target, parent, parent_rel
+
+
+def _materialize_tree(root: str, files: dict[str, str]) -> None:
+    """Create each file (keyed by '/'-separated relative path) under *root*,
+    making intermediate directories as needed."""
+    for rel, content in files.items():
+        path = os.path.join(root, *rel.split("/"))
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w") as fh:
+            fh.write(content)
+
+
+def _normalize_structure(structure: dict) -> dict:
+    """Make a get_directory_structure result comparable: '_files' lists become
+    sets of names (order from os.listdir isn't stable), and subdirectories are
+    normalized recursively."""
+    normalized: dict = {}
+    for key, value in structure.items():
+        if key == "_files":
+            normalized["_files"] = {
+                item[0] if isinstance(item, tuple) else item for item in value
+            }
+        elif isinstance(value, dict):
+            normalized[key] = _normalize_structure(value)
+        else:
+            normalized[key] = value
+    return normalized

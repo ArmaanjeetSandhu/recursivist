@@ -24,6 +24,7 @@ import os
 import re
 from collections.abc import Sequence
 from datetime import datetime as dt
+from functools import cache
 from re import Pattern
 from typing import Any, Optional, Union, cast
 
@@ -54,8 +55,6 @@ def parse_ignore_file(ignore_file_path: str) -> list[str]:
         for line in f:
             line = line.strip()
             if line and not line.startswith("#"):
-                if line.endswith("/"):
-                    line = line[:-1]
                 patterns.append(line)
     return patterns
 
@@ -171,6 +170,87 @@ def compile_regex_patterns(
     return compiled_patterns
 
 
+def _gitignore_glob_to_regex(glob: str, anchored: bool) -> str:
+    """Translate a gitignore glob (no leading '!'/'/' and no trailing '/') into
+    a regex for a forward-slash path.
+
+    '*' matches anything but '/', '**' crosses '/', '?' is one non-'/' char, and
+    '[...]' is a character class. Anchored patterns must match from the start of
+    the path; floating patterns may match at any directory depth.
+    """
+    i, n = 0, len(glob)
+    out: list[str] = []
+    while i < n:
+        c = glob[i]
+        if c == "*":
+            star = 0
+            while i < n and glob[i] == "*":
+                star += 1
+                i += 1
+            if star >= 2:
+                if i < n and glob[i] == "/":
+                    out.append("(?:.*/)?")
+                    i += 1
+                else:
+                    out.append(".*")
+            else:
+                out.append("[^/]*")
+        elif c == "?":
+            out.append("[^/]")
+            i += 1
+        elif c == "[":
+            j = i + 1
+            if j < n and glob[j] in ("!", "^"):
+                j += 1
+            if j < n and glob[j] == "]":
+                j += 1
+            while j < n and glob[j] != "]":
+                j += 1
+            if j >= n:
+                out.append(re.escape("["))
+                i += 1
+            else:
+                cls = glob[i + 1 : j]
+                if cls.startswith("!"):
+                    cls = "^" + cls[1:]
+                out.append("[" + cls + "]")
+                i = j + 1
+        elif c == "/":
+            out.append("/")
+            i += 1
+        else:
+            out.append(re.escape(c))
+            i += 1
+    body = "".join(out)
+    prefix = r"\A" if anchored else r"(?:\A|.*/)"
+    return prefix + body + r"(?:/|\Z)"
+
+
+@cache
+def _compile_ignore_pattern(body: str) -> Optional[tuple[Pattern[str], bool]]:
+    """Compile a gitignore pattern body (the part after any leading '!').
+
+    Returns ``(regex, dir_only)`` or ``None`` for an empty pattern. The regex is
+    searched against a path relative to the ignore file's directory, expressed
+    with forward slashes and no leading slash. ``dir_only`` patterns (trailing
+    '/') match directories only. Cached so each unique pattern compiles once.
+    """
+    if body.startswith("\\#") or body.startswith("\\!"):
+        body = body[1:]
+    dir_only = body.endswith("/")
+    if dir_only:
+        body = body[:-1]
+    anchored = "/" in body
+    if body.startswith("/"):
+        body = body[1:]
+    if not body:
+        return None
+    try:
+        return re.compile(_gitignore_glob_to_regex(body, anchored)), dir_only
+    except re.error:
+        return None
+
+
 def should_exclude(
     path: str,
     ignore_context: dict[str, Any],
@@ -235,15 +315,24 @@ def should_exclude(
         return False
     if not patterns:
         return False
+    rel_dir = ignore_context.get("rel_dir", "")
+    rel_to_root = (f"{rel_dir}/{basename}" if rel_dir else basename).replace("\\", "/")
+    rel_to_root = rel_to_root.lstrip("/")
+    is_dir = os.path.isdir(path)
+    excluded = False
     for pattern in patterns:
-        if isinstance(pattern, str) and pattern.startswith("!"):
-            if fnmatch.fnmatch(rel_path, pattern[1:]):
-                return False
-    for pattern in patterns:
-        if isinstance(pattern, str) and not pattern.startswith("!"):
-            if fnmatch.fnmatch(rel_path, pattern):
-                return True
-    return False
+        if not isinstance(pattern, str) or not pattern:
+            continue
+        negated = pattern.startswith("!")
+        compiled = _compile_ignore_pattern(pattern[1:] if negated else pattern)
+        if compiled is None:
+            continue
+        regex, dir_only = compiled
+        if dir_only and not is_dir:
+            continue
+        if regex.search(rel_to_root):
+            excluded = not negated
+    return excluded
 
 
 _EXTENSION_COLORS: dict[str, str] = {}
@@ -427,7 +516,11 @@ def get_directory_structure(
     if ignore_file and os.path.exists(os.path.join(root_dir, ignore_file)):
         current_ignore_patterns = parse_ignore_file(os.path.join(root_dir, ignore_file))
         ignore_patterns.extend(current_ignore_patterns)
-    ignore_context = {"patterns": ignore_patterns, "current_dir": root_dir}
+    ignore_context = {
+        "patterns": ignore_patterns,
+        "current_dir": root_dir,
+        "rel_dir": current_path,
+    }
     structure: dict[str, Any] = {}
     extensions_set: set[str] = set()
     total_loc = 0
