@@ -22,7 +22,7 @@ import logging
 import math
 import os
 import re
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 from datetime import datetime as dt
 from functools import cache
 from re import Pattern
@@ -731,6 +731,63 @@ def sort_files_by_type(
     )
 
 
+RESERVED_KEYS: frozenset[str] = frozenset(
+    {"_files", "_loc", "_size", "_mtime", "_max_depth_reached", "_git_markers"}
+)
+
+
+def iter_subdirectories(structure: dict[str, Any]) -> Iterator[tuple[str, Any]]:
+    """Yield ``(name, content)`` for each real subdirectory in *structure*.
+
+    Reserved bookkeeping keys (see :data:`RESERVED_KEYS`) are skipped, and
+    entries are yielded in case-sensitive name order.
+
+    Args:
+        structure: A directory-structure dict as produced by
+            :func:`get_directory_structure`.
+
+    Yields:
+        ``(subdirectory_name, subdirectory_content)`` pairs.
+    """
+    for name in sorted(k for k in structure if k not in RESERVED_KEYS):
+        yield name, structure[name]
+
+
+def format_dir_metrics(
+    content: Any,
+    *,
+    sort_by_loc: bool = False,
+    sort_by_size: bool = False,
+    sort_by_mtime: bool = False,
+) -> str:
+    """Return the space-prefixed metrics suffix for a directory node.
+
+    Wraps :func:`format_metrics_suffix`, reading the totals from a directory's
+    structure dict and enabling each metric only when it is both requested and
+    present on that directory. Returns ``""`` for a non-dict node.
+
+    Args:
+        content: The directory's structure dict (or any value; non-dicts yield
+            an empty string).
+        sort_by_loc: Whether LOC display is requested.
+        sort_by_size: Whether size display is requested.
+        sort_by_mtime: Whether modification-time display is requested.
+
+    Returns:
+        The metrics suffix (with a leading space) or an empty string.
+    """
+    if not isinstance(content, dict):
+        return ""
+    return format_metrics_suffix(
+        content.get("_loc", 0),
+        content.get("_size", 0),
+        content.get("_mtime", 0.0),
+        sort_by_loc=sort_by_loc and "_loc" in content,
+        sort_by_size=sort_by_size and "_size" in content,
+        sort_by_mtime=sort_by_mtime and "_mtime" in content,
+    )
+
+
 def build_tree(
     structure: dict[str, Any],
     tree: Tree,
@@ -809,44 +866,30 @@ def build_tree(
                 colored_text.append(f" {badge}", style=marker_style)
 
             tree.add(colored_text)
-    for folder, content in sorted(structure.items()):
-        if (
-            folder == "_files"
-            or folder == "_loc"
-            or folder == "_size"
-            or folder == "_mtime"
-            or folder == "_max_depth_reached"
-            or folder == "_git_markers"
-        ):
-            continue
+    for folder, content in iter_subdirectories(structure):
+        folder_icon = get_icon(folder, is_dir=True, style=icon_style)
+        metrics = format_dir_metrics(
+            content,
+            sort_by_loc=sort_by_loc,
+            sort_by_size=sort_by_size,
+            sort_by_mtime=sort_by_mtime,
+        )
+        folder_display = f"{folder_icon} {folder}{metrics}"
+        subtree = tree.add(folder_display)
+        if isinstance(content, dict) and content.get("_max_depth_reached"):
+            subtree.add(Text("⋯ (max depth reached)", style="dim"))
         else:
-            folder_icon = get_icon(folder, is_dir=True, style=icon_style)
-            metrics = ""
-            if isinstance(content, dict):
-                metrics = format_metrics_suffix(
-                    content.get("_loc", 0),
-                    content.get("_size", 0),
-                    content.get("_mtime", 0.0),
-                    sort_by_loc=sort_by_loc and "_loc" in content,
-                    sort_by_size=sort_by_size and "_size" in content,
-                    sort_by_mtime=sort_by_mtime and "_mtime" in content,
-                )
-            folder_display = f"{folder_icon} {folder}{metrics}"
-            subtree = tree.add(folder_display)
-            if isinstance(content, dict) and content.get("_max_depth_reached"):
-                subtree.add(Text("⋯ (max depth reached)", style="dim"))
-            else:
-                build_tree(
-                    content,
-                    subtree,
-                    color_map,
-                    show_full_path,
-                    sort_by_loc,
-                    sort_by_size,
-                    sort_by_mtime,
-                    show_git_status,
-                    icon_style,
-                )
+            build_tree(
+                content,
+                subtree,
+                color_map,
+                show_full_path,
+                sort_by_loc,
+                sort_by_size,
+                sort_by_mtime,
+                show_git_status,
+                icon_style,
+            )
 
 
 def display_tree(

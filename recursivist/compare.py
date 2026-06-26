@@ -27,9 +27,11 @@ from rich.tree import Tree
 
 from recursivist.core import (
     compile_regex_patterns,
+    format_dir_metrics,
     format_metrics_suffix,
     generate_color_for_extension,
     get_directory_structure,
+    iter_subdirectories,
     sort_files_by_type,
 )
 from recursivist.icons import get_icon
@@ -164,30 +166,16 @@ def build_comparison_tree(
                 f"{color} on green" if entry.name not in files_in_other_names else color
             )
             tree.add(Text(label, style=style))
-    for folder, content in sorted(structure.items()):
-        if (
-            folder == "_files"
-            or folder == "_max_depth_reached"
-            or folder == "_loc"
-            or folder == "_size"
-            or folder == "_mtime"
-            or folder == "_git_markers"
-        ):
-            continue
-
+    for folder, content in iter_subdirectories(structure):
         folder_icon = get_icon(folder, is_dir=True, style=icon_style)
 
         other_content = other_structure.get(folder, {}) if other_structure else {}
-        metrics = ""
-        if isinstance(content, dict):
-            metrics = format_metrics_suffix(
-                content.get("_loc", 0),
-                content.get("_size", 0),
-                content.get("_mtime", 0.0),
-                sort_by_loc=sort_by_loc and "_loc" in content,
-                sort_by_size=sort_by_size and "_size" in content,
-                sort_by_mtime=sort_by_mtime and "_mtime" in content,
-            )
+        metrics = format_dir_metrics(
+            content,
+            sort_by_loc=sort_by_loc,
+            sort_by_size=sort_by_size,
+            sort_by_mtime=sort_by_mtime,
+        )
         folder_label = f"{folder_icon} {folder}{metrics}"
         if folder not in (other_structure or {}):
             subtree = tree.add(Text(folder_label, style="green"))
@@ -232,48 +220,34 @@ def build_comparison_tree(
                 )
                 tree.add(Text(label, style=f"{color} on red"))
     if other_structure:
-        for folder in sorted(other_structure.keys()):
-            if (
-                folder != "_files"
-                and folder != "_max_depth_reached"
-                and folder != "_loc"
-                and folder != "_size"
-                and folder != "_mtime"
-                and folder != "_git_markers"
-                and folder not in structure
-            ):
-                other_content = other_structure[folder]
-                folder_icon = get_icon(folder, is_dir=True, style=icon_style)
+        for folder, other_content in iter_subdirectories(other_structure):
+            if folder in structure:
+                continue
+            folder_icon = get_icon(folder, is_dir=True, style=icon_style)
 
-                metrics = ""
-                if isinstance(other_content, dict):
-                    metrics = format_metrics_suffix(
-                        other_content.get("_loc", 0),
-                        other_content.get("_size", 0),
-                        other_content.get("_mtime", 0.0),
-                        sort_by_loc=sort_by_loc and "_loc" in other_content,
-                        sort_by_size=sort_by_size and "_size" in other_content,
-                        sort_by_mtime=sort_by_mtime and "_mtime" in other_content,
-                    )
-                subtree = tree.add(
-                    Text(f"{folder_icon} {folder}{metrics}", style="red")
+            metrics = format_dir_metrics(
+                other_content,
+                sort_by_loc=sort_by_loc,
+                sort_by_size=sort_by_size,
+                sort_by_mtime=sort_by_mtime,
+            )
+            subtree = tree.add(Text(f"{folder_icon} {folder}{metrics}", style="red"))
+            if isinstance(other_content, dict) and other_content.get(
+                "_max_depth_reached"
+            ):
+                subtree.add(Text("⋯ (max depth reached)", style="dim"))
+            else:
+                build_comparison_tree(
+                    {},
+                    other_content,
+                    subtree,
+                    color_map,
+                    show_full_path,
+                    sort_by_loc,
+                    sort_by_size,
+                    sort_by_mtime,
+                    icon_style=icon_style,
                 )
-                if isinstance(other_content, dict) and other_content.get(
-                    "_max_depth_reached"
-                ):
-                    subtree.add(Text("⋯ (max depth reached)", style="dim"))
-                else:
-                    build_comparison_tree(
-                        {},
-                        other_content,
-                        subtree,
-                        color_map,
-                        show_full_path,
-                        sort_by_loc,
-                        sort_by_size,
-                        sort_by_mtime,
-                        icon_style=icon_style,
-                    )
 
 
 def display_comparison(
@@ -642,16 +616,7 @@ def _export_comparison_to_html(
                 html_content.append(
                     f'<li{file_class}><span class="file">{file_icon} {display_text}</span></li>'
                 )
-        for name, content in sorted(structure.items()):
-            if (
-                name == "_files"
-                or name == "_max_depth_reached"
-                or name == "_loc"
-                or name == "_size"
-                or name == "_mtime"
-                or name == "_git_markers"
-            ):
-                continue
+        for name, content in iter_subdirectories(structure):
             if name not in other_structure:
                 dir_class = ' class="directory-unique-left"'
             else:
@@ -659,16 +624,12 @@ def _export_comparison_to_html(
 
             folder_icon = get_icon(name, is_dir=True, style=icon_style)
 
-            metrics = ""
-            if isinstance(content, dict):
-                metrics = format_metrics_suffix(
-                    content.get("_loc", 0),
-                    content.get("_size", 0),
-                    content.get("_mtime", 0.0),
-                    sort_by_loc=sort_by_loc and "_loc" in content,
-                    sort_by_size=sort_by_size and "_size" in content,
-                    sort_by_mtime=sort_by_mtime and "_mtime" in content,
-                )
+            metrics = format_dir_metrics(
+                content,
+                sort_by_loc=sort_by_loc,
+                sort_by_size=sort_by_size,
+                sort_by_mtime=sort_by_mtime,
+            )
             html_content.append(
                 f'<li{dir_class}><span class="directory">{folder_icon} '
                 f"{html.escape(name)}{metrics}</span>"
@@ -711,31 +672,19 @@ def _export_comparison_to_html(
                         f'<li{file_class}><span class="file">{file_icon} {display_text}</span></li>'
                     )
         if other_structure:
-            for name, content in sorted(other_structure.items()):
-                if (
-                    name == "_files"
-                    or name == "_max_depth_reached"
-                    or name == "_loc"
-                    or name == "_size"
-                    or name == "_mtime"
-                    or name == "_git_markers"
-                    or name in structure
-                ):
+            for name, content in iter_subdirectories(other_structure):
+                if name in structure:
                     continue
                 dir_class = ' class="directory-unique-right"'
 
                 folder_icon = get_icon(name, is_dir=True, style=icon_style)
 
-                metrics = ""
-                if isinstance(content, dict):
-                    metrics = format_metrics_suffix(
-                        content.get("_loc", 0),
-                        content.get("_size", 0),
-                        content.get("_mtime", 0.0),
-                        sort_by_loc=sort_by_loc and "_loc" in content,
-                        sort_by_size=sort_by_size and "_size" in content,
-                        sort_by_mtime=sort_by_mtime and "_mtime" in content,
-                    )
+                metrics = format_dir_metrics(
+                    content,
+                    sort_by_loc=sort_by_loc,
+                    sort_by_size=sort_by_size,
+                    sort_by_mtime=sort_by_mtime,
+                )
                 html_content.append(
                     f'<li{dir_class}><span class="directory">{folder_icon} '
                     f"{html.escape(name)}{metrics}</span>"

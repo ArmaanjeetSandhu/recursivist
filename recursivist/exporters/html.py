@@ -7,6 +7,7 @@ from recursivist.core import (
     format_metrics,
     format_metrics_suffix,
     generate_color_for_extension,
+    iter_subdirectories,
     sort_files_by_type,
 )
 from recursivist.icons import get_icon
@@ -80,17 +81,7 @@ class HtmlExporter(BaseExporter):
                         )
                         + f"{_git_badge}</li>"
                     )
-            for name, content in sorted(structure.items()):
-                if (
-                    name == "_files"
-                    or name == "_max_depth_reached"
-                    or name == "_loc"
-                    or name == "_size"
-                    or name == "_mtime"
-                    or name == "_git_markers"
-                ):
-                    continue
-
+            for name, content in iter_subdirectories(structure):
                 folder_icon = get_icon(name, is_dir=True, style=self.icon_style)
 
                 enabled = []
