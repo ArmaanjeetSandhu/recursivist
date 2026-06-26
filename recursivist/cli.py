@@ -32,7 +32,7 @@ import os
 import sys
 from pathlib import Path
 from re import Pattern
-from typing import cast
+from typing import Any, cast
 
 import typer
 from rich.console import Console
@@ -86,6 +86,81 @@ MSG_FULL_PATH = "Showing full paths instead of just filenames"
 MSG_SORT_LOC = "Sorting files by lines of code and displaying LOC counts"
 MSG_SORT_SIZE = "Sorting files by size and displaying file sizes"
 MSG_SORT_MTIME = "Sorting files by modification time and displaying timestamps"
+
+
+def _exclude_dirs_option() -> Any:
+    return typer.Option(None, "--exclude", "-e", help=HELP_EXCLUDE_DIRS)
+
+
+def _exclude_extensions_option() -> Any:
+    return typer.Option(None, "--exclude-ext", "-x", help=HELP_EXCLUDE_EXTS)
+
+
+def _exclude_patterns_option() -> Any:
+    return typer.Option(None, "--exclude-pattern", "-p", help=HELP_EXCLUDE_PATTERNS)
+
+
+def _include_patterns_option() -> Any:
+    return typer.Option(None, "--include-pattern", "-i", help=HELP_INCLUDE_PATTERNS)
+
+
+def _use_regex_option() -> Any:
+    return typer.Option(False, "--regex", "-r", help=HELP_USE_REGEX)
+
+
+def _ignore_file_option() -> Any:
+    return typer.Option(None, "--ignore-file", "-g", help=HELP_IGNORE_FILE)
+
+
+def _max_depth_option(help_text: str) -> Any:
+    return typer.Option(0, "--depth", "-d", help=help_text)
+
+
+def _show_full_path_option() -> Any:
+    return typer.Option(False, "--full-path", "-l", help=HELP_SHOW_FULL_PATH)
+
+
+def _sort_by_loc_option() -> Any:
+    return typer.Option(False, "--sort-by-loc", "-s", help=HELP_SORT_BY_LOC)
+
+
+def _sort_by_size_option() -> Any:
+    return typer.Option(False, "--sort-by-size", "-z", help=HELP_SORT_BY_SIZE)
+
+
+def _sort_by_mtime_option() -> Any:
+    return typer.Option(False, "--sort-by-mtime", "-m", help=HELP_SORT_BY_MTIME)
+
+
+def _show_git_status_option() -> Any:
+    return typer.Option(
+        False,
+        "--git-status",
+        "-G",
+        help="Annotate files with Git status markers: [U] untracked, [M] modified, [A] added, [D] deleted",
+    )
+
+
+def _output_dir_option() -> Any:
+    return typer.Option(
+        None,
+        "--output-dir",
+        "-o",
+        help="Output directory for exports (defaults to current directory)",
+    )
+
+
+def _output_prefix_option(default: str) -> Any:
+    return typer.Option(default, "--prefix", "-n", help="Prefix for exported filenames")
+
+
+def _icon_style_option(help_text: str) -> Any:
+    return typer.Option(None, "--icon-style", help=help_text)
+
+
+def _verbose_option() -> Any:
+    return typer.Option(False, "--verbose", "-v", help=HELP_VERBOSE)
+
 
 config_app = typer.Typer(help="Manage recursivist user configuration")
 app.add_typer(config_app, name="config")
@@ -182,80 +257,114 @@ def parse_list_option(option_value: list[str] | None) -> list[str]:
     return result
 
 
+def _log_display_options(
+    max_depth: int,
+    show_full_path: bool,
+    sort_by_loc: bool,
+    sort_by_size: bool,
+    sort_by_mtime: bool,
+) -> None:
+    """Log the depth and display/sort options selected for a command.
+
+    Emits the informational messages shared by the visualize, export,
+    and compare commands when the corresponding option is active. Has
+    no effect for options left at their defaults.
+
+    Args:
+        max_depth: Maximum directory depth; a message is logged when
+            greater than ``0``.
+        show_full_path: Whether full paths are shown.
+        sort_by_loc: Whether files are sorted by lines of code.
+        sort_by_size: Whether files are sorted by size.
+        sort_by_mtime: Whether files are sorted by modification time.
+    """
+
+    if max_depth > 0:
+        logger.info(f"Limiting depth to {max_depth} levels")
+    if show_full_path:
+        logger.info(MSG_FULL_PATH)
+    if sort_by_loc:
+        logger.info(MSG_SORT_LOC)
+    if sort_by_size:
+        logger.info(MSG_SORT_SIZE)
+    if sort_by_mtime:
+        logger.info(MSG_SORT_MTIME)
+
+
+def _parse_filter_options(
+    exclude_dirs: list[str] | None,
+    exclude_extensions: list[str] | None,
+    exclude_patterns: list[str] | None,
+    include_patterns: list[str] | None,
+    use_regex: bool,
+) -> tuple[list[str], set[str], list[str], list[str]]:
+    """Parse and normalize the shared exclude/include filter options.
+
+    Splits space-separated values, normalizes excluded extensions to a
+    lowercase, dot-prefixed set, and emits the same debug logging used
+    by every command. This is the common preprocessing step shared by
+    the visualize, export, and compare commands.
+
+    Args:
+        exclude_dirs: Raw directory-exclusion values from Typer.
+        exclude_extensions: Raw extension-exclusion values from Typer.
+        exclude_patterns: Raw exclude-pattern values from Typer.
+        include_patterns: Raw include-pattern values from Typer.
+        use_regex: Whether patterns are regex (affects log wording).
+
+    Returns:
+        A tuple of ``(parsed_exclude_dirs, exclude_exts_set,
+        parsed_exclude_patterns, parsed_include_patterns)``.
+    """
+
+    parsed_exclude_dirs = parse_list_option(exclude_dirs)
+    parsed_exclude_exts = parse_list_option(exclude_extensions)
+    parsed_exclude_patterns = parse_list_option(exclude_patterns)
+    parsed_include_patterns = parse_list_option(include_patterns)
+    exclude_exts_set: set[str] = set()
+    if parsed_exclude_exts:
+        exclude_exts_set = {
+            ext.lower() if ext.startswith(".") else f".{ext.lower()}"
+            for ext in parsed_exclude_exts
+        }
+        logger.debug(f"Excluding extensions: {exclude_exts_set}")
+    if parsed_exclude_dirs:
+        logger.debug(f"Excluding directories: {parsed_exclude_dirs}")
+    if parsed_exclude_patterns:
+        pattern_type = "regex" if use_regex else "glob"
+        logger.debug(f"Excluding {pattern_type} patterns: {parsed_exclude_patterns}")
+    if parsed_include_patterns:
+        pattern_type = "regex" if use_regex else "glob"
+        logger.debug(f"Including {pattern_type} patterns: {parsed_include_patterns}")
+    return (
+        parsed_exclude_dirs,
+        exclude_exts_set,
+        parsed_exclude_patterns,
+        parsed_include_patterns,
+    )
+
+
 @app.command()
 def visualize(
     directory: Path = typer.Argument(
         ".", help="Directory path to visualize (defaults to current directory)"
     ),
-    exclude_dirs: list[str] | None = typer.Option(
-        None,
-        "--exclude",
-        "-e",
-        help=HELP_EXCLUDE_DIRS,
+    exclude_dirs: list[str] | None = _exclude_dirs_option(),
+    exclude_extensions: list[str] | None = _exclude_extensions_option(),
+    exclude_patterns: list[str] | None = _exclude_patterns_option(),
+    include_patterns: list[str] | None = _include_patterns_option(),
+    use_regex: bool = _use_regex_option(),
+    ignore_file: str | None = _ignore_file_option(),
+    max_depth: int = _max_depth_option("Maximum depth to display (0 for unlimited)"),
+    show_full_path: bool = _show_full_path_option(),
+    sort_by_loc: bool = _sort_by_loc_option(),
+    sort_by_size: bool = _sort_by_size_option(),
+    sort_by_mtime: bool = _sort_by_mtime_option(),
+    show_git_status: bool = _show_git_status_option(),
+    icon_style: str | None = _icon_style_option(
+        "Override icon style ('emoji' or 'nerd'). Defaults to user config."
     ),
-    exclude_extensions: list[str] | None = typer.Option(
-        None,
-        "--exclude-ext",
-        "-x",
-        help=HELP_EXCLUDE_EXTS,
-    ),
-    exclude_patterns: list[str] | None = typer.Option(
-        None,
-        "--exclude-pattern",
-        "-p",
-        help=HELP_EXCLUDE_PATTERNS,
-    ),
-    include_patterns: list[str] | None = typer.Option(
-        None,
-        "--include-pattern",
-        "-i",
-        help=HELP_INCLUDE_PATTERNS,
-    ),
-    use_regex: bool = typer.Option(
-        False,
-        "--regex",
-        "-r",
-        help=HELP_USE_REGEX,
-    ),
-    ignore_file: str | None = typer.Option(
-        None, "--ignore-file", "-g", help=HELP_IGNORE_FILE
-    ),
-    max_depth: int = typer.Option(
-        0, "--depth", "-d", help="Maximum depth to display (0 for unlimited)"
-    ),
-    show_full_path: bool = typer.Option(
-        False, "--full-path", "-l", help=HELP_SHOW_FULL_PATH
-    ),
-    sort_by_loc: bool = typer.Option(
-        False,
-        "--sort-by-loc",
-        "-s",
-        help=HELP_SORT_BY_LOC,
-    ),
-    sort_by_size: bool = typer.Option(
-        False,
-        "--sort-by-size",
-        "-z",
-        help=HELP_SORT_BY_SIZE,
-    ),
-    sort_by_mtime: bool = typer.Option(
-        False,
-        "--sort-by-mtime",
-        "-m",
-        help=HELP_SORT_BY_MTIME,
-    ),
-    show_git_status: bool = typer.Option(
-        False,
-        "--git-status",
-        "-G",
-        help="Annotate files with Git status markers: [U] untracked, [M] modified, [A] added, [D] deleted",
-    ),
-    icon_style: str | None = typer.Option(
-        None,
-        "--icon-style",
-        help="Override icon style ('emoji' or 'nerd'). Defaults to user config.",
-    ),
-    verbose: bool = typer.Option(False, "--verbose", "-v", help=HELP_VERBOSE),
+    verbose: bool = _verbose_option(),
 ) -> None:
     """Visualize a directory structure as a tree in the terminal.
 
@@ -337,37 +446,23 @@ def visualize(
     if not directory.exists() or not directory.is_dir():
         logger.error(f"Error: {directory} is not a valid directory")
         raise typer.Exit(1)
-    if max_depth > 0:
-        logger.info(f"Limiting depth to {max_depth} levels")
-    if show_full_path:
-        logger.info(MSG_FULL_PATH)
-    if sort_by_loc:
-        logger.info(MSG_SORT_LOC)
-    if sort_by_size:
-        logger.info(MSG_SORT_SIZE)
-    if sort_by_mtime:
-        logger.info(MSG_SORT_MTIME)
+    _log_display_options(
+        max_depth, show_full_path, sort_by_loc, sort_by_size, sort_by_mtime
+    )
     if show_git_status:
         logger.info("Showing Git status markers for changed files")
-    parsed_exclude_dirs = parse_list_option(exclude_dirs)
-    parsed_exclude_exts = parse_list_option(exclude_extensions)
-    parsed_exclude_patterns = parse_list_option(exclude_patterns)
-    parsed_include_patterns = parse_list_option(include_patterns)
-    exclude_exts_set: set[str] = set()
-    if parsed_exclude_exts:
-        exclude_exts_set = {
-            ext.lower() if ext.startswith(".") else f".{ext.lower()}"
-            for ext in parsed_exclude_exts
-        }
-        logger.debug(f"Excluding extensions: {exclude_exts_set}")
-    if parsed_exclude_dirs:
-        logger.debug(f"Excluding directories: {parsed_exclude_dirs}")
-    if parsed_exclude_patterns:
-        pattern_type = "regex" if use_regex else "glob"
-        logger.debug(f"Excluding {pattern_type} patterns: {parsed_exclude_patterns}")
-    if parsed_include_patterns:
-        pattern_type = "regex" if use_regex else "glob"
-        logger.debug(f"Including {pattern_type} patterns: {parsed_include_patterns}")
+    (
+        parsed_exclude_dirs,
+        exclude_exts_set,
+        parsed_exclude_patterns,
+        parsed_include_patterns,
+    ) = _parse_filter_options(
+        exclude_dirs,
+        exclude_extensions,
+        exclude_patterns,
+        include_patterns,
+        use_regex,
+    )
     if ignore_file:
         ignore_path = directory / ignore_file
         if ignore_path.exists():
@@ -450,84 +545,24 @@ def export(
     formats: list[str] = typer.Option(
         ["md"], "--format", "-f", help="Export formats: txt, json, html, md, jsx, svg"
     ),
-    output_dir: Path | None = typer.Option(
-        None,
-        "--output-dir",
-        "-o",
-        help="Output directory for exports (defaults to current directory)",
+    output_dir: Path | None = _output_dir_option(),
+    output_prefix: str | None = _output_prefix_option("structure"),
+    exclude_dirs: list[str] | None = _exclude_dirs_option(),
+    exclude_extensions: list[str] | None = _exclude_extensions_option(),
+    exclude_patterns: list[str] | None = _exclude_patterns_option(),
+    include_patterns: list[str] | None = _include_patterns_option(),
+    use_regex: bool = _use_regex_option(),
+    ignore_file: str | None = _ignore_file_option(),
+    max_depth: int = _max_depth_option("Maximum depth to export (0 for unlimited)"),
+    show_full_path: bool = _show_full_path_option(),
+    sort_by_loc: bool = _sort_by_loc_option(),
+    sort_by_size: bool = _sort_by_size_option(),
+    sort_by_mtime: bool = _sort_by_mtime_option(),
+    show_git_status: bool = _show_git_status_option(),
+    icon_style: str | None = _icon_style_option(
+        "Override icon style. Defaults to 'emoji' for safe file exports."
     ),
-    output_prefix: str | None = typer.Option(
-        "structure", "--prefix", "-n", help="Prefix for exported filenames"
-    ),
-    exclude_dirs: list[str] | None = typer.Option(
-        None,
-        "--exclude",
-        "-e",
-        help=HELP_EXCLUDE_DIRS,
-    ),
-    exclude_extensions: list[str] | None = typer.Option(
-        None,
-        "--exclude-ext",
-        "-x",
-        help=HELP_EXCLUDE_EXTS,
-    ),
-    exclude_patterns: list[str] | None = typer.Option(
-        None,
-        "--exclude-pattern",
-        "-p",
-        help=HELP_EXCLUDE_PATTERNS,
-    ),
-    include_patterns: list[str] | None = typer.Option(
-        None,
-        "--include-pattern",
-        "-i",
-        help=HELP_INCLUDE_PATTERNS,
-    ),
-    use_regex: bool = typer.Option(
-        False,
-        "--regex",
-        "-r",
-        help=HELP_USE_REGEX,
-    ),
-    ignore_file: str | None = typer.Option(
-        None, "--ignore-file", "-g", help=HELP_IGNORE_FILE
-    ),
-    max_depth: int = typer.Option(
-        0, "--depth", "-d", help="Maximum depth to export (0 for unlimited)"
-    ),
-    show_full_path: bool = typer.Option(
-        False, "--full-path", "-l", help=HELP_SHOW_FULL_PATH
-    ),
-    sort_by_loc: bool = typer.Option(
-        False,
-        "--sort-by-loc",
-        "-s",
-        help=HELP_SORT_BY_LOC,
-    ),
-    sort_by_size: bool = typer.Option(
-        False,
-        "--sort-by-size",
-        "-z",
-        help=HELP_SORT_BY_SIZE,
-    ),
-    sort_by_mtime: bool = typer.Option(
-        False,
-        "--sort-by-mtime",
-        "-m",
-        help=HELP_SORT_BY_MTIME,
-    ),
-    show_git_status: bool = typer.Option(
-        False,
-        "--git-status",
-        "-G",
-        help="Annotate files with Git status markers: [U] untracked, [M] modified, [A] added, [D] deleted",
-    ),
-    icon_style: str | None = typer.Option(
-        None,
-        "--icon-style",
-        help="Override icon style. Defaults to 'emoji' for safe file exports.",
-    ),
-    verbose: bool = typer.Option(False, "--verbose", "-v", help=HELP_VERBOSE),
+    verbose: bool = _verbose_option(),
 ) -> None:
     """Export a directory structure to one or more file formats.
 
@@ -609,37 +644,23 @@ def export(
     if not directory.exists() or not directory.is_dir():
         logger.error(f"Error: {directory} is not a valid directory")
         raise typer.Exit(1)
-    if max_depth > 0:
-        logger.info(f"Limiting depth to {max_depth} levels")
-    if show_full_path:
-        logger.info(MSG_FULL_PATH)
-    if sort_by_loc:
-        logger.info(MSG_SORT_LOC)
-    if sort_by_size:
-        logger.info(MSG_SORT_SIZE)
-    if sort_by_mtime:
-        logger.info(MSG_SORT_MTIME)
+    _log_display_options(
+        max_depth, show_full_path, sort_by_loc, sort_by_size, sort_by_mtime
+    )
     if show_git_status:
         logger.info("Annotating files with Git status markers")
-    parsed_exclude_dirs = parse_list_option(exclude_dirs)
-    parsed_exclude_exts = parse_list_option(exclude_extensions)
-    parsed_exclude_patterns = parse_list_option(exclude_patterns)
-    parsed_include_patterns = parse_list_option(include_patterns)
-    exclude_exts_set: set[str] = set()
-    if parsed_exclude_exts:
-        exclude_exts_set = {
-            ext.lower() if ext.startswith(".") else f".{ext.lower()}"
-            for ext in parsed_exclude_exts
-        }
-        logger.debug(f"Excluding extensions: {exclude_exts_set}")
-    if parsed_exclude_dirs:
-        logger.debug(f"Excluding directories: {parsed_exclude_dirs}")
-    if parsed_exclude_patterns:
-        pattern_type = "regex" if use_regex else "glob"
-        logger.debug(f"Excluding {pattern_type} patterns: {parsed_exclude_patterns}")
-    if parsed_include_patterns:
-        pattern_type = "regex" if use_regex else "glob"
-        logger.debug(f"Including {pattern_type} patterns: {parsed_include_patterns}")
+    (
+        parsed_exclude_dirs,
+        exclude_exts_set,
+        parsed_exclude_patterns,
+        parsed_include_patterns,
+    ) = _parse_filter_options(
+        exclude_dirs,
+        exclude_extensions,
+        exclude_patterns,
+        include_patterns,
+        use_regex,
+    )
     if ignore_file:
         ignore_path = directory / ignore_file
         if ignore_path.exists():
@@ -805,84 +826,29 @@ def compare(
         file_okay=False,
         dir_okay=True,
     ),
-    exclude_dirs: list[str] | None = typer.Option(
-        None,
-        "--exclude",
-        "-e",
-        help=HELP_EXCLUDE_DIRS,
-    ),
-    exclude_extensions: list[str] | None = typer.Option(
-        None,
-        "--exclude-ext",
-        "-x",
-        help=HELP_EXCLUDE_EXTS,
-    ),
-    exclude_patterns: list[str] | None = typer.Option(
-        None,
-        "--exclude-pattern",
-        "-p",
-        help=HELP_EXCLUDE_PATTERNS,
-    ),
-    include_patterns: list[str] | None = typer.Option(
-        None,
-        "--include-pattern",
-        "-i",
-        help=HELP_INCLUDE_PATTERNS,
-    ),
-    use_regex: bool = typer.Option(
-        False,
-        "--regex",
-        "-r",
-        help=HELP_USE_REGEX,
-    ),
-    ignore_file: str | None = typer.Option(
-        None, "--ignore-file", "-g", help=HELP_IGNORE_FILE
-    ),
-    max_depth: int = typer.Option(
-        0, "--depth", "-d", help="Maximum depth to display (0 for unlimited)"
-    ),
+    exclude_dirs: list[str] | None = _exclude_dirs_option(),
+    exclude_extensions: list[str] | None = _exclude_extensions_option(),
+    exclude_patterns: list[str] | None = _exclude_patterns_option(),
+    include_patterns: list[str] | None = _include_patterns_option(),
+    use_regex: bool = _use_regex_option(),
+    ignore_file: str | None = _ignore_file_option(),
+    max_depth: int = _max_depth_option("Maximum depth to display (0 for unlimited)"),
     save_as_html: bool = typer.Option(
         False,
         "--save",
         "-f",
         help="Save comparison as HTML file instead of displaying in terminal",
     ),
-    output_dir: Path | None = typer.Option(
-        None,
-        "--output-dir",
-        "-o",
-        help="Output directory for exports (defaults to current directory)",
+    output_dir: Path | None = _output_dir_option(),
+    output_prefix: str | None = _output_prefix_option("comparison"),
+    show_full_path: bool = _show_full_path_option(),
+    sort_by_loc: bool = _sort_by_loc_option(),
+    sort_by_size: bool = _sort_by_size_option(),
+    sort_by_mtime: bool = _sort_by_mtime_option(),
+    icon_style: str | None = _icon_style_option(
+        "Override icon style. Defaults to 'emoji' if saving to HTML, else user config."
     ),
-    output_prefix: str | None = typer.Option(
-        "comparison", "--prefix", "-n", help="Prefix for exported filenames"
-    ),
-    show_full_path: bool = typer.Option(
-        False, "--full-path", "-l", help=HELP_SHOW_FULL_PATH
-    ),
-    sort_by_loc: bool = typer.Option(
-        False,
-        "--sort-by-loc",
-        "-s",
-        help=HELP_SORT_BY_LOC,
-    ),
-    sort_by_size: bool = typer.Option(
-        False,
-        "--sort-by-size",
-        "-z",
-        help=HELP_SORT_BY_SIZE,
-    ),
-    sort_by_mtime: bool = typer.Option(
-        False,
-        "--sort-by-mtime",
-        "-m",
-        help=HELP_SORT_BY_MTIME,
-    ),
-    icon_style: str | None = typer.Option(
-        None,
-        "--icon-style",
-        help="Override icon style. Defaults to 'emoji' if saving to HTML, else user config.",
-    ),
-    verbose: bool = typer.Option(False, "--verbose", "-v", help=HELP_VERBOSE),
+    verbose: bool = _verbose_option(),
 ) -> None:
     """Compare two directory structures side by side.
 
@@ -972,16 +938,9 @@ def compare(
         logger.setLevel(logging.DEBUG)
         logger.debug(MSG_VERBOSE)
     logger.info(f"Comparing directories: {dir1} and {dir2}")
-    if max_depth > 0:
-        logger.info(f"Limiting depth to {max_depth} levels")
-    if show_full_path:
-        logger.info(MSG_FULL_PATH)
-    if sort_by_loc:
-        logger.info(MSG_SORT_LOC)
-    if sort_by_size:
-        logger.info(MSG_SORT_SIZE)
-    if sort_by_mtime:
-        logger.info(MSG_SORT_MTIME)
+    _log_display_options(
+        max_depth, show_full_path, sort_by_loc, sort_by_size, sort_by_mtime
+    )
 
     if icon_style:
         resolved_style = icon_style
@@ -990,25 +949,18 @@ def compare(
     else:
         resolved_style = USER_CONFIG.get("icon_style", "emoji")
 
-    parsed_exclude_dirs = parse_list_option(exclude_dirs)
-    parsed_exclude_exts = parse_list_option(exclude_extensions)
-    parsed_exclude_patterns = parse_list_option(exclude_patterns)
-    parsed_include_patterns = parse_list_option(include_patterns)
-    exclude_exts_set: set[str] = set()
-    if parsed_exclude_exts:
-        exclude_exts_set = {
-            ext.lower() if ext.startswith(".") else f".{ext.lower()}"
-            for ext in parsed_exclude_exts
-        }
-        logger.debug(f"Excluding extensions: {exclude_exts_set}")
-    if parsed_exclude_dirs:
-        logger.debug(f"Excluding directories: {parsed_exclude_dirs}")
-    if parsed_exclude_patterns:
-        pattern_type = "regex" if use_regex else "glob"
-        logger.debug(f"Excluding {pattern_type} patterns: {parsed_exclude_patterns}")
-    if parsed_include_patterns:
-        pattern_type = "regex" if use_regex else "glob"
-        logger.debug(f"Including {pattern_type} patterns: {parsed_include_patterns}")
+    (
+        parsed_exclude_dirs,
+        exclude_exts_set,
+        parsed_exclude_patterns,
+        parsed_include_patterns,
+    ) = _parse_filter_options(
+        exclude_dirs,
+        exclude_extensions,
+        exclude_patterns,
+        include_patterns,
+        use_regex,
+    )
     if ignore_file:
         for d in [dir1, dir2]:
             ignore_path = d / ignore_file
