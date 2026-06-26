@@ -155,7 +155,7 @@ def test_full_path_display_with_complex_directory(
     assert "_files" in structure
     for file_item in structure["_files"]:
         assert isinstance(file_item, tuple)
-        file_name, full_path = file_item
+        file_name, full_path = file_item[0], file_item[1]
         assert os.path.isabs(full_path.replace("/", os.sep))
         assert file_name in os.path.basename(full_path)
 

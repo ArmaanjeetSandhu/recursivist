@@ -27,8 +27,7 @@ from rich.tree import Tree
 
 from recursivist.core import (
     compile_regex_patterns,
-    format_size,
-    format_timestamp,
+    format_metrics_suffix,
     generate_color_for_extension,
     get_directory_structure,
     sort_files_by_type,
@@ -147,195 +146,24 @@ def build_comparison_tree(
                 files_in_other_names.append(item[0])
             else:
                 files_in_other_names.append(cast(str, item))
-        for file_item in sort_files_by_type(
+        for entry in sort_files_by_type(
             structure["_files"], sort_by_loc, sort_by_size, sort_by_mtime
         ):
-            if isinstance(file_item, tuple):
-                file_name = file_item[0]
-            else:
-                file_name = file_item
-
-            file_icon = get_icon(file_name, is_dir=False, style=icon_style)
-
-            if (
-                sort_by_loc
-                and sort_by_size
-                and sort_by_mtime
-                and isinstance(file_item, tuple)
-                and len(file_item) > 4
-            ):
-                file_name, full_path, loc, size, mtime = file_item
-                ext = os.path.splitext(file_name)[1].lower()
-                color = color_map.get(ext, "#FFFFFF")
-                if file_name not in files_in_other_names:
-                    colored_text = Text(
-                        f"{file_icon} {full_path} ({loc} lines, {format_size(size)}, {format_timestamp(mtime)})",
-                        style=f"{color} on green",
-                    )
-                else:
-                    colored_text = Text(
-                        f"{file_icon} {full_path} ({loc} lines, {format_size(size)}, {format_timestamp(mtime)})",
-                        style=color,
-                    )
-                tree.add(colored_text)
-            elif (
-                sort_by_loc
-                and sort_by_mtime
-                and isinstance(file_item, tuple)
-                and len(file_item) > 3
-            ):
-                if len(file_item) > 4:
-                    file_name, full_path, loc, _, mtime = file_item
-                else:
-                    file_name, full_path, loc, mtime = file_item
-                ext = os.path.splitext(file_name)[1].lower()
-                color = color_map.get(ext, "#FFFFFF")
-                if file_name not in files_in_other_names:
-                    colored_text = Text(
-                        f"{file_icon} {full_path} ({loc} lines, {format_timestamp(mtime)})",
-                        style=f"{color} on green",
-                    )
-                else:
-                    colored_text = Text(
-                        f"{file_icon} {full_path} ({loc} lines, {format_timestamp(mtime)})",
-                        style=color,
-                    )
-                tree.add(colored_text)
-            elif (
-                sort_by_size
-                and sort_by_mtime
-                and isinstance(file_item, tuple)
-                and len(file_item) > 3
-            ):
-                if len(file_item) > 4:
-                    file_name, full_path, _, size, mtime = file_item
-                else:
-                    file_name, full_path, size, mtime = file_item
-                ext = os.path.splitext(file_name)[1].lower()
-                color = color_map.get(ext, "#FFFFFF")
-                if file_name not in files_in_other_names:
-                    colored_text = Text(
-                        f"{file_icon} {full_path} ({format_size(size)}, {format_timestamp(mtime)})",
-                        style=f"{color} on green",
-                    )
-                else:
-                    colored_text = Text(
-                        f"{file_icon} {full_path} ({format_size(size)}, {format_timestamp(mtime)})",
-                        style=color,
-                    )
-                tree.add(colored_text)
-            elif (
-                sort_by_loc
-                and sort_by_size
-                and isinstance(file_item, tuple)
-                and len(file_item) > 3
-            ):
-                if len(file_item) > 4:
-                    file_name, full_path, loc, size, _ = file_item
-                else:
-                    file_name, full_path, loc, size = file_item
-                ext = os.path.splitext(file_name)[1].lower()
-                color = color_map.get(ext, "#FFFFFF")
-                if file_name not in files_in_other_names:
-                    colored_text = Text(
-                        f"{file_icon} {full_path} ({loc} lines, {format_size(size)})",
-                        style=f"{color} on green",
-                    )
-                else:
-                    colored_text = Text(
-                        f"{file_icon} {full_path} ({loc} lines, {format_size(size)})",
-                        style=color,
-                    )
-                tree.add(colored_text)
-            elif sort_by_mtime and isinstance(file_item, tuple) and len(file_item) > 2:
-                if len(file_item) > 4:
-                    file_name, full_path, _, _, mtime = file_item
-                elif len(file_item) > 3:
-                    file_name, full_path, _, mtime = file_item
-                else:
-                    file_name, full_path, mtime = file_item
-                ext = os.path.splitext(file_name)[1].lower()
-                color = color_map.get(ext, "#FFFFFF")
-                if file_name not in files_in_other_names:
-                    colored_text = Text(
-                        f"{file_icon} {full_path} ({format_timestamp(mtime)})",
-                        style=f"{color} on green",
-                    )
-                else:
-                    colored_text = Text(
-                        f"{file_icon} {full_path} ({format_timestamp(mtime)})",
-                        style=color,
-                    )
-                tree.add(colored_text)
-            elif sort_by_size and isinstance(file_item, tuple) and len(file_item) > 2:
-                if len(file_item) > 3:
-                    if len(file_item) > 4:
-                        file_name, full_path, _, size, _ = file_item
-                    else:
-                        file_name, full_path, _, size = file_item
-                else:
-                    file_name, full_path, size = file_item
-                ext = os.path.splitext(file_name)[1].lower()
-                color = color_map.get(ext, "#FFFFFF")
-                if file_name not in files_in_other_names:
-                    colored_text = Text(
-                        f"{file_icon} {full_path} ({format_size(size)})",
-                        style=f"{color} on green",
-                    )
-                else:
-                    colored_text = Text(
-                        f"{file_icon} {full_path} ({format_size(size)})",
-                        style=color,
-                    )
-                tree.add(colored_text)
-            elif sort_by_loc and isinstance(file_item, tuple) and len(file_item) > 2:
-                if len(file_item) > 4:
-                    file_name, full_path, loc, _, _ = file_item
-                elif len(file_item) > 3:
-                    file_name, full_path, loc, _ = file_item
-                else:
-                    file_name, full_path, loc = file_item
-                ext = os.path.splitext(file_name)[1].lower()
-                color = color_map.get(ext, "#FFFFFF")
-                if file_name not in files_in_other_names:
-                    colored_text = Text(
-                        f"{file_icon} {full_path} ({loc} lines)",
-                        style=f"{color} on green",
-                    )
-                else:
-                    colored_text = Text(
-                        f"{file_icon} {full_path} ({loc} lines)",
-                        style=color,
-                    )
-                tree.add(colored_text)
-            elif isinstance(file_item, tuple):
-                if len(file_item) > 4:
-                    file_name, full_path, _, _, _ = file_item
-                elif len(file_item) > 3:
-                    file_name, full_path, _, _ = file_item
-                elif len(file_item) > 2:
-                    file_name, full_path, _ = file_item
-                else:
-                    file_name, full_path = file_item
-                ext = os.path.splitext(file_name)[1].lower()
-                color = color_map.get(ext, "#FFFFFF")
-                if file_name not in files_in_other_names:
-                    colored_text = Text(
-                        f"{file_icon} {full_path}", style=f"{color} on green"
-                    )
-                else:
-                    colored_text = Text(f"{file_icon} {full_path}", style=color)
-                tree.add(colored_text)
-            else:
-                ext = os.path.splitext(file_name)[1].lower()
-                color = color_map.get(ext, "#FFFFFF")
-                if file_name not in files_in_other_names:
-                    colored_text = Text(
-                        f"{file_icon} {file_name}", style=f"{color} on green"
-                    )
-                else:
-                    colored_text = Text(f"{file_icon} {file_name}", style=color)
-                tree.add(colored_text)
+            file_icon = get_icon(entry.name, is_dir=False, style=icon_style)
+            ext = os.path.splitext(entry.name)[1].lower()
+            color = color_map.get(ext, "#FFFFFF")
+            label = f"{file_icon} {entry.path}" + format_metrics_suffix(
+                entry.loc,
+                entry.size,
+                entry.mtime,
+                sort_by_loc=sort_by_loc,
+                sort_by_size=sort_by_size,
+                sort_by_mtime=sort_by_mtime,
+            )
+            style = (
+                f"{color} on green" if entry.name not in files_in_other_names else color
+            )
+            tree.add(Text(label, style=style))
     for folder, content in sorted(structure.items()):
         if (
             folder == "_files"
@@ -350,160 +178,21 @@ def build_comparison_tree(
         folder_icon = get_icon(folder, is_dir=True, style=icon_style)
 
         other_content = other_structure.get(folder, {}) if other_structure else {}
+        metrics = ""
+        if isinstance(content, dict):
+            metrics = format_metrics_suffix(
+                content.get("_loc", 0),
+                content.get("_size", 0),
+                content.get("_mtime", 0.0),
+                sort_by_loc=sort_by_loc and "_loc" in content,
+                sort_by_size=sort_by_size and "_size" in content,
+                sort_by_mtime=sort_by_mtime and "_mtime" in content,
+            )
+        folder_label = f"{folder_icon} {folder}{metrics}"
         if folder not in (other_structure or {}):
-            if (
-                sort_by_loc
-                and sort_by_size
-                and sort_by_mtime
-                and isinstance(content, dict)
-                and "_loc" in content
-                and "_size" in content
-                and "_mtime" in content
-            ):
-                folder_loc = content["_loc"]
-                folder_size = content["_size"]
-                folder_mtime = content["_mtime"]
-                subtree = tree.add(
-                    Text(
-                        f"{folder_icon} {folder} ({folder_loc} lines, {format_size(folder_size)}, {format_timestamp(folder_mtime)})",
-                        style="green",
-                    )
-                )
-            elif (
-                sort_by_loc
-                and sort_by_size
-                and isinstance(content, dict)
-                and "_loc" in content
-                and "_size" in content
-            ):
-                folder_loc = content["_loc"]
-                folder_size = content["_size"]
-                subtree = tree.add(
-                    Text(
-                        f"{folder_icon} {folder} ({folder_loc} lines, {format_size(folder_size)})",
-                        style="green",
-                    )
-                )
-            elif (
-                sort_by_loc
-                and sort_by_mtime
-                and isinstance(content, dict)
-                and "_loc" in content
-                and "_mtime" in content
-            ):
-                folder_loc = content["_loc"]
-                folder_mtime = content["_mtime"]
-                subtree = tree.add(
-                    Text(
-                        f"{folder_icon} {folder} ({folder_loc} lines, {format_timestamp(folder_mtime)})",
-                        style="green",
-                    )
-                )
-            elif (
-                sort_by_size
-                and sort_by_mtime
-                and isinstance(content, dict)
-                and "_size" in content
-                and "_mtime" in content
-            ):
-                folder_size = content["_size"]
-                folder_mtime = content["_mtime"]
-                subtree = tree.add(
-                    Text(
-                        f"{folder_icon} {folder} ({format_size(folder_size)}, {format_timestamp(folder_mtime)})",
-                        style="green",
-                    )
-                )
-            elif sort_by_loc and isinstance(content, dict) and "_loc" in content:
-                folder_loc = content["_loc"]
-                subtree = tree.add(
-                    Text(f"{folder_icon} {folder} ({folder_loc} lines)", style="green")
-                )
-            elif sort_by_size and isinstance(content, dict) and "_size" in content:
-                folder_size = content["_size"]
-                subtree = tree.add(
-                    Text(
-                        f"{folder_icon} {folder} ({format_size(folder_size)})",
-                        style="green",
-                    )
-                )
-            elif sort_by_mtime and isinstance(content, dict) and "_mtime" in content:
-                folder_mtime = content["_mtime"]
-                subtree = tree.add(
-                    Text(
-                        f"{folder_icon} {folder} ({format_timestamp(folder_mtime)})",
-                        style="green",
-                    )
-                )
-            else:
-                subtree = tree.add(Text(f"{folder_icon} {folder}", style="green"))
+            subtree = tree.add(Text(folder_label, style="green"))
         else:
-            if (
-                sort_by_loc
-                and sort_by_size
-                and sort_by_mtime
-                and isinstance(content, dict)
-                and "_loc" in content
-                and "_size" in content
-                and "_mtime" in content
-            ):
-                folder_loc = content["_loc"]
-                folder_size = content["_size"]
-                folder_mtime = content["_mtime"]
-                subtree = tree.add(
-                    f"{folder_icon} {folder} ({folder_loc} lines, {format_size(folder_size)}, {format_timestamp(folder_mtime)})"
-                )
-            elif (
-                sort_by_loc
-                and sort_by_size
-                and isinstance(content, dict)
-                and "_loc" in content
-                and "_size" in content
-            ):
-                folder_loc = content["_loc"]
-                folder_size = content["_size"]
-                subtree = tree.add(
-                    f"{folder_icon} {folder} ({folder_loc} lines, {format_size(folder_size)})"
-                )
-            elif (
-                sort_by_loc
-                and sort_by_mtime
-                and isinstance(content, dict)
-                and "_loc" in content
-                and "_mtime" in content
-            ):
-                folder_loc = content["_loc"]
-                folder_mtime = content["_mtime"]
-                subtree = tree.add(
-                    f"{folder_icon} {folder} ({folder_loc} lines, {format_timestamp(folder_mtime)})"
-                )
-            elif (
-                sort_by_size
-                and sort_by_mtime
-                and isinstance(content, dict)
-                and "_size" in content
-                and "_mtime" in content
-            ):
-                folder_size = content["_size"]
-                folder_mtime = content["_mtime"]
-                subtree = tree.add(
-                    f"{folder_icon} {folder} ({format_size(folder_size)}, {format_timestamp(folder_mtime)})"
-                )
-            elif sort_by_loc and isinstance(content, dict) and "_loc" in content:
-                folder_loc = content["_loc"]
-                subtree = tree.add(f"{folder_icon} {folder} ({folder_loc} lines)")
-            elif sort_by_size and isinstance(content, dict) and "_size" in content:
-                folder_size = content["_size"]
-                subtree = tree.add(
-                    f"{folder_icon} {folder} ({format_size(folder_size)})"
-                )
-            elif sort_by_mtime and isinstance(content, dict) and "_mtime" in content:
-                folder_mtime = content["_mtime"]
-                subtree = tree.add(
-                    f"{folder_icon} {folder} ({format_timestamp(folder_mtime)})"
-                )
-            else:
-                subtree = tree.add(f"{folder_icon} {folder}")
+            subtree = tree.add(folder_label)
         if isinstance(content, dict) and content.get("_max_depth_reached"):
             subtree.add(Text("⋯ (max depth reached)", style="dim"))
         else:
@@ -526,157 +215,22 @@ def build_comparison_tree(
                 files_in_this_names.append(item[0])
             else:
                 files_in_this_names.append(cast(str, item))
-        for file_item in sort_files_by_type(
+        for entry in sort_files_by_type(
             other_structure["_files"], sort_by_loc, sort_by_size, sort_by_mtime
         ):
-            if isinstance(file_item, tuple):
-                file_name = file_item[0]
-            else:
-                file_name = file_item
-
-            if file_name not in files_in_this_names:
-                file_icon = get_icon(file_name, is_dir=False, style=icon_style)
-
-                if (
-                    sort_by_loc
-                    and sort_by_size
-                    and sort_by_mtime
-                    and isinstance(file_item, tuple)
-                    and len(file_item) > 4
-                ):
-                    _, display_path, loc, size, mtime = file_item
-                    ext = os.path.splitext(file_name)[1].lower()
-                    color = color_map.get(ext, "#FFFFFF")
-                    colored_text = Text(
-                        f"{file_icon} {display_path} ({loc} lines, {format_size(size)}, {format_timestamp(mtime)})",
-                        style=f"{color} on red",
-                    )
-                    tree.add(colored_text)
-                elif (
-                    sort_by_loc
-                    and sort_by_mtime
-                    and isinstance(file_item, tuple)
-                    and len(file_item) > 3
-                ):
-                    if len(file_item) > 4:
-                        _, display_path, loc, _, mtime = file_item
-                    else:
-                        _, display_path, loc, mtime = file_item
-                    ext = os.path.splitext(file_name)[1].lower()
-                    color = color_map.get(ext, "#FFFFFF")
-                    colored_text = Text(
-                        f"{file_icon} {display_path} ({loc} lines, {format_timestamp(mtime)})",
-                        style=f"{color} on red",
-                    )
-                    tree.add(colored_text)
-                elif (
-                    sort_by_size
-                    and sort_by_mtime
-                    and isinstance(file_item, tuple)
-                    and len(file_item) > 3
-                ):
-                    if len(file_item) > 4:
-                        _, display_path, _, size, mtime = file_item
-                    else:
-                        _, display_path, size, mtime = file_item
-                    ext = os.path.splitext(file_name)[1].lower()
-                    color = color_map.get(ext, "#FFFFFF")
-                    colored_text = Text(
-                        f"{file_icon} {display_path} ({format_size(size)}, {format_timestamp(mtime)})",
-                        style=f"{color} on red",
-                    )
-                    tree.add(colored_text)
-                elif (
-                    sort_by_loc
-                    and sort_by_size
-                    and isinstance(file_item, tuple)
-                    and len(file_item) > 3
-                ):
-                    if len(file_item) > 4:
-                        _, display_path, loc, size, _ = file_item
-                    else:
-                        _, display_path, loc, size = file_item
-                    ext = os.path.splitext(file_name)[1].lower()
-                    color = color_map.get(ext, "#FFFFFF")
-                    colored_text = Text(
-                        f"{file_icon} {display_path} ({loc} lines, {format_size(size)})",
-                        style=f"{color} on red",
-                    )
-                    tree.add(colored_text)
-                elif (
-                    sort_by_mtime
-                    and isinstance(file_item, tuple)
-                    and len(file_item) > 2
-                ):
-                    if len(file_item) > 4:
-                        _, full_path, _, _, mtime = file_item
-                    elif len(file_item) > 3:
-                        _, full_path, _, mtime = file_item
-                    else:
-                        _, full_path, mtime = file_item
-                    ext = os.path.splitext(file_name)[1].lower()
-                    color = color_map.get(ext, "#FFFFFF")
-                    colored_text = Text(
-                        f"{file_icon} {full_path} ({format_timestamp(mtime)})",
-                        style=f"{color} on red",
-                    )
-                    tree.add(colored_text)
-                elif (
-                    sort_by_size and isinstance(file_item, tuple) and len(file_item) > 2
-                ):
-                    if len(file_item) > 3:
-                        if len(file_item) > 4:
-                            _, full_path, _, size, _ = file_item
-                        else:
-                            _, full_path, _, size = file_item
-                    else:
-                        _, full_path, size = file_item
-                    ext = os.path.splitext(file_name)[1].lower()
-                    color = color_map.get(ext, "#FFFFFF")
-                    colored_text = Text(
-                        f"{file_icon} {full_path} ({format_size(size)})",
-                        style=f"{color} on red",
-                    )
-                    tree.add(colored_text)
-                elif (
-                    sort_by_loc and isinstance(file_item, tuple) and len(file_item) > 2
-                ):
-                    if len(file_item) > 3:
-                        if len(file_item) > 4:
-                            _, full_path, loc, _, _ = file_item
-                        else:
-                            _, full_path, loc, _ = file_item
-                    else:
-                        _, full_path, loc = file_item
-                    ext = os.path.splitext(file_name)[1].lower()
-                    color = color_map.get(ext, "#FFFFFF")
-                    colored_text = Text(
-                        f"{file_icon} {full_path} ({loc} lines)",
-                        style=f"{color} on red",
-                    )
-                    tree.add(colored_text)
-                elif isinstance(file_item, tuple):
-                    if len(file_item) > 4:
-                        _, full_path, _, _, _ = file_item
-                    elif len(file_item) > 3:
-                        _, full_path, _, _ = file_item
-                    elif len(file_item) > 2:
-                        _, full_path, _ = file_item
-                    else:
-                        _, full_path = file_item
-                    ext = os.path.splitext(file_name)[1].lower()
-                    color = color_map.get(ext, "#FFFFFF")
-                    colored_text = Text(
-                        f"{file_icon} {full_path}", style=f"{color} on red"
-                    )
-                    tree.add(colored_text)
-                else:
-                    ext = os.path.splitext(file_name)[1].lower()
-                    color = color_map.get(ext, "#FFFFFF")
-                    colored_text = Text(
-                        f"{file_icon} {file_name}", style=f"{color} on red"
-                    )
-                    tree.add(colored_text)
+            if entry.name not in files_in_this_names:
+                file_icon = get_icon(entry.name, is_dir=False, style=icon_style)
+                ext = os.path.splitext(entry.name)[1].lower()
+                color = color_map.get(ext, "#FFFFFF")
+                label = f"{file_icon} {entry.path}" + format_metrics_suffix(
+                    entry.loc,
+                    entry.size,
+                    entry.mtime,
+                    sort_by_loc=sort_by_loc,
+                    sort_by_size=sort_by_size,
+                    sort_by_mtime=sort_by_mtime,
+                )
+                tree.add(Text(label, style=f"{color} on red"))
     if other_structure:
         for folder in sorted(other_structure.keys()):
             if (
@@ -691,106 +245,19 @@ def build_comparison_tree(
                 other_content = other_structure[folder]
                 folder_icon = get_icon(folder, is_dir=True, style=icon_style)
 
-                if (
-                    sort_by_loc
-                    and sort_by_size
-                    and sort_by_mtime
-                    and isinstance(other_content, dict)
-                    and "_loc" in other_content
-                    and "_size" in other_content
-                    and "_mtime" in other_content
-                ):
-                    folder_loc = other_content["_loc"]
-                    folder_size = other_content["_size"]
-                    folder_mtime = other_content["_mtime"]
-                    subtree = tree.add(
-                        Text(
-                            f"{folder_icon} {folder} ({folder_loc} lines, {format_size(folder_size)}, {format_timestamp(folder_mtime)})",
-                            style="red",
-                        )
+                metrics = ""
+                if isinstance(other_content, dict):
+                    metrics = format_metrics_suffix(
+                        other_content.get("_loc", 0),
+                        other_content.get("_size", 0),
+                        other_content.get("_mtime", 0.0),
+                        sort_by_loc=sort_by_loc and "_loc" in other_content,
+                        sort_by_size=sort_by_size and "_size" in other_content,
+                        sort_by_mtime=sort_by_mtime and "_mtime" in other_content,
                     )
-                elif (
-                    sort_by_loc
-                    and sort_by_size
-                    and isinstance(other_content, dict)
-                    and "_loc" in other_content
-                    and "_size" in other_content
-                ):
-                    folder_loc = other_content["_loc"]
-                    folder_size = other_content["_size"]
-                    subtree = tree.add(
-                        Text(
-                            f"{folder_icon} {folder} ({folder_loc} lines, {format_size(folder_size)})",
-                            style="red",
-                        )
-                    )
-                elif (
-                    sort_by_loc
-                    and sort_by_mtime
-                    and isinstance(other_content, dict)
-                    and "_loc" in other_content
-                    and "_mtime" in other_content
-                ):
-                    folder_loc = other_content["_loc"]
-                    folder_mtime = other_content["_mtime"]
-                    subtree = tree.add(
-                        Text(
-                            f"{folder_icon} {folder} ({folder_loc} lines, {format_timestamp(folder_mtime)})",
-                            style="red",
-                        )
-                    )
-                elif (
-                    sort_by_size
-                    and sort_by_mtime
-                    and isinstance(other_content, dict)
-                    and "_size" in other_content
-                    and "_mtime" in other_content
-                ):
-                    folder_size = other_content["_size"]
-                    folder_mtime = other_content["_mtime"]
-                    subtree = tree.add(
-                        Text(
-                            f"{folder_icon} {folder} ({format_size(folder_size)}, {format_timestamp(folder_mtime)})",
-                            style="red",
-                        )
-                    )
-                elif (
-                    sort_by_loc
-                    and isinstance(other_content, dict)
-                    and "_loc" in other_content
-                ):
-                    folder_loc = other_content["_loc"]
-                    subtree = tree.add(
-                        Text(
-                            f"{folder_icon} {folder} ({folder_loc} lines)", style="red"
-                        )
-                    )
-                elif (
-                    sort_by_size
-                    and isinstance(other_content, dict)
-                    and "_size" in other_content
-                ):
-                    folder_size = other_content["_size"]
-                    subtree = tree.add(
-                        Text(
-                            f"{folder_icon} {folder} ({format_size(folder_size)})",
-                            style="red",
-                        )
-                    )
-                elif (
-                    sort_by_mtime
-                    and isinstance(other_content, dict)
-                    and "_mtime" in other_content
-                ):
-                    folder_mtime = other_content["_mtime"]
-                    subtree = tree.add(
-                        Text(
-                            f"{folder_icon} {folder} ({format_timestamp(folder_mtime)})",
-                            style="red",
-                        )
-                    )
-                else:
-                    subtree = tree.add(Text(f"{folder_icon} {folder}", style="red"))
+                subtree = tree.add(
+                    Text(f"{folder_icon} {folder}{metrics}", style="red")
+                )
                 if isinstance(other_content, dict) and other_content.get(
                     "_max_depth_reached"
                 ):
@@ -887,147 +354,35 @@ def display_comparison(
     root_icon1 = get_icon(root_base1, is_dir=True, style=icon_style)
     root_icon2 = get_icon(root_base2, is_dir=True, style=icon_style)
 
-    if (
-        sort_by_loc
-        and sort_by_size
-        and sort_by_mtime
-        and "_loc" in structure1
-        and "_size" in structure1
-        and "_mtime" in structure1
-    ):
-        tree1 = Tree(
-            Text(
-                f"{root_icon1} {root_base1} ({structure1['_loc']} lines, {format_size(structure1['_size'])}, {format_timestamp(structure1['_mtime'])})",
-                style="bold",
-            )
+    tree1 = Tree(
+        Text(
+            f"{root_icon1} {root_base1}"
+            + format_metrics_suffix(
+                structure1.get("_loc", 0),
+                structure1.get("_size", 0),
+                structure1.get("_mtime", 0.0),
+                sort_by_loc=sort_by_loc and "_loc" in structure1,
+                sort_by_size=sort_by_size and "_size" in structure1,
+                sort_by_mtime=sort_by_mtime and "_mtime" in structure1,
+            ),
+            style="bold",
         )
-    elif (
-        sort_by_loc and sort_by_size and "_loc" in structure1 and "_size" in structure1
-    ):
-        tree1 = Tree(
-            Text(
-                f"{root_icon1} {root_base1} ({structure1['_loc']} lines, {format_size(structure1['_size'])})",
-                style="bold",
-            )
-        )
-    elif (
-        sort_by_loc
-        and sort_by_mtime
-        and "_loc" in structure1
-        and "_mtime" in structure1
-    ):
-        tree1 = Tree(
-            Text(
-                f"{root_icon1} {root_base1} ({structure1['_loc']} lines, {format_timestamp(structure1['_mtime'])})",
-                style="bold",
-            )
-        )
-    elif (
-        sort_by_size
-        and sort_by_mtime
-        and "_size" in structure1
-        and "_mtime" in structure1
-    ):
-        tree1 = Tree(
-            Text(
-                f"{root_icon1} {root_base1} ({format_size(structure1['_size'])}, {format_timestamp(structure1['_mtime'])})",
-                style="bold",
-            )
-        )
-    elif sort_by_loc and "_loc" in structure1:
-        tree1 = Tree(
-            Text(
-                f"{root_icon1} {root_base1} ({structure1['_loc']} lines)",
-                style="bold",
-            )
-        )
-    elif sort_by_size and "_size" in structure1:
-        tree1 = Tree(
-            Text(
-                f"{root_icon1} {root_base1} ({format_size(structure1['_size'])})",
-                style="bold",
-            )
-        )
-    elif sort_by_mtime and "_mtime" in structure1:
-        tree1 = Tree(
-            Text(
-                f"{root_icon1} {root_base1} ({format_timestamp(structure1['_mtime'])})",
-                style="bold",
-            )
-        )
-    else:
-        tree1 = Tree(Text(f"{root_icon1} {root_base1}", style="bold"))
+    )
 
-    if (
-        sort_by_loc
-        and sort_by_size
-        and sort_by_mtime
-        and "_loc" in structure2
-        and "_size" in structure2
-        and "_mtime" in structure2
-    ):
-        tree2 = Tree(
-            Text(
-                f"{root_icon2} {root_base2} ({structure2['_loc']} lines, {format_size(structure2['_size'])}, {format_timestamp(structure2['_mtime'])})",
-                style="bold",
-            )
+    tree2 = Tree(
+        Text(
+            f"{root_icon2} {root_base2}"
+            + format_metrics_suffix(
+                structure2.get("_loc", 0),
+                structure2.get("_size", 0),
+                structure2.get("_mtime", 0.0),
+                sort_by_loc=sort_by_loc and "_loc" in structure2,
+                sort_by_size=sort_by_size and "_size" in structure2,
+                sort_by_mtime=sort_by_mtime and "_mtime" in structure2,
+            ),
+            style="bold",
         )
-    elif (
-        sort_by_loc and sort_by_size and "_loc" in structure2 and "_size" in structure2
-    ):
-        tree2 = Tree(
-            Text(
-                f"{root_icon2} {root_base2} ({structure2['_loc']} lines, {format_size(structure2['_size'])})",
-                style="bold",
-            )
-        )
-    elif (
-        sort_by_loc
-        and sort_by_mtime
-        and "_loc" in structure2
-        and "_mtime" in structure2
-    ):
-        tree2 = Tree(
-            Text(
-                f"{root_icon2} {root_base2} ({structure2['_loc']} lines, {format_timestamp(structure2['_mtime'])})",
-                style="bold",
-            )
-        )
-    elif (
-        sort_by_size
-        and sort_by_mtime
-        and "_size" in structure2
-        and "_mtime" in structure2
-    ):
-        tree2 = Tree(
-            Text(
-                f"{root_icon2} {root_base2} ({format_size(structure2['_size'])}, {format_timestamp(structure2['_mtime'])})",
-                style="bold",
-            )
-        )
-    elif sort_by_loc and "_loc" in structure2:
-        tree2 = Tree(
-            Text(
-                f"{root_icon2} {root_base2} ({structure2['_loc']} lines)",
-                style="bold",
-            )
-        )
-    elif sort_by_size and "_size" in structure2:
-        tree2 = Tree(
-            Text(
-                f"{root_icon2} {root_base2} ({format_size(structure2['_size'])})",
-                style="bold",
-            )
-        )
-    elif sort_by_mtime and "_mtime" in structure2:
-        tree2 = Tree(
-            Text(
-                f"{root_icon2} {root_base2} ({format_timestamp(structure2['_mtime'])})",
-                style="bold",
-            )
-        )
-    else:
-        tree2 = Tree(Text(f"{root_icon2} {root_base2}", style="bold"))
+    )
 
     build_comparison_tree(
         structure1,
@@ -1266,126 +621,24 @@ def _export_comparison_to_html(
             sorted_files = sort_files_by_type(
                 files_in_this, sort_by_loc, sort_by_size, sort_by_mtime
             )
-            for file_item in sorted_files:
-                display_text = ""
-                file_name = ""
-                if (
-                    sort_by_loc
-                    and sort_by_size
-                    and sort_by_mtime
-                    and isinstance(file_item, tuple)
-                    and len(file_item) > 4
-                ):
-                    file_name, display_path, loc, size, mtime = file_item
-                    display_text = html.escape(
-                        display_path if show_full_path else file_name
-                    )
-                    display_text = f"{display_text} ({loc} lines, {format_size(size)}, {format_timestamp(mtime)})"
-                elif (
-                    sort_by_loc
-                    and sort_by_mtime
-                    and isinstance(file_item, tuple)
-                    and len(file_item) > 3
-                ):
-                    if len(file_item) > 4:
-                        file_name, display_path, loc, _, mtime = file_item
-                    else:
-                        file_name, display_path, loc, mtime = file_item
-                    display_text = html.escape(
-                        display_path if show_full_path else file_name
-                    )
-                    display_text = (
-                        f"{display_text} ({loc} lines, {format_timestamp(mtime)})"
-                    )
-                elif (
-                    sort_by_size
-                    and sort_by_mtime
-                    and isinstance(file_item, tuple)
-                    and len(file_item) > 3
-                ):
-                    if len(file_item) > 4:
-                        file_name, display_path, _, size, mtime = file_item
-                    else:
-                        file_name, display_path, size, mtime = file_item
-                    display_text = html.escape(
-                        display_path if show_full_path else file_name
-                    )
-                    display_text = f"{display_text} ({format_size(size)}, {format_timestamp(mtime)})"
-                elif (
-                    sort_by_loc
-                    and sort_by_size
-                    and isinstance(file_item, tuple)
-                    and len(file_item) > 3
-                ):
-                    if len(file_item) > 4:
-                        file_name, display_path, loc, size, _ = file_item
-                    else:
-                        file_name, display_path, loc, size = file_item
-                    display_text = html.escape(
-                        display_path if show_full_path else file_name
-                    )
-                    display_text = f"{display_text} ({loc} lines, {format_size(size)})"
-                elif (
-                    sort_by_mtime
-                    and isinstance(file_item, tuple)
-                    and len(file_item) > 2
-                ):
-                    if len(file_item) > 4:
-                        file_name, display_path, _, _, mtime = file_item
-                    elif len(file_item) > 3:
-                        file_name, display_path, _, mtime = file_item
-                    else:
-                        file_name, display_path, mtime = file_item
-                    display_text = html.escape(
-                        display_path if show_full_path else file_name
-                    )
-                    display_text = f"{display_text} ({format_timestamp(mtime)})"
-                elif (
-                    sort_by_size and isinstance(file_item, tuple) and len(file_item) > 2
-                ):
-                    if len(file_item) > 4:
-                        file_name, display_path, _, size, _ = file_item
-                    elif len(file_item) > 3:
-                        file_name, display_path, _, size = file_item
-                    else:
-                        file_name, display_path, size = file_item
-                    display_text = html.escape(
-                        display_path if show_full_path else file_name
-                    )
-                    display_text = f"{display_text} ({format_size(size)})"
-                elif (
-                    sort_by_loc and isinstance(file_item, tuple) and len(file_item) > 2
-                ):
-                    if len(file_item) > 4:
-                        file_name, display_path, loc, _, _ = file_item
-                    elif len(file_item) > 3:
-                        file_name, display_path, loc, _ = file_item
-                    else:
-                        file_name, display_path, loc = file_item
-                    display_text = html.escape(
-                        display_path if show_full_path else file_name
-                    )
-                    display_text = f"{display_text} ({loc} lines)"
-                elif isinstance(file_item, tuple):
-                    if len(file_item) > 4:
-                        file_name, full_path, _, _, _ = file_item
-                    elif len(file_item) > 3:
-                        file_name, full_path, _, _ = file_item
-                    elif len(file_item) > 2:
-                        file_name, full_path, _ = file_item
-                    else:
-                        file_name, full_path = file_item
-                    display_text = html.escape(full_path)
+            for entry in sorted_files:
+                if sort_by_loc or sort_by_size or sort_by_mtime:
+                    base = entry.path if show_full_path else entry.name
                 else:
-                    file_name = file_item
-                    display_text = html.escape(file_name)
-
-                if file_name not in files_in_other_names:
+                    base = entry.path
+                display_text = html.escape(base) + format_metrics_suffix(
+                    entry.loc,
+                    entry.size,
+                    entry.mtime,
+                    sort_by_loc=sort_by_loc,
+                    sort_by_size=sort_by_size,
+                    sort_by_mtime=sort_by_mtime,
+                )
+                if entry.name not in files_in_other_names:
                     file_class = ' class="file-unique-left"'
                 else:
                     file_class = ""
-
-                file_icon = get_icon(file_name, is_dir=False, style=icon_style)
+                file_icon = get_icon(entry.name, is_dir=False, style=icon_style)
                 html_content.append(
                     f'<li{file_class}><span class="file">{file_icon} {display_text}</span></li>'
                 )
@@ -1406,76 +659,20 @@ def _export_comparison_to_html(
 
             folder_icon = get_icon(name, is_dir=True, style=icon_style)
 
-            if (
-                sort_by_loc
-                and sort_by_size
-                and sort_by_mtime
-                and isinstance(content, dict)
-                and "_loc" in content
-                and "_size" in content
-                and "_mtime" in content
-            ):
-                loc_count = content["_loc"]
-                size_count = content["_size"]
-                mtime_count = content["_mtime"]
-                html_content.append(
-                    f'<li{dir_class}><span class="directory">{folder_icon} {html.escape(name)} ({loc_count} lines, {format_size(size_count)}, {format_timestamp(mtime_count)})</span>'
+            metrics = ""
+            if isinstance(content, dict):
+                metrics = format_metrics_suffix(
+                    content.get("_loc", 0),
+                    content.get("_size", 0),
+                    content.get("_mtime", 0.0),
+                    sort_by_loc=sort_by_loc and "_loc" in content,
+                    sort_by_size=sort_by_size and "_size" in content,
+                    sort_by_mtime=sort_by_mtime and "_mtime" in content,
                 )
-            elif (
-                sort_by_loc
-                and sort_by_size
-                and isinstance(content, dict)
-                and "_loc" in content
-                and "_size" in content
-            ):
-                loc_count = content["_loc"]
-                size_count = content["_size"]
-                html_content.append(
-                    f'<li{dir_class}><span class="directory">{folder_icon} {html.escape(name)} ({loc_count} lines, {format_size(size_count)})</span>'
-                )
-            elif (
-                sort_by_loc
-                and sort_by_mtime
-                and isinstance(content, dict)
-                and "_loc" in content
-                and "_mtime" in content
-            ):
-                loc_count = content["_loc"]
-                mtime_count = content["_mtime"]
-                html_content.append(
-                    f'<li{dir_class}><span class="directory">{folder_icon} {html.escape(name)} ({loc_count} lines, {format_timestamp(mtime_count)})</span>'
-                )
-            elif (
-                sort_by_size
-                and sort_by_mtime
-                and isinstance(content, dict)
-                and "_size" in content
-                and "_mtime" in content
-            ):
-                size_count = content["_size"]
-                mtime_count = content["_mtime"]
-                html_content.append(
-                    f'<li{dir_class}><span class="directory">{folder_icon} {html.escape(name)} ({format_size(size_count)}, {format_timestamp(mtime_count)})</span>'
-                )
-            elif sort_by_loc and isinstance(content, dict) and "_loc" in content:
-                loc_count = content["_loc"]
-                html_content.append(
-                    f'<li{dir_class}><span class="directory">{folder_icon} {html.escape(name)} ({loc_count} lines)</span>'
-                )
-            elif sort_by_size and isinstance(content, dict) and "_size" in content:
-                size_count = content["_size"]
-                html_content.append(
-                    f'<li{dir_class}><span class="directory">{folder_icon} {html.escape(name)} ({format_size(size_count)})</span>'
-                )
-            elif sort_by_mtime and isinstance(content, dict) and "_mtime" in content:
-                mtime_count = content["_mtime"]
-                html_content.append(
-                    f'<li{dir_class}><span class="directory">{folder_icon} {html.escape(name)} ({format_timestamp(mtime_count)})</span>'
-                )
-            else:
-                html_content.append(
-                    f'<li{dir_class}><span class="directory">{folder_icon} {html.escape(name)}</span>'
-                )
+            html_content.append(
+                f'<li{dir_class}><span class="directory">{folder_icon} '
+                f"{html.escape(name)}{metrics}</span>"
+            )
             if isinstance(content, dict) and content.get("_max_depth_reached"):
                 html_content.append(
                     '<ul><li class="max-depth">⋯ (max depth reached)</li></ul>'
@@ -1494,123 +691,22 @@ def _export_comparison_to_html(
             sorted_other_files = sort_files_by_type(
                 other_structure["_files"], sort_by_loc, sort_by_size, sort_by_mtime
             )
-            for file_item in sorted_other_files:
-                display_text = ""
-                file_name = ""
-                if (
-                    sort_by_loc
-                    and sort_by_size
-                    and sort_by_mtime
-                    and isinstance(file_item, tuple)
-                    and len(file_item) > 4
-                ):
-                    file_name, display_path, loc, size, mtime = file_item
-                    display_text = html.escape(
-                        display_path if show_full_path else file_name
-                    )
-                    display_text = f"{display_text} ({loc} lines, {format_size(size)}, {format_timestamp(mtime)})"
-                elif (
-                    sort_by_loc
-                    and sort_by_mtime
-                    and isinstance(file_item, tuple)
-                    and len(file_item) > 3
-                ):
-                    if len(file_item) > 4:
-                        file_name, display_path, loc, _, mtime = file_item
+            for entry in sorted_other_files:
+                if entry.name not in files_in_this_names:
+                    if sort_by_loc or sort_by_size or sort_by_mtime:
+                        base = entry.path if show_full_path else entry.name
                     else:
-                        file_name, display_path, loc, mtime = file_item
-                    display_text = html.escape(
-                        display_path if show_full_path else file_name
+                        base = entry.path
+                    display_text = html.escape(base) + format_metrics_suffix(
+                        entry.loc,
+                        entry.size,
+                        entry.mtime,
+                        sort_by_loc=sort_by_loc,
+                        sort_by_size=sort_by_size,
+                        sort_by_mtime=sort_by_mtime,
                     )
-                    display_text = (
-                        f"{display_text} ({loc} lines, {format_timestamp(mtime)})"
-                    )
-                elif (
-                    sort_by_size
-                    and sort_by_mtime
-                    and isinstance(file_item, tuple)
-                    and len(file_item) > 3
-                ):
-                    if len(file_item) > 4:
-                        file_name, display_path, _, size, mtime = file_item
-                    else:
-                        file_name, display_path, size, mtime = file_item
-                    display_text = html.escape(
-                        display_path if show_full_path else file_name
-                    )
-                    display_text = f"{display_text} ({format_size(size)}, {format_timestamp(mtime)})"
-                elif (
-                    sort_by_loc
-                    and sort_by_size
-                    and isinstance(file_item, tuple)
-                    and len(file_item) > 3
-                ):
-                    if len(file_item) > 4:
-                        file_name, display_path, loc, size, _ = file_item
-                    else:
-                        file_name, display_path, loc, size = file_item
-                    display_text = html.escape(
-                        display_path if show_full_path else file_name
-                    )
-                    display_text = f"{display_text} ({loc} lines, {format_size(size)})"
-                elif (
-                    sort_by_mtime
-                    and isinstance(file_item, tuple)
-                    and len(file_item) > 2
-                ):
-                    if len(file_item) > 4:
-                        file_name, display_path, _, _, mtime = file_item
-                    elif len(file_item) > 3:
-                        file_name, display_path, _, mtime = file_item
-                    else:
-                        file_name, display_path, mtime = file_item
-                    display_text = html.escape(
-                        display_path if show_full_path else file_name
-                    )
-                    display_text = f"{display_text} ({format_timestamp(mtime)})"
-                elif (
-                    sort_by_size and isinstance(file_item, tuple) and len(file_item) > 2
-                ):
-                    if len(file_item) > 4:
-                        file_name, display_path, _, size, _ = file_item
-                    elif len(file_item) > 3:
-                        file_name, display_path, _, size = file_item
-                    else:
-                        file_name, display_path, size = file_item
-                    display_text = html.escape(
-                        display_path if show_full_path else file_name
-                    )
-                    display_text = f"{display_text} ({format_size(size)})"
-                elif (
-                    sort_by_loc and isinstance(file_item, tuple) and len(file_item) > 2
-                ):
-                    if len(file_item) > 4:
-                        file_name, display_path, loc, _, _ = file_item
-                    elif len(file_item) > 3:
-                        file_name, display_path, loc, _ = file_item
-                    else:
-                        file_name, display_path, loc = file_item
-                    display_text = html.escape(
-                        display_path if show_full_path else file_name
-                    )
-                    display_text = f"{display_text} ({loc} lines)"
-                elif isinstance(file_item, tuple):
-                    if len(file_item) > 4:
-                        file_name, full_path, _, _, _ = file_item
-                    elif len(file_item) > 3:
-                        file_name, full_path, _, _ = file_item
-                    elif len(file_item) > 2:
-                        file_name, full_path, _ = file_item
-                    else:
-                        file_name, full_path = file_item
-                    display_text = html.escape(full_path)
-                else:
-                    file_name = file_item
-                    display_text = html.escape(file_name)
-
-                if file_name not in files_in_this_names:
                     file_class = ' class="file-unique-right"'
-                    file_icon = get_icon(file_name, is_dir=False, style=icon_style)
+                    file_icon = get_icon(entry.name, is_dir=False, style=icon_style)
                     html_content.append(
                         f'<li{file_class}><span class="file">{file_icon} {display_text}</span></li>'
                     )
@@ -1630,78 +726,20 @@ def _export_comparison_to_html(
 
                 folder_icon = get_icon(name, is_dir=True, style=icon_style)
 
-                if (
-                    sort_by_loc
-                    and sort_by_size
-                    and sort_by_mtime
-                    and isinstance(content, dict)
-                    and "_loc" in content
-                    and "_size" in content
-                    and "_mtime" in content
-                ):
-                    loc_count = content["_loc"]
-                    size_count = content["_size"]
-                    mtime_count = content["_mtime"]
-                    html_content.append(
-                        f'<li{dir_class}><span class="directory">{folder_icon} {html.escape(name)} ({loc_count} lines, {format_size(size_count)}, {format_timestamp(mtime_count)})</span>'
+                metrics = ""
+                if isinstance(content, dict):
+                    metrics = format_metrics_suffix(
+                        content.get("_loc", 0),
+                        content.get("_size", 0),
+                        content.get("_mtime", 0.0),
+                        sort_by_loc=sort_by_loc and "_loc" in content,
+                        sort_by_size=sort_by_size and "_size" in content,
+                        sort_by_mtime=sort_by_mtime and "_mtime" in content,
                     )
-                elif (
-                    sort_by_loc
-                    and sort_by_size
-                    and isinstance(content, dict)
-                    and "_loc" in content
-                    and "_size" in content
-                ):
-                    loc_count = content["_loc"]
-                    size_count = content["_size"]
-                    html_content.append(
-                        f'<li{dir_class}><span class="directory">{folder_icon} {html.escape(name)} ({loc_count} lines, {format_size(size_count)})</span>'
-                    )
-                elif (
-                    sort_by_loc
-                    and sort_by_mtime
-                    and isinstance(content, dict)
-                    and "_loc" in content
-                    and "_mtime" in content
-                ):
-                    loc_count = content["_loc"]
-                    mtime_count = content["_mtime"]
-                    html_content.append(
-                        f'<li{dir_class}><span class="directory">{folder_icon} {html.escape(name)} ({loc_count} lines, {format_timestamp(mtime_count)})</span>'
-                    )
-                elif (
-                    sort_by_size
-                    and sort_by_mtime
-                    and isinstance(content, dict)
-                    and "_size" in content
-                    and "_mtime" in content
-                ):
-                    size_count = content["_size"]
-                    mtime_count = content["_mtime"]
-                    html_content.append(
-                        f'<li{dir_class}><span class="directory">{folder_icon} {html.escape(name)} ({format_size(size_count)}, {format_timestamp(mtime_count)})</span>'
-                    )
-                elif sort_by_loc and isinstance(content, dict) and "_loc" in content:
-                    loc_count = content["_loc"]
-                    html_content.append(
-                        f'<li{dir_class}><span class="directory">{folder_icon} {html.escape(name)} ({loc_count} lines)</span>'
-                    )
-                elif sort_by_size and isinstance(content, dict) and "_size" in content:
-                    size_count = content["_size"]
-                    html_content.append(
-                        f'<li{dir_class}><span class="directory">{folder_icon} {html.escape(name)} ({format_size(size_count)})</span>'
-                    )
-                elif (
-                    sort_by_mtime and isinstance(content, dict) and "_mtime" in content
-                ):
-                    mtime_count = content["_mtime"]
-                    html_content.append(
-                        f'<li{dir_class}><span class="directory">{folder_icon} {html.escape(name)} ({format_timestamp(mtime_count)})</span>'
-                    )
-                else:
-                    html_content.append(
-                        f'<li{dir_class}><span class="directory">{folder_icon} {html.escape(name)}</span>'
-                    )
+                html_content.append(
+                    f'<li{dir_class}><span class="directory">{folder_icon} '
+                    f"{html.escape(name)}{metrics}</span>"
+                )
                 if isinstance(content, dict) and content.get("_max_depth_reached"):
                     html_content.append(
                         '<ul><li class="max-depth">⋯ (max depth reached)</li></ul>'
@@ -1758,55 +796,25 @@ def _export_comparison_to_html(
             </div>
             """
 
-    dir1_title = dir1_name
-    dir2_title = dir2_name
-    if (
-        metadata.get("sort_by_loc")
-        and metadata.get("sort_by_size")
-        and metadata.get("sort_by_mtime")
-    ):
-        if (
-            "_loc" in dir1_structure
-            and "_size" in dir1_structure
-            and "_mtime" in dir1_structure
-        ):
-            dir1_title = f"{dir1_name} ({dir1_structure['_loc']} lines, {format_size(dir1_structure['_size'])}, {format_timestamp(dir1_structure['_mtime'])})"
-        if (
-            "_loc" in dir2_structure
-            and "_size" in dir2_structure
-            and "_mtime" in dir2_structure
-        ):
-            dir2_title = f"{dir2_name} ({dir2_structure['_loc']} lines, {format_size(dir2_structure['_size'])}, {format_timestamp(dir2_structure['_mtime'])})"
-    elif metadata.get("sort_by_loc") and metadata.get("sort_by_size"):
-        if "_loc" in dir1_structure and "_size" in dir1_structure:
-            dir1_title = f"{dir1_name} ({dir1_structure['_loc']} lines, {format_size(dir1_structure['_size'])})"
-        if "_loc" in dir2_structure and "_size" in dir2_structure:
-            dir2_title = f"{dir2_name} ({dir2_structure['_loc']} lines, {format_size(dir2_structure['_size'])})"
-    elif metadata.get("sort_by_loc") and metadata.get("sort_by_mtime"):
-        if "_loc" in dir1_structure and "_mtime" in dir1_structure:
-            dir1_title = f"{dir1_name} ({dir1_structure['_loc']} lines, {format_timestamp(dir1_structure['_mtime'])})"
-        if "_loc" in dir2_structure and "_mtime" in dir2_structure:
-            dir2_title = f"{dir2_name} ({dir2_structure['_loc']} lines, {format_timestamp(dir2_structure['_mtime'])})"
-    elif metadata.get("sort_by_size") and metadata.get("sort_by_mtime"):
-        if "_size" in dir1_structure and "_mtime" in dir1_structure:
-            dir1_title = f"{dir1_name} ({format_size(dir1_structure['_size'])}, {format_timestamp(dir1_structure['_mtime'])})"
-        if "_size" in dir2_structure and "_mtime" in dir2_structure:
-            dir2_title = f"{dir2_name} ({format_size(dir2_structure['_size'])}, {format_timestamp(dir2_structure['_mtime'])})"
-    elif metadata.get("sort_by_loc"):
-        if "_loc" in dir1_structure:
-            dir1_title = f"{dir1_name} ({dir1_structure['_loc']} lines)"
-        if "_loc" in dir2_structure:
-            dir2_title = f"{dir2_name} ({dir2_structure['_loc']} lines)"
-    elif metadata.get("sort_by_size"):
-        if "_size" in dir1_structure:
-            dir1_title = f"{dir1_name} ({format_size(dir1_structure['_size'])})"
-        if "_size" in dir2_structure:
-            dir2_title = f"{dir2_name} ({format_size(dir2_structure['_size'])})"
-    elif metadata.get("sort_by_mtime"):
-        if "_mtime" in dir1_structure:
-            dir1_title = f"{dir1_name} ({format_timestamp(dir1_structure['_mtime'])})"
-        if "_mtime" in dir2_structure:
-            dir2_title = f"{dir2_name} ({format_timestamp(dir2_structure['_mtime'])})"
+    _sl = bool(metadata.get("sort_by_loc"))
+    _ss = bool(metadata.get("sort_by_size"))
+    _sm = bool(metadata.get("sort_by_mtime"))
+    dir1_title = dir1_name + format_metrics_suffix(
+        dir1_structure.get("_loc", 0),
+        dir1_structure.get("_size", 0),
+        dir1_structure.get("_mtime", 0.0),
+        sort_by_loc=_sl and "_loc" in dir1_structure,
+        sort_by_size=_ss and "_size" in dir1_structure,
+        sort_by_mtime=_sm and "_mtime" in dir1_structure,
+    )
+    dir2_title = dir2_name + format_metrics_suffix(
+        dir2_structure.get("_loc", 0),
+        dir2_structure.get("_size", 0),
+        dir2_structure.get("_mtime", 0.0),
+        sort_by_loc=_sl and "_loc" in dir2_structure,
+        sort_by_size=_ss and "_size" in dir2_structure,
+        sort_by_mtime=_sm and "_mtime" in dir2_structure,
+    )
 
     root_icon1 = get_icon(dir1_name, is_dir=True, style=icon_style)
     root_icon2 = get_icon(dir2_name, is_dir=True, style=icon_style)

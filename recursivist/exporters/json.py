@@ -1,7 +1,8 @@
 import json
 import logging
-from typing import Any
+from typing import Any, Union
 
+from recursivist._models import FileEntry
 from recursivist.core import format_size, format_timestamp
 
 from .base import BaseExporter
@@ -11,200 +12,103 @@ logger = logging.getLogger(__name__)
 
 class JsonExporter(BaseExporter):
     def export(self, output_path: str) -> None:
-        if (
+        has_detail = (
             self.show_full_path
             or self.sort_by_loc
             or self.sort_by_size
             or self.sort_by_mtime
-        ):
+        )
 
-            def convert_structure_for_json(structure: dict[str, Any]) -> dict[str, Any]:
-                result: dict[str, Any] = {}
-                _git_markers_here = structure.get("_git_markers", {})
-                for k, v in structure.items():
-                    if k == "_files":
-                        result[k] = []
-                        for item in v:
-                            if not isinstance(item, tuple):
-                                if self.show_git_status:
-                                    _gs = _git_markers_here.get(item, "")
-                                    entry: Any = {"name": item}
-                                    if _gs:
-                                        entry["git_status"] = _gs
-                                    result[k].append(entry)
-                                else:
-                                    result[k].append(item)
-                                continue
+        def file_to_json(
+            item: Any, git_markers_here: dict[str, str]
+        ) -> Union[str, dict[str, Any]]:
+            """Encode a single ``_files`` entry for the detail JSON form.
 
-                            file_name = "unknown"
-                            full_path = ""
-                            loc = 0
-                            size = 0
-                            mtime = 0
+            Bare-string entries are emitted as plain names, optionally wrapped
+            with their Git status. Every other entry is normalised through
+            :meth:`FileEntry.from_raw` and rendered with exactly the keys the
+            active flags call for.
+            """
+            if not isinstance(item, tuple):
+                name = str(item)
+                git_status = (
+                    git_markers_here.get(name, "") if self.show_git_status else ""
+                )
+                if git_status:
+                    return {"name": name, "git_status": git_status}
+                return name
+            entry = FileEntry.from_raw(
+                item, self.sort_by_loc, self.sort_by_size, self.sort_by_mtime
+            )
+            git_status = (
+                git_markers_here.get(entry.name, "") if self.show_git_status else ""
+            )
+            result: dict[str, Any] = {"name": entry.name, "path": entry.path}
+            if self.sort_by_loc:
+                result["loc"] = entry.loc
+            if self.sort_by_size:
+                result["size"] = entry.size
+                result["size_formatted"] = format_size(entry.size)
+            if self.sort_by_mtime:
+                result["mtime"] = entry.mtime
+                result["mtime_formatted"] = format_timestamp(entry.mtime)
+            if git_status:
+                result["git_status"] = git_status
+            return result
 
-                            if len(item) > 0:
-                                file_name = item[0]
-                            if len(item) > 1:
-                                full_path = item[1]
-
-                            _git_status = (
-                                _git_markers_here.get(file_name, "")
-                                if self.show_git_status
-                                else ""
-                            )
-
-                            def _maybe_git(
-                                d: dict[str, Any], _gs: str = _git_status
-                            ) -> dict[str, Any]:
-                                if _gs:
-                                    d["git_status"] = _gs
-                                return d
-
-                            if (
-                                self.sort_by_loc
-                                and self.sort_by_size
-                                and self.sort_by_mtime
-                                and len(item) > 4
-                            ):
-                                loc = item[2]
-                                size = item[3]
-                                mtime = item[4]
-                                result[k].append(
-                                    _maybe_git(
-                                        {
-                                            "name": file_name,
-                                            "path": full_path,
-                                            "loc": loc,
-                                            "size": size,
-                                            "size_formatted": format_size(size),
-                                            "mtime": mtime,
-                                            "mtime_formatted": format_timestamp(mtime),
-                                        }
-                                    )
-                                )
-                            elif (
-                                self.sort_by_loc
-                                and self.sort_by_mtime
-                                and len(item) > 4
-                            ):
-                                loc = item[2]
-                                mtime = item[4]
-                                result[k].append(
-                                    _maybe_git(
-                                        {
-                                            "name": file_name,
-                                            "path": full_path,
-                                            "loc": loc,
-                                            "mtime": mtime,
-                                            "mtime_formatted": format_timestamp(mtime),
-                                        }
-                                    )
-                                )
-                            elif (
-                                self.sort_by_size
-                                and self.sort_by_mtime
-                                and len(item) > 4
-                            ):
-                                size = item[3]
-                                mtime = item[4]
-                                result[k].append(
-                                    _maybe_git(
-                                        {
-                                            "name": file_name,
-                                            "path": full_path,
-                                            "size": size,
-                                            "size_formatted": format_size(size),
-                                            "mtime": mtime,
-                                            "mtime_formatted": format_timestamp(mtime),
-                                        }
-                                    )
-                                )
-                            elif (
-                                self.sort_by_loc and self.sort_by_size and len(item) > 3
-                            ):
-                                loc = item[2] if len(item) > 2 else 0
-                                size = item[3] if len(item) > 3 else 0
-                                result[k].append(
-                                    _maybe_git(
-                                        {
-                                            "name": file_name,
-                                            "path": full_path,
-                                            "loc": loc,
-                                            "size": size,
-                                            "size_formatted": format_size(size),
-                                        }
-                                    )
-                                )
-                            elif self.sort_by_mtime and len(item) > 2:
-                                mtime = item[2] if len(item) > 2 else 0
-                                result[k].append(
-                                    _maybe_git(
-                                        {
-                                            "name": file_name,
-                                            "path": full_path,
-                                            "mtime": mtime,
-                                            "mtime_formatted": format_timestamp(mtime),
-                                        }
-                                    )
-                                )
-                            elif self.sort_by_size and len(item) > 2:
-                                size = item[2] if len(item) > 2 else 0
-                                result[k].append(
-                                    _maybe_git(
-                                        {
-                                            "name": file_name,
-                                            "path": full_path,
-                                            "size": size,
-                                            "size_formatted": format_size(size),
-                                        }
-                                    )
-                                )
-                            elif self.sort_by_loc and len(item) > 2:
-                                loc = item[2] if len(item) > 2 else 0
-                                result[k].append(
-                                    _maybe_git(
-                                        {
-                                            "name": file_name,
-                                            "path": full_path,
-                                            "loc": loc,
-                                        }
-                                    )
-                                )
-                            elif self.show_full_path and len(item) > 1:
-                                result[k].append(
-                                    _maybe_git({"name": file_name, "path": full_path})
-                                )
-                            else:
-                                if _git_status:
-                                    result[k].append(
-                                        {"name": file_name, "git_status": _git_status}
-                                    )
-                                else:
-                                    result[k].append(file_name)
-                    elif k == "_loc":
-                        if self.sort_by_loc:
-                            result[k] = v
-                    elif k == "_size":
-                        if self.sort_by_size:
-                            result[k] = v
-                            result["_size_formatted"] = format_size(v)
-                    elif k == "_mtime":
-                        if self.sort_by_mtime:
-                            result[k] = v
-                            result["_mtime_formatted"] = format_timestamp(v)
-                    elif k == "_git_markers":
-                        continue
-                    elif k == "_max_depth_reached":
+        def convert_structure_for_json(structure: dict[str, Any]) -> dict[str, Any]:
+            result: dict[str, Any] = {}
+            git_markers_here = structure.get("_git_markers", {})
+            for k, v in structure.items():
+                if k == "_files":
+                    result[k] = [file_to_json(item, git_markers_here) for item in v]
+                elif k == "_loc":
+                    if self.sort_by_loc:
                         result[k] = v
-                    elif isinstance(v, dict):
-                        result[k] = convert_structure_for_json(v)
-                    else:
+                elif k == "_size":
+                    if self.sort_by_size:
                         result[k] = v
-                return result
+                        result["_size_formatted"] = format_size(v)
+                elif k == "_mtime":
+                    if self.sort_by_mtime:
+                        result[k] = v
+                        result["_mtime_formatted"] = format_timestamp(v)
+                elif k == "_git_markers":
+                    continue
+                elif k == "_max_depth_reached":
+                    result[k] = v
+                elif isinstance(v, dict):
+                    result[k] = convert_structure_for_json(v)
+                else:
+                    result[k] = v
+            return result
 
+        def names_only(structure: dict[str, Any]) -> dict[str, Any]:
+            """Copy ``structure``, collapsing ``_files`` to bare names.
+
+            Used when no detail flags are active: each file is reduced to its
+            name while every other key (including ``_git_markers``) is left
+            intact.
+            """
+            result: dict[str, Any] = {}
+            for k, v in structure.items():
+                if k == "_files":
+                    result[k] = [
+                        FileEntry.from_raw(item).name
+                        if isinstance(item, tuple)
+                        else item
+                        for item in v
+                    ]
+                elif isinstance(v, dict):
+                    result[k] = names_only(v)
+                else:
+                    result[k] = v
+            return result
+
+        if has_detail:
             export_structure = convert_structure_for_json(self.structure)
         else:
-            export_structure = self.structure
+            export_structure = names_only(self.structure)
 
         try:
             with open(output_path, "w", encoding="utf-8") as f:

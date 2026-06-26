@@ -1,7 +1,8 @@
 import html
 import logging
-from typing import Any, Union
+from typing import Any
 
+from recursivist._models import FileEntry
 from recursivist.core import format_size, format_timestamp
 
 from .base import BaseExporter
@@ -78,178 +79,56 @@ class JsxExporter(BaseExporter):
                 jsx_content.append("</DirectoryItem>")
             if "_files" in structure:
                 files = structure["_files"]
-                sorted_files = []
 
-                valid_files = [
-                    f for f in files if not (isinstance(f, tuple) and len(f) == 0)
+                # Normalise each entry to a FileEntry (skipping empty tuples),
+                # then sort. Metric sorts break ties on the lowercased name, and
+                # the no-metric case is a straight name sort with no extension
+                # grouping.
+                entries = [
+                    FileEntry.from_raw(
+                        f, self.sort_by_loc, self.sort_by_size, self.sort_by_mtime
+                    )
+                    for f in files
+                    if not (isinstance(f, tuple) and len(f) == 0)
                 ]
-
-                def safe_get(tup: Any, idx: int, default: int = 0) -> int:
-                    if not isinstance(tup, tuple):
-                        return default
-                    return int(tup[idx]) if len(tup) > idx else default
-
-                def sort_key_all(
-                    f: Union[tuple[Any, ...], str],
-                ) -> tuple[int, int, int, str]:
-                    if isinstance(f, tuple):
-                        if len(f) == 0:
-                            return (0, 0, 0, "")
-                        file_name = f[0].lower()
-                        loc = safe_get(f, 2) if len(f) > 2 else 0
-                        size = safe_get(f, 3) if len(f) > 3 else 0
-                        mtime = safe_get(f, 4) if len(f) > 4 else 0
-                        return (-loc, -size, -mtime, file_name)
-                    return (0, 0, 0, f.lower() if isinstance(f, str) else "")
-
-                def sort_key_loc_size(
-                    f: Union[tuple[Any, ...], str],
-                ) -> tuple[int, int, str]:
-                    if isinstance(f, tuple):
-                        if len(f) == 0:
-                            return (0, 0, "")
-                        file_name = f[0].lower()
-                        loc = safe_get(f, 2) if len(f) > 2 else 0
-                        size = safe_get(f, 3) if len(f) > 3 else 0
-                        return (-loc, -size, file_name)
-                    return (0, 0, f.lower() if isinstance(f, str) else "")
-
-                def sort_key_loc_mtime(
-                    f: Union[tuple[Any, ...], str],
-                ) -> tuple[int, int, str]:
-                    if isinstance(f, tuple):
-                        if len(f) == 0:
-                            return (0, 0, "")
-                        file_name = f[0].lower()
-                        loc = safe_get(f, 2) if len(f) > 2 else 0
-                        mtime = safe_get(f, 4) if len(f) > 4 else 0
-                        return (-loc, -mtime, file_name)
-                    return (0, 0, f.lower() if isinstance(f, str) else "")
-
-                def sort_key_size_mtime(
-                    f: Union[tuple[Any, ...], str],
-                ) -> tuple[int, int, str]:
-                    if isinstance(f, tuple):
-                        if len(f) == 0:
-                            return (0, 0, "")
-                        file_name = f[0].lower()
-                        size = safe_get(f, 3) if len(f) > 3 else 0
-                        mtime = safe_get(f, 4) if len(f) > 4 else 0
-                        return (-size, -mtime, file_name)
-                    return (0, 0, f.lower() if isinstance(f, str) else "")
-
-                def sort_key_mtime(f: Union[tuple[Any, ...], str]) -> tuple[int, str]:
-                    if isinstance(f, tuple):
-                        if len(f) == 0:
-                            return (0, "")
-                        file_name = f[0].lower()
-                        mtime = 0
-                        if len(f) > 4 and self.sort_by_loc and self.sort_by_size:
-                            mtime = safe_get(f, 4)
-                        elif len(f) > 3 and (self.sort_by_loc or self.sort_by_size):
-                            mtime = safe_get(f, 3)
-                        elif len(f) > 2:
-                            mtime = safe_get(f, 2)
-                        return (-mtime, file_name)
-                    return (0, f.lower() if isinstance(f, str) else "")
-
-                def sort_key_size(f: Union[tuple[Any, ...], str]) -> tuple[int, str]:
-                    if isinstance(f, tuple):
-                        if len(f) == 0:
-                            return (0, "")
-                        file_name = f[0].lower()
-                        size = 0
-                        if len(f) > 3 and self.sort_by_loc:
-                            size = safe_get(f, 3)
-                        elif len(f) > 2:
-                            size = safe_get(f, 2)
-                        return (-size, file_name)
-                    return (0, f.lower() if isinstance(f, str) else "")
-
-                def sort_key_loc(f: Union[tuple[Any, ...], str]) -> tuple[int, str]:
-                    if isinstance(f, tuple):
-                        if len(f) == 0:
-                            return (0, "")
-                        file_name = f[0].lower()
-                        loc = safe_get(f, 2) if len(f) > 2 else 0
-                        return (-loc, file_name)
-                    return (0, f.lower() if isinstance(f, str) else "")
-
-                def sort_key_name(f: Union[tuple[Any, ...], str]) -> str:
-                    if isinstance(f, tuple):
-                        if len(f) == 0:
-                            return ""
-                        return f[0].lower()
-                    return f.lower() if isinstance(f, str) else ""
-
                 if self.sort_by_loc and self.sort_by_size and self.sort_by_mtime:
-                    sorted_files = sorted(valid_files, key=sort_key_all)
+                    sorted_files = sorted(
+                        entries,
+                        key=lambda e: (-e.loc, -e.size, -e.mtime, e.name.lower()),
+                    )
                 elif self.sort_by_loc and self.sort_by_size:
-                    sorted_files = sorted(valid_files, key=sort_key_loc_size)
+                    sorted_files = sorted(
+                        entries, key=lambda e: (-e.loc, -e.size, e.name.lower())
+                    )
                 elif self.sort_by_loc and self.sort_by_mtime:
-                    sorted_files = sorted(valid_files, key=sort_key_loc_mtime)
+                    sorted_files = sorted(
+                        entries, key=lambda e: (-e.loc, -e.mtime, e.name.lower())
+                    )
                 elif self.sort_by_size and self.sort_by_mtime:
-                    sorted_files = sorted(valid_files, key=sort_key_size_mtime)
+                    sorted_files = sorted(
+                        entries, key=lambda e: (-e.size, -e.mtime, e.name.lower())
+                    )
                 elif self.sort_by_mtime:
-                    sorted_files = sorted(valid_files, key=sort_key_mtime)
+                    sorted_files = sorted(
+                        entries, key=lambda e: (-e.mtime, e.name.lower())
+                    )
                 elif self.sort_by_size:
-                    sorted_files = sorted(valid_files, key=sort_key_size)
+                    sorted_files = sorted(
+                        entries, key=lambda e: (-e.size, e.name.lower())
+                    )
                 elif self.sort_by_loc:
-                    sorted_files = sorted(valid_files, key=sort_key_loc)
+                    sorted_files = sorted(
+                        entries, key=lambda e: (-e.loc, e.name.lower())
+                    )
                 else:
-                    sorted_files = sorted(valid_files, key=sort_key_name)
+                    sorted_files = sorted(entries, key=lambda e: e.name.lower())
 
-                for file_item in sorted_files:
-                    loc = 0
-                    size = 0
-                    mtime = 0
-
-                    if isinstance(file_item, tuple):
-                        if len(file_item) == 0:
-                            continue
-
-                        file_name = file_item[0]
-                        display_path = file_item[1] if len(file_item) > 1 else file_name
-
-                        if (
-                            self.sort_by_loc
-                            and self.sort_by_size
-                            and self.sort_by_mtime
-                            and len(file_item) > 4
-                        ):
-                            loc = file_item[2]
-                            size = file_item[3]
-                            mtime = file_item[4]
-                        elif (
-                            self.sort_by_loc
-                            and self.sort_by_size
-                            and len(file_item) > 3
-                        ):
-                            loc = file_item[2]
-                            size = file_item[3]
-                        elif (
-                            self.sort_by_loc
-                            and self.sort_by_mtime
-                            and len(file_item) > 4
-                        ):
-                            loc = file_item[2]
-                            mtime = file_item[4]
-                        elif (
-                            self.sort_by_size
-                            and self.sort_by_mtime
-                            and len(file_item) > 4
-                        ):
-                            size = file_item[3]
-                            mtime = file_item[4]
-                        elif self.sort_by_loc and len(file_item) > 2:
-                            loc = file_item[2]
-                        elif self.sort_by_size and len(file_item) > 2:
-                            size = file_item[2]
-                        elif self.sort_by_mtime and len(file_item) > 2:
-                            mtime = file_item[2]
-                    else:
-                        file_name = file_item
-                        display_path = file_name
+                for entry in sorted_files:
+                    file_name = entry.name
+                    display_path = entry.path
+                    loc = entry.loc
+                    size = entry.size
+                    mtime = entry.mtime
 
                     if path_prefix:
                         path_parts = path_prefix.split("/")

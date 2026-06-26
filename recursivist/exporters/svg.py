@@ -7,8 +7,7 @@ from rich.tree import Tree
 
 from recursivist.core import (
     build_tree,
-    format_size,
-    format_timestamp,
+    format_metrics_suffix,
     generate_color_for_extension,
 )
 from recursivist.icons import get_icon
@@ -35,48 +34,14 @@ class SvgExporter(BaseExporter):
         color_map = {ext: generate_color_for_extension(ext) for ext in extensions}
 
         root_icon = get_icon(self.root_name, is_dir=True, style=self.icon_style)
-        root_label = f"{root_icon} {self.root_name}"
-
-        if (
-            self.sort_by_loc
-            and self.sort_by_size
-            and self.sort_by_mtime
-            and "_loc" in self.structure
-            and "_size" in self.structure
-            and "_mtime" in self.structure
-        ):
-            root_label = f"{root_icon} {self.root_name} ({self.structure['_loc']} lines, {format_size(self.structure['_size'])}, {format_timestamp(self.structure['_mtime'])})"
-        elif (
-            self.sort_by_loc
-            and self.sort_by_size
-            and "_loc" in self.structure
-            and "_size" in self.structure
-        ):
-            root_label = f"{root_icon} {self.root_name} ({self.structure['_loc']} lines, {format_size(self.structure['_size'])})"
-        elif (
-            self.sort_by_loc
-            and self.sort_by_mtime
-            and "_loc" in self.structure
-            and "_mtime" in self.structure
-        ):
-            root_label = f"{root_icon} {self.root_name} ({self.structure['_loc']} lines, {format_timestamp(self.structure['_mtime'])})"
-        elif (
-            self.sort_by_size
-            and self.sort_by_mtime
-            and "_size" in self.structure
-            and "_mtime" in self.structure
-        ):
-            root_label = f"{root_icon} {self.root_name} ({format_size(self.structure['_size'])}, {format_timestamp(self.structure['_mtime'])})"
-        elif self.sort_by_loc and "_loc" in self.structure:
-            root_label = (
-                f"{root_icon} {self.root_name} ({self.structure['_loc']} lines)"
-            )
-        elif self.sort_by_size and "_size" in self.structure:
-            root_label = (
-                f"{root_icon} {self.root_name} ({format_size(self.structure['_size'])})"
-            )
-        elif self.sort_by_mtime and "_mtime" in self.structure:
-            root_label = f"{root_icon} {self.root_name} ({format_timestamp(self.structure['_mtime'])})"
+        root_label = f"{root_icon} {self.root_name}" + format_metrics_suffix(
+            self.structure.get("_loc", 0),
+            self.structure.get("_size", 0),
+            self.structure.get("_mtime", 0.0),
+            sort_by_loc=self.sort_by_loc and "_loc" in self.structure,
+            sort_by_size=self.sort_by_size and "_size" in self.structure,
+            sort_by_mtime=self.sort_by_mtime and "_mtime" in self.structure,
+        )
 
         tree = Tree(root_label)
 

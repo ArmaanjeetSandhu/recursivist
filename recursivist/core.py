@@ -32,6 +32,7 @@ from rich.console import Console
 from rich.text import Text
 from rich.tree import Tree
 
+from recursivist._models import FileEntry
 from recursivist.icons import get_icon
 
 logger = logging.getLogger(__name__)
@@ -576,55 +577,18 @@ def get_directory_structure(
                     file_mtime = get_file_mtime(item_path)
                     latest_mtime = max(latest_mtime, file_mtime)
                 if show_full_path:
-                    abs_path = os.path.abspath(item_path)
-                    abs_path = abs_path.replace(os.sep, "/")
-                    if sort_by_loc and sort_by_size and sort_by_mtime:
-                        structure["_files"].append(
-                            (item, abs_path, file_loc, file_size, file_mtime)
-                        )
-                    elif sort_by_loc and sort_by_size:
-                        structure["_files"].append(
-                            (item, abs_path, file_loc, file_size)
-                        )
-                    elif sort_by_loc and sort_by_mtime:
-                        structure["_files"].append(
-                            (item, abs_path, file_loc, 0, file_mtime)
-                        )
-                    elif sort_by_size and sort_by_mtime:
-                        structure["_files"].append(
-                            (item, abs_path, 0, file_size, file_mtime)
-                        )
-                    elif sort_by_loc:
-                        structure["_files"].append((item, abs_path, file_loc))
-                    elif sort_by_size:
-                        structure["_files"].append((item, abs_path, file_size))
-                    elif sort_by_mtime:
-                        structure["_files"].append((item, abs_path, file_mtime))
-                    else:
-                        structure["_files"].append((item, abs_path))
+                    display = os.path.abspath(item_path).replace(os.sep, "/")
                 else:
-                    if sort_by_loc and sort_by_size and sort_by_mtime:
-                        structure["_files"].append(
-                            (item, item, file_loc, file_size, file_mtime)
-                        )
-                    elif sort_by_loc and sort_by_size:
-                        structure["_files"].append((item, item, file_loc, file_size))
-                    elif sort_by_loc and sort_by_mtime:
-                        structure["_files"].append(
-                            (item, item, file_loc, 0, file_mtime)
-                        )
-                    elif sort_by_size and sort_by_mtime:
-                        structure["_files"].append(
-                            (item, item, 0, file_size, file_mtime)
-                        )
-                    elif sort_by_loc:
-                        structure["_files"].append((item, item, file_loc))
-                    elif sort_by_size:
-                        structure["_files"].append((item, item, file_size))
-                    elif sort_by_mtime:
-                        structure["_files"].append((item, item, file_mtime))
-                    else:
-                        structure["_files"].append(item)
+                    display = item
+                structure["_files"].append(
+                    FileEntry(
+                        name=item,
+                        path=display,
+                        loc=file_loc,
+                        size=file_size,
+                        mtime=file_mtime,
+                    )
+                )
                 if ext:
                     extensions_set.add(ext.lower())
     for item in items:
@@ -681,7 +645,11 @@ def get_directory_structure(
     if show_git_status and git_markers:
         existing_names: set[str] = set()
         for f in structure.get("_files", []):
-            existing_names.add(f[0] if isinstance(f, tuple) else f)
+            existing_names.add(
+                f.name
+                if isinstance(f, FileEntry)
+                else (f[0] if isinstance(f, tuple) else f)
+            )
 
         for fname, status in git_markers.items():
             if status == "D" and fname not in existing_names:
@@ -693,41 +661,8 @@ def get_directory_structure(
                 abs_deleted = os.path.abspath(os.path.join(root_dir, fname)).replace(
                     os.sep, "/"
                 )
-                if show_full_path:
-                    if sort_by_loc and sort_by_size and sort_by_mtime:
-                        entry: Any = (fname, abs_deleted, 0, 0, 0.0)
-                    elif sort_by_loc and sort_by_size:
-                        entry = (fname, abs_deleted, 0, 0)
-                    elif sort_by_loc and sort_by_mtime:
-                        entry = (fname, abs_deleted, 0, 0, 0.0)
-                    elif sort_by_size and sort_by_mtime:
-                        entry = (fname, abs_deleted, 0, 0, 0.0)
-                    elif sort_by_loc:
-                        entry = (fname, abs_deleted, 0)
-                    elif sort_by_size:
-                        entry = (fname, abs_deleted, 0)
-                    elif sort_by_mtime:
-                        entry = (fname, abs_deleted, 0.0)
-                    else:
-                        entry = (fname, abs_deleted)
-                else:
-                    if sort_by_loc and sort_by_size and sort_by_mtime:
-                        entry = (fname, fname, 0, 0, 0.0)
-                    elif sort_by_loc and sort_by_size:
-                        entry = (fname, fname, 0, 0)
-                    elif sort_by_loc and sort_by_mtime:
-                        entry = (fname, fname, 0, 0, 0.0)
-                    elif sort_by_size and sort_by_mtime:
-                        entry = (fname, fname, 0, 0, 0.0)
-                    elif sort_by_loc:
-                        entry = (fname, fname, 0)
-                    elif sort_by_size:
-                        entry = (fname, fname, 0)
-                    elif sort_by_mtime:
-                        entry = (fname, fname, 0.0)
-                    else:
-                        entry = fname
-                structure["_files"].append(entry)
+                display = abs_deleted if show_full_path else fname
+                structure["_files"].append(FileEntry(name=fname, path=display))
 
         structure["_git_markers"] = git_markers
 
@@ -735,42 +670,33 @@ def get_directory_structure(
 
 
 def sort_files_by_type(
-    files: Sequence[
-        Union[
-            str,
-            tuple[str, str],
-            tuple[str, str, int],
-            tuple[str, str, int, int],
-            tuple[str, str, int, int, float],
-        ]
-    ],
+    files: Sequence[Any],
     sort_by_loc: bool = False,
     sort_by_size: bool = False,
     sort_by_mtime: bool = False,
-) -> list[
-    Union[
-        str,
-        tuple[str, str],
-        tuple[str, str, int],
-        tuple[str, str, int, int],
-        tuple[str, str, int, int, float],
-    ]
-]:
+) -> list[FileEntry]:
     """Sort files by extension and then by name, or by LOC/size/mtime if requested.
 
-    The sort precedence follows: LOC > size > mtime > extension/name
+    The sort precedence follows: LOC > size > mtime > extension/name.
+
+    Inputs may be :class:`FileEntry` instances, bare filename strings, or
+    positional tuples; every item is normalised to a :class:`FileEntry` via
+    :meth:`FileEntry.from_raw` before sorting.
 
     Args:
-        files: List of file items, which can be strings or tuples of various forms
-        sort_by_loc: Whether to sort by lines of code
-        sort_by_size: Whether to sort by file size
-        sort_by_mtime: Whether to sort by modification time
+        files: List of file items (``FileEntry``, tuple, or ``str``).
+        sort_by_loc: Whether to sort by lines of code.
+        sort_by_size: Whether to sort by file size.
+        sort_by_mtime: Whether to sort by modification time.
 
     Returns:
-        Sorted list of file items
+        Sorted list of :class:`FileEntry`.
     """
     if not files:
         return []
+    # Whether the *raw* input actually carries each metric. Bare-string inputs
+    # carry none, in which case a requested metric sort falls back to name
+    # order. Real scans always carry them.
     has_loc = any(isinstance(item, tuple) and len(item) > 2 for item in files)
     has_size = any(isinstance(item, tuple) and len(item) > 3 for item in files)
     has_mtime = any(isinstance(item, tuple) and len(item) > 4 for item in files)
@@ -779,93 +705,27 @@ def sort_files_by_type(
         sort_by_mtime and not sort_by_loc and not sort_by_size and (has_loc or has_size)
     )
 
-    def get_size(
-        item: Union[
-            str,
-            tuple[str, str],
-            tuple[str, str, int],
-            tuple[str, str, int, int],
-            tuple[str, str, int, int, float],
-        ],
-    ) -> int:
-        if not isinstance(item, tuple):
-            return 0
-        if len(item) > 3:
-            if sort_by_size:
-                return item[3]
-        elif len(item) == 3 and sort_by_size:
-            return item[2]
-        return 0
-
-    def get_loc(
-        item: Union[
-            str,
-            tuple[str, str],
-            tuple[str, str, int],
-            tuple[str, str, int, int],
-            tuple[str, str, int, int, float],
-        ],
-    ) -> int:
-        if not isinstance(item, tuple) or len(item) <= 2:
-            return 0
-        return item[2] if sort_by_loc else 0
-
-    def get_mtime(
-        item: Union[
-            str,
-            tuple[str, str],
-            tuple[str, str, int],
-            tuple[str, str, int, int],
-            tuple[str, str, int, int, float],
-        ],
-    ) -> float:
-        if not isinstance(item, tuple):
-            return 0
-        if len(item) > 4:
-            return item[4]
-        elif len(item) > 3 and (
-            (sort_by_loc and sort_by_mtime and not sort_by_size)
-            or (sort_by_size and sort_by_mtime and not sort_by_loc)
-        ):
-            return item[3]
-        elif len(item) > 2 and sort_by_mtime and not sort_by_loc and not sort_by_size:
-            return item[2]
-        return 0
+    entries = [
+        FileEntry.from_raw(f, sort_by_loc, sort_by_size, sort_by_mtime) for f in files
+    ]
 
     if sort_by_loc and sort_by_size and sort_by_mtime and has_mtime:
-        return sorted(files, key=lambda f: (-get_loc(f), -get_size(f), -get_mtime(f)))
-    elif sort_by_loc and sort_by_size and (has_size or has_simple_size) and has_loc:
-        return sorted(files, key=lambda f: (-get_loc(f), -get_size(f)))
-    elif sort_by_loc and sort_by_mtime and has_mtime:
-        return sorted(files, key=lambda f: (-get_loc(f), -get_mtime(f)))
-    elif sort_by_size and sort_by_mtime and has_mtime:
-        return sorted(files, key=lambda f: (-get_size(f), -get_mtime(f)))
-    elif sort_by_loc and has_loc:
-        return sorted(files, key=lambda f: -get_loc(f))
-    elif sort_by_size and (has_size or has_simple_size):
-        return sorted(files, key=lambda f: -get_size(f))
-    elif sort_by_mtime and (has_mtime or has_simple_mtime):
-        return sorted(files, key=lambda f: -get_mtime(f))
-
-    def get_filename(
-        item: Union[
-            str,
-            tuple[str, str],
-            tuple[str, str, int],
-            tuple[str, str, int, int],
-            tuple[str, str, int, int, float],
-        ],
-    ) -> str:
-        if isinstance(item, tuple):
-            return item[0]
-        return item
-
+        return sorted(entries, key=lambda e: (-e.loc, -e.size, -e.mtime))
+    if sort_by_loc and sort_by_size and (has_size or has_simple_size) and has_loc:
+        return sorted(entries, key=lambda e: (-e.loc, -e.size))
+    if sort_by_loc and sort_by_mtime and has_mtime:
+        return sorted(entries, key=lambda e: (-e.loc, -e.mtime))
+    if sort_by_size and sort_by_mtime and has_mtime:
+        return sorted(entries, key=lambda e: (-e.size, -e.mtime))
+    if sort_by_loc and has_loc:
+        return sorted(entries, key=lambda e: -e.loc)
+    if sort_by_size and (has_size or has_simple_size):
+        return sorted(entries, key=lambda e: -e.size)
+    if sort_by_mtime and (has_mtime or has_simple_mtime):
+        return sorted(entries, key=lambda e: -e.mtime)
     return sorted(
-        files,
-        key=lambda f: (
-            os.path.splitext(get_filename(f))[1].lower(),
-            get_filename(f).lower(),
-        ),
+        entries,
+        key=lambda e: (os.path.splitext(e.name)[1].lower(), e.name.lower()),
     )
 
 
@@ -912,98 +772,33 @@ def build_tree(
         structure.get("_git_markers", {}) if show_git_status else {}
     )
     if "_files" in structure:
-        for file_item in sort_files_by_type(
+        for entry in sort_files_by_type(
             structure["_files"], sort_by_loc, sort_by_size, sort_by_mtime
         ):
-            file_name = ""
-            full_path = ""
-            loc = 0
-            size = 0
-            mtime = 0.0
-            if isinstance(file_item, tuple):
-                file_name = file_item[0]
-                if len(file_item) > 1:
-                    full_path = file_item[1]
-                else:
-                    full_path = file_name
-                if len(file_item) > 2:
-                    if (
-                        sort_by_loc
-                        and sort_by_size
-                        and sort_by_mtime
-                        and len(file_item) > 4
-                    ):
-                        loc = file_item[2]
-                        size = file_item[3]
-                        mtime = file_item[4]
-                    elif sort_by_loc and sort_by_size and len(file_item) > 3:
-                        loc = file_item[2]
-                        size = file_item[3]
-                    elif sort_by_loc and sort_by_mtime and len(file_item) > 4:
-                        loc = file_item[2]
-                        mtime = file_item[4]
-                    elif sort_by_size and sort_by_mtime and len(file_item) > 4:
-                        size = file_item[3]
-                        mtime = file_item[4]
-                    elif sort_by_loc and len(file_item) > 2:
-                        loc = file_item[2]
-                    elif sort_by_size and len(file_item) > 2:
-                        size = file_item[2]
-                    elif sort_by_mtime and len(file_item) > 2:
-                        mtime = file_item[2]
-            else:
-                file_name = file_item
-                full_path = file_name
-            display_path = full_path if show_full_path else file_name
-            ext = os.path.splitext(file_name)[1].lower()
+            display_path = entry.path if show_full_path else entry.name
+            ext = os.path.splitext(entry.name)[1].lower()
             color = color_map.get(ext, "#FFFFFF")
 
-            git_marker = git_markers_dict.get(file_name, "")
+            git_marker = git_markers_dict.get(entry.name, "")
             is_deleted = git_marker == "D"
 
             name_style = f"{color} strike" if is_deleted else color
 
             colored_text = Text()
-            icon = get_icon(file_name, is_dir=False, style=icon_style)
+            icon = get_icon(entry.name, is_dir=False, style=icon_style)
             colored_text.append(f"{icon} ", style=color)
-
-            if sort_by_loc and sort_by_size and sort_by_mtime:
-                colored_text.append(
-                    f"{display_path} ({loc} lines, {format_size(size)}, {format_timestamp(mtime)})",
-                    style=name_style,
-                )
-            elif sort_by_loc and sort_by_mtime:
-                colored_text.append(
-                    f"{display_path} ({loc} lines, {format_timestamp(mtime)})",
-                    style=name_style,
-                )
-            elif sort_by_size and sort_by_mtime:
-                colored_text.append(
-                    f"{display_path} ({format_size(size)}, {format_timestamp(mtime)})",
-                    style=name_style,
-                )
-            elif sort_by_loc and sort_by_size:
-                colored_text.append(
-                    f"{display_path} ({loc} lines, {format_size(size)})",
-                    style=name_style,
-                )
-            elif sort_by_loc:
-                colored_text.append(
-                    f"{display_path} ({loc} lines)",
-                    style=name_style,
-                )
-            elif sort_by_size:
-                colored_text.append(
-                    f"{display_path} ({format_size(size)})",
-                    style=name_style,
-                )
-            elif sort_by_mtime:
-                colored_text.append(
-                    f"{display_path} ({format_timestamp(mtime)})",
-                    style=name_style,
-                )
-            else:
-                colored_text.append(display_path, style=name_style)
+            colored_text.append(
+                display_path
+                + format_metrics_suffix(
+                    entry.loc,
+                    entry.size,
+                    entry.mtime,
+                    sort_by_loc=sort_by_loc,
+                    sort_by_size=sort_by_size,
+                    sort_by_mtime=sort_by_mtime,
+                ),
+                style=name_style,
+            )
 
             if show_git_status and git_marker:
                 marker_style, badge = _GIT_MARKER_STYLES.get(
@@ -1024,44 +819,17 @@ def build_tree(
             continue
         else:
             folder_icon = get_icon(folder, is_dir=True, style=icon_style)
-            folder_display = f"{folder_icon} {folder}"
-            if (
-                sort_by_loc
-                and sort_by_size
-                and sort_by_mtime
-                and isinstance(content, dict)
-            ):
-                if "_loc" in content and "_size" in content and "_mtime" in content:
-                    folder_loc = content["_loc"]
-                    folder_size = content["_size"]
-                    folder_mtime = content["_mtime"]
-                    folder_display = f"{folder_icon} {folder} ({folder_loc} lines, {format_size(folder_size)}, {format_timestamp(folder_mtime)})"
-            elif sort_by_loc and sort_by_size and isinstance(content, dict):
-                if "_loc" in content and "_size" in content:
-                    folder_loc = content["_loc"]
-                    folder_size = content["_size"]
-                    folder_display = f"{folder_icon} {folder} ({folder_loc} lines, {format_size(folder_size)})"
-            elif sort_by_loc and sort_by_mtime and isinstance(content, dict):
-                if "_loc" in content and "_mtime" in content:
-                    folder_loc = content["_loc"]
-                    folder_mtime = content["_mtime"]
-                    folder_display = f"{folder_icon} {folder} ({folder_loc} lines, {format_timestamp(folder_mtime)})"
-            elif sort_by_size and sort_by_mtime and isinstance(content, dict):
-                if "_size" in content and "_mtime" in content:
-                    folder_size = content["_size"]
-                    folder_mtime = content["_mtime"]
-                    folder_display = f"{folder_icon} {folder} ({format_size(folder_size)}, {format_timestamp(folder_mtime)})"
-            elif sort_by_loc and isinstance(content, dict) and "_loc" in content:
-                folder_loc = content["_loc"]
-                folder_display = f"{folder_icon} {folder} ({folder_loc} lines)"
-            elif sort_by_size and isinstance(content, dict) and "_size" in content:
-                folder_size = content["_size"]
-                folder_display = f"{folder_icon} {folder} ({format_size(folder_size)})"
-            elif sort_by_mtime and isinstance(content, dict) and "_mtime" in content:
-                folder_mtime = content["_mtime"]
-                folder_display = (
-                    f"{folder_icon} {folder} ({format_timestamp(folder_mtime)})"
+            metrics = ""
+            if isinstance(content, dict):
+                metrics = format_metrics_suffix(
+                    content.get("_loc", 0),
+                    content.get("_size", 0),
+                    content.get("_mtime", 0.0),
+                    sort_by_loc=sort_by_loc and "_loc" in content,
+                    sort_by_size=sort_by_size and "_size" in content,
+                    sort_by_mtime=sort_by_mtime and "_mtime" in content,
                 )
+            folder_display = f"{folder_icon} {folder}{metrics}"
             subtree = tree.add(folder_display)
             if isinstance(content, dict) and content.get("_max_depth_reached"):
                 subtree.add(Text("⋯ (max depth reached)", style="dim"))
@@ -1171,37 +939,14 @@ def display_tree(
 
     root_base = os.path.basename(root_dir)
     root_icon = get_icon(root_base, is_dir=True, style=icon_style)
-    root_label = f"{root_icon} {root_base}"
-    if (
-        sort_by_loc
-        and sort_by_size
-        and sort_by_mtime
-        and "_loc" in structure
-        and "_size" in structure
-        and "_mtime" in structure
-    ):
-        root_label = f"{root_icon} {root_base} ({structure['_loc']} lines, {format_size(structure['_size'])}, {format_timestamp(structure['_mtime'])})"
-    elif sort_by_loc and sort_by_size and "_loc" in structure and "_size" in structure:
-        root_label = f"{root_icon} {root_base} ({structure['_loc']} lines, {format_size(structure['_size'])})"
-    elif (
-        sort_by_loc and sort_by_mtime and "_loc" in structure and "_mtime" in structure
-    ):
-        root_label = f"{root_icon} {root_base} ({structure['_loc']} lines, {format_timestamp(structure['_mtime'])})"
-    elif (
-        sort_by_size
-        and sort_by_mtime
-        and "_size" in structure
-        and "_mtime" in structure
-    ):
-        root_label = f"{root_icon} {root_base} ({format_size(structure['_size'])}, {format_timestamp(structure['_mtime'])})"
-    elif sort_by_loc and "_loc" in structure:
-        root_label = f"{root_icon} {root_base} ({structure['_loc']} lines)"
-    elif sort_by_size and "_size" in structure:
-        root_label = f"{root_icon} {root_base} ({format_size(structure['_size'])})"
-    elif sort_by_mtime and "_mtime" in structure:
-        root_label = (
-            f"{root_icon} {root_base} ({format_timestamp(structure['_mtime'])})"
-        )
+    root_label = f"{root_icon} {root_base}" + format_metrics_suffix(
+        structure.get("_loc", 0),
+        structure.get("_size", 0),
+        structure.get("_mtime", 0.0),
+        sort_by_loc=sort_by_loc and "_loc" in structure,
+        sort_by_size=sort_by_size and "_size" in structure,
+        sort_by_mtime=sort_by_mtime and "_mtime" in structure,
+    )
     tree = Tree(root_label)
     build_tree(
         structure,
@@ -1371,3 +1116,64 @@ def format_timestamp(timestamp: float) -> str:
         return dt_object.strftime("%b %d")
     else:
         return dt_object.strftime("%Y-%m-%d")
+
+
+def format_metrics(
+    loc: int = 0,
+    size: int = 0,
+    mtime: float = 0.0,
+    *,
+    sort_by_loc: bool = False,
+    sort_by_size: bool = False,
+    sort_by_mtime: bool = False,
+) -> str:
+    """Build the parenthetical metrics annotation for a file or directory.
+
+    Includes only the metrics whose flag is set, always in the fixed order
+    LOC, size, mtime — e.g. ``"(120 lines, 4.2 KB, Today 14:30)"``.
+
+    Args:
+        loc: Lines-of-code count.
+        size: Size in bytes.
+        mtime: Modification time (seconds since epoch).
+        sort_by_loc: Include the LOC count.
+        sort_by_size: Include the formatted size.
+        sort_by_mtime: Include the formatted timestamp.
+
+    Returns:
+        The annotation string including the surrounding parentheses, or an
+        empty string when no metric flag is set.
+    """
+    parts: list[str] = []
+    if sort_by_loc:
+        parts.append(f"{loc} lines")
+    if sort_by_size:
+        parts.append(format_size(size))
+    if sort_by_mtime:
+        parts.append(format_timestamp(mtime))
+    return f"({', '.join(parts)})" if parts else ""
+
+
+def format_metrics_suffix(
+    loc: int = 0,
+    size: int = 0,
+    mtime: float = 0.0,
+    *,
+    sort_by_loc: bool = False,
+    sort_by_size: bool = False,
+    sort_by_mtime: bool = False,
+) -> str:
+    """Like :func:`format_metrics` but prefixed with a single space.
+
+    Convenient for appending directly after a file or directory name. Returns
+    an empty string (no leading space) when no metric flag is set.
+    """
+    metrics = format_metrics(
+        loc,
+        size,
+        mtime,
+        sort_by_loc=sort_by_loc,
+        sort_by_size=sort_by_size,
+        sort_by_mtime=sort_by_mtime,
+    )
+    return f" {metrics}" if metrics else ""

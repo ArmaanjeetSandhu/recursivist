@@ -26,12 +26,20 @@ def test_compare_directory_structures(comparison_directories: tuple[str, str]) -
     assert "dir1_only" not in structure2
     assert "dir2_only" not in structure1
     assert "dir2_only" in structure2
-    assert "file1.txt" in structure1["_files"]
-    assert "file1.txt" in structure2["_files"]
-    assert "dir1_only.txt" in structure1["_files"]
-    assert "dir1_only.txt" not in structure2.get("_files", [])
-    assert "dir2_only.txt" not in structure1.get("_files", [])
-    assert "dir2_only.txt" in structure2["_files"]
+    names1 = [f if isinstance(f, str) else f[0] for f in structure1["_files"]]
+    names2 = [f if isinstance(f, str) else f[0] for f in structure2["_files"]]
+    names1_get = [
+        f if isinstance(f, str) else f[0] for f in structure1.get("_files", [])
+    ]
+    names2_get = [
+        f if isinstance(f, str) else f[0] for f in structure2.get("_files", [])
+    ]
+    assert "file1.txt" in names1
+    assert "file1.txt" in names2
+    assert "dir1_only.txt" in names1
+    assert "dir1_only.txt" not in names2_get
+    assert "dir2_only.txt" not in names1_get
+    assert "dir2_only.txt" in names2
     assert ".txt" in extensions
     assert ".py" in extensions
 
@@ -81,9 +89,10 @@ def test_compare_directory_structures_with_options(
         assert "_files" in structure1
         assert "_files" in structure2
         assert isinstance(structure1["_files"][0], tuple)
-        assert len(structure1["_files"][0]) == 2
+        assert len(structure1["_files"][0]) >= 2
         found = False
-        for filename, full_path in structure1["_files"]:
+        for entry in structure1["_files"]:
+            filename, full_path = entry[0], entry[1]
             if filename == "file1.txt":
                 found = True
                 assert (
@@ -95,12 +104,14 @@ def test_compare_directory_structures_with_options(
         assert expected_result not in structure1
         assert expected_result not in structure2
     elif option_name == "exclude_patterns":
-        assert not any(
-            f.startswith(expected_result) for f in structure1.get("_files", [])
-        )
-        assert not any(
-            f.startswith(expected_result) for f in structure2.get("_files", [])
-        )
+        names1 = [
+            f if isinstance(f, str) else f[0] for f in structure1.get("_files", [])
+        ]
+        names2 = [
+            f if isinstance(f, str) else f[0] for f in structure2.get("_files", [])
+        ]
+        assert not any(n.startswith(expected_result) for n in names1)
+        assert not any(n.startswith(expected_result) for n in names2)
     elif option_name == "include_patterns":
         for file_name in structure1.get("_files", []):
             actual_name = file_name if isinstance(file_name, str) else file_name[0]

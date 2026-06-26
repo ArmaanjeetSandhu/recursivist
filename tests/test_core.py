@@ -847,8 +847,9 @@ def test_get_directory_structure(sample_directory: Any) -> None:
     assert isinstance(structure, dict)
     assert "_files" in structure
     assert "subdir" in structure
-    assert "file1.txt" in structure["_files"]
-    assert "file2.py" in structure["_files"]
+    file_names = [f if isinstance(f, str) else f[0] for f in structure["_files"]]
+    assert "file1.txt" in file_names
+    assert "file2.py" in file_names
     assert ".txt" in extensions
     assert ".py" in extensions
     assert ".md" in extensions
@@ -918,8 +919,8 @@ def test_get_directory_structure_with_options(
         assert "_files" in structure
         for file_item in structure["_files"]:
             assert isinstance(file_item, tuple)
-            assert len(file_item) == 2
-            _, full_path = file_item
+            assert len(file_item) >= 2
+            full_path = file_item[1]
             assert os.path.isabs(full_path.replace("/", os.sep))
     elif expected_result == "max_depth_reached in level1":
         assert "level1" in structure
