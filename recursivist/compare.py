@@ -17,7 +17,7 @@ import logging
 import os
 from collections.abc import Sequence
 from re import Pattern
-from typing import Any, Optional, Union, cast
+from typing import Any, cast
 
 from rich.columns import Columns
 from rich.console import Console
@@ -40,11 +40,11 @@ logger = logging.getLogger(__name__)
 def compare_directory_structures(
     dir1: str,
     dir2: str,
-    exclude_dirs: Optional[Sequence[str]] = None,
-    ignore_file: Optional[str] = None,
-    exclude_extensions: Optional[set[str]] = None,
-    exclude_patterns: Optional[Sequence[Union[str, Pattern[str]]]] = None,
-    include_patterns: Optional[Sequence[Union[str, Pattern[str]]]] = None,
+    exclude_dirs: Sequence[str] | None = None,
+    ignore_file: str | None = None,
+    exclude_extensions: set[str] | None = None,
+    exclude_patterns: Sequence[str | Pattern[str]] | None = None,
+    include_patterns: Sequence[str | Pattern[str]] | None = None,
     max_depth: int = 0,
     show_full_path: bool = False,
     sort_by_loc: bool = False,
@@ -279,11 +279,11 @@ def build_comparison_tree(
 def display_comparison(
     dir1: str,
     dir2: str,
-    exclude_dirs: Optional[list[str]] = None,
-    ignore_file: Optional[str] = None,
-    exclude_extensions: Optional[set[str]] = None,
-    exclude_patterns: Optional[list[str]] = None,
-    include_patterns: Optional[list[str]] = None,
+    exclude_dirs: list[str] | None = None,
+    ignore_file: str | None = None,
+    exclude_extensions: set[str] | None = None,
+    exclude_patterns: list[str] | None = None,
+    include_patterns: list[str] | None = None,
     use_regex: bool = False,
     max_depth: int = 0,
     show_full_path: bool = False,
@@ -476,11 +476,11 @@ def export_comparison(
     dir2: str,
     format_type: str,
     output_path: str,
-    exclude_dirs: Optional[list[str]] = None,
-    ignore_file: Optional[str] = None,
-    exclude_extensions: Optional[set[str]] = None,
-    exclude_patterns: Optional[list[str]] = None,
-    include_patterns: Optional[list[str]] = None,
+    exclude_dirs: list[str] | None = None,
+    ignore_file: str | None = None,
+    exclude_extensions: set[str] | None = None,
+    exclude_patterns: list[str] | None = None,
+    include_patterns: list[str] | None = None,
     use_regex: bool = False,
     max_depth: int = 0,
     show_full_path: bool = False,

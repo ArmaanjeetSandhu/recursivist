@@ -1,7 +1,7 @@
 import html
 import os
 import re
-from typing import Any, Optional, Union
+from typing import Any
 
 import pytest
 from pytest_mock import MockerFixture
@@ -175,8 +175,8 @@ def test_display_comparison_with_options(
     capsys: pytest.CaptureFixture[str],
     option_name: str,
     option_value: Any,
-    expected_in_output: Optional[Union[str, list[str]]],
-    expected_not_in_output: Optional[Union[str, list[str]]],
+    expected_in_output: str | list[str] | None,
+    expected_not_in_output: str | list[str] | None,
 ) -> None:
     dir1, dir2 = comparison_directories
     if option_name == "exclude_dirs":
@@ -262,8 +262,8 @@ def test_export_comparison_with_options(
     output_dir: str,
     option_name: str,
     option_value: Any,
-    expected_in_output: Optional[Union[str, list[str]]],
-    expected_not_in_output: Optional[Union[str, list[str]]],
+    expected_in_output: str | list[str] | None,
+    expected_not_in_output: str | list[str] | None,
 ) -> None:
     dir1, dir2 = comparison_directories
     if option_name == "exclude_dirs":
@@ -407,7 +407,7 @@ def test_comparison_with_statistics(
 
 def get_file_names(
     structure: dict[str, Any],
-    path: Optional[list[str]] = None,
+    path: list[str] | None = None,
 ) -> list[str]:
     """Extract file names from a structure, optionally at a specific path."""
     if path is None:

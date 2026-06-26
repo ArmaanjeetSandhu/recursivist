@@ -2,7 +2,7 @@ import json
 import os
 import re
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import pytest
 from typer.testing import CliRunner
@@ -393,7 +393,7 @@ def test_pathlib_compatibility(temp_dir: str, output_dir: str) -> None:
 
 
 def get_file_names(
-    structure: dict[str, Any], path: Optional[list[str]] = None
+    structure: dict[str, Any], path: list[str] | None = None
 ) -> list[str]:
     """
     Extract file names from a structure, optionally at a specific path.

@@ -32,7 +32,7 @@ import os
 import sys
 from pathlib import Path
 from re import Pattern
-from typing import Optional, Union, cast
+from typing import cast
 
 import typer
 from rich.console import Console
@@ -145,7 +145,7 @@ def callback() -> None:
     pass
 
 
-def parse_list_option(option_value: Optional[list[str]]) -> list[str]:
+def parse_list_option(option_value: list[str] | None) -> list[str]:
     """Parse a list option that may contain space-separated values.
 
     Handles two common CLI input styles for multi-value options:
@@ -187,25 +187,25 @@ def visualize(
     directory: Path = typer.Argument(
         ".", help="Directory path to visualize (defaults to current directory)"
     ),
-    exclude_dirs: Optional[list[str]] = typer.Option(
+    exclude_dirs: list[str] | None = typer.Option(
         None,
         "--exclude",
         "-e",
         help=HELP_EXCLUDE_DIRS,
     ),
-    exclude_extensions: Optional[list[str]] = typer.Option(
+    exclude_extensions: list[str] | None = typer.Option(
         None,
         "--exclude-ext",
         "-x",
         help=HELP_EXCLUDE_EXTS,
     ),
-    exclude_patterns: Optional[list[str]] = typer.Option(
+    exclude_patterns: list[str] | None = typer.Option(
         None,
         "--exclude-pattern",
         "-p",
         help=HELP_EXCLUDE_PATTERNS,
     ),
-    include_patterns: Optional[list[str]] = typer.Option(
+    include_patterns: list[str] | None = typer.Option(
         None,
         "--include-pattern",
         "-i",
@@ -217,7 +217,7 @@ def visualize(
         "-r",
         help=HELP_USE_REGEX,
     ),
-    ignore_file: Optional[str] = typer.Option(
+    ignore_file: str | None = typer.Option(
         None, "--ignore-file", "-g", help=HELP_IGNORE_FILE
     ),
     max_depth: int = typer.Option(
@@ -250,7 +250,7 @@ def visualize(
         "-G",
         help="Annotate files with Git status markers: [U] untracked, [M] modified, [A] added, [D] deleted",
     ),
-    icon_style: Optional[str] = typer.Option(
+    icon_style: str | None = typer.Option(
         None,
         "--icon-style",
         help="Override icon style ('emoji' or 'nerd'). Defaults to user config.",
@@ -375,7 +375,7 @@ def visualize(
         else:
             logger.warning(f"Ignore file not found: {ignore_path}")
     try:
-        git_status_map: Optional[dict[str, str]] = None
+        git_status_map: dict[str, str] | None = None
         if show_git_status:
             git_status_map = get_git_status(str(directory))
             if not git_status_map:
@@ -396,10 +396,10 @@ def visualize(
                 )
             else:
                 compiled_exclude = cast(
-                    list[Union[str, Pattern[str]]], parsed_exclude_patterns
+                    list[str | Pattern[str]], parsed_exclude_patterns
                 )
                 compiled_include = cast(
-                    list[Union[str, Pattern[str]]], parsed_include_patterns
+                    list[str | Pattern[str]], parsed_include_patterns
                 )
             structure, extensions = get_directory_structure(
                 str(directory),
@@ -450,34 +450,34 @@ def export(
     formats: list[str] = typer.Option(
         ["md"], "--format", "-f", help="Export formats: txt, json, html, md, jsx, svg"
     ),
-    output_dir: Optional[Path] = typer.Option(
+    output_dir: Path | None = typer.Option(
         None,
         "--output-dir",
         "-o",
         help="Output directory for exports (defaults to current directory)",
     ),
-    output_prefix: Optional[str] = typer.Option(
+    output_prefix: str | None = typer.Option(
         "structure", "--prefix", "-n", help="Prefix for exported filenames"
     ),
-    exclude_dirs: Optional[list[str]] = typer.Option(
+    exclude_dirs: list[str] | None = typer.Option(
         None,
         "--exclude",
         "-e",
         help=HELP_EXCLUDE_DIRS,
     ),
-    exclude_extensions: Optional[list[str]] = typer.Option(
+    exclude_extensions: list[str] | None = typer.Option(
         None,
         "--exclude-ext",
         "-x",
         help=HELP_EXCLUDE_EXTS,
     ),
-    exclude_patterns: Optional[list[str]] = typer.Option(
+    exclude_patterns: list[str] | None = typer.Option(
         None,
         "--exclude-pattern",
         "-p",
         help=HELP_EXCLUDE_PATTERNS,
     ),
-    include_patterns: Optional[list[str]] = typer.Option(
+    include_patterns: list[str] | None = typer.Option(
         None,
         "--include-pattern",
         "-i",
@@ -489,7 +489,7 @@ def export(
         "-r",
         help=HELP_USE_REGEX,
     ),
-    ignore_file: Optional[str] = typer.Option(
+    ignore_file: str | None = typer.Option(
         None, "--ignore-file", "-g", help=HELP_IGNORE_FILE
     ),
     max_depth: int = typer.Option(
@@ -522,7 +522,7 @@ def export(
         "-G",
         help="Annotate files with Git status markers: [U] untracked, [M] modified, [A] added, [D] deleted",
     ),
-    icon_style: Optional[str] = typer.Option(
+    icon_style: str | None = typer.Option(
         None,
         "--icon-style",
         help="Override icon style. Defaults to 'emoji' for safe file exports.",
@@ -666,10 +666,10 @@ def export(
                 )
             else:
                 compiled_exclude = cast(
-                    list[Union[str, Pattern[str]]], parsed_exclude_patterns
+                    list[str | Pattern[str]], parsed_exclude_patterns
                 )
                 compiled_include = cast(
-                    list[Union[str, Pattern[str]]], parsed_include_patterns
+                    list[str | Pattern[str]], parsed_include_patterns
                 )
             structure, extensions = get_directory_structure(
                 str(directory),
@@ -805,25 +805,25 @@ def compare(
         file_okay=False,
         dir_okay=True,
     ),
-    exclude_dirs: Optional[list[str]] = typer.Option(
+    exclude_dirs: list[str] | None = typer.Option(
         None,
         "--exclude",
         "-e",
         help=HELP_EXCLUDE_DIRS,
     ),
-    exclude_extensions: Optional[list[str]] = typer.Option(
+    exclude_extensions: list[str] | None = typer.Option(
         None,
         "--exclude-ext",
         "-x",
         help=HELP_EXCLUDE_EXTS,
     ),
-    exclude_patterns: Optional[list[str]] = typer.Option(
+    exclude_patterns: list[str] | None = typer.Option(
         None,
         "--exclude-pattern",
         "-p",
         help=HELP_EXCLUDE_PATTERNS,
     ),
-    include_patterns: Optional[list[str]] = typer.Option(
+    include_patterns: list[str] | None = typer.Option(
         None,
         "--include-pattern",
         "-i",
@@ -835,7 +835,7 @@ def compare(
         "-r",
         help=HELP_USE_REGEX,
     ),
-    ignore_file: Optional[str] = typer.Option(
+    ignore_file: str | None = typer.Option(
         None, "--ignore-file", "-g", help=HELP_IGNORE_FILE
     ),
     max_depth: int = typer.Option(
@@ -847,13 +847,13 @@ def compare(
         "-f",
         help="Save comparison as HTML file instead of displaying in terminal",
     ),
-    output_dir: Optional[Path] = typer.Option(
+    output_dir: Path | None = typer.Option(
         None,
         "--output-dir",
         "-o",
         help="Output directory for exports (defaults to current directory)",
     ),
-    output_prefix: Optional[str] = typer.Option(
+    output_prefix: str | None = typer.Option(
         "comparison", "--prefix", "-n", help="Prefix for exported filenames"
     ),
     show_full_path: bool = typer.Option(
@@ -877,7 +877,7 @@ def compare(
         "-m",
         help=HELP_SORT_BY_MTIME,
     ),
-    icon_style: Optional[str] = typer.Option(
+    icon_style: str | None = typer.Option(
         None,
         "--icon-style",
         help="Override icon style. Defaults to 'emoji' if saving to HTML, else user config.",

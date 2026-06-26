@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Any, Union
+from typing import Any
 
 from recursivist._models import FileEntry
 from recursivist.core import format_size, format_timestamp
@@ -21,7 +21,7 @@ class JsonExporter(BaseExporter):
 
         def file_to_json(
             item: Any, git_markers_here: dict[str, str]
-        ) -> Union[str, dict[str, Any]]:
+        ) -> str | dict[str, Any]:
             """Encode a single ``_files`` entry for the detail JSON form.
 
             Bare-string entries are emitted as plain names, optionally wrapped

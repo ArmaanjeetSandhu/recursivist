@@ -1,7 +1,7 @@
 import json
 import os
 import re
-from typing import Any, Optional, Union
+from typing import Any
 
 import pytest
 from typer.testing import CliRunner
@@ -20,9 +20,7 @@ from recursivist.cli import app, parse_list_option
         (None, []),
     ],
 )
-def test_parse_list_option(
-    input_list: Optional[list[str]], expected: list[str]
-) -> None:
+def test_parse_list_option(input_list: list[str] | None, expected: list[str]) -> None:
     result = parse_list_option(input_list)
     assert result == expected
 
@@ -237,7 +235,7 @@ def test_visualize_with_sort_options(
     runner: CliRunner,
     sample_directory: str,
     option: str,
-    expected_in_output: Union[str, list[str]],
+    expected_in_output: str | list[str],
 ) -> None:
     result = runner.invoke(app, ["visualize", sample_directory, option])
     assert result.exit_code == 0

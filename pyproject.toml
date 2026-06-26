@@ -4,10 +4,10 @@ build-backend = "hatchling.build"
 
 [project]
 name = "recursivist"
-version = "1.7.0"
+version = "2.0.0"
 description = "A command-line tool for visualizing directory structures"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = {text = "MIT"}
 authors = [
     {name = "Armaanjeet Singh Sandhu", email = "armaanjeetsandhu430@gmail.com"},
@@ -23,6 +23,11 @@ keywords = [
 ]
 classifiers = [
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Environment :: Console",
@@ -77,7 +82,7 @@ python_functions = "test_*"
 addopts = "--cov=recursivist --cov-report=term-missing"
 
 [tool.ruff]
-target-version = "py39"
+target-version = "py310"
 line-length = 88
 
 [tool.ruff.lint]

@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any
 
 
 class BaseExporter:
@@ -8,13 +8,13 @@ class BaseExporter:
         self,
         structure: dict[str, Any],
         root_name: str,
-        base_path: Optional[str] = None,
+        base_path: str | None = None,
         sort_by_loc: bool = False,
         sort_by_size: bool = False,
         sort_by_mtime: bool = False,
         show_git_status: bool = False,
         icon_style: str = "emoji",
-    ):
+    ) -> None:
         self.structure = structure
         self.root_name = root_name
         self.base_path = base_path

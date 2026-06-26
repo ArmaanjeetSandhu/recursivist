@@ -26,7 +26,7 @@ from collections.abc import Sequence
 from datetime import datetime as dt
 from functools import cache
 from re import Pattern
-from typing import Any, Optional, Union, cast
+from typing import Any, cast
 
 from rich.console import Console
 from rich.text import Text
@@ -147,7 +147,7 @@ def get_git_status(directory: str) -> dict[str, str]:
 
 def compile_regex_patterns(
     patterns: Sequence[str], is_regex: bool = False
-) -> list[Union[str, Pattern[str]]]:
+) -> list[str | Pattern[str]]:
     """Convert patterns to compiled regex objects when appropriate.
 
     When is_regex is True, compiles string patterns into regex pattern objects for efficient matching. For invalid regex patterns, logs a warning and keeps them as strings.
@@ -160,8 +160,8 @@ def compile_regex_patterns(
         List of patterns (strings for glob patterns or compiled regex objects)
     """
     if not is_regex:
-        return cast(list[Union[str, Pattern[str]]], patterns)
-    compiled_patterns: list[Union[str, Pattern[str]]] = []
+        return cast(list[str | Pattern[str]], patterns)
+    compiled_patterns: list[str | Pattern[str]] = []
     for pattern in patterns:
         try:
             compiled_patterns.append(re.compile(pattern))
@@ -228,7 +228,7 @@ def _gitignore_glob_to_regex(glob: str, anchored: bool) -> str:
 
 
 @cache
-def _compile_ignore_pattern(body: str) -> Optional[tuple[Pattern[str], bool]]:
+def _compile_ignore_pattern(body: str) -> tuple[Pattern[str], bool] | None:
     """Compile a gitignore pattern body (the part after any leading '!').
 
     Returns ``(regex, dir_only)`` or ``None`` for an empty pattern. The regex is
@@ -255,9 +255,9 @@ def _compile_ignore_pattern(body: str) -> Optional[tuple[Pattern[str], bool]]:
 def should_exclude(
     path: str,
     ignore_context: dict[str, Any],
-    exclude_extensions: Optional[set[str]] = None,
-    exclude_patterns: Optional[Sequence[Union[str, Pattern[str]]]] = None,
-    include_patterns: Optional[Sequence[Union[str, Pattern[str]]]] = None,
+    exclude_extensions: set[str] | None = None,
+    exclude_patterns: Sequence[str | Pattern[str]] | None = None,
+    include_patterns: Sequence[str | Pattern[str]] | None = None,
 ) -> bool:
     """Determine if a path should be excluded based on filtering rules.
 
@@ -451,12 +451,12 @@ def generate_color_for_extension(extension: str) -> str:
 
 def get_directory_structure(
     root_dir: str,
-    exclude_dirs: Optional[Sequence[str]] = None,
-    ignore_file: Optional[str] = None,
-    exclude_extensions: Optional[set[str]] = None,
-    parent_ignore_patterns: Optional[Sequence[str]] = None,
-    exclude_patterns: Optional[Sequence[Union[str, Pattern[str]]]] = None,
-    include_patterns: Optional[Sequence[Union[str, Pattern[str]]]] = None,
+    exclude_dirs: Sequence[str] | None = None,
+    ignore_file: str | None = None,
+    exclude_extensions: set[str] | None = None,
+    parent_ignore_patterns: Sequence[str] | None = None,
+    exclude_patterns: Sequence[str | Pattern[str]] | None = None,
+    include_patterns: Sequence[str | Pattern[str]] | None = None,
     max_depth: int = 0,
     current_depth: int = 0,
     current_path: str = "",
@@ -465,7 +465,7 @@ def get_directory_structure(
     sort_by_size: bool = False,
     sort_by_mtime: bool = False,
     show_git_status: bool = False,
-    git_status_map: Optional[dict[str, str]] = None,
+    git_status_map: dict[str, str] | None = None,
 ) -> tuple[dict[str, Any], set[str]]:
     """Build a nested dictionary representing a directory structure.
 
@@ -851,11 +851,11 @@ def build_tree(
 
 def display_tree(
     root_dir: str,
-    exclude_dirs: Optional[list[str]] = None,
-    ignore_file: Optional[str] = None,
-    exclude_extensions: Optional[set[str]] = None,
-    exclude_patterns: Optional[list[str]] = None,
-    include_patterns: Optional[list[str]] = None,
+    exclude_dirs: list[str] | None = None,
+    ignore_file: str | None = None,
+    exclude_extensions: set[str] | None = None,
+    exclude_patterns: list[str] | None = None,
+    include_patterns: list[str] | None = None,
     use_regex: bool = False,
     max_depth: int = 0,
     show_full_path: bool = False,
@@ -864,8 +864,8 @@ def display_tree(
     sort_by_mtime: bool = False,
     show_git_status: bool = False,
     icon_style: str = "emoji",
-    structure: Optional[dict[str, Any]] = None,
-    extensions: Optional[set[str]] = None,
+    structure: dict[str, Any] | None = None,
+    extensions: set[str] | None = None,
 ) -> None:
     """Display a directory tree in the terminal with rich formatting.
 
@@ -911,7 +911,7 @@ def display_tree(
         compiled_exclude = compile_regex_patterns(exclude_patterns, use_regex)
         compiled_include = compile_regex_patterns(include_patterns, use_regex)
 
-        git_status_map: Optional[dict[str, str]] = None
+        git_status_map: dict[str, str] | None = None
         if show_git_status:
             git_status_map = get_git_status(root_dir)
             if not git_status_map:

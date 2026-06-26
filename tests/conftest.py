@@ -6,20 +6,20 @@ import shutil
 import tempfile
 import time
 from collections.abc import Generator
-from typing import Any, Optional, Union
+from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
 from rich.tree import Tree
 from typer.testing import CliRunner
 
-FileInfo = Union[
-    str,
-    tuple[str, str],
-    tuple[str, str, int],
-    tuple[str, str, int, int],
-    tuple[str, str, int, int, float],
-]
+FileInfo = (
+    str
+    | tuple[str, str]
+    | tuple[str, str, int]
+    | tuple[str, str, int, int]
+    | tuple[str, str, int, int, float]
+)
 DirStructure = dict[str, Any]
 
 
@@ -397,7 +397,7 @@ def max_depth_structure() -> DirStructure:
 
 
 def create_test_file(
-    path: str, content: str = "Test content", size: Optional[int] = None
+    path: str, content: str = "Test content", size: int | None = None
 ) -> str:
     """Helper function to create a test file with specified content or size."""
     os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -502,8 +502,8 @@ def assert_jsx_export_valid(file_path: str, root_name: str) -> str:
 
 def assert_cli_command_success(
     result: Any,
-    expected_items: Optional[list[str]] = None,
-    unexpected_items: Optional[list[str]] = None,
+    expected_items: list[str] | None = None,
+    unexpected_items: list[str] | None = None,
 ) -> None:
     """Assert that a CLI command succeeded and contains expected output."""
     assert result.exit_code == 0

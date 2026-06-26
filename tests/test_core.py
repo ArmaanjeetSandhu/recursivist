@@ -4,7 +4,7 @@ import re
 import tempfile
 import time
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any
 from unittest.mock import MagicMock, mock_open
 
 import pytest
@@ -94,8 +94,8 @@ class TestFileMtime:
         self,
         mocker: MockerFixture,
         temp_dir: str,
-        error_type: Optional[type[Exception]],
-        error_msg: Optional[str],
+        error_type: type[Exception] | None,
+        error_msg: str | None,
         expected: float,
     ) -> None:
         if error_type is None:
@@ -349,7 +349,7 @@ class TestBuildTree:
         structure_with_stats: dict[str, Any],
         color_map: dict[str, str],
         option: str,
-        expected_indicator: Union[str, list[str]],
+        expected_indicator: str | list[str],
     ) -> None:
         mock_tree = MagicMock(spec=Tree)
         mock_subtree = MagicMock(spec=Tree)
@@ -630,7 +630,7 @@ def test_export_invalid_format(temp_dir: str, output_dir: str) -> None:
     ],
 )
 def test_sort_files_by_type(
-    files: list[Any], sort_key: Optional[str], expected_order: list[str]
+    files: list[Any], sort_key: str | None, expected_order: list[str]
 ) -> None:
     """Test sorting files by different criteria."""
     kwargs = {}
@@ -669,7 +669,7 @@ def test_should_exclude(
     patterns: list[str],
     extensions: set[str],
     expected: bool,
-    exclude_patterns: Optional[list[Any]],
+    exclude_patterns: list[Any] | None,
 ) -> None:
     """Test file exclusion logic."""
     mocker.patch("os.path.isfile", return_value=True)
@@ -737,9 +737,9 @@ def test_should_exclude_gitignore_patterns(
 def test_should_exclude_filter_precedence(
     temp_dir: str,
     ignore_patterns: list[str],
-    exclude_patterns: Optional[list[str]],
-    exclude_extensions: Optional[set[str]],
-    include_patterns: Optional[list[str]],
+    exclude_patterns: list[str] | None,
+    exclude_extensions: set[str] | None,
+    include_patterns: list[str] | None,
     rel_path: str,
     expected: bool,
 ) -> None:
@@ -1019,11 +1019,11 @@ def _materialize_tree(root: str, files: dict[str, str]) -> None:
             fh.write(content)
 
 
-def _normalize_structure(structure: dict) -> dict:
+def _normalize_structure(structure: dict[str, Any]) -> dict[str, Any]:
     """Make a get_directory_structure result comparable: '_files' lists become
     sets of names (order from os.listdir isn't stable), and subdirectories are
     normalized recursively."""
-    normalized: dict = {}
+    normalized: dict[str, Any] = {}
     for key, value in structure.items():
         if key == "_files":
             normalized["_files"] = {
