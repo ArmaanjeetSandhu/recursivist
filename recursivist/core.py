@@ -236,7 +236,7 @@ def _compile_ignore_pattern(body: str) -> Optional[tuple[Pattern[str], bool]]:
     with forward slashes and no leading slash. ``dir_only`` patterns (trailing
     '/') match directories only. Cached so each unique pattern compiles once.
     """
-    if body.startswith("\\#") or body.startswith("\\!"):
+    if body.startswith(("\\#", "\\!")):
         body = body[1:]
     dir_only = body.endswith("/")
     if dir_only:
@@ -645,11 +645,13 @@ def get_directory_structure(
     if show_git_status and git_markers:
         existing_names: set[str] = set()
         for f in structure.get("_files", []):
-            existing_names.add(
-                f.name
-                if isinstance(f, FileEntry)
-                else (f[0] if isinstance(f, tuple) else f)
-            )
+            if isinstance(f, FileEntry):
+                name = f.name
+            elif isinstance(f, tuple):
+                name = f[0]
+            else:
+                name = f
+            existing_names.add(name)
 
         for fname, status in git_markers.items():
             if status == "D" and fname not in existing_names:
