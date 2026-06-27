@@ -1,12 +1,31 @@
+"""CLI command tests (recursivist.cli): visualize, export, compare, completion."""
+
 import json
 import os
 import re
+import shutil
 from typing import Any
 
 import pytest
 from typer.testing import CliRunner
 
 from recursivist.cli import app, parse_list_option
+from recursivist.scanner import get_directory_structure
+
+
+def assert_path_info_in_output(output: str, directory: str) -> None:
+    """Check if output contains full path information."""
+    base_name = os.path.basename(directory)
+    has_full_path = False
+    sample_path = f"{base_name}/file1.txt".replace("/", os.sep)
+    sample_path_alt = f"{base_name}\\file1.txt".replace("\\", os.sep)
+    has_full_path = base_name in output and (
+        "file1.txt" in output
+        or "file2.py" in output
+        or sample_path in output
+        or sample_path_alt in output
+    )
+    assert has_full_path, "Full path information not found in output"
 
 
 @pytest.mark.parametrize(
@@ -654,16 +673,396 @@ def test_verbose_mode(
     assert any("Verbose mode enabled" in record.message for record in caplog.records)
 
 
-def assert_path_info_in_output(output: str, directory: str) -> None:
-    """Check if output contains full path information."""
-    base_name = os.path.basename(directory)
-    has_full_path = False
-    sample_path = f"{base_name}/file1.txt".replace("/", os.sep)
-    sample_path_alt = f"{base_name}\\file1.txt".replace("\\", os.sep)
-    has_full_path = base_name in output and (
-        "file1.txt" in output
-        or "file2.py" in output
-        or sample_path in output
-        or sample_path_alt in output
+def test_visualize_command_with_depth_limit(
+    runner: CliRunner, deeply_nested_directory: str
+) -> None:
+    """Test CLI visualize command with depth limits."""
+    result = runner.invoke(app, ["visualize", deeply_nested_directory, "--depth", "1"])
+    assert result.exit_code == 0
+    assert "level1" in result.stdout
+    assert "(max depth reached)" in result.stdout
+    assert "level2" not in result.stdout
+    result = runner.invoke(app, ["visualize", deeply_nested_directory, "--depth", "2"])
+    assert result.exit_code == 0
+    assert "level1" in result.stdout
+    assert "level2" in result.stdout
+    assert "(max depth reached)" in result.stdout
+    assert "level3" not in result.stdout
+
+
+def test_export_command_with_depth_limit(
+    runner: CliRunner, deeply_nested_directory: str, output_dir: str
+) -> None:
+    """Test CLI export command with depth limits."""
+    result = runner.invoke(
+        app,
+        [
+            "export",
+            deeply_nested_directory,
+            "--format",
+            "json",
+            "--output-dir",
+            output_dir,
+            "--prefix",
+            "depth_limited",
+            "--depth",
+            "2",
+        ],
     )
-    assert has_full_path, "Full path information not found in output"
+    assert result.exit_code == 0
+    export_file: str = os.path.join(output_dir, "depth_limited.json")
+    assert os.path.exists(export_file)
+    with open(export_file, encoding="utf-8") as f:
+        data: dict[str, Any] = json.load(f)
+    assert "structure" in data
+    assert "level1" in data["structure"]
+    assert "level2" in data["structure"]["level1"]
+    assert "_max_depth_reached" in data["structure"]["level1"]["level2"]
+
+
+def test_compare_command_with_depth_limit(
+    runner: CliRunner, deeply_nested_directory: str, temp_dir: str
+) -> None:
+    """Test CLI compare command with depth limits."""
+    compare_dir: str = os.path.join(os.path.dirname(temp_dir), "compare_dir")
+    if os.path.exists(compare_dir):
+        shutil.rmtree(compare_dir)
+    os.makedirs(compare_dir, exist_ok=True)
+    level1: str = os.path.join(compare_dir, "level1")
+    level2: str = os.path.join(level1, "level2")
+    level3: str = os.path.join(level2, "level3")
+    os.makedirs(level1, exist_ok=True)
+    os.makedirs(level2, exist_ok=True)
+    os.makedirs(level3, exist_ok=True)
+    with open(os.path.join(compare_dir, "different_root.txt"), "w") as f:
+        f.write("Different root file")
+    with open(os.path.join(level1, "level1_file.txt"), "w") as f:
+        f.write("Level 1 file with different content")
+    with open(os.path.join(level2, "different_level2.txt"), "w") as f:
+        f.write("Different level 2 file")
+    with open(os.path.join(level3, "level3_file.txt"), "w") as f:
+        f.write("Level 3 file")
+    result = runner.invoke(
+        app, ["compare", deeply_nested_directory, compare_dir, "--depth", "2"]
+    )
+    assert result.exit_code == 0
+    assert "level1" in result.stdout
+    assert "level2" in result.stdout
+    assert "level1_file.txt" in result.stdout
+    assert "different_root.txt" in result.stdout
+    assert "level3" not in result.stdout
+    assert "level3_file.txt" not in result.stdout
+    assert "(max depth reached)" in result.stdout
+
+
+def test_compare_export_with_depth_limit(
+    runner: CliRunner, deeply_nested_directory: str, temp_dir: str, output_dir: str
+) -> None:
+    """Test exporting comparison with depth limits."""
+    compare_dir: str = os.path.join(os.path.dirname(temp_dir), "compare_export_dir")
+    if os.path.exists(compare_dir):
+        shutil.rmtree(compare_dir)
+    os.makedirs(compare_dir, exist_ok=True)
+    level1: str = os.path.join(compare_dir, "level1")
+    level2: str = os.path.join(level1, "level2")
+    level3: str = os.path.join(level2, "level3")
+    os.makedirs(level1, exist_ok=True)
+    os.makedirs(level2, exist_ok=True)
+    os.makedirs(level3, exist_ok=True)
+    with open(os.path.join(compare_dir, "different_root.txt"), "w") as f:
+        f.write("Different root file")
+    with open(os.path.join(level1, "level1_file.txt"), "w") as f:
+        f.write("Level 1 file with different content")
+    with open(os.path.join(level2, "different_level2.txt"), "w") as f:
+        f.write("Different level 2 file")
+    with open(os.path.join(level3, "level3_file.txt"), "w") as f:
+        f.write("Level 3 file")
+    result = runner.invoke(
+        app,
+        [
+            "compare",
+            deeply_nested_directory,
+            compare_dir,
+            "--depth",
+            "2",
+            "--save",
+            "--output-dir",
+            output_dir,
+            "--prefix",
+            "depth_limited_compare",
+        ],
+    )
+    assert result.exit_code == 0
+    export_file: str = os.path.join(output_dir, "depth_limited_compare.html")
+    assert os.path.exists(export_file)
+    with open(export_file, encoding="utf-8") as f:
+        content: str = f.read()
+    assert "Directory Comparison" in content
+    assert "level1" in content
+    assert "level2" in content
+    assert "level1_file.txt" in content
+    assert "different_root.txt" in content
+    assert "level3" not in content or (
+        "level3" in content and "max depth reached" in content
+    )
+    assert "(max depth reached)" in content
+
+
+def test_depth_combined_with_filters(
+    runner: CliRunner, deeply_nested_directory: str
+) -> None:
+    """Test combining depth limits with other filters."""
+    excluded_dir: str = os.path.join(deeply_nested_directory, "excluded")
+    os.makedirs(excluded_dir, exist_ok=True)
+    with open(os.path.join(excluded_dir, "excluded.txt"), "w") as f:
+        f.write("This should be excluded")
+    with open(os.path.join(deeply_nested_directory, "excluded_root.txt"), "w") as f:
+        f.write("This should be excluded at root")
+    result = runner.invoke(
+        app,
+        [
+            "visualize",
+            deeply_nested_directory,
+            "--depth",
+            "2",
+            "--exclude",
+            "excluded",
+            "--exclude-pattern",
+            "excluded_*",
+        ],
+    )
+    assert result.exit_code == 0
+    assert "level1" in result.stdout
+    assert "level2" in result.stdout
+    assert "excluded" not in result.stdout
+    assert "excluded_root.txt" not in result.stdout
+    assert "(max depth reached)" in result.stdout
+
+
+@pytest.mark.parametrize("depth", [1, 2, 3, 4])
+def test_export_with_different_depth_limits(
+    runner: CliRunner, deeply_nested_directory: str, output_dir: str, depth: int
+) -> None:
+    """Test exporting with different depth limits."""
+    result = runner.invoke(
+        app,
+        [
+            "export",
+            deeply_nested_directory,
+            "--format",
+            "json",
+            "--output-dir",
+            output_dir,
+            "--prefix",
+            f"depth_{depth}",
+            "--depth",
+            str(depth),
+        ],
+    )
+    assert result.exit_code == 0
+    export_file: str = os.path.join(output_dir, f"depth_{depth}.json")
+    assert os.path.exists(export_file)
+    with open(export_file, encoding="utf-8") as f:
+        data: dict[str, Any] = json.load(f)
+    current: dict[str, Any] = data["structure"]
+    assert "level1" in current
+    current = current["level1"]
+    if depth == 1:
+        assert "_max_depth_reached" in current
+        return
+    assert "level2" in current
+    current = current["level2"]
+    if depth == 2:
+        assert "_max_depth_reached" in current
+        return
+    assert "level3" in current
+    current = current["level3"]
+    if depth == 3:
+        assert "_max_depth_reached" in current
+        return
+    assert "level4" in current
+    current = current["level4"]
+    if depth == 4:
+        assert "_max_depth_reached" in current
+        return
+
+
+def test_unlimited_depth(runner: CliRunner, deeply_nested_directory: str) -> None:
+    """Test with unlimited depth (depth=0)."""
+    level1: str = os.path.join(deeply_nested_directory, "level1")
+    level2: str = os.path.join(level1, "level2")
+    level3: str = os.path.join(level2, "level3")
+    level4: str = os.path.join(level3, "level4")
+    level5: str = os.path.join(level4, "level5")
+    level6: str = os.path.join(level5, "level6")
+    assert os.path.exists(level6), "Test setup error: level6 directory should exist"
+    result = runner.invoke(
+        app,
+        [
+            "visualize",
+            deeply_nested_directory,
+            "--depth",
+            "0",
+        ],
+    )
+    assert result.exit_code == 0
+    assert "level1" in result.stdout
+    assert "level2" in result.stdout
+    assert "level3" in result.stdout
+    assert "level4" in result.stdout
+    assert "level5" in result.stdout
+    assert "level6" in result.stdout
+    assert "level6_file.txt" in result.stdout
+    assert "(max depth reached)" not in result.stdout
+
+
+def test_cli_with_regex_patterns(
+    runner: CliRunner, pattern_test_directory: str
+) -> None:
+    """Test CLI with regex pattern options."""
+    result = runner.invoke(
+        app,
+        [
+            "visualize",
+            pattern_test_directory,
+            "--include-pattern",
+            r"data_\d{8}\.csv$",
+            "--regex",
+        ],
+    )
+    assert result.exit_code == 0
+    assert "data_20230101.csv" in result.stdout
+    assert "data_20230102.csv" in result.stdout
+    assert "regular_file.txt" not in result.stdout
+    assert "test_file1.py" not in result.stdout
+    result = runner.invoke(
+        app,
+        [
+            "visualize",
+            pattern_test_directory,
+            "--exclude-pattern",
+            r"^test_|^\.hidden",
+            "--regex",
+        ],
+    )
+    assert result.exit_code == 0
+    assert "test_file1.py" not in result.stdout
+    assert "test_file2.js" not in result.stdout
+    assert ".hidden.file" not in result.stdout
+    assert "regular_file.txt" in result.stdout
+    assert "data_20230101.csv" in result.stdout
+
+
+def test_glob_patterns(pattern_test_directory: str) -> None:
+    """Test glob-style pattern matching."""
+    exclude_patterns = ["test_*", "*.log"]
+    structure, _ = get_directory_structure(
+        pattern_test_directory, exclude_patterns=exclude_patterns
+    )
+    test_files_found = False
+    log_files_found = False
+
+    def check_files(struct: dict[str, Any]) -> None:
+        nonlocal test_files_found, log_files_found
+        if "_files" in struct:
+            for file in struct["_files"]:
+                file_name = file if isinstance(file, str) else file[0]
+                if file_name.startswith("test_"):
+                    test_files_found = True
+                if file_name.endswith(".log"):
+                    log_files_found = True
+        for key, value in struct.items():
+            if key != "_files" and isinstance(value, dict):
+                check_files(value)
+
+    check_files(structure)
+    assert not test_files_found, "Test files were found despite glob exclude pattern"
+    assert not log_files_found, "Log files were found despite glob exclude pattern"
+
+
+def test_mixed_regex_and_glob_patterns(
+    runner: CliRunner, pattern_test_directory: str
+) -> None:
+    """Test mixing regex and glob patterns."""
+    with open(os.path.join(pattern_test_directory, "glob_match.txt"), "w") as f:
+        f.write("Should match glob pattern")
+    with open(os.path.join(pattern_test_directory, "regex_match.txt"), "w") as f:
+        f.write("Should match regex pattern")
+    result = runner.invoke(
+        app, ["visualize", pattern_test_directory, "--exclude-pattern", "glob_*"]
+    )
+    assert result.exit_code == 0
+    assert "glob_match.txt" not in result.stdout
+    assert "regex_match.txt" in result.stdout
+    result = runner.invoke(
+        app,
+        [
+            "visualize",
+            pattern_test_directory,
+            "--exclude-pattern",
+            r"regex_.*\.txt$",
+            "--regex",
+        ],
+    )
+    assert result.exit_code == 0
+    assert "regex_match.txt" not in result.stdout
+    assert "glob_match.txt" in result.stdout
+
+
+def test_regex_pattern_escaping(pattern_test_directory: str) -> None:
+    """Test regex patterns with special characters that need escaping."""
+    special_file = os.path.join(pattern_test_directory, "file+[special].txt")
+    with open(special_file, "w") as f:
+        f.write("Special characters in filename")
+    include_patterns = [re.compile(r"file\+\[special\]\.txt$")]
+    structure, _ = get_directory_structure(
+        pattern_test_directory, include_patterns=include_patterns
+    )
+    found = False
+    if "_files" in structure:
+        for file_item in structure["_files"]:
+            file_name = file_item if isinstance(file_item, str) else file_item[0]
+            if file_name == "file+[special].txt":
+                found = True
+                break
+    assert found, "File with special characters not found with escaped regex pattern"
+
+
+def test_regex_nested_directory_patterns(pattern_test_directory: str) -> None:
+    """Test regular expressions for files in nested directories."""
+    structure, _ = get_directory_structure(pattern_test_directory)
+    assert "tests" in structure, "Base structure doesn't have tests directory"
+    assert "unit" in structure["tests"], "Base structure doesn't have unit directory"
+    assert "integration" in structure["tests"], (
+        "Base structure doesn't have integration directory"
+    )
+    include_patterns = [re.compile(r"test_.*\.py$")]
+    structure, _ = get_directory_structure(
+        pattern_test_directory, include_patterns=include_patterns
+    )
+    files_at_root = [
+        f if isinstance(f, str) else f[0] for f in structure.get("_files", [])
+    ]
+    assert "test_file1.py" in files_at_root, "Root test_file1.py should be included"
+    assert "regular_file.txt" not in files_at_root, (
+        "Non-matching files should be excluded"
+    )
+    include_patterns = [re.compile(r"regular_file\.txt$")]
+    structure, _ = get_directory_structure(
+        pattern_test_directory, include_patterns=include_patterns
+    )
+    if "_files" in structure:
+        files_at_root = [
+            f if isinstance(f, str) else f[0] for f in structure.get("_files", [])
+        ]
+        assert "regular_file.txt" in files_at_root, "Regular file should be included"
+        assert "test_file1.py" not in files_at_root, "Test file should be excluded"
+    with open(os.path.join(pattern_test_directory, "unique_test_pattern.py"), "w") as f:
+        f.write("# Unique test file")
+    include_patterns = [re.compile(r"unique_test_pattern\.py$")]
+    structure, _ = get_directory_structure(
+        pattern_test_directory, include_patterns=include_patterns
+    )
+    if "_files" in structure:
+        files = [f if isinstance(f, str) else f[0] for f in structure["_files"]]
+        assert "unique_test_pattern.py" in files, "Unique test file should be included"

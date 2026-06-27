@@ -80,6 +80,10 @@ testpaths = ["tests"]
 python_files = "test_*.py"
 python_functions = "test_*"
 addopts = "--cov=recursivist --cov-report=term-missing"
+markers = [
+    "integration: end-to-end tests that build real directory trees and invoke the CLI",
+    "property: Hypothesis property-based tests",
+]
 
 [tool.ruff]
 target-version = "py310"

@@ -19,6 +19,46 @@ from .base import BaseExporter
 logger = logging.getLogger(__name__)
 
 
+def sort_key_all(e: FileEntry) -> tuple[int, int, float, str]:
+    """Order by LOC, then size, then mtime (all descending), then name."""
+    return (-e.loc, -e.size, -e.mtime, e.name.lower())
+
+
+def sort_key_loc_size(e: FileEntry) -> tuple[int, int, str]:
+    """Order by LOC, then size (descending), then name."""
+    return (-e.loc, -e.size, e.name.lower())
+
+
+def sort_key_loc_mtime(e: FileEntry) -> tuple[int, float, str]:
+    """Order by LOC, then mtime (descending), then name."""
+    return (-e.loc, -e.mtime, e.name.lower())
+
+
+def sort_key_size_mtime(e: FileEntry) -> tuple[int, float, str]:
+    """Order by size, then mtime (descending), then name."""
+    return (-e.size, -e.mtime, e.name.lower())
+
+
+def sort_key_mtime(e: FileEntry) -> tuple[float, str]:
+    """Order by mtime (descending), then name."""
+    return (-e.mtime, e.name.lower())
+
+
+def sort_key_size(e: FileEntry) -> tuple[int, str]:
+    """Order by size (descending), then name."""
+    return (-e.size, e.name.lower())
+
+
+def sort_key_loc(e: FileEntry) -> tuple[int, str]:
+    """Order by LOC (descending), then name."""
+    return (-e.loc, e.name.lower())
+
+
+def sort_key_name(e: FileEntry) -> str:
+    """Order by name (case-insensitive, ascending)."""
+    return e.name.lower()
+
+
 class JsxExporter(BaseExporter):
     """Exporter that emits an interactive React component for the tree."""
 
@@ -125,38 +165,23 @@ class JsxExporter(BaseExporter):
                     if not (isinstance(f, tuple) and len(f) == 0)
                 ]
                 if self.sort_by_loc and self.sort_by_size and self.sort_by_mtime:
-                    sorted_files = sorted(
-                        entries,
-                        key=lambda e: (-e.loc, -e.size, -e.mtime, e.name.lower()),
-                    )
+                    sorted_files = sorted(entries, key=sort_key_all)
                 elif self.sort_by_loc and self.sort_by_size:
-                    sorted_files = sorted(
-                        entries, key=lambda e: (-e.loc, -e.size, e.name.lower())
-                    )
+                    sorted_files = sorted(entries, key=sort_key_loc_size)
                 elif self.sort_by_loc and self.sort_by_mtime:
-                    sorted_files = sorted(
-                        entries, key=lambda e: (-e.loc, -e.mtime, e.name.lower())
-                    )
+                    sorted_files = sorted(entries, key=sort_key_loc_mtime)
                 elif self.sort_by_size and self.sort_by_mtime:
-                    sorted_files = sorted(
-                        entries, key=lambda e: (-e.size, -e.mtime, e.name.lower())
-                    )
+                    sorted_files = sorted(entries, key=sort_key_size_mtime)
                 elif self.sort_by_mtime:
-                    sorted_files = sorted(
-                        entries, key=lambda e: (-e.mtime, e.name.lower())
-                    )
+                    sorted_files = sorted(entries, key=sort_key_mtime)
                 elif self.sort_by_size:
-                    sorted_files = sorted(
-                        entries, key=lambda e: (-e.size, e.name.lower())
-                    )
+                    sorted_files = sorted(entries, key=sort_key_size)
                 elif self.sort_by_loc:
-                    sorted_files = sorted(
-                        entries, key=lambda e: (-e.loc, e.name.lower())
-                    )
+                    sorted_files = sorted(entries, key=sort_key_loc)
                 elif self.sort_by_similarity:
                     sorted_files = sort_files_by_similarity(entries)
                 else:
-                    sorted_files = sorted(entries, key=lambda e: e.name.lower())
+                    sorted_files = sorted(entries, key=sort_key_name)
 
                 for entry in sorted_files:
                     file_name = entry.name

@@ -1,3 +1,5 @@
+"""End-to-end tests across modules on realistic directory fixtures."""
+
 import json
 import os
 import re
@@ -11,6 +13,31 @@ from recursivist.cli import app
 from recursivist.compare import compare_directory_structures, export_comparison
 from recursivist.exporters import get_exporter
 from recursivist.scanner import get_directory_structure
+
+pytestmark = pytest.mark.integration
+
+
+def get_file_names(
+    structure: dict[str, Any], path: list[str] | None = None
+) -> list[str]:
+    """
+    Extract file names from a structure, optionally at a specific path.
+    Args:
+        structure: The directory structure.
+        path: Optional path to look at within the structure.
+    Returns:
+        List of file names.
+    """
+    if path is None:
+        return [f if isinstance(f, str) else f[0] for f in structure.get("_files", [])]
+    else:
+        current = structure
+        for segment in path:
+            if segment in current:
+                current = current[segment]
+            else:
+                return []
+        return [f if isinstance(f, str) else f[0] for f in current.get("_files", [])]
 
 
 def test_cli_with_complex_structure(
@@ -390,26 +417,3 @@ def test_pathlib_compatibility(temp_dir: str, output_dir: str) -> None:
     assert "root" in data
     assert "structure" in data
     assert "_files" in data["structure"]
-
-
-def get_file_names(
-    structure: dict[str, Any], path: list[str] | None = None
-) -> list[str]:
-    """
-    Extract file names from a structure, optionally at a specific path.
-    Args:
-        structure: The directory structure.
-        path: Optional path to look at within the structure.
-    Returns:
-        List of file names.
-    """
-    if path is None:
-        return [f if isinstance(f, str) else f[0] for f in structure.get("_files", [])]
-    else:
-        current = structure
-        for segment in path:
-            if segment in current:
-                current = current[segment]
-            else:
-                return []
-        return [f if isinstance(f, str) else f[0] for f in current.get("_files", [])]
