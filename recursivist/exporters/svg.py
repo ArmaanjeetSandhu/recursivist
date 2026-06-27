@@ -55,6 +55,7 @@ class SvgExporter(BaseExporter):
             sort_by_mtime=self.sort_by_mtime,
             show_git_status=self.show_git_status,
             icon_style=self.icon_style,
+            sort_by_similarity=self.sort_by_similarity,
         )
 
         console = Console(record=True, width=120)

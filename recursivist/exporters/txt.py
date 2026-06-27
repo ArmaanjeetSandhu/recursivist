@@ -41,6 +41,7 @@ class TxtExporter(BaseExporter):
                     self.sort_by_loc,
                     self.sort_by_size,
                     self.sort_by_mtime,
+                    self.sort_by_similarity,
                 )
                 for j, entry in enumerate(file_items):
                     is_last_file = j == len(file_items) - 1

@@ -3,7 +3,7 @@ import logging
 from typing import Any
 
 from recursivist._models import FileEntry
-from recursivist.core import format_size, format_timestamp
+from recursivist.core import format_size, format_timestamp, sort_files_by_similarity
 
 from .base import BaseExporter
 
@@ -80,10 +80,6 @@ class JsxExporter(BaseExporter):
             if "_files" in structure:
                 files = structure["_files"]
 
-                # Normalise each entry to a FileEntry (skipping empty tuples),
-                # then sort. Metric sorts break ties on the lowercased name, and
-                # the no-metric case is a straight name sort with no extension
-                # grouping.
                 entries = [
                     FileEntry.from_raw(
                         f, self.sort_by_loc, self.sort_by_size, self.sort_by_mtime
@@ -120,6 +116,8 @@ class JsxExporter(BaseExporter):
                     sorted_files = sorted(
                         entries, key=lambda e: (-e.loc, e.name.lower())
                     )
+                elif self.sort_by_similarity:
+                    sorted_files = sort_files_by_similarity(entries)
                 else:
                     sorted_files = sorted(entries, key=lambda e: e.name.lower())
 

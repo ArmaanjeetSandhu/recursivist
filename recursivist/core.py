@@ -11,6 +11,7 @@ Key components:
 - Lines of code counting
 - File size calculation and formatting
 - Modification time retrieval and formatting
+- File name similarity grouping (difflib-based)
 - Maximum depth limiting
 """
 
@@ -24,6 +25,7 @@ import os
 import re
 from collections.abc import Iterator, Sequence
 from datetime import datetime as dt
+from difflib import SequenceMatcher
 from functools import cache
 from re import Pattern
 from typing import Any, cast
@@ -671,15 +673,82 @@ def get_directory_structure(
     return structure, extensions_set
 
 
+def sort_files_by_similarity(files: Sequence[Any]) -> list[FileEntry]:
+    """Order files so that similarly named files sit next to each other.
+
+    Unlike the LOC/size/mtime metrics, name similarity is *relational*: it
+    depends on how a file's name compares to the others rather than on any
+    single measured value, so it cannot be expressed as a ``sorted`` key.
+    Instead this builds a greedy nearest-neighbour chain:
+
+    1. Entries are seeded in case-insensitive name order and the
+       alphabetically-first name becomes the start of the chain. Using a
+       fixed, name-derived anchor makes the result deterministic and stable
+       across runs (the same directory always yields the same order).
+    2. Repeatedly, the not-yet-placed entry whose name is most similar to the
+       most recently placed name is appended. Similarity is the
+       :class:`difflib.SequenceMatcher` ratio computed case-insensitively on
+       the full filename (extension included), so ``main.py``/``main.js`` and
+       ``test_api.py``/``test_api.js`` naturally cluster.
+    3. Ratio ties are broken by case-insensitive name order: because the
+       candidates are kept alphabetically sorted and the best match is only
+       replaced on a strictly greater ratio, the alphabetically-first of any
+       tied group wins.
+
+    This is a heuristic (locally greedy) ordering rather than a globally
+    optimal grouping, which is the appropriate trade-off for a directory
+    listing: each directory holds relatively few files, so the ``O(n^2)``
+    pairwise comparisons are cheap, and the result reliably places obvious
+    name-siblings adjacent to one another.
+
+    Inputs may be :class:`FileEntry` instances, bare filename strings, or
+    positional tuples; every item is normalised to a :class:`FileEntry` via
+    :meth:`FileEntry.from_raw` before ordering. Since only the name is used,
+    no metric flags are needed.
+
+    Args:
+        files: List of file items (``FileEntry``, tuple, or ``str``).
+
+    Returns:
+        Reordered list of :class:`FileEntry` with name-similar files adjacent.
+    """
+    if not files:
+        return []
+    entries = [FileEntry.from_raw(f) for f in files]
+    if len(entries) < 2:
+        return entries
+    remaining = sorted(entries, key=lambda e: e.name.lower())
+    ordered: list[FileEntry] = [remaining.pop(0)]
+    matcher = SequenceMatcher(autojunk=False)
+    while remaining:
+        matcher.set_seq2(ordered[-1].name.lower())
+        best_idx = 0
+        best_ratio = -1.0
+        for idx, candidate in enumerate(remaining):
+            matcher.set_seq1(candidate.name.lower())
+            ratio = matcher.ratio()
+            if ratio > best_ratio:
+                best_ratio = ratio
+                best_idx = idx
+        ordered.append(remaining.pop(best_idx))
+    return ordered
+
+
 def sort_files_by_type(
     files: Sequence[Any],
     sort_by_loc: bool = False,
     sort_by_size: bool = False,
     sort_by_mtime: bool = False,
+    sort_by_similarity: bool = False,
 ) -> list[FileEntry]:
-    """Sort files by extension and then by name, or by LOC/size/mtime if requested.
+    """Sort files by extension and then by name, or by LOC/size/mtime/similarity if requested.
 
-    The sort precedence follows: LOC > size > mtime > extension/name.
+    The sort precedence follows: LOC > size > mtime > similarity >
+    extension/name. The numeric metrics are mutually combinable and take
+    priority; name-similarity grouping replaces the default extension/name
+    ordering when requested but is itself overridden by any active numeric
+    sort (a value-based ordering is treated as the stronger intent, exactly
+    as it already overrides the plain alphabetical fallback).
 
     Inputs may be :class:`FileEntry` instances, bare filename strings, or
     positional tuples; every item is normalised to a :class:`FileEntry` via
@@ -690,15 +759,15 @@ def sort_files_by_type(
         sort_by_loc: Whether to sort by lines of code.
         sort_by_size: Whether to sort by file size.
         sort_by_mtime: Whether to sort by modification time.
+        sort_by_similarity: Whether to group files by name similarity (used
+            only when no numeric sort is active).
 
     Returns:
         Sorted list of :class:`FileEntry`.
     """
     if not files:
         return []
-    # Whether the *raw* input actually carries each metric. Bare-string inputs
-    # carry none, in which case a requested metric sort falls back to name
-    # order. Real scans always carry them.
+
     has_loc = any(isinstance(item, tuple) and len(item) > 2 for item in files)
     has_size = any(isinstance(item, tuple) and len(item) > 3 for item in files)
     has_mtime = any(isinstance(item, tuple) and len(item) > 4 for item in files)
@@ -725,6 +794,8 @@ def sort_files_by_type(
         return sorted(entries, key=lambda e: -e.size)
     if sort_by_mtime and (has_mtime or has_simple_mtime):
         return sorted(entries, key=lambda e: -e.mtime)
+    if sort_by_similarity:
+        return sort_files_by_similarity(entries)
     return sorted(
         entries,
         key=lambda e: (os.path.splitext(e.name)[1].lower(), e.name.lower()),
@@ -798,6 +869,7 @@ def build_tree(
     sort_by_mtime: bool = False,
     show_git_status: bool = False,
     icon_style: str = "emoji",
+    sort_by_similarity: bool = False,
 ) -> None:
     """Build the tree structure with colored file names.
 
@@ -806,6 +878,8 @@ def build_tree(
     When sort_by_loc is True, displays lines of code counts for files and directories.
     When sort_by_size is True, displays file sizes for files and directories.
     When sort_by_mtime is True, displays file modification times.
+    When sort_by_similarity is True, groups files with similar names together
+    (only applies when no numeric sort is active; it carries no annotation).
     When show_git_status is True, appends a coloured Git status marker to each file:
     ``[U]`` untracked (grey), ``[M]`` modified (yellow), ``[A]`` added (green),
     ``[D]`` deleted (red). Deleted files that no longer exist on disk are shown
@@ -820,6 +894,7 @@ def build_tree(
         sort_by_size: Whether to display file sizes
         sort_by_mtime: Whether to display file modification times
         show_git_status: Whether to display Git status markers
+        sort_by_similarity: Whether to group files by name similarity
     """
     _GIT_MARKER_STYLES = {
         "U": ("dim", "[U]"),
@@ -832,7 +907,11 @@ def build_tree(
     )
     if "_files" in structure:
         for entry in sort_files_by_type(
-            structure["_files"], sort_by_loc, sort_by_size, sort_by_mtime
+            structure["_files"],
+            sort_by_loc,
+            sort_by_size,
+            sort_by_mtime,
+            sort_by_similarity,
         ):
             display_path = entry.path if show_full_path else entry.name
             ext = os.path.splitext(entry.name)[1].lower()
@@ -889,6 +968,7 @@ def build_tree(
                 sort_by_mtime,
                 show_git_status,
                 icon_style,
+                sort_by_similarity,
             )
 
 
@@ -909,12 +989,14 @@ def display_tree(
     icon_style: str = "emoji",
     structure: dict[str, Any] | None = None,
     extensions: set[str] | None = None,
+    sort_by_similarity: bool = False,
 ) -> None:
     """Display a directory tree in the terminal with rich formatting.
 
     Presents a directory structure as a tree with:
     - Color-coded file extensions
     - Optional statistics (lines of code, sizes, modification times)
+    - Optional grouping of similarly named files
     - Filtered content based on exclusion patterns
     - Depth limitations if specified
     - Optional Git status markers (when show_git_status is True)
@@ -936,6 +1018,7 @@ def display_tree(
         sort_by_mtime: Whether to show and sort by modification time
         show_git_status: Whether to annotate files with Git status markers
         icon_style: Style for displaying icons ("emoji" or "nerd")
+        sort_by_similarity: Whether to group files by name similarity
     """
     if exclude_dirs is None:
         exclude_dirs = []
@@ -1003,6 +1086,7 @@ def display_tree(
         sort_by_mtime=sort_by_mtime,
         show_git_status=show_git_status,
         icon_style=icon_style,
+        sort_by_similarity=sort_by_similarity,
     )
     console.print(tree)
 

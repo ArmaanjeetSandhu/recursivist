@@ -74,7 +74,6 @@ def compare_directory_structures(
     Returns:
         Tuple of (structure1, structure2, combined_extensions)
     """
-
     structure1, extensions1 = get_directory_structure(
         dir1,
         exclude_dirs,
@@ -115,6 +114,7 @@ def build_comparison_tree(
     sort_by_size: bool = False,
     sort_by_mtime: bool = False,
     icon_style: str = "emoji",
+    sort_by_similarity: bool = False,
 ) -> None:
     """
     Build a tree structure with highlighted differences.
@@ -127,6 +127,7 @@ def build_comparison_tree(
     When sort_by_loc is True, also displays lines of code counts.
     When sort_by_size is True, also displays file sizes.
     When sort_by_mtime is True, also displays file modification times.
+    When sort_by_similarity is True, groups files with similar names together.
 
     Args:
         structure: Dictionary representation of the current directory structure
@@ -138,8 +139,8 @@ def build_comparison_tree(
         sort_by_size: Whether to display file sizes
         sort_by_mtime: Whether to display file modification times
         icon_style: The style of icons to use ('emoji' or 'nerd')
+        sort_by_similarity: Whether to group files by name similarity
     """
-
     if "_files" in structure:
         files_in_other = other_structure.get("_files", []) if other_structure else []
         files_in_other_names = []
@@ -149,7 +150,11 @@ def build_comparison_tree(
             else:
                 files_in_other_names.append(cast(str, item))
         for entry in sort_files_by_type(
-            structure["_files"], sort_by_loc, sort_by_size, sort_by_mtime
+            structure["_files"],
+            sort_by_loc,
+            sort_by_size,
+            sort_by_mtime,
+            sort_by_similarity,
         ):
             file_icon = get_icon(entry.name, is_dir=False, style=icon_style)
             ext = os.path.splitext(entry.name)[1].lower()
@@ -194,6 +199,7 @@ def build_comparison_tree(
                 sort_by_size,
                 sort_by_mtime,
                 icon_style=icon_style,
+                sort_by_similarity=sort_by_similarity,
             )
     if other_structure and "_files" in other_structure:
         files_in_this_names = []
@@ -204,7 +210,11 @@ def build_comparison_tree(
             else:
                 files_in_this_names.append(cast(str, item))
         for entry in sort_files_by_type(
-            other_structure["_files"], sort_by_loc, sort_by_size, sort_by_mtime
+            other_structure["_files"],
+            sort_by_loc,
+            sort_by_size,
+            sort_by_mtime,
+            sort_by_similarity,
         ):
             if entry.name not in files_in_this_names:
                 file_icon = get_icon(entry.name, is_dir=False, style=icon_style)
@@ -247,6 +257,7 @@ def build_comparison_tree(
                     sort_by_size,
                     sort_by_mtime,
                     icon_style=icon_style,
+                    sort_by_similarity=sort_by_similarity,
                 )
 
 
@@ -265,6 +276,7 @@ def display_comparison(
     sort_by_size: bool = False,
     sort_by_mtime: bool = False,
     icon_style: str = "emoji",
+    sort_by_similarity: bool = False,
 ) -> None:
     """Display two directory trees side by side with highlighted differences.
 
@@ -274,6 +286,7 @@ def display_comparison(
     - Informative legend explaining the highlighting
     - Support for all standard filtering options
     - Optional statistics display (LOC, size, modification time)
+    - Optional grouping of similarly named files
 
     Args:
         dir1: Path to the first directory
@@ -290,8 +303,8 @@ def display_comparison(
         sort_by_size: Whether to show and sort by file size
         sort_by_mtime: Whether to show and sort by modification time
         icon_style: The style of icons to display ("emoji" or "nerd")
+        sort_by_similarity: Whether to group files by name similarity
     """
-
     if exclude_dirs is None:
         exclude_dirs = []
     if exclude_extensions is None:
@@ -368,6 +381,7 @@ def display_comparison(
         sort_by_size=sort_by_size,
         sort_by_mtime=sort_by_mtime,
         icon_style=icon_style,
+        sort_by_similarity=sort_by_similarity,
     )
     build_comparison_tree(
         structure2,
@@ -379,6 +393,7 @@ def display_comparison(
         sort_by_size=sort_by_size,
         sort_by_mtime=sort_by_mtime,
         icon_style=icon_style,
+        sort_by_similarity=sort_by_similarity,
     )
     legend_text = Text()
     legend_text.append("Legend: ", style="bold")
@@ -399,6 +414,9 @@ def display_comparison(
         legend_text.append(
             "Modification times shown in parentheses, files sorted by newest first"
         )
+    if sort_by_similarity and not (sort_by_loc or sort_by_size or sort_by_mtime):
+        legend_text.append("\n")
+        legend_text.append("Files grouped by name similarity")
     if max_depth > 0:
         legend_text.append("\n")
         legend_text.append("⋯ (max depth reached) ", style="dim")
@@ -462,6 +480,7 @@ def export_comparison(
     sort_by_size: bool = False,
     sort_by_mtime: bool = False,
     icon_style: str = "emoji",
+    sort_by_similarity: bool = False,
 ) -> None:
     """Export directory comparison to HTML format.
 
@@ -490,11 +509,11 @@ def export_comparison(
         sort_by_loc: Whether to show and sort by lines of code
         sort_by_size: Whether to show and sort by file size
         sort_by_mtime: Whether to show and sort by modification time
+        sort_by_similarity: Whether to group files by name similarity
 
     Raises:
         ValueError: If the format_type is not supported
     """
-
     if exclude_dirs is None:
         exclude_dirs = []
     if exclude_extensions is None:
@@ -535,6 +554,7 @@ def export_comparison(
             "sort_by_loc": sort_by_loc,
             "sort_by_size": sort_by_size,
             "sort_by_mtime": sort_by_mtime,
+            "sort_by_similarity": sort_by_similarity,
         },
     }
     if format_type == "html":
@@ -573,7 +593,6 @@ def _export_comparison_to_html(
         Returns:
             HTML string representing the directory tree
         """
-
         html_content = ["<ul>"]
         show_full_path = comparison_data.get("metadata", {}).get(
             "show_full_path", False
@@ -581,6 +600,9 @@ def _export_comparison_to_html(
         sort_by_loc = comparison_data.get("metadata", {}).get("sort_by_loc", False)
         sort_by_size = comparison_data.get("metadata", {}).get("sort_by_size", False)
         sort_by_mtime = comparison_data.get("metadata", {}).get("sort_by_mtime", False)
+        sort_by_similarity = comparison_data.get("metadata", {}).get(
+            "sort_by_similarity", False
+        )
         files_in_this = structure.get("_files", [])
         if "_files" in structure:
             files_in_other = (
@@ -593,7 +615,11 @@ def _export_comparison_to_html(
                 else:
                     files_in_other_names.append(cast(str, item))
             sorted_files = sort_files_by_type(
-                files_in_this, sort_by_loc, sort_by_size, sort_by_mtime
+                files_in_this,
+                sort_by_loc,
+                sort_by_size,
+                sort_by_mtime,
+                sort_by_similarity,
             )
             for entry in sorted_files:
                 if sort_by_loc or sort_by_size or sort_by_mtime:
@@ -650,7 +676,11 @@ def _export_comparison_to_html(
                 else:
                     files_in_this_names.append(cast(str, item))
             sorted_other_files = sort_files_by_type(
-                other_structure["_files"], sort_by_loc, sort_by_size, sort_by_mtime
+                other_structure["_files"],
+                sort_by_loc,
+                sort_by_size,
+                sort_by_mtime,
+                sort_by_similarity,
             )
             for entry in sorted_other_files:
                 if entry.name not in files_in_this_names:

@@ -30,6 +30,7 @@ class HtmlExporter(BaseExporter):
                     self.sort_by_loc,
                     self.sort_by_size,
                     self.sort_by_mtime,
+                    self.sort_by_similarity,
                 ):
                     file_name = entry.name
                     display_path = entry.path

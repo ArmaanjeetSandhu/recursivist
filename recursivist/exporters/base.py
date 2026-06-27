@@ -14,6 +14,7 @@ class BaseExporter:
         sort_by_mtime: bool = False,
         show_git_status: bool = False,
         icon_style: str = "emoji",
+        sort_by_similarity: bool = False,
     ) -> None:
         self.structure = structure
         self.root_name = root_name
@@ -24,6 +25,7 @@ class BaseExporter:
         self.sort_by_mtime = sort_by_mtime
         self.show_git_status = show_git_status
         self.icon_style = icon_style
+        self.sort_by_similarity = sort_by_similarity
 
     def export(self, output_path: str) -> None:
         """Must be implemented by subclasses to perform the actual export."""

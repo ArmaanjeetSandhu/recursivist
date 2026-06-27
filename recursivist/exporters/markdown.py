@@ -48,6 +48,7 @@ class MarkdownExporter(BaseExporter):
                     self.sort_by_loc,
                     self.sort_by_size,
                     self.sort_by_mtime,
+                    self.sort_by_similarity,
                 ):
                     file_icon = get_icon(
                         entry.name, is_dir=False, style=self.icon_style

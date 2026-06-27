@@ -79,6 +79,9 @@ HELP_SHOW_FULL_PATH = "Show full paths instead of just filenames"
 HELP_SORT_BY_LOC = "Sort files by lines of code and display LOC counts"
 HELP_SORT_BY_SIZE = "Sort files by size and display file sizes"
 HELP_SORT_BY_MTIME = "Sort files by modification time and display timestamps"
+HELP_SORT_BY_SIMILARITY = (
+    "Group files with similar names together (overridden by other sort options)"
+)
 HELP_VERBOSE = "Enable verbose output"
 
 MSG_VERBOSE = "Verbose mode enabled"
@@ -86,6 +89,7 @@ MSG_FULL_PATH = "Showing full paths instead of just filenames"
 MSG_SORT_LOC = "Sorting files by lines of code and displaying LOC counts"
 MSG_SORT_SIZE = "Sorting files by size and displaying file sizes"
 MSG_SORT_MTIME = "Sorting files by modification time and displaying timestamps"
+MSG_SORT_SIMILARITY = "Grouping files by name similarity"
 
 
 def _exclude_dirs_option() -> Any:
@@ -130,6 +134,12 @@ def _sort_by_size_option() -> Any:
 
 def _sort_by_mtime_option() -> Any:
     return typer.Option(False, "--sort-by-mtime", "-m", help=HELP_SORT_BY_MTIME)
+
+
+def _sort_by_similarity_option() -> Any:
+    return typer.Option(
+        False, "--sort-by-similarity", "-S", help=HELP_SORT_BY_SIMILARITY
+    )
 
 
 def _show_git_status_option() -> Any:
@@ -216,7 +226,6 @@ def callback() -> None:
         version: Display the current version.
         completion: Generate a shell completion script.
     """
-
     pass
 
 
@@ -248,7 +257,6 @@ def parse_list_option(option_value: list[str] | None) -> list[str]:
         >>> parse_list_option(None)
         []
     """
-
     if not option_value:
         return []
     result = []
@@ -263,6 +271,7 @@ def _log_display_options(
     sort_by_loc: bool,
     sort_by_size: bool,
     sort_by_mtime: bool,
+    sort_by_similarity: bool = False,
 ) -> None:
     """Log the depth and display/sort options selected for a command.
 
@@ -277,8 +286,8 @@ def _log_display_options(
         sort_by_loc: Whether files are sorted by lines of code.
         sort_by_size: Whether files are sorted by size.
         sort_by_mtime: Whether files are sorted by modification time.
+        sort_by_similarity: Whether files are grouped by name similarity.
     """
-
     if max_depth > 0:
         logger.info(f"Limiting depth to {max_depth} levels")
     if show_full_path:
@@ -289,6 +298,8 @@ def _log_display_options(
         logger.info(MSG_SORT_SIZE)
     if sort_by_mtime:
         logger.info(MSG_SORT_MTIME)
+    if sort_by_similarity:
+        logger.info(MSG_SORT_SIMILARITY)
 
 
 def _parse_filter_options(
@@ -316,7 +327,6 @@ def _parse_filter_options(
         A tuple of ``(parsed_exclude_dirs, exclude_exts_set,
         parsed_exclude_patterns, parsed_include_patterns)``.
     """
-
     parsed_exclude_dirs = parse_list_option(exclude_dirs)
     parsed_exclude_exts = parse_list_option(exclude_extensions)
     parsed_exclude_patterns = parse_list_option(exclude_patterns)
@@ -360,6 +370,7 @@ def visualize(
     sort_by_loc: bool = _sort_by_loc_option(),
     sort_by_size: bool = _sort_by_size_option(),
     sort_by_mtime: bool = _sort_by_mtime_option(),
+    sort_by_similarity: bool = _sort_by_similarity_option(),
     show_git_status: bool = _show_git_status_option(),
     icon_style: str | None = _icon_style_option(
         "Override icon style ('emoji' or 'nerd'). Defaults to user config."
@@ -402,6 +413,9 @@ def visualize(
         sort_by_mtime: When ``True``, sort files by last-modification
             time (newest first) and annotate each file with its
             timestamp.
+        sort_by_similarity: When ``True``, group files with similar
+            names next to each other. Has no effect when a numeric
+            sort (LOC, size, or mtime) is also active.
         show_git_status: When ``True``, annotate files with their Git
             status: ``[U]`` untracked, ``[M]`` modified, ``[A]``
             added, ``[D]`` deleted.
@@ -435,7 +449,6 @@ def visualize(
         >>> # Override icon style for this run
         >>> recursivist visualize --icon-style nerd
     """
-
     if verbose:
         logger.setLevel(logging.DEBUG)
         logger.debug(MSG_VERBOSE)
@@ -447,7 +460,12 @@ def visualize(
         logger.error(f"Error: {directory} is not a valid directory")
         raise typer.Exit(1)
     _log_display_options(
-        max_depth, show_full_path, sort_by_loc, sort_by_size, sort_by_mtime
+        max_depth,
+        show_full_path,
+        sort_by_loc,
+        sort_by_size,
+        sort_by_mtime,
+        sort_by_similarity,
     )
     if show_git_status:
         logger.info("Showing Git status markers for changed files")
@@ -531,6 +549,7 @@ def visualize(
             icon_style=resolved_style,
             structure=structure,
             extensions=extensions,
+            sort_by_similarity=sort_by_similarity,
         )
     except Exception as e:
         logger.error(f"Error: {e}", exc_info=verbose)
@@ -558,6 +577,7 @@ def export(
     sort_by_loc: bool = _sort_by_loc_option(),
     sort_by_size: bool = _sort_by_size_option(),
     sort_by_mtime: bool = _sort_by_mtime_option(),
+    sort_by_similarity: bool = _sort_by_similarity_option(),
     show_git_status: bool = _show_git_status_option(),
     icon_style: str | None = _icon_style_option(
         "Override icon style. Defaults to 'emoji' for safe file exports."
@@ -611,6 +631,9 @@ def export(
         sort_by_mtime: When ``True``, sort files by last-modification
             time (newest first) and annotate each file with its
             timestamp.
+        sort_by_similarity: When ``True``, group files with similar
+            names next to each other. Has no effect when a numeric
+            sort (LOC, size, or mtime) is also active.
         show_git_status: When ``True``, annotate files with their Git
             status markers in the exported output.
         icon_style: Icon style to enforce on the export. Defaults to
@@ -633,7 +656,6 @@ def export(
         >>> # Force export with nerd fonts
         >>> recursivist export --icon-style nerd
     """
-
     if verbose:
         logger.setLevel(logging.DEBUG)
         logger.debug(MSG_VERBOSE)
@@ -645,7 +667,12 @@ def export(
         logger.error(f"Error: {directory} is not a valid directory")
         raise typer.Exit(1)
     _log_display_options(
-        max_depth, show_full_path, sort_by_loc, sort_by_size, sort_by_mtime
+        max_depth,
+        show_full_path,
+        sort_by_loc,
+        sort_by_size,
+        sort_by_mtime,
+        sort_by_similarity,
     )
     if show_git_status:
         logger.info("Annotating files with Git status markers")
@@ -738,6 +765,7 @@ def export(
                     sort_by_mtime=sort_by_mtime,
                     show_git_status=show_git_status,
                     icon_style=resolved_style,
+                    sort_by_similarity=sort_by_similarity,
                 )
                 exporter.export(str(output_path))
                 logger.info(f"Successfully exported to {output_path}")
@@ -773,7 +801,6 @@ def completion(
         >>> recursivist completion fish        # Fish
         >>> recursivist completion powershell  # PowerShell
     """
-
     try:
         valid_shells = ["bash", "zsh", "fish", "powershell"]
         if shell.lower() not in valid_shells:
@@ -804,7 +831,6 @@ def version() -> None:
     prints it to stdout in the format
     ``"Recursivist version: <version>"``.
     """
-
     from recursivist import __version__
 
     typer.echo(f"Recursivist version: {__version__}")
@@ -845,6 +871,7 @@ def compare(
     sort_by_loc: bool = _sort_by_loc_option(),
     sort_by_size: bool = _sort_by_size_option(),
     sort_by_mtime: bool = _sort_by_mtime_option(),
+    sort_by_similarity: bool = _sort_by_similarity_option(),
     icon_style: str | None = _icon_style_option(
         "Override icon style. Defaults to 'emoji' if saving to HTML, else user config."
     ),
@@ -901,6 +928,9 @@ def compare(
         sort_by_mtime: When ``True``, sort files by last-modification
             time (newest first) and annotate each file with its
             timestamp.
+        sort_by_similarity: When ``True``, group files with similar
+            names next to each other. Has no effect when a numeric
+            sort (LOC, size, or mtime) is also active.
         icon_style: Style to use for folder and file icons. Will use
             the user configuration when visualizing in terminal, and
             default to 'emoji' when outputting to HTML.
@@ -933,13 +963,17 @@ def compare(
         >>> # Override icon styling
         >>> recursivist compare dir1 dir2 --icon-style nerd
     """
-
     if verbose:
         logger.setLevel(logging.DEBUG)
         logger.debug(MSG_VERBOSE)
     logger.info(f"Comparing directories: {dir1} and {dir2}")
     _log_display_options(
-        max_depth, show_full_path, sort_by_loc, sort_by_size, sort_by_mtime
+        max_depth,
+        show_full_path,
+        sort_by_loc,
+        sort_by_size,
+        sort_by_mtime,
+        sort_by_similarity,
     )
 
     if icon_style:
@@ -994,6 +1028,7 @@ def compare(
                     sort_by_size=sort_by_size,
                     sort_by_mtime=sort_by_mtime,
                     icon_style=resolved_style,
+                    sort_by_similarity=sort_by_similarity,
                 )
                 logger.info(f"Successfully exported to {output_path}")
             except Exception as e:
@@ -1014,6 +1049,7 @@ def compare(
                 sort_by_size=sort_by_size,
                 sort_by_mtime=sort_by_mtime,
                 icon_style=resolved_style,
+                sort_by_similarity=sort_by_similarity,
             )
     except Exception as e:
         logger.error(f"Error: {e}", exc_info=verbose)
@@ -1028,7 +1064,6 @@ def main() -> None:
     function is registered as the ``recursivist`` console-script entry
     point in the package configuration.
     """
-
     app()
 
 
