@@ -1,3 +1,9 @@
+"""Markdown tree exporter.
+
+Renders the scanned structure as a nested Markdown bullet list — directories in
+bold, files as inline code — and writes it to a ``.md`` file.
+"""
+
 import html
 import logging
 import os
@@ -35,12 +41,38 @@ def _md_escape_text(text: str) -> str:
 
 
 class MarkdownExporter(BaseExporter):
+    """Exporter that writes the structure as a nested Markdown list."""
+
     def export(self, output_path: str) -> None:
+        """Write the structure to *output_path* as a Markdown list.
+
+        Directory names are rendered in bold and filenames as inline code,
+        with any enabled metric or Git-status suffixes; deleted files are
+        struck through.
+
+        Args:
+            output_path: Path the ``.md`` file is written to.
+
+        Raises:
+            Exception: Re-raised if writing the output file fails (after the
+                error is logged).
+        """
+
         def _build_md_tree(
             structure: dict[str, Any],
             level: int = 0,
             path_prefix: str = "",
         ) -> list[str]:
+            """Return the Markdown lines for *structure* and its descendants.
+
+            Args:
+                structure: Directory-structure dict to render.
+                level: Current nesting depth, controlling indentation.
+                path_prefix: Accumulated path used when full paths are shown.
+
+            Returns:
+                The rendered lines for this subtree, in display order.
+            """
             lines = []
             indent = "    " * level
             if "_files" in structure:

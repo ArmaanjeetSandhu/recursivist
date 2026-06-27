@@ -583,9 +583,9 @@ def visualize(
         sort_by_similarity: When ``True``, group files with similar
             names next to each other. Has no effect when a numeric
             sort (LOC, size, or mtime) is also active.
-        show_git_status: When ``True``, annotate files with their Git
-            status: ``[U]`` untracked, ``[M]`` modified, ``[A]``
-            added, ``[D]`` deleted.
+        show_git_status: When ``True``, annotate files with their Git status:
+            ``[U]`` untracked, ``[M]`` modified, ``[A]`` added, ``[D]``
+            deleted.
         icon_style: Icon style to use for file/folder markers. If not
             provided, falls back to the persistent user config.
         verbose: When ``True``, lower the log level to DEBUG so that

@@ -21,9 +21,9 @@ def color_distance(color1: tuple[int, int, int], color2: tuple[int, int, int]) -
 
     Args:
         color1: First color as an ``(r, g, b)`` tuple with component values
-            in the range ``0``\u2013``255``.
+            in the range ``0``–``255``.
         color2: Second color as an ``(r, g, b)`` tuple with component values
-            in the range ``0``\u2013``255``.
+            in the range ``0``–``255``.
 
     Returns:
         A non-negative float representing the perceptual distance; ``0.0``
@@ -59,15 +59,20 @@ def hex_to_rgb(hex_color: str) -> tuple[int, int, int]:
 
 
 def generate_color_for_extension(extension: str) -> str:
-    """Generate a consistent color for a file extension with collision detection.
+    """Generate a stable, visually distinct color for a file extension.
 
-    Creates a deterministic color based on the extension string using a hash function. The same extension will always get the same color within a session, and different extensions get visually distinct colors.
+    The color is derived deterministically from a hash of the extension, so a
+    given extension always maps to the same color within a session. Candidate
+    colors are nudged through hue/saturation/value variations until they are
+    far enough from every previously assigned color, keeping distinct
+    extensions visually separable. The leading dot is optional and ignored, so
+    ``"py"`` and ``".py"`` share a color. An empty extension maps to white.
 
     Args:
-        extension: File extension (with or without leading dot)
+        extension: File extension, with or without a leading dot.
 
     Returns:
-        Hex color code (e.g., "#FF5733")
+        A CSS hex color string (e.g., ``"#FF5733"``).
     """
     global _EXTENSION_COLORS
     if not extension:

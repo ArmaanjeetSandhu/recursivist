@@ -15,16 +15,20 @@ logger = logging.getLogger(__name__)
 
 
 def count_lines_of_code(file_path: str) -> int:
-    """Count the number of lines in a file.
+    """Count the number of lines in a text file.
 
-    Counts lines in text files while handling encoding issues and skipping binary files.
-    Properly distinguishes between binary files with null bytes and UTF-16 encoded text files.
+    Detects the encoding well enough to count lines reliably: UTF-16 files are
+    recognized by their byte-order mark or by a regular pattern of null bytes,
+    while files containing null bytes that are not UTF-16 are treated as binary
+    and skipped. Decoding falls back from strict UTF-8 to UTF-16 and finally to
+    UTF-8 with replacement so that text is never rejected over a stray byte.
 
     Args:
-        file_path: Path to the file
+        file_path: Path to the file.
 
     Returns:
-        Number of lines in the file, or 0 if the file cannot be read or is binary
+        The number of lines, or ``0`` if the file is empty, binary, or cannot
+        be read.
     """
     try:
         with open(file_path, "rb") as binary_file:
@@ -98,15 +102,16 @@ def get_file_size(file_path: str) -> int:
 
 
 def format_size(size_in_bytes: int) -> str:
-    """Format a size in bytes to a human-readable string.
+    """Format a byte count as a human-readable size string.
 
-    Converts raw byte counts to appropriate units (B, KB, MB, GB) with consistent formatting.
+    Scales the value to bytes, KB, MB, or GB and formats it with one decimal
+    place for every unit above bytes.
 
     Args:
-        size_in_bytes: Size in bytes
+        size_in_bytes: Size in bytes.
 
     Returns:
-        Human-readable size string (e.g., "4.2 MB")
+        A human-readable size string (e.g. ``"512 B"`` or ``"4.2 MB"``).
     """
     if size_in_bytes < 1024:
         return f"{size_in_bytes} B"
@@ -119,13 +124,14 @@ def format_size(size_in_bytes: int) -> str:
 
 
 def get_file_mtime(file_path: str) -> float:
-    """Get the modification time of a file in seconds since epoch.
+    """Return a file's modification time in seconds since the epoch.
 
     Args:
-        file_path: Path to the file
+        file_path: Path to the file.
 
     Returns:
-        Modification time as a float (seconds since epoch), or 0 if the file cannot be accessed
+        The modification time as a float, or ``0.0`` if the file cannot be
+        accessed.
     """
     try:
         return os.path.getmtime(file_path)
@@ -135,20 +141,22 @@ def get_file_mtime(file_path: str) -> float:
 
 
 def format_timestamp(timestamp: float) -> str:
-    """Format a Unix timestamp to a human-readable string.
+    """Format a Unix timestamp as a human-readable, recency-aware string.
 
-    Intelligently formats timestamps with different representations based on recency:
-    - Today: "Today HH:MM"
-    - Yesterday: "Yesterday HH:MM"
-    - Last week: "Day HH:MM" (e.g., "Mon 14:30")
-    - This year: "Month Day" (e.g., "Mar 15")
-    - Older: "YYYY-MM-DD"
+    The representation becomes coarser as the timestamp gets older:
+
+    - Today: ``"Today HH:MM"``
+    - Yesterday: ``"Yesterday HH:MM"``
+    - Within the last week: abbreviated weekday and time (e.g. ``"Mon 14:30"``)
+    - Earlier this year: abbreviated month and day (e.g. ``"Mar 15"``)
+    - Older: ``"YYYY-MM-DD"``
 
     Args:
-        timestamp: Unix timestamp (seconds since epoch)
+        timestamp: Seconds since the epoch.
 
     Returns:
-        Human-readable date/time string
+        The formatted date/time string, or ``"-"`` when *timestamp* is zero or
+        falls outside the representable range.
     """
     if not timestamp:
         return "-"

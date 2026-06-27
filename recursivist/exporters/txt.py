@@ -1,3 +1,9 @@
+"""Plain-text tree exporter.
+
+Renders the scanned structure as an indented ASCII tree (``├──``/``└──``
+connectors) and writes it to a ``.txt`` file.
+"""
+
 import logging
 import os
 from typing import Any
@@ -12,15 +18,41 @@ logger = logging.getLogger(__name__)
 
 
 class TxtExporter(BaseExporter):
+    """Exporter that writes the structure as a plain-text tree."""
+
     _GIT_MARKER_LABELS = {"U": "[U]", "M": "[M]", "A": "[A]", "D": "[D]"}
     _GIT_TXT_SUFFIX = {"U": " [U]", "M": " [M]", "A": " [A]", "D": " [D]"}
 
     def export(self, output_path: str) -> None:
+        """Write the structure to *output_path* as a plain-text tree.
+
+        Each entry is drawn with ``├──``/``└──`` branch connectors plus any
+        enabled metric or Git-status suffixes.
+
+        Args:
+            output_path: Path the ``.txt`` file is written to.
+
+        Raises:
+            Exception: Re-raised if writing the output file fails (after the
+                error is logged).
+        """
+
         def _build_txt_tree(
             structure: dict[str, Any],
             prefix: str = "",
             path_prefix: str = "",
         ) -> list[str]:
+            """Return the text lines for *structure* and its descendants.
+
+            Args:
+                structure: Directory-structure dict to render.
+                prefix: Branch-connector prefix carried down from parent
+                    levels.
+                path_prefix: Accumulated path used when full paths are shown.
+
+            Returns:
+                The rendered lines for this subtree, in display order.
+            """
             lines = []
             special_keys = {
                 "_files",

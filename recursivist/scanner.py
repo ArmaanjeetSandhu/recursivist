@@ -48,41 +48,50 @@ def get_directory_structure(
 ) -> tuple[dict[str, Any], set[str]]:
     """Build a nested dictionary representing a directory structure.
 
-    Recursively traverses the file system applying filters and collecting statistics.
+    Recursively traverses *root_dir*, applying the exclusion rules and
+    optionally collecting per-file metrics, and returns the nested mapping
+    consumed by the renderers and exporters. Each subdirectory becomes a
+    nested dict under its own name; a directory's files and aggregate metrics
+    are stored under reserved keys.
 
-    The resulting structure contains:
-    - Hierarchical representation of directories and files
-    - Optional statistics (lines of code, sizes, modification times)
-    - Filtered entries based on various exclusion patterns
+    Reserved keys in the returned structure:
 
-    Special dictionary keys:
-    - "_files": List of files in the directory
-    - "_loc": Total lines of code (if sort_by_loc is True)
-    - "_size": Total size in bytes (if sort_by_size is True)
-    - "_mtime": Latest modification timestamp (if sort_by_mtime is True)
-    - "_max_depth_reached": Flag indicating max depth was reached
-    - "_git_markers": Dict mapping filename to Git status char (if show_git_status is True)
+    - ``"_files"``: list of :class:`FileEntry` for the directory's files.
+    - ``"_loc"``: total lines of code (when *sort_by_loc* is set).
+    - ``"_size"``: total size in bytes (when *sort_by_size* is set).
+    - ``"_mtime"``: latest modification time (when *sort_by_mtime* is set).
+    - ``"_max_depth_reached"``: present when traversal stopped at *max_depth*.
+    - ``"_git_markers"``: ``{filename: status_char}`` (when *show_git_status*
+      is set).
 
     Args:
-        root_dir: Root directory path to start from
-        exclude_dirs: List of directory names to exclude
-        ignore_file: Name of ignore file (like .gitignore)
-        exclude_extensions: Set of file extensions to exclude
-        parent_ignore_patterns: Patterns from parent directories' ignore files
-        exclude_patterns: List of patterns (glob or regex) to exclude
-        include_patterns: List of patterns (glob or regex) to include (overrides exclusions)
-        max_depth: Maximum depth to traverse (0 for unlimited)
-        current_depth: Current depth in the directory tree (for internal recursion)
-        current_path: Current path for full path display (for internal recursion)
-        show_full_path: Whether to show full paths instead of just filenames
-        sort_by_loc: Whether to calculate and track lines of code counts
-        sort_by_size: Whether to calculate and track file sizes
-        sort_by_mtime: Whether to track file modification times
-        show_git_status: Whether to annotate files with Git status markers
-        git_status_map: Pre-computed {rel_path: status_char} mapping (from get_git_status)
+        root_dir: Directory to scan.
+        exclude_dirs: Directory names to skip entirely.
+        ignore_file: Name of an ignore file to honor within each directory
+            (e.g. ``.gitignore``).
+        exclude_extensions: Lowercase, dot-prefixed extensions to exclude.
+        parent_ignore_patterns: Ignore patterns inherited from parent
+            directories, accumulated across the recursion.
+        exclude_patterns: Glob or compiled-regex patterns to exclude.
+        include_patterns: Glob or compiled-regex patterns to include, which
+            override the exclusions.
+        max_depth: Maximum depth to traverse, or ``0`` for unlimited.
+        current_depth: Current recursion depth. Set internally.
+        current_path: Path of the current directory relative to the scan
+            root. Set internally.
+        show_full_path: Whether to store absolute paths instead of bare
+            filenames.
+        sort_by_loc: Whether to count and total lines of code.
+        sort_by_size: Whether to measure and total file sizes.
+        sort_by_mtime: Whether to record file modification times.
+        show_git_status: Whether to annotate files with Git status markers.
+        git_status_map: Pre-computed ``{rel_path: status_char}`` mapping, as
+            returned by :func:`recursivist.git_status.get_git_status`.
 
     Returns:
-        Tuple of (structure dictionary, set of file extensions found)
+        A ``(structure, extensions)`` tuple, where *structure* is the nested
+        directory mapping and *extensions* is the set of lowercase file
+        extensions encountered.
     """
     if exclude_dirs is None:
         exclude_dirs = []

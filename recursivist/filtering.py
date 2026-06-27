@@ -19,15 +19,18 @@ logger = logging.getLogger(__name__)
 
 
 def parse_ignore_file(ignore_file_path: str) -> list[str]:
-    """Parse an ignore file (like .gitignore) and return patterns.
+    """Read an ignore file and return its patterns.
 
-    Reads an ignore file and extracts patterns for excluding files and directories. Handles comments and trailing slashes in directories.
+    Blank lines and ``#`` comment lines are skipped; every other line is
+    returned stripped of surrounding whitespace, preserving the order in
+    which the patterns appear.
 
     Args:
-        ignore_file_path: Path to the ignore file
+        ignore_file_path: Path to the ignore file (e.g. ``.gitignore``).
 
     Returns:
-        List of patterns to ignore
+        The list of pattern strings, or an empty list when the file does not
+        exist.
     """
     if not os.path.exists(ignore_file_path):
         return []
@@ -43,16 +46,21 @@ def parse_ignore_file(ignore_file_path: str) -> list[str]:
 def compile_regex_patterns(
     patterns: Sequence[str], is_regex: bool = False
 ) -> list[str | Pattern[str]]:
-    """Convert patterns to compiled regex objects when appropriate.
+    """Compile patterns to regex objects when regex matching is requested.
 
-    When is_regex is True, compiles string patterns into regex pattern objects for efficient matching. For invalid regex patterns, logs a warning and keeps them as strings.
+    When *is_regex* is ``False`` the patterns are returned unchanged for glob
+    matching. When ``True`` each pattern is compiled to a
+    :class:`re.Pattern`; any pattern that fails to compile is kept as a string
+    and a warning is logged.
 
     Args:
-        patterns: List of patterns to compile
-        is_regex: Whether the patterns should be treated as regex (True) or glob patterns (False)
+        patterns: Patterns to process.
+        is_regex: Whether to treat the patterns as regular expressions
+            (``True``) or glob patterns (``False``).
 
     Returns:
-        List of patterns (strings for glob patterns or compiled regex objects)
+        A list whose items are plain strings for glob patterns or compiled
+        :class:`re.Pattern` objects for successfully compiled regexes.
     """
     if not is_regex:
         return cast(list[str | Pattern[str]], patterns)
@@ -154,23 +162,32 @@ def should_exclude(
     exclude_patterns: Sequence[str | Pattern[str]] | None = None,
     include_patterns: Sequence[str | Pattern[str]] | None = None,
 ) -> bool:
-    """Determine if a path should be excluded based on filtering rules.
+    """Decide whether a path should be excluded from the scan.
 
-    Logic to handle priority between include and exclude patterns:
-    1. If include_patterns exist and NONE match, EXCLUDE the path
-    2. If exclude_patterns match, EXCLUDE the path (overrides include patterns)
-    3. If file extension is in exclude_extensions, EXCLUDE the path
-    4. If a matching include pattern exists, INCLUDE the path (overrides gitignore patterns)
-    5. If gitignore-style patterns match, follow their rules (including negations)
+    The filtering rules are applied in priority order:
+
+    1. If *include_patterns* are given and none match a file, exclude it.
+    2. If any *exclude_patterns* match, exclude the path (this overrides
+       include patterns).
+    3. If the file's extension is in *exclude_extensions*, exclude it.
+    4. If an include pattern matched, include the path (this overrides the
+       gitignore-style patterns below).
+    5. Otherwise apply the gitignore-style patterns from *ignore_context*,
+       honoring negations (``!``) and directory-only (trailing ``/``) rules.
 
     Args:
-        path: Path to check for exclusion
-        ignore_context: Dictionary with 'patterns' and 'current_dir' keys
-        exclude_extensions: Set of file extensions to exclude
-        exclude_patterns: List of patterns (glob or regex) to exclude
-        include_patterns: List of patterns (glob or regex) to include (overrides gitignore exclusions)
+        path: Filesystem path to test.
+        ignore_context: Mapping describing the active ignore rules. Recognized
+            keys are ``"patterns"`` (gitignore-style patterns), ``"current_dir"``
+            (directory the patterns are relative to), and ``"rel_dir"`` (the
+            current directory's path relative to the scan root).
+        exclude_extensions: Lowercase, dot-prefixed extensions to exclude.
+        exclude_patterns: Glob or compiled-regex patterns to exclude.
+        include_patterns: Glob or compiled-regex patterns to include, which
+            override the gitignore-style exclusions.
+
     Returns:
-        True if path should be excluded, False otherwise
+        ``True`` if the path should be excluded, ``False`` otherwise.
     """
     patterns = ignore_context.get("patterns", [])
     current_dir = ignore_context.get("current_dir", os.path.dirname(path))

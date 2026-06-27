@@ -1,3 +1,10 @@
+"""Exporter registry.
+
+Maps each supported export format to its exporter class and exposes
+:func:`get_exporter`, the factory used to construct the right exporter for a
+requested format.
+"""
+
 from typing import Any
 
 from .base import BaseExporter
@@ -20,17 +27,21 @@ _EXPORTERS: dict[str, type[BaseExporter]] = {
 
 
 def get_exporter(format_type: str, **kwargs: Any) -> BaseExporter:
-    """Factory function to get the appropriate exporter instance.
+    """Construct the exporter for a given format.
 
     Args:
-        format_type: The desired export format (e.g., 'json', 'txt').
-        **kwargs: Configuration arguments passed to the BaseExporter.
+        format_type: Export format identifier (e.g. ``"json"`` or ``"txt"``).
+            Matched case-insensitively; ``"md"`` and ``"markdown"`` are
+            equivalent.
+        **kwargs: Keyword arguments forwarded to the exporter's constructor
+            (see :class:`BaseExporter`).
 
     Returns:
-        An instantiated exporter ready to call .export()
+        A ready-to-use exporter instance; call its ``export`` method to write
+        the output file.
 
     Raises:
-        ValueError: If the format_type is not supported.
+        ValueError: If *format_type* is not a supported format.
     """
     exporter_class = _EXPORTERS.get(format_type.lower())
     if not exporter_class:

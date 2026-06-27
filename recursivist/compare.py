@@ -1,15 +1,9 @@
-"""
-Comparison functionality for the Recursivist directory visualization tool.
+"""Side-by-side directory comparison.
 
-This module implements side-by-side directory structure comparison with visual highlighting of differences. It provides terminal output with colored indicators and HTML export for sharing and documentation.
-
-Key features:
-- Visual highlighting of items unique to each directory
-- Consistent color coding for file extensions
-- Support for all the same filtering options as visualization
-- Export to HTML with interactive features
-- Optional display of statistics (LOC, size, modification times)
-- Legend explaining the highlighting scheme
+Builds the structures for two directories with identical filtering and renders
+them next to each other, highlighting entries unique to either side. Supports
+the same filtering and metric options as the single-tree renderer, with
+terminal output for interactive use and HTML export for sharing.
 """
 
 import html
@@ -49,26 +43,31 @@ def compare_directory_structures(
     sort_by_size: bool = False,
     sort_by_mtime: bool = False,
 ) -> tuple[dict[str, Any], dict[str, Any], set[str]]:
-    """Compare two directory structures and return both structures with a combined set of extensions.
+    """Scan two directories for comparison using identical options.
 
-    Retrieves the directory structures for both directories using the same filtering options, then combines their file extensions for consistent color mapping in visualizations.
+    Each directory is scanned with the same filtering and metric settings, and
+    their extension sets are merged so that a single color map can be shared
+    across both trees.
 
     Args:
-        dir1: Path to the first directory
-        dir2: Path to the second directory
-        exclude_dirs: List of directory names to exclude
-        ignore_file: Name of ignore file (like .gitignore)
-        exclude_extensions: Set of file extensions to exclude
-        exclude_patterns: List of patterns to exclude
-        include_patterns: List of patterns to include (overrides exclusions)
-        max_depth: Maximum depth to display (0 for unlimited)
-        show_full_path: Whether to show full paths instead of just filenames
-        sort_by_loc: Whether to calculate and display lines of code counts
-        sort_by_size: Whether to calculate and display file sizes
-        sort_by_mtime: Whether to calculate and display file modification times
+        dir1: Path to the first directory.
+        dir2: Path to the second directory.
+        exclude_dirs: Directory names to skip entirely.
+        ignore_file: Name of an ignore file to honor (e.g. ``.gitignore``).
+        exclude_extensions: Lowercase, dot-prefixed extensions to exclude.
+        exclude_patterns: Glob or compiled-regex patterns to exclude.
+        include_patterns: Glob or compiled-regex patterns to include, which
+            override the exclusions.
+        max_depth: Maximum depth to scan, or ``0`` for unlimited.
+        show_full_path: Whether to store absolute paths instead of bare
+            filenames.
+        sort_by_loc: Whether to count lines of code.
+        sort_by_size: Whether to measure file sizes.
+        sort_by_mtime: Whether to record modification times.
 
     Returns:
-        Tuple of (structure1, structure2, combined_extensions)
+        A ``(structure1, structure2, combined_extensions)`` tuple, pairing each
+        directory's structure with the union of their file extensions.
     """
     structure1, extensions1 = get_directory_structure(
         dir1,
@@ -112,30 +111,26 @@ def build_comparison_tree(
     icon_style: str = "emoji",
     sort_by_similarity: bool = False,
 ) -> None:
-    """
-    Build a tree structure with highlighted differences.
+    """Populate a ``rich`` tree, highlighting differences against another tree.
 
-    Recursively builds a Rich tree with visual indicators for:
-    - Items that exist in both structures (normal display)
-    - Items unique to the current structure (green background)
-    - Items unique to the comparison structure (red background)
-
-    When sort_by_loc is True, also displays lines of code counts.
-    When sort_by_size is True, also displays file sizes.
-    When sort_by_mtime is True, also displays file modification times.
-    When sort_by_similarity is True, groups files with similar names together.
+    Recursively adds the entries of *structure* to *tree*, comparing each
+    against *other_structure*: items present in both are shown normally, items
+    unique to *structure* are highlighted in green, and items unique to
+    *other_structure* are highlighted in red. Metric annotations are appended
+    when the corresponding sort flag is set.
 
     Args:
-        structure: Dictionary representation of the current directory structure
-        other_structure: Dictionary representation of the comparison directory structure
-        tree: Rich Tree object to build upon
-        color_map: Mapping of file extensions to colors
-        show_full_path: Whether to show full paths instead of just filenames
-        sort_by_loc: Whether to display lines of code counts
-        sort_by_size: Whether to display file sizes
-        sort_by_mtime: Whether to display file modification times
-        icon_style: The style of icons to use ('emoji' or 'nerd')
-        sort_by_similarity: Whether to group files by name similarity
+        structure: Structure of the directory being rendered.
+        other_structure: Structure of the directory being compared against.
+        tree: ``rich`` tree to add nodes to. Modified in place.
+        color_map: Mapping of lowercase file extension to hex color.
+        show_full_path: Whether to display absolute paths instead of bare
+            filenames.
+        sort_by_loc: Whether to display lines-of-code counts.
+        sort_by_size: Whether to display file sizes.
+        sort_by_mtime: Whether to display modification times.
+        icon_style: Icon style to use, either ``"emoji"`` or ``"nerd"``.
+        sort_by_similarity: Whether to group files by name similarity.
     """
     if "_files" in structure:
         files_in_other = other_structure.get("_files", []) if other_structure else []
@@ -274,32 +269,33 @@ def display_comparison(
     icon_style: str = "emoji",
     sort_by_similarity: bool = False,
 ) -> None:
-    """Display two directory trees side by side with highlighted differences.
+    """Render two directory trees side by side in the terminal.
 
-    Creates a side-by-side terminal visualization with:
-    - Two panel layout with labeled directory trees
-    - Color-coded highlighting for unique items (green/red background)
-    - Informative legend explaining the highlighting
-    - Support for all standard filtering options
-    - Optional statistics display (LOC, size, modification time)
-    - Optional grouping of similarly named files
+    Scans both directories with identical options and prints them as two
+    labeled, color-highlighted panels: entries unique to *dir1* and *dir2* are
+    highlighted in contrasting colors, shared entries are shown normally, and a
+    legend explains the scheme.
 
     Args:
-        dir1: Path to the first directory
-        dir2: Path to the second directory
-        exclude_dirs: List of directory names to exclude
-        ignore_file: Name of ignore file (like .gitignore)
-        exclude_extensions: Set of file extensions to exclude
-        exclude_patterns: List of patterns to exclude
-        include_patterns: List of patterns to include (overrides exclusions)
-        use_regex: Whether to treat patterns as regex instead of glob patterns
-        max_depth: Maximum depth to display (0 for unlimited)
-        show_full_path: Whether to show full paths instead of just filenames
-        sort_by_loc: Whether to show and sort by lines of code
-        sort_by_size: Whether to show and sort by file size
-        sort_by_mtime: Whether to show and sort by modification time
-        icon_style: The style of icons to display ("emoji" or "nerd")
-        sort_by_similarity: Whether to group files by name similarity
+        dir1: Path to the first directory.
+        dir2: Path to the second directory.
+        exclude_dirs: Directory names to skip entirely.
+        ignore_file: Name of an ignore file to honor (e.g. ``.gitignore``).
+        exclude_extensions: File extensions to exclude. Normalized to a
+            lowercase, dot-prefixed form before scanning.
+        exclude_patterns: Glob or regex patterns to exclude.
+        include_patterns: Glob or regex patterns to include, which override
+            the exclusions.
+        use_regex: Whether to treat the patterns as regular expressions
+            instead of glob patterns.
+        max_depth: Maximum depth to display, or ``0`` for unlimited.
+        show_full_path: Whether to display absolute paths instead of bare
+            filenames.
+        sort_by_loc: Whether to display and sort by lines of code.
+        sort_by_size: Whether to display and sort by file size.
+        sort_by_mtime: Whether to display and sort by modification time.
+        icon_style: Icon style to use, either ``"emoji"`` or ``"nerd"``.
+        sort_by_similarity: Whether to group files by name similarity.
     """
     if exclude_dirs is None:
         exclude_dirs = []
@@ -478,37 +474,37 @@ def export_comparison(
     icon_style: str = "emoji",
     sort_by_similarity: bool = False,
 ) -> None:
-    """Export directory comparison to HTML format.
+    """Export a side-by-side directory comparison to an HTML file.
 
-    Creates an HTML file containing the side-by-side comparison with:
-    - Highlighted differences between directories
-    - Interactive, responsive layout
-    - Detailed metadata about the comparison settings
-    - Visual legend explaining the highlighting
-    - Optional statistics display
-
-    Currently only supports HTML export format.
+    Scans both directories with identical options and writes a standalone,
+    responsive HTML document containing the highlighted comparison, a legend,
+    and a summary of the settings used. Only HTML output is supported.
 
     Args:
-        dir1: Path to the first directory
-        dir2: Path to the second directory
-        format_type: Export format (only 'html' is supported)
-        output_path: Path where the export file will be saved
-        exclude_dirs: List of directory names to exclude
-        ignore_file: Name of ignore file (like .gitignore)
-        exclude_extensions: Set of file extensions to exclude
-        exclude_patterns: List of patterns to exclude
-        include_patterns: List of patterns to include (overrides exclusions)
-        use_regex: Whether to treat patterns as regex instead of glob patterns
-        max_depth: Maximum depth to display (0 for unlimited)
-        show_full_path: Whether to show full paths instead of just filenames
-        sort_by_loc: Whether to show and sort by lines of code
-        sort_by_size: Whether to show and sort by file size
-        sort_by_mtime: Whether to show and sort by modification time
-        sort_by_similarity: Whether to group files by name similarity
+        dir1: Path to the first directory.
+        dir2: Path to the second directory.
+        format_type: Export format. Only ``"html"`` is supported.
+        output_path: Path the HTML file is written to.
+        exclude_dirs: Directory names to skip entirely.
+        ignore_file: Name of an ignore file to honor (e.g. ``.gitignore``).
+        exclude_extensions: File extensions to exclude. Normalized to a
+            lowercase, dot-prefixed form before scanning.
+        exclude_patterns: Glob or regex patterns to exclude.
+        include_patterns: Glob or regex patterns to include, which override
+            the exclusions.
+        use_regex: Whether to treat the patterns as regular expressions
+            instead of glob patterns.
+        max_depth: Maximum depth to include, or ``0`` for unlimited.
+        show_full_path: Whether to write absolute paths instead of bare
+            filenames.
+        sort_by_loc: Whether to display and sort by lines of code.
+        sort_by_size: Whether to display and sort by file size.
+        sort_by_mtime: Whether to display and sort by modification time.
+        icon_style: Icon style to use, either ``"emoji"`` or ``"nerd"``.
+        sort_by_similarity: Whether to group files by name similarity.
 
     Raises:
-        ValueError: If the format_type is not supported
+        ValueError: If *format_type* is not ``"html"``.
     """
     if exclude_dirs is None:
         exclude_dirs = []
@@ -562,32 +558,36 @@ def export_comparison(
 def _export_comparison_to_html(
     comparison_data: dict[str, Any], output_path: str, icon_style: str = "emoji"
 ) -> None:
-    """Export comparison to HTML format.
+    """Write the comparison HTML document from prepared comparison data.
 
-    Internal helper function that generates an HTML file from comparison data. Creates a responsive, styled HTML document with side-by-side directory trees and highlighted differences. Supports displaying LOC counts, file sizes, and modification times when enabled.
+    Generates a responsive, styled HTML page with the two directory trees side
+    by side and their differences highlighted, including any LOC, size, or
+    modification-time annotations enabled in the metadata.
 
     Args:
-        comparison_data: Dictionary containing comparison structures and metadata
-        output_path: Path where the HTML file will be saved
-        icon_style: The icon style to use ('emoji' or 'nerd')
+        comparison_data: Prepared comparison payload holding each directory's
+            structure under ``"dir1"``/``"dir2"`` and the render settings under
+            ``"metadata"``.
+        output_path: Path the HTML file is written to.
+        icon_style: Icon style to use, either ``"emoji"`` or ``"nerd"``.
     """
 
     def _build_html_tree(
         structure: dict[str, Any],
         other_structure: dict[str, Any],
     ) -> str:
-        """Export comparison to HTML format.
+        """Build the nested ``<ul>`` markup for one side of the comparison.
 
-        Internal helper function that builds the HTML tree representation for each directory.
-        Highlights items that only exist in one directory structure.
+        Walks *structure*, emitting list items for its files and
+        subdirectories and tagging any entry absent from *other_structure* so
+        it can be highlighted as unique.
 
         Args:
-            structure: Dictionary containing directory structure
-            other_structure: Dictionary containing comparison directory structure
-            is_left_tree: Whether this is the left tree in the comparison view
+            structure: Structure of the directory being rendered.
+            other_structure: Structure of the directory being compared against.
 
         Returns:
-            HTML string representing the directory tree
+            An HTML fragment representing the directory tree.
         """
         html_content = ["<ul>"]
         show_full_path = comparison_data.get("metadata", {}).get(

@@ -39,7 +39,7 @@ EXACT_MATCH_ICONS = {
     "pipfile": "\ue73c",
     "pipfile.lock": "\uf023",
     "pyproject.toml": "\ue73c",
-    "uv.lock": "\uf023",  # From your uploaded uv.lock
+    "uv.lock": "\uf023",
     "cargo.toml": "\ue7a8",  # nf-dev-rust
     "cargo.lock": "\uf023",
     "go.mod": "\ue624",  # nf-custom-go
@@ -145,25 +145,30 @@ FOLDER_ICONS = {
 
 
 def get_icon(filename: str, is_dir: bool = False, style: str = "emoji") -> str:
-    """Return the icon glyph for a file or directory based on style.
+    """Return the icon for a file or directory in the requested style.
 
-    Resolution order for files:
+    With the ``"emoji"`` style, a single generic file or folder emoji is
+    returned. With the ``"nerd"`` style, a Nerd Font glyph is resolved in
+    priority order.
+
+    For files:
 
     1. Exact filename match in ``EXACT_MATCH_ICONS`` (case-insensitive).
-    2. File extension match in ``EXTENSION_ICONS``.
-    3. ``DEFAULT_NERD_FILE`` fallback.
+    2. File-extension match in ``EXTENSION_ICONS``.
+    3. The ``DEFAULT_NERD_FILE`` fallback.
 
-    For directories, ``FOLDER_ICONS`` is consulted first and
-    ``DEFAULT_FOLDER`` is used when no entry matches.
+    For directories, ``FOLDER_ICONS`` is consulted first, falling back to
+    ``DEFAULT_NERD_FOLDER`` when no entry matches.
 
     Args:
         filename: Name of the file or directory (basename only, not a full
             path). Matched case-insensitively.
         is_dir: When ``True``, treat *filename* as a directory name and look
-            up folder-specific icons instead of file icons.
+            up folder icons instead of file icons.
+        style: Icon style to use, either ``"emoji"`` or ``"nerd"``.
 
     Returns:
-        A single Unicode character containing the matching Nerd Font glyph.
+        A single Unicode character containing the matching glyph.
     """
     if style == "emoji":
         return DEFAULT_EMOJI_FOLDER if is_dir else DEFAULT_EMOJI_FILE

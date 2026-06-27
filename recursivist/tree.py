@@ -37,30 +37,37 @@ def build_tree(
     icon_style: str = "emoji",
     sort_by_similarity: bool = False,
 ) -> None:
-    """Build the tree structure with colored file names.
+    """Populate a ``rich`` tree from a scanned directory structure.
 
-    Recursively builds a rich.Tree representation of the directory structure with files color-coded by extension.
+    Recursively adds each file and subdirectory of *structure* to *tree*, with
+    filenames colored by extension. Files are ordered by
+    :func:`recursivist.sorting.sort_files_by_type`, and a subtree that hit the
+    depth limit is shown as a single "max depth reached" placeholder.
 
-    When sort_by_loc is True, displays lines of code counts for files and directories.
-    When sort_by_size is True, displays file sizes for files and directories.
-    When sort_by_mtime is True, displays file modification times.
-    When sort_by_similarity is True, groups files with similar names together
-    (only applies when no numeric sort is active; it carries no annotation).
-    When show_git_status is True, appends a coloured Git status marker to each file:
-    ``[U]`` untracked (grey), ``[M]`` modified (yellow), ``[A]`` added (green),
-    ``[D]`` deleted (red). Deleted files that no longer exist on disk are shown
-    with a strikethrough style.
+    The active sort/display flags control the annotations appended to each
+    entry:
+
+    - *sort_by_loc*, *sort_by_size*, *sort_by_mtime*: append the corresponding
+      lines-of-code, size, and modification-time metrics.
+    - *sort_by_similarity*: group files with similar names together. Applies
+      only when no numeric sort is active and adds no annotation of its own.
+    - *show_git_status*: append a colored marker to each file — ``[U]``
+      untracked (grey), ``[M]`` modified (yellow), ``[A]`` added (green),
+      ``[D]`` deleted (red). Deleted files no longer on disk are also struck
+      through.
 
     Args:
-        structure: Dictionary representation of the directory structure
-        tree: Rich Tree object to build upon
-        color_map: Mapping of file extensions to colors
-        show_full_path: Whether to show full paths instead of just filenames
-        sort_by_loc: Whether to display lines of code counts
-        sort_by_size: Whether to display file sizes
-        sort_by_mtime: Whether to display file modification times
-        show_git_status: Whether to display Git status markers
-        sort_by_similarity: Whether to group files by name similarity
+        structure: Directory-structure dict to render.
+        tree: ``rich`` tree to add nodes to. Modified in place.
+        color_map: Mapping of lowercase file extension to hex color.
+        show_full_path: Whether to display absolute paths instead of bare
+            filenames.
+        sort_by_loc: Whether to display lines-of-code counts.
+        sort_by_size: Whether to display file sizes.
+        sort_by_mtime: Whether to display modification times.
+        show_git_status: Whether to display Git status markers.
+        icon_style: Icon style to use, either ``"emoji"`` or ``"nerd"``.
+        sort_by_similarity: Whether to group files by name similarity.
     """
     _GIT_MARKER_STYLES = {
         "U": ("dim", "[U]"),
@@ -157,34 +164,36 @@ def display_tree(
     extensions: set[str] | None = None,
     sort_by_similarity: bool = False,
 ) -> None:
-    """Display a directory tree in the terminal with rich formatting.
+    """Scan a directory and render it as a tree in the terminal.
 
-    Presents a directory structure as a tree with:
-    - Color-coded file extensions
-    - Optional statistics (lines of code, sizes, modification times)
-    - Optional grouping of similarly named files
-    - Filtered content based on exclusion patterns
-    - Depth limitations if specified
-    - Optional Git status markers (when show_git_status is True)
-
-    This function handles the entire process from scanning the directory to displaying the final tree visualization.
+    Runs the full pipeline — optionally fetching Git status, scanning the
+    directory, building a color map, and printing a ``rich`` tree — unless a
+    pre-computed *structure* and *extensions* are supplied, in which case the
+    scan is skipped and those are rendered directly.
 
     Args:
-        root_dir: Root directory path to display
-        exclude_dirs: List of directory names to exclude
-        ignore_file: Name of ignore file (like .gitignore)
-        exclude_extensions: Set of file extensions to exclude
-        exclude_patterns: List of patterns to exclude
-        include_patterns: List of patterns to include (overrides exclusions)
-        use_regex: Whether to treat patterns as regex instead of glob patterns
-        max_depth: Maximum depth to display (0 for unlimited)
-        show_full_path: Whether to show full paths instead of just filenames
-        sort_by_loc: Whether to show and sort by lines of code
-        sort_by_size: Whether to show and sort by file size
-        sort_by_mtime: Whether to show and sort by modification time
-        show_git_status: Whether to annotate files with Git status markers
-        icon_style: Style for displaying icons ("emoji" or "nerd")
-        sort_by_similarity: Whether to group files by name similarity
+        root_dir: Directory to display.
+        exclude_dirs: Directory names to skip entirely.
+        ignore_file: Name of an ignore file to honor (e.g. ``.gitignore``).
+        exclude_extensions: File extensions to exclude. Normalized to a
+            lowercase, dot-prefixed form before scanning.
+        exclude_patterns: Glob or regex patterns to exclude.
+        include_patterns: Glob or regex patterns to include, which override
+            the exclusions.
+        use_regex: Whether to treat the patterns as regular expressions
+            instead of glob patterns.
+        max_depth: Maximum depth to display, or ``0`` for unlimited.
+        show_full_path: Whether to display absolute paths instead of bare
+            filenames.
+        sort_by_loc: Whether to display and sort by lines of code.
+        sort_by_size: Whether to display and sort by file size.
+        sort_by_mtime: Whether to display and sort by modification time.
+        show_git_status: Whether to annotate files with Git status markers.
+        icon_style: Icon style to use, either ``"emoji"`` or ``"nerd"``.
+        structure: Pre-computed directory structure. When given together with
+            *extensions*, the directory is not re-scanned.
+        extensions: Pre-computed set of file extensions matching *structure*.
+        sort_by_similarity: Whether to group files by name similarity.
     """
     if exclude_dirs is None:
         exclude_dirs = []

@@ -1,3 +1,11 @@
+"""React (JSX) tree exporter.
+
+Generates a self-contained React component that renders the scanned structure
+as an interactive, searchable, collapsible directory tree, and writes it to a
+``.jsx`` file. Optional LOC, size, modification-time, and Git-status details
+are baked into the component when the corresponding flags are set.
+"""
+
 import html
 import logging
 from typing import Any
@@ -12,10 +20,38 @@ logger = logging.getLogger(__name__)
 
 
 class JsxExporter(BaseExporter):
+    """Exporter that emits an interactive React component for the tree."""
+
     def export(self, output_path: str) -> None:
+        """Write the structure to *output_path* as a React component.
+
+        Emits a standalone ``DirectoryViewer`` component (using
+        ``lucide-react`` icons) with search and collapsible folders. LOC, size,
+        modification time, and Git status are included as props and UI when
+        their flags are enabled.
+
+        Args:
+            output_path: Path the ``.jsx`` file is written to.
+
+        Raises:
+            Exception: Re-raised if writing the output file fails (after the
+                error is logged).
+        """
+
         def _build_structure_jsx(
             structure: dict[str, Any], level: int = 0, path_prefix: str = ""
         ) -> str:
+            """Return the ``<DirectoryItem>``/``<FileItem>`` markup for a node.
+
+            Args:
+                structure: Directory-structure dict to render.
+                level: Current nesting depth, passed through as a component
+                    prop for indentation.
+                path_prefix: Accumulated path used when full paths are shown.
+
+            Returns:
+                A JSX fragment representing this subtree.
+            """
             jsx_content = []
             for name, content in sorted(
                 [

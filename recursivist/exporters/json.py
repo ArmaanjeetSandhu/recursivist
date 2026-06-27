@@ -1,3 +1,10 @@
+"""JSON tree exporter.
+
+Serializes the scanned structure to JSON. Without any detail flags, files
+collapse to bare names; with LOC, size, mtime, or Git status enabled, each file
+becomes an object carrying the requested fields.
+"""
+
 import json
 import logging
 from typing import Any
@@ -11,7 +18,23 @@ logger = logging.getLogger(__name__)
 
 
 class JsonExporter(BaseExporter):
+    """Exporter that serializes the structure to JSON."""
+
     def export(self, output_path: str) -> None:
+        """Write the structure to *output_path* as JSON.
+
+        The payload records the root name, the (possibly detailed) structure,
+        and which detail flags were active. File entries are emitted as bare
+        names unless a detail flag (full path, LOC, size, mtime, or Git status)
+        requires the richer object form.
+
+        Args:
+            output_path: Path the ``.json`` file is written to.
+
+        Raises:
+            Exception: Re-raised if writing the output file fails (after the
+                error is logged).
+        """
         has_detail = (
             self.show_full_path
             or self.sort_by_loc
@@ -57,6 +80,18 @@ class JsonExporter(BaseExporter):
             return result
 
         def convert_structure_for_json(structure: dict[str, Any]) -> dict[str, Any]:
+            """Recursively convert *structure* to its detailed JSON form.
+
+            Encodes each file via :func:`file_to_json` and carries through the
+            enabled aggregate metrics (adding their formatted variants), while
+            dropping the internal ``_git_markers`` bookkeeping key.
+
+            Args:
+                structure: Directory-structure dict to convert.
+
+            Returns:
+                The JSON-serializable mapping for this subtree.
+            """
             result: dict[str, Any] = {}
             git_markers_here = structure.get("_git_markers", {})
             for k, v in structure.items():
