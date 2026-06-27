@@ -352,6 +352,175 @@ def _parse_filter_options(
     )
 
 
+def _enable_verbose_if_requested(verbose: bool) -> None:
+    """Lower the logger to DEBUG when verbose output is requested.
+
+    Shared by the visualize, export, and compare commands so the
+    verbose preamble is defined in exactly one place.
+
+    Args:
+        verbose: When ``True``, set the logger level to DEBUG and emit
+            the standard "verbose mode enabled" debug message. When
+            ``False``, do nothing.
+    """
+    if verbose:
+        logger.setLevel(logging.DEBUG)
+        logger.debug(MSG_VERBOSE)
+
+
+def _resolve_and_validate_directory(directory: Path) -> Path:
+    """Resolve a directory path and verify it points at a directory.
+
+    Centralizes the existence/`is_dir` check shared by the visualize
+    and export commands so the validation behavior and error message
+    stay consistent.
+
+    Args:
+        directory: Raw directory path as received from Typer.
+
+    Returns:
+        The resolved (absolute) directory path.
+
+    Raises:
+        typer.Exit: With exit code ``1`` if the resolved path does not
+            exist or is not a directory.
+    """
+    directory = directory.resolve()
+    if not directory.exists() or not directory.is_dir():
+        logger.error(f"Error: {directory} is not a valid directory")
+        raise typer.Exit(1)
+    return directory
+
+
+def _warn_if_ignore_file_missing(directory: Path, ignore_file: str | None) -> None:
+    """Log whether the requested ignore file exists inside *directory*.
+
+    Emits a debug message when the ignore file is found and a warning
+    when it is requested but absent. Does nothing when no ignore file
+    was requested. Shared by the visualize and export commands.
+
+    Args:
+        directory: Directory in which to look for the ignore file.
+        ignore_file: Filename of the ignore file to look for, or
+            ``None`` when the option was not supplied.
+    """
+    if not ignore_file:
+        return
+    ignore_path = directory / ignore_file
+    if ignore_path.exists():
+        logger.debug(f"Using ignore file: {ignore_path}")
+    else:
+        logger.warning(f"Ignore file not found: {ignore_path}")
+
+
+def _compile_patterns_for_scan(
+    parsed_exclude_patterns: list[str],
+    parsed_include_patterns: list[str],
+    use_regex: bool,
+) -> tuple[list[str | Pattern[str]], list[str | Pattern[str]]]:
+    """Compile exclude/include patterns for the scanner.
+
+    When *use_regex* is ``True`` the patterns are compiled to regular
+    expressions; otherwise the plain glob strings are passed through
+    unchanged (cast to the scanner's expected type). Shared by the
+    visualize and export commands.
+
+    Args:
+        parsed_exclude_patterns: Flat list of exclude-pattern strings.
+        parsed_include_patterns: Flat list of include-pattern strings.
+        use_regex: Whether the patterns should be treated as regex.
+
+    Returns:
+        A ``(compiled_exclude, compiled_include)`` tuple suitable for
+        passing directly to :func:`get_directory_structure`.
+    """
+    if use_regex:
+        compiled_exclude = compile_regex_patterns(parsed_exclude_patterns, use_regex)
+        compiled_include = compile_regex_patterns(parsed_include_patterns, use_regex)
+    else:
+        compiled_exclude = cast(list[str | Pattern[str]], parsed_exclude_patterns)
+        compiled_include = cast(list[str | Pattern[str]], parsed_include_patterns)
+    return compiled_exclude, compiled_include
+
+
+def _scan_directory(
+    directory: Path,
+    parsed_exclude_dirs: list[str],
+    ignore_file: str | None,
+    exclude_exts_set: set[str],
+    parsed_exclude_patterns: list[str],
+    parsed_include_patterns: list[str],
+    use_regex: bool,
+    max_depth: int,
+    show_full_path: bool,
+    sort_by_loc: bool,
+    sort_by_size: bool,
+    sort_by_mtime: bool,
+    show_git_status: bool,
+) -> tuple[dict[str, Any], set[str]]:
+    """Fetch Git status and scan *directory* into a tree structure.
+
+    Encapsulates the scanning pipeline shared by the visualize and
+    export commands: optionally resolving the Git status map, compiling
+    patterns, running the scan under a progress indicator, and logging
+    the number of unique extensions found.
+
+    Args:
+        directory: Resolved directory to scan.
+        parsed_exclude_dirs: Directory names to exclude.
+        ignore_file: Ignore filename to honor, or ``None``.
+        exclude_exts_set: Normalized set of excluded extensions.
+        parsed_exclude_patterns: Flat list of exclude patterns.
+        parsed_include_patterns: Flat list of include patterns.
+        use_regex: Whether patterns are regular expressions.
+        max_depth: Maximum directory depth (``0`` for unlimited).
+        show_full_path: Whether full paths are requested.
+        sort_by_loc: Whether to compute lines-of-code counts.
+        sort_by_size: Whether to compute file sizes.
+        sort_by_mtime: Whether to compute modification times.
+        show_git_status: Whether to annotate files with Git status.
+
+    Returns:
+        A ``(structure, extensions)`` tuple as produced by
+        :func:`get_directory_structure`.
+    """
+    git_status_map: dict[str, str] | None = None
+    if show_git_status:
+        git_status_map = get_git_status(str(directory))
+        if not git_status_map:
+            logger.debug(
+                "Git status requested but no data returned — "
+                "directory may not be inside a Git repository, or there are no changes."
+            )
+    with Progress() as progress:
+        task_scan = progress.add_task(
+            "[cyan]Scanning directory structure...", total=None
+        )
+        compiled_exclude, compiled_include = _compile_patterns_for_scan(
+            parsed_exclude_patterns,
+            parsed_include_patterns,
+            use_regex,
+        )
+        structure, extensions = get_directory_structure(
+            str(directory),
+            parsed_exclude_dirs,
+            ignore_file,
+            exclude_exts_set,
+            exclude_patterns=compiled_exclude,
+            include_patterns=compiled_include,
+            max_depth=max_depth,
+            show_full_path=show_full_path,
+            sort_by_loc=sort_by_loc,
+            sort_by_size=sort_by_size,
+            sort_by_mtime=sort_by_mtime,
+            show_git_status=show_git_status,
+            git_status_map=git_status_map,
+        )
+        progress.update(task_scan, completed=True)
+        logger.debug(f"Found {len(extensions)} unique file extensions")
+    return structure, extensions
+
+
 @app.command()
 def visualize(
     directory: Path = typer.Argument(
@@ -447,16 +616,11 @@ def visualize(
         >>> # Override icon style for this run
         >>> recursivist visualize --icon-style nerd
     """
-    if verbose:
-        logger.setLevel(logging.DEBUG)
-        logger.debug(MSG_VERBOSE)
+    _enable_verbose_if_requested(verbose)
 
     resolved_style = icon_style or USER_CONFIG.get("icon_style", "emoji")
 
-    directory = directory.resolve()
-    if not directory.exists() or not directory.is_dir():
-        logger.error(f"Error: {directory} is not a valid directory")
-        raise typer.Exit(1)
+    directory = _resolve_and_validate_directory(directory)
     _log_display_options(
         max_depth,
         show_full_path,
@@ -479,56 +643,23 @@ def visualize(
         include_patterns,
         use_regex,
     )
-    if ignore_file:
-        ignore_path = directory / ignore_file
-        if ignore_path.exists():
-            logger.debug(f"Using ignore file: {ignore_path}")
-        else:
-            logger.warning(f"Ignore file not found: {ignore_path}")
+    _warn_if_ignore_file_missing(directory, ignore_file)
     try:
-        git_status_map: dict[str, str] | None = None
-        if show_git_status:
-            git_status_map = get_git_status(str(directory))
-            if not git_status_map:
-                logger.debug(
-                    "Git status requested but no data returned — "
-                    "directory may not be inside a Git repository, or there are no changes."
-                )
-        with Progress() as progress:
-            task_scan = progress.add_task(
-                "[cyan]Scanning directory structure...", total=None
-            )
-            if use_regex:
-                compiled_exclude = compile_regex_patterns(
-                    parsed_exclude_patterns, use_regex
-                )
-                compiled_include = compile_regex_patterns(
-                    parsed_include_patterns, use_regex
-                )
-            else:
-                compiled_exclude = cast(
-                    list[str | Pattern[str]], parsed_exclude_patterns
-                )
-                compiled_include = cast(
-                    list[str | Pattern[str]], parsed_include_patterns
-                )
-            structure, extensions = get_directory_structure(
-                str(directory),
-                parsed_exclude_dirs,
-                ignore_file,
-                exclude_exts_set,
-                exclude_patterns=compiled_exclude,
-                include_patterns=compiled_include,
-                max_depth=max_depth,
-                show_full_path=show_full_path,
-                sort_by_loc=sort_by_loc,
-                sort_by_size=sort_by_size,
-                sort_by_mtime=sort_by_mtime,
-                show_git_status=show_git_status,
-                git_status_map=git_status_map,
-            )
-            progress.update(task_scan, completed=True)
-            logger.debug(f"Found {len(extensions)} unique file extensions")
+        structure, extensions = _scan_directory(
+            directory,
+            parsed_exclude_dirs,
+            ignore_file,
+            exclude_exts_set,
+            parsed_exclude_patterns,
+            parsed_include_patterns,
+            use_regex,
+            max_depth,
+            show_full_path,
+            sort_by_loc,
+            sort_by_size,
+            sort_by_mtime,
+            show_git_status,
+        )
         logger.info("Displaying directory tree:")
         display_tree(
             str(directory),
@@ -654,16 +785,11 @@ def export(
         >>> # Force export with nerd fonts
         >>> recursivist export --icon-style nerd
     """
-    if verbose:
-        logger.setLevel(logging.DEBUG)
-        logger.debug(MSG_VERBOSE)
+    _enable_verbose_if_requested(verbose)
 
     resolved_style = icon_style or "emoji"
 
-    directory = directory.resolve()
-    if not directory.exists() or not directory.is_dir():
-        logger.error(f"Error: {directory} is not a valid directory")
-        raise typer.Exit(1)
+    directory = _resolve_and_validate_directory(directory)
     _log_display_options(
         max_depth,
         show_full_path,
@@ -686,54 +812,23 @@ def export(
         include_patterns,
         use_regex,
     )
-    if ignore_file:
-        ignore_path = directory / ignore_file
-        if ignore_path.exists():
-            logger.debug(f"Using ignore file: {ignore_path}")
-        else:
-            logger.warning(f"Ignore file not found: {ignore_path}")
+    _warn_if_ignore_file_missing(directory, ignore_file)
     try:
-        git_status_map = get_git_status(str(directory)) if show_git_status else None
-        if show_git_status and not git_status_map:
-            logger.debug(
-                "Git status requested but no data returned — "
-                "directory may not be inside a Git repository, or there are no changes."
-            )
-        with Progress() as progress:
-            task_scan = progress.add_task(
-                "[cyan]Scanning directory structure...", total=None
-            )
-            if use_regex:
-                compiled_exclude = compile_regex_patterns(
-                    parsed_exclude_patterns, use_regex
-                )
-                compiled_include = compile_regex_patterns(
-                    parsed_include_patterns, use_regex
-                )
-            else:
-                compiled_exclude = cast(
-                    list[str | Pattern[str]], parsed_exclude_patterns
-                )
-                compiled_include = cast(
-                    list[str | Pattern[str]], parsed_include_patterns
-                )
-            structure, extensions = get_directory_structure(
-                str(directory),
-                parsed_exclude_dirs,
-                ignore_file,
-                exclude_exts_set,
-                exclude_patterns=compiled_exclude,
-                include_patterns=compiled_include,
-                max_depth=max_depth,
-                show_full_path=show_full_path,
-                sort_by_loc=sort_by_loc,
-                sort_by_size=sort_by_size,
-                sort_by_mtime=sort_by_mtime,
-                show_git_status=show_git_status,
-                git_status_map=git_status_map,
-            )
-            progress.update(task_scan, completed=True)
-            logger.debug(f"Found {len(extensions)} unique file extensions")
+        structure, extensions = _scan_directory(
+            directory,
+            parsed_exclude_dirs,
+            ignore_file,
+            exclude_exts_set,
+            parsed_exclude_patterns,
+            parsed_include_patterns,
+            use_regex,
+            max_depth,
+            show_full_path,
+            sort_by_loc,
+            sort_by_size,
+            sort_by_mtime,
+            show_git_status,
+        )
         parsed_formats = []
         for fmt in formats:
             parsed_formats.extend([x.strip() for x in fmt.split(" ") if x.strip()])
@@ -961,9 +1056,7 @@ def compare(
         >>> # Override icon styling
         >>> recursivist compare dir1 dir2 --icon-style nerd
     """
-    if verbose:
-        logger.setLevel(logging.DEBUG)
-        logger.debug(MSG_VERBOSE)
+    _enable_verbose_if_requested(verbose)
     logger.info(f"Comparing directories: {dir1} and {dir2}")
     _log_display_options(
         max_depth,
