@@ -10,7 +10,7 @@ from hypothesis import strategies as st
 from hypothesis.strategies import DrawFn
 from pytest_mock import MockerFixture
 
-from recursivist.core import count_lines_of_code
+from recursivist.metrics import count_lines_of_code
 
 text_content = st.text(
     alphabet=st.characters(blacklist_categories=["Cs"], max_codepoint=127),

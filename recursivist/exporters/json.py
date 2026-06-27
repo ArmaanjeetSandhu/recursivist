@@ -3,7 +3,7 @@ import logging
 from typing import Any
 
 from recursivist._models import FileEntry
-from recursivist.core import format_size, format_timestamp
+from recursivist.metrics import format_size, format_timestamp
 
 from .base import BaseExporter
 

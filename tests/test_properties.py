@@ -12,16 +12,12 @@ from hypothesis import strategies as st
 from rich.tree import Tree
 
 from recursivist.compare import build_comparison_tree
-from recursivist.core import (
-    build_tree,
-    count_lines_of_code,
-    format_size,
-    format_timestamp,
-    get_directory_structure,
-    should_exclude,
-    sort_files_by_type,
-)
 from recursivist.exporters import get_exporter
+from recursivist.filtering import should_exclude
+from recursivist.metrics import count_lines_of_code, format_size, format_timestamp
+from recursivist.scanner import get_directory_structure
+from recursivist.sorting import sort_files_by_type
+from recursivist.tree import build_tree
 
 simple_filename = st.text(
     alphabet=st.characters(

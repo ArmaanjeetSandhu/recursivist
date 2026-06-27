@@ -3,14 +3,11 @@ import logging
 import os
 from typing import Any
 
-from recursivist.core import (
-    format_metrics,
-    format_metrics_suffix,
-    generate_color_for_extension,
-    iter_subdirectories,
-    sort_files_by_type,
-)
+from recursivist.colors import generate_color_for_extension
 from recursivist.icons import get_icon
+from recursivist.metrics import format_metrics, format_metrics_suffix
+from recursivist.scanner import iter_subdirectories
+from recursivist.sorting import sort_files_by_type
 
 from .base import BaseExporter
 

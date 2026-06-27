@@ -1,7 +1,7 @@
 """Tests for file-name similarity sorting.
 
-Covers the :func:`recursivist.core.sort_files_by_similarity` helper, the
-``sort_by_similarity`` branch of :func:`recursivist.core.sort_files_by_type`
+Covers the :func:`recursivist.sorting.sort_files_by_similarity` helper, the
+``sort_by_similarity`` branch of :func:`recursivist.sorting.sort_files_by_type`
 (including its precedence relative to the numeric metric sorts), and that the
 ordering is deterministic and independent of input order.
 """
@@ -12,7 +12,7 @@ from typing import Any
 import pytest
 
 from recursivist._models import FileEntry
-from recursivist.core import sort_files_by_similarity, sort_files_by_type
+from recursivist.sorting import sort_files_by_similarity, sort_files_by_type
 
 
 def _names(entries: list[Any]) -> list[str]:

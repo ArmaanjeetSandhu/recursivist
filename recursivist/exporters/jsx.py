@@ -3,7 +3,8 @@ import logging
 from typing import Any
 
 from recursivist._models import FileEntry
-from recursivist.core import format_size, format_timestamp, sort_files_by_similarity
+from recursivist.metrics import format_size, format_timestamp
+from recursivist.sorting import sort_files_by_similarity
 
 from .base import BaseExporter
 

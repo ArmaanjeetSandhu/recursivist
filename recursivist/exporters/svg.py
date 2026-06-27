@@ -5,12 +5,10 @@ from typing import Any
 from rich.console import Console
 from rich.tree import Tree
 
-from recursivist.core import (
-    build_tree,
-    format_metrics_suffix,
-    generate_color_for_extension,
-)
+from recursivist.colors import generate_color_for_extension
 from recursivist.icons import get_icon
+from recursivist.metrics import format_metrics_suffix
+from recursivist.tree import build_tree
 
 from .base import BaseExporter
 

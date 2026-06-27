@@ -9,8 +9,8 @@ from typer.testing import CliRunner
 
 from recursivist.cli import app
 from recursivist.compare import compare_directory_structures, export_comparison
-from recursivist.core import get_directory_structure
 from recursivist.exporters import get_exporter
+from recursivist.scanner import get_directory_structure
 
 
 def test_cli_with_complex_structure(

@@ -8,11 +8,8 @@ from pytest_mock import MockerFixture
 from typer.testing import CliRunner
 
 from recursivist.cli import app
-from recursivist.core import (
-    compile_regex_patterns,
-    get_directory_structure,
-    should_exclude,
-)
+from recursivist.filtering import compile_regex_patterns, should_exclude
+from recursivist.scanner import get_directory_structure
 
 
 class TestCompileRegexPatterns:

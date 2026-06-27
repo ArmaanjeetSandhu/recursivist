@@ -25,16 +25,12 @@ from rich.panel import Panel
 from rich.text import Text
 from rich.tree import Tree
 
-from recursivist.core import (
-    compile_regex_patterns,
-    format_dir_metrics,
-    format_metrics_suffix,
-    generate_color_for_extension,
-    get_directory_structure,
-    iter_subdirectories,
-    sort_files_by_type,
-)
+from recursivist.colors import generate_color_for_extension
+from recursivist.filtering import compile_regex_patterns
 from recursivist.icons import get_icon
+from recursivist.metrics import format_dir_metrics, format_metrics_suffix
+from recursivist.scanner import get_directory_structure, iter_subdirectories
+from recursivist.sorting import sort_files_by_type
 
 logger = logging.getLogger(__name__)
 

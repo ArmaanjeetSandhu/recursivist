@@ -9,8 +9,8 @@ import pytest
 from rich.text import Text
 
 from recursivist.compare import build_comparison_tree
-from recursivist.core import build_tree
 from recursivist.exporters import get_exporter
+from recursivist.tree import build_tree
 
 
 class TestBuildTree:

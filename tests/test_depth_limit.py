@@ -7,7 +7,7 @@ import pytest
 from typer.testing import CliRunner
 
 from recursivist.cli import app
-from recursivist.core import get_directory_structure
+from recursivist.scanner import get_directory_structure
 
 
 def test_get_directory_structure_with_no_depth_limit(

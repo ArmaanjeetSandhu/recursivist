@@ -12,22 +12,23 @@ from pytest_mock import MockerFixture
 from rich.text import Text
 from rich.tree import Tree
 
-from recursivist.core import (
-    build_tree,
+from recursivist.colors import generate_color_for_extension
+from recursivist.exporters import get_exporter
+from recursivist.filtering import (
     compile_regex_patterns,
-    count_lines_of_code,
-    display_tree,
-    format_size,
-    format_timestamp,
-    generate_color_for_extension,
-    get_directory_structure,
-    get_file_mtime,
-    get_file_size,
     parse_ignore_file,
     should_exclude,
-    sort_files_by_type,
 )
-from recursivist.exporters import get_exporter
+from recursivist.metrics import (
+    count_lines_of_code,
+    format_size,
+    format_timestamp,
+    get_file_mtime,
+    get_file_size,
+)
+from recursivist.scanner import get_directory_structure
+from recursivist.sorting import sort_files_by_type
+from recursivist.tree import build_tree, display_tree
 
 
 class TestFileSize:
@@ -406,10 +407,10 @@ class TestBuildTree:
 
 class TestDisplayTree:
     def test_basic_display(self, mocker: MockerFixture, temp_dir: str) -> None:
-        mock_console = mocker.patch("recursivist.core.Console")
-        mock_tree_class = mocker.patch("recursivist.core.Tree")
-        mock_build_tree = mocker.patch("recursivist.core.build_tree")
-        mock_get_structure = mocker.patch("recursivist.core.get_directory_structure")
+        mock_console = mocker.patch("recursivist.tree.Console")
+        mock_tree_class = mocker.patch("recursivist.tree.Tree")
+        mock_build_tree = mocker.patch("recursivist.tree.build_tree")
+        mock_get_structure = mocker.patch("recursivist.tree.get_directory_structure")
         mock_get_structure.return_value = ({}, set())
         with open(os.path.join(temp_dir, "test.txt"), "w") as f:
             f.write("Test content")
@@ -419,8 +420,8 @@ class TestDisplayTree:
         mock_build_tree.assert_called_once()
 
     def test_with_filtering_options(self, mocker: MockerFixture, temp_dir: str) -> None:
-        mock_get_structure = mocker.patch("recursivist.core.get_directory_structure")
-        mock_compile_regex = mocker.patch("recursivist.core.compile_regex_patterns")
+        mock_get_structure = mocker.patch("recursivist.tree.get_directory_structure")
+        mock_compile_regex = mocker.patch("recursivist.tree.compile_regex_patterns")
         mock_get_structure.return_value = ({}, set())
         mock_compile_regex.return_value = []
         exclude_extensions = {".pyc", ".log"}
@@ -443,8 +444,8 @@ class TestDisplayTree:
         assert kwargs["max_depth"] == 2
 
     def test_with_statistics(self, mocker: MockerFixture, temp_dir: str) -> None:
-        mock_tree = mocker.patch("recursivist.core.Tree")
-        mock_get_structure = mocker.patch("recursivist.core.get_directory_structure")
+        mock_tree = mocker.patch("recursivist.tree.Tree")
+        mock_get_structure = mocker.patch("recursivist.tree.get_directory_structure")
         structure = {"_loc": 100, "_size": 10240, "_mtime": 1625097600.0, "_files": []}
         mock_get_structure.return_value = (structure, set())
         display_tree(temp_dir, sort_by_loc=True, sort_by_size=True, sort_by_mtime=True)

@@ -44,13 +44,11 @@ from recursivist.compare import (
     export_comparison,
 )
 from recursivist.config import load_config, save_config
-from recursivist.core import (
-    compile_regex_patterns,
-    display_tree,
-    get_directory_structure,
-    get_git_status,
-)
 from recursivist.exporters import get_exporter
+from recursivist.filtering import compile_regex_patterns
+from recursivist.git_status import get_git_status
+from recursivist.scanner import get_directory_structure
+from recursivist.tree import display_tree
 
 logging.basicConfig(
     level=logging.INFO,
@@ -468,7 +466,7 @@ def visualize(
         sort_by_similarity,
     )
     if show_git_status:
-        logger.info("Showing Git status markers for changed files")
+        logger.info("Annotating files with Git status markers")
     (
         parsed_exclude_dirs,
         exclude_exts_set,

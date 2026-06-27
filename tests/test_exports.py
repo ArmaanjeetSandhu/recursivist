@@ -11,11 +11,9 @@ from unittest.mock import patch
 import pytest
 from pytest_mock import MockerFixture
 
-from recursivist.core import (
-    get_directory_structure,
-    sort_files_by_type,
-)
 from recursivist.exporters import get_exporter
+from recursivist.scanner import get_directory_structure
+from recursivist.sorting import sort_files_by_type
 
 
 class TestSortFilesByType:
