@@ -1044,7 +1044,7 @@ def test_export_with_options(
     content_check: Callable[[str, str], bool],
 ) -> None:
     """Test exporting with various options."""
-    get_structure_kwargs = {}
+    get_structure_kwargs: dict[str, Any] = {}
     if option_name in [
         "show_full_path",
         "sort_by_loc",
@@ -1056,7 +1056,7 @@ def test_export_with_options(
     structure, _ = get_directory_structure(sample_directory, **get_structure_kwargs)
     output_path = os.path.join(output_dir, f"structure_{option_name}.txt")
 
-    kwargs = {}
+    kwargs: dict[str, Any] = {}
     if option_name == "show_full_path":
         kwargs["base_path"] = sample_directory if option_value else None
     elif option_name in ["sort_by_loc", "sort_by_size", "sort_by_mtime"]:
@@ -1533,3 +1533,112 @@ def test_combined_export_options(output_dir: str) -> None:
             assert "*(max depth reached)*" in content
         elif fmt == "jsx":
             assert "max depth reached" in content
+
+
+class TestSvgExporter:
+    """Tests for the SVG exporter (recursivist.exporters.svg.SvgExporter)."""
+
+    def test_export_basic(
+        self, nested_structure: dict[str, Any], tmp_path: Path
+    ) -> None:
+        """A basic export writes a well-formed SVG containing the tree.
+
+        Uses a structure whose ``_files`` are plain strings and which nests
+        sub-dictionaries, exercising both branches of the recursive extension
+        collector.
+        """
+        output_path = os.path.join(tmp_path, "structure.svg")
+        get_exporter("svg", structure=nested_structure, root_name="svg_root").export(
+            output_path
+        )
+
+        assert os.path.exists(output_path)
+        with open(output_path, encoding="utf-8") as f:
+            content = f.read()
+        assert content.lstrip().startswith("<svg")
+        assert "rich-terminal" in content
+        assert "svg_root" in content
+
+    def test_export_real_scanner_output(
+        self, sample_directory: str, tmp_path: Path
+    ) -> None:
+        """Export a structure produced by the scanner (FileEntry tuples)."""
+        structure, _ = get_directory_structure(sample_directory)
+        output_path = os.path.join(tmp_path, "scanned.svg")
+        get_exporter(
+            "svg",
+            structure=structure,
+            root_name=os.path.basename(sample_directory),
+        ).export(output_path)
+
+        assert os.path.exists(output_path)
+        with open(output_path, encoding="utf-8") as f:
+            content = f.read()
+        assert "<svg" in content
+        assert "file1.txt" in content
+        assert "subdir" in content
+
+    def test_export_with_statistics(
+        self, structure_with_stats: dict[str, Any], tmp_path: Path
+    ) -> None:
+        """Exporting with metrics enabled renders the root metrics suffix.
+
+        ``structure_with_stats`` stores ``_files`` as tuples and carries
+        ``_loc``/``_size``/``_mtime`` keys, so this also covers the tuple branch
+        of the extension collector.
+        """
+        output_path = os.path.join(tmp_path, "stats.svg")
+        get_exporter(
+            "svg",
+            structure=structure_with_stats,
+            root_name="stats_root",
+            sort_by_loc=True,
+            sort_by_size=True,
+            sort_by_mtime=True,
+        ).export(output_path)
+
+        assert os.path.exists(output_path)
+        with open(output_path, encoding="utf-8") as f:
+            content = f.read()
+        assert "<svg" in content
+        assert "stats_root" in content
+
+    def test_export_empty_structure(self, tmp_path: Path) -> None:
+        """An empty structure still produces a valid SVG (no extensions)."""
+        output_path = os.path.join(tmp_path, "empty.svg")
+        get_exporter("svg", structure={}, root_name="empty_root").export(output_path)
+
+        assert os.path.exists(output_path)
+        with open(output_path, encoding="utf-8") as f:
+            content = f.read()
+        assert "<svg" in content
+        assert "empty_root" in content
+
+    @pytest.mark.parametrize(
+        "error_type,error_msg",
+        [
+            (PermissionError, "Permission denied"),
+            (OSError, "No space left on device"),
+        ],
+    )
+    def test_export_error_handling(
+        self,
+        simple_structure: dict[str, Any],
+        tmp_path: Path,
+        error_type: type[Exception],
+        error_msg: str,
+    ) -> None:
+        """Failures while saving the SVG are re-raised (after being logged)."""
+        output_path = os.path.join(tmp_path, "error.svg")
+        exporter = get_exporter(
+            "svg", structure=simple_structure, root_name="error_root"
+        )
+        error: Exception
+        if error_type is OSError:
+            error = OSError(28, error_msg)
+        else:
+            error = error_type(error_msg)
+        with patch("recursivist.exporters.svg.Console.save_svg", side_effect=error):
+            with pytest.raises(error_type) as excinfo:
+                exporter.export(output_path)
+            assert error_msg in str(excinfo.value)
