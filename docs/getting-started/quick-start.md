@@ -1,77 +1,92 @@
 # Quick Start Guide
 
-This guide will help you quickly get started with Recursivist, a powerful directory structure visualization tool.
+This guide covers the essentials. After [installing Recursivist](installation.md), you can run it in any directory.
 
-## Basic Commands
+## Visualize a Directory
 
-After [installing Recursivist](installation.md), you can start using it right away. Here are the basic commands:
-
-### Visualize a Directory
-
-To visualize the current directory structure:
+Display the current directory as a colored tree in the terminal:
 
 ```bash
 recursivist visualize
 ```
 
-This will display a colorful tree representation of the current directory in your terminal.
+Output:
 
-To visualize a specific directory:
+```
+📁 my-project
+├── 📄 README.md
+├── 📄 setup.py
+├── 📄 requirements.txt
+└── 📁 src
+    ├── 📄 main.py
+    ├── 📄 utils.py
+    └── 📁 tests
+        ├── 📄 test_main.py
+        └── 📄 test_utils.py
+```
+
+Files are listed before subdirectories, and each file type is given its own color. To visualize a different directory, pass its path:
 
 ```bash
 recursivist visualize /path/to/your/directory
 ```
 
-### Display File Statistics
+## Show File Statistics
 
-Recursivist can show and sort by various file statistics:
+Display and sort by lines of code, file size, or modification time. Each flag also annotates every file and directory with the corresponding metric:
 
 ```bash
-# Show lines of code
-recursivist visualize --sort-by-loc
-
-# Show file sizes
-recursivist visualize --sort-by-size
-
-# Show modification times
-recursivist visualize --sort-by-mtime
-
-# Combine multiple statistics
-recursivist visualize --sort-by-loc --sort-by-size
+recursivist visualize --sort-by-loc     # lines of code
+recursivist visualize --sort-by-size    # file sizes
+recursivist visualize --sort-by-mtime   # modification times
+recursivist visualize --sort-by-loc --sort-by-size   # combine metrics
 ```
 
-### Export a Directory Structure
+With `--sort-by-loc`:
 
-To export the current directory structure to various formats:
+```
+📁 my-project (1262 lines)
+├── 📄 README.md (124 lines)
+├── 📄 setup.py (65 lines)
+├── 📄 requirements.txt (18 lines)
+└── 📁 src (1055 lines)
+    ├── 📄 main.py (245 lines)
+    ├── 📄 utils.py (157 lines)
+    └── 📁 tests (653 lines)
+        ├── 📄 test_main.py (412 lines)
+        └── 📄 test_utils.py (241 lines)
+```
+
+## Show Git Status
+
+Annotate files with their Git status when the directory is inside a repository:
 
 ```bash
-# Export to Markdown
-recursivist export --format md
+recursivist visualize --git-status
+```
 
-# Export to HTML
+Markers are `[U]` untracked, `[M]` modified, `[A]` added, and `[D]` deleted.
+
+## Export a Directory Structure
+
+Export to one or more of `txt`, `json`, `html`, `md`, `jsx`, or `svg` (Markdown is the default):
+
+```bash
+recursivist export                       # Markdown (structure.md)
 recursivist export --format html
-
-# Export to JSON
 recursivist export --format json
-
-# Export to plain text
-recursivist export --format txt
-
-# Export to React component
-recursivist export --format jsx
+recursivist export --format "txt md json"   # multiple at once
 ```
 
-### Compare Two Directories
+## Compare Two Directories
 
-To compare two directory structures side by side:
+Show two structures side by side with differences highlighted:
 
 ```bash
 recursivist compare dir1 dir2
 ```
 
-This will display both directory trees with highlighted differences.
-
-To save the comparison as an HTML file:
+Save the comparison as an HTML file instead of printing it:
 
 ```bash
 recursivist compare dir1 dir2 --save
@@ -79,148 +94,45 @@ recursivist compare dir1 dir2 --save
 
 ## Common Options
 
-Here are some common options that you can use with Recursivist commands:
-
-### Exclude Directories
-
-To exclude specific directories (like `node_modules` or `.git`):
+These options work across `visualize`, `export`, and `compare`:
 
 ```bash
+# Exclude directories
 recursivist visualize --exclude "node_modules .git"
-```
 
-### Exclude File Extensions
-
-To exclude files with specific extensions (like `.pyc` or `.log`):
-
-```bash
+# Exclude file extensions (leading dot optional)
 recursivist visualize --exclude-ext ".pyc .log"
-```
 
-### Pattern Filtering
-
-To exclude files matching specific patterns:
-
-```bash
-# Using glob patterns (default)
-recursivist visualize --exclude-pattern "*.test.js" "*.spec.js"
-
-# Using regular expressions
+# Exclude by glob pattern (default) or regex (--regex)
+recursivist visualize --exclude-pattern "*.test.js"
 recursivist visualize --exclude-pattern "^test_.*\.py$" --regex
-```
 
-To include only specific files:
+# Include only matching files
+recursivist visualize --include-pattern "*.py" "*.md"
 
-```bash
-recursivist visualize --include-pattern "src/**/*.js" "*.md"
-```
+# Respect a .gitignore-style file
+recursivist visualize --ignore-file .gitignore
 
-### Limit Directory Depth
+# Limit traversal depth
+recursivist visualize --depth 2
 
-To limit the depth of the directory tree (useful for large projects):
-
-```bash
-recursivist visualize --depth 3
-```
-
-### Show Full Paths
-
-To show full paths instead of just filenames:
-
-```bash
+# Show full paths instead of bare filenames
 recursivist visualize --full-path
 ```
 
-## Quick Examples
-
-### Basic Directory Visualization
-
-```bash
-recursivist visualize
-```
-
-This will produce output similar to:
-
-```
-📂 my-project
-├── 📁 src
-│   ├── 📄 main.py
-│   ├── 📄 utils.py
-│   └── 📁 tests
-│       ├── 📄 test_main.py
-│       └── 📄 test_utils.py
-├── 📄 README.md
-├── 📄 requirements.txt
-└── 📄 setup.py
-```
-
-### Visualizing with File Statistics
-
-```bash
-recursivist visualize --sort-by-loc
-```
-
-Output:
-
-```
-📂 my-project (4328 lines)
-├── 📁 src (3851 lines)
-│   ├── 📄 main.py (245 lines)
-│   ├── 📄 utils.py (157 lines)
-│   └── 📁 tests (653 lines)
-│       ├── 📄 test_main.py (412 lines)
-│       └── 📄 test_utils.py (241 lines)
-├── 📄 README.md (124 lines)
-├── 📄 requirements.txt (18 lines)
-└── 📄 setup.py (65 lines)
-```
-
-### Export to Multiple Formats
-
-```bash
-recursivist export \
---format "txt md json" \
---output-dir ./exports \
---prefix project-structure
-```
-
-This exports the directory structure to text, markdown, and JSON formats in the `./exports` directory.
-
-### Compare with Exclusions
-
-```bash
-recursivist compare dir1 dir2 \
---exclude node_modules \
---exclude-ext .pyc
-```
-
-This compares two directories while ignoring `node_modules` directories and `.pyc` files.
-
-### Compare with File Statistics
-
-```bash
-recursivist compare dir1 dir2 --sort-by-size
-```
-
-This compares two directories with file sizes displayed, making it easy to see size differences between the two directories.
-
 ## Shell Completion
 
-Generate shell completion scripts for easier command usage:
+Recursivist supports tab completion for Bash, Zsh, Fish, and PowerShell. The quickest setup uses Typer's built-in installer:
 
 ```bash
-# For Bash
-recursivist completion bash > ~/.bash_completion.d/recursivist
-source ~/.bash_completion.d/recursivist
-
-# For Zsh, Fish, or PowerShell
-recursivist completion zsh|fish|powershell
+recursivist --install-completion
 ```
+
+See the [Shell Completion guide](../user-guide/shell-completion.md) for per-shell instructions.
 
 ## Next Steps
 
-- Learn more about [visualization options](../user-guide/visualization.md)
-- Explore [pattern filtering](../user-guide/pattern-filtering.md) for precise control
-- Check out the various [export formats](../reference/export-formats.md)
-- See the complete [CLI reference](../reference/cli-reference.md) for all available options
-- Discover [advanced examples](../examples/advanced.md) for sophisticated usage patterns
+- [Visualization](../user-guide/visualization.md) — customize terminal output
+- [Pattern Filtering](../user-guide/pattern-filtering.md) — precise include/exclude control
+- [Export Formats](../reference/export-formats.md) — every output format in detail
+- [CLI Reference](../reference/cli-reference.md) — all commands and options

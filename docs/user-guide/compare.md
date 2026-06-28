@@ -1,226 +1,101 @@
 # Compare
 
-The `compare` command allows you to compare two directory structures side by side with highlighted differences. This guide explains how to use it effectively.
+The `compare` command shows two directory structures side by side and highlights the differences between them.
 
 ## Basic Comparison
-
-To compare two directories:
 
 ```bash
 recursivist compare dir1 dir2
 ```
 
-This will display both directory trees side by side in the terminal, with highlighted differences between them.
+Both directories must exist. The two trees are printed in labeled, color-coded panels with a legend.
 
-## Understanding the Output
+## Reading the Output
 
-The comparison output uses color highlighting to show differences:
+Highlighting marks what is unique to each side:
 
-- Items that exist in both directories are displayed normally
-- Items unique to directory 1 are highlighted in green
-- Items unique to directory 2 are highlighted in red
+- Items present in both directories are shown normally.
+- Items unique to the first directory (`dir1`) are highlighted with a **green** background.
+- Items unique to the second directory (`dir2`) are highlighted with a **red** background.
 
-A legend explains the color coding at the top of the output.
+A legend at the bottom explains the scheme, and notes any active options such as metric display, depth limits, or applied patterns.
 
-## Including File Statistics
+## File Statistics
 
-You can include file statistics in the comparison:
+Include metrics in the comparison to surface differences beyond structure — for example, which files grew or were modified more recently:
 
 ```bash
-# Include lines of code
 recursivist compare dir1 dir2 --sort-by-loc
-
-# Include file sizes
 recursivist compare dir1 dir2 --sort-by-size
-
-# Include modification times
 recursivist compare dir1 dir2 --sort-by-mtime
-
-# Combine multiple statistics
 recursivist compare dir1 dir2 --sort-by-loc --sort-by-size
 ```
 
-This makes it easy to see not just structural differences but also differences in file content size, modification time, or other metrics.
+## Saving as HTML
 
-## Exporting Comparison Results
-
-By default, the comparison is displayed in the terminal. To save it as an HTML file:
+By default the comparison is printed to the terminal. Save it as a self-contained, two-column HTML document instead with `--save`:
 
 ```bash
 recursivist compare dir1 dir2 --save
 ```
 
-This creates an HTML file named `comparison.html` in the current directory.
-
-To specify a different output directory:
+This writes `comparison.html` to the current directory. Change the location or filename:
 
 ```bash
-recursivist compare dir1 dir2 --save --output-dir ./reports
+recursivist compare dir1 dir2 --save --output-dir ./reports --prefix project-diff
 ```
 
-To customize the filename prefix:
+When saving to HTML, the `emoji` icon style is used by default for cross-platform consistency; override it with `--icon-style nerd`.
 
-```bash
-recursivist compare dir1 dir2 --save --prefix project-diff
-```
+## Filtering and Depth
 
-This creates a file named `project-diff.html`.
-
-## Filtering the Comparison
-
-All of the filtering options available for other Recursivist commands also work with `compare`:
-
-### Excluding Directories
+The same filtering, depth, and full-path options as the other commands apply to both directories:
 
 ```bash
 recursivist compare dir1 dir2 --exclude "node_modules .git"
-```
-
-### Excluding File Extensions
-
-```bash
 recursivist compare dir1 dir2 --exclude-ext ".pyc .log"
-```
-
-### Pattern-Based Filtering
-
-```bash
-# Exclude with glob patterns (default)
 recursivist compare dir1 dir2 --exclude-pattern "*.test.js"
-
-# Exclude with regex patterns
-recursivist compare dir1 dir2 --exclude-pattern "^test_.*\.py$" --regex
-
-# Include only specific patterns
-recursivist compare dir1 dir2 --include-pattern "src/*" "*.md"
-```
-
-See the [Pattern Filtering](pattern-filtering.md) guide for more details.
-
-### Using Gitignore Files
-
-```bash
+recursivist compare dir1 dir2 --include-pattern "*.py" "*.md"
 recursivist compare dir1 dir2 --ignore-file .gitignore
-```
-
-## Depth Control
-
-For large directories, limit the comparison depth:
-
-```bash
 recursivist compare dir1 dir2 --depth 3
-```
-
-## Full Path Display
-
-To show full paths instead of just filenames:
-
-```bash
 recursivist compare dir1 dir2 --full-path
 ```
 
+See [Pattern Filtering](pattern-filtering.md) for details.
+
+!!! note
+Unlike `visualize` and `export`, the `compare` command does not support the `--git-status` option. Also note that `-f` here is shorthand for `--save`, not `--format`.
+
 ## Use Cases
 
-The comparison feature is particularly useful for:
-
-### Project Evolution
-
-Compare different versions of a project:
+Comparing structures is useful for tracking how a project changes over time:
 
 ```bash
-recursivist compare project-v1.0 project-v2.0
-```
+# Two versions of a project
+recursivist compare project-v1.0 project-v2.0 --exclude "node_modules .git"
 
-### Code Reviews
-
-Compare branches or pull requests:
-
-```bash
-# Clone the branches to compare
+# Two Git branches (checked out into separate directories)
 git clone -b main repo main-branch
-git clone -b feature/new-feature repo feature-branch
-
-# Compare directory structures
+git clone -b feature/x repo feature-branch
 recursivist compare main-branch feature-branch
+
+# Source against a build, focusing on JavaScript
+recursivist compare src dist --include-pattern "*.js" --sort-by-size
+
+# Original files against a backup
+recursivist compare original-files backup-files --full-path
 ```
 
-### Deployment Verification
+## HTML Output
 
-Compare local development and production environments:
+The saved HTML document contains:
 
-```bash
-recursivist compare local-build production-build
-```
+- A side-by-side, two-column comparison
+- Color-coded highlighting of the differences
+- A legend explaining the scheme and any active options
 
-### Backup Validation
-
-Compare original files with backups:
-
-```bash
-recursivist compare original-files backup-files
-```
-
-## Examples
-
-### Basic Comparison
-
-```bash
-recursivist compare project-v1 project-v2
-```
-
-### Compare with Exclusions
-
-```bash
-recursivist compare project-v1 project-v2 \
---exclude "node_modules .git" \
---exclude-ext ".pyc .log"
-```
-
-### Compare with Depth Limit and HTML Export
-
-```bash
-recursivist compare project-v1 project-v2 \
---depth 3 \
---save \
---output-dir ./reports \
---prefix version-comparison
-```
-
-### Compare Source Directories Only
-
-```bash
-recursivist compare project-v1/src project-v2/src \
---include-pattern "*.js" "*.css" "*.jsx"
-```
-
-### Compare with File Statistics
-
-```bash
-recursivist compare project-v1 project-v2 \
---sort-by-loc \
---sort-by-size
-```
-
-## HTML Output Features
-
-When exporting to HTML (`--save` option), the generated file includes:
-
-- Interactive, side-by-side comparison
-- Color-coded highlighting of differences
-- Responsive layout that works on different screen sizes
-- Proper styling for directories and files
-- File statistics display when enabled
-- Detailed metadata about the comparison settings
-- Visual legend explaining the highlighting scheme
-
-This is useful for sharing comparison results with team members or keeping records of structural changes.
+This is convenient for sharing results or keeping a record of structural changes.
 
 ## Terminal Compatibility
 
-The terminal comparison view works best in terminals with:
-
-- Unicode support for special characters
-- ANSI color support
-- Sufficient width to display side-by-side content
-
-For narrow terminals, the comparison may not display optimally. In these cases, using the HTML export option (`--save`) is recommended.
+The side-by-side terminal view is best in a terminal with Unicode and ANSI color support and enough width to fit both panels. On narrow terminals, prefer the HTML export (`--save`).

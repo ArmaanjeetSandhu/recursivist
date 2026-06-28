@@ -1,314 +1,125 @@
 # Basic Examples
 
-This page provides simple examples of common Recursivist usage patterns. These examples are designed to help you get familiar with the basic capabilities of the tool.
+Common, everyday Recursivist commands. For deeper dives, see the other example pages.
 
-## Simple Visualization
-
-### Viewing the Current Directory
-
-To visualize the current directory structure:
+## Visualization
 
 ```bash
+# Current directory
 recursivist visualize
-```
 
-This will produce output similar to:
-
-```
-📂 my-project
-├── 📁 src
-│   ├── 📄 main.py
-│   ├── 📄 utils.py
-│   └── 📁 tests
-│       ├── 📄 test_main.py
-│       └── 📄 test_utils.py
-├── 📄 README.md
-├── 📄 requirements.txt
-└── 📄 setup.py
-```
-
-### Viewing a Specific Directory
-
-To visualize a different directory:
-
-```bash
+# A specific directory
 recursivist visualize ~/projects/my-app
-```
 
-### Limiting Directory Depth
-
-To limit the depth of the directory tree (useful for large projects):
-
-```bash
+# Limit depth (useful for large projects)
 recursivist visualize --depth 2
-```
 
-Output:
-
-```
-📂 my-project
-├── 📁 src
-│   ├── 📄 main.py
-│   ├── 📄 utils.py
-│   └── 📁 tests
-│       ⋯ (max depth reached)
-├── 📄 README.md
-├── 📄 requirements.txt
-└── 📄 setup.py
-```
-
-### Showing Full Paths
-
-To show full file paths instead of just filenames:
-
-```bash
+# Show full paths instead of bare filenames
 recursivist visualize --full-path
+
+# Use Nerd Font icons for this run
+recursivist visualize --icon-style nerd
 ```
 
-Output:
+A depth-limited tree marks where it was cut off:
 
 ```
-📂 my-project
-├── 📁 src
-│   ├── 📄 /home/user/my-project/src/main.py
-│   ├── 📄 /home/user/my-project/src/utils.py
-│   └── 📁 tests
-│       ├── 📄 /home/user/my-project/src/tests/test_main.py
-│       └── 📄 /home/user/my-project/src/tests/test_utils.py
-├── 📄 /home/user/my-project/README.md
-├── 📄 /home/user/my-project/requirements.txt
-└── 📄 /home/user/my-project/setup.py
+📁 my-project
+├── 📄 README.md
+└── 📁 src
+    ├── 📄 main.py
+    ├── 📄 utils.py
+    └── 📁 tests
+        ⋯ (max depth reached)
 ```
 
 ## File Statistics
 
-### Showing Lines of Code
-
-To display and sort by lines of code:
-
 ```bash
-recursivist visualize --sort-by-loc
+recursivist visualize --sort-by-loc     # lines of code
+recursivist visualize --sort-by-size    # file sizes
+recursivist visualize --sort-by-mtime   # modification times
+recursivist visualize --sort-by-loc --sort-by-size   # combined
 ```
 
-Output:
+With `--sort-by-loc`:
 
 ```
-📂 my-project (4328 lines)
-├── 📁 src (3851 lines)
-│   ├── 📄 main.py (245 lines)
-│   ├── 📄 utils.py (157 lines)
-│   └── 📁 tests (653 lines)
-│       ├── 📄 test_main.py (412 lines)
-│       └── 📄 test_utils.py (241 lines)
+📁 my-project (1262 lines)
 ├── 📄 README.md (124 lines)
+├── 📄 setup.py (65 lines)
 ├── 📄 requirements.txt (18 lines)
-└── 📄 setup.py (65 lines)
+└── 📁 src (1055 lines)
+    ├── 📄 main.py (245 lines)
+    ├── 📄 utils.py (157 lines)
+    └── 📁 tests (653 lines)
+        ├── 📄 test_main.py (412 lines)
+        └── 📄 test_utils.py (241 lines)
 ```
 
-### Showing File Sizes
+## Git Status
 
-To display and sort by file sizes:
+Inside a Git repository, show each file's status (`[U]` untracked, `[M]` modified, `[A]` added, `[D]` deleted):
 
 ```bash
-recursivist visualize --sort-by-size
+recursivist visualize --git-status
 ```
 
-Output:
-
-```
-📂 my-project (1.2 MB)
-├── 📁 src (850.5 KB)
-│   ├── 📄 main.py (12.4 KB)
-│   ├── 📄 utils.py (8.2 KB)
-│   └── 📁 tests (45.7 KB)
-│       ├── 📄 test_main.py (28.9 KB)
-│       └── 📄 test_utils.py (16.8 KB)
-├── 📄 README.md (4.2 KB)
-├── 📄 requirements.txt (512 B)
-└── 📄 setup.py (3.8 KB)
-```
-
-### Showing Modification Times
-
-To display and sort by modification times:
+## Exclusions
 
 ```bash
-recursivist visualize --sort-by-mtime
-```
-
-Output:
-
-```
-📂 my-project (Today 14:30)
-├── 📁 src (Today 14:25)
-│   ├── 📄 main.py (Today 14:25)
-│   ├── 📄 utils.py (Yesterday 18:10)
-│   └── 📁 tests (Feb 15)
-│       ├── 📄 test_main.py (Feb 15)
-│       └── 📄 test_utils.py (Feb 10)
-├── 📄 README.md (Today 10:15)
-├── 📄 requirements.txt (Jan 20)
-└── 📄 setup.py (Jan 15)
-```
-
-### Combining Statistics
-
-To show multiple statistics at once:
-
-```bash
-recursivist visualize --sort-by-loc --sort-by-size
-```
-
-Output:
-
-```
-📂 my-project (4328 lines, 1.2 MB)
-├── 📁 src (3851 lines, 850.5 KB)
-│   ├── 📄 main.py (245 lines, 12.4 KB)
-...
-```
-
-## Simple Exclusions
-
-### Excluding Specific Directories
-
-To exclude directories like `node_modules` or `.git`:
-
-```bash
+# Exclude directories
 recursivist visualize --exclude "node_modules .git"
-```
 
-### Excluding File Extensions
-
-To exclude files with specific extensions:
-
-```bash
+# Exclude file extensions (leading dot optional)
 recursivist visualize --exclude-ext ".pyc .log"
-```
 
-### Combining Exclusions
-
-You can combine different exclusion methods:
-
-```bash
+# Combine them
 recursivist visualize --exclude "node_modules .git" --exclude-ext ".pyc .log"
 ```
 
-## Basic Exports
-
-### Exporting to Markdown
-
-To export the current directory structure to Markdown:
+## Exports
 
 ```bash
+# Markdown (default), writes structure.md
 recursivist export --format md
-```
 
-This creates a file named `structure.md` in the current directory.
-
-### Exporting to Multiple Formats
-
-To export to multiple formats at once:
-
-```bash
+# Several formats at once
 recursivist export --format "txt md json"
-```
 
-### Exporting to a Specific Directory
+# Choose an output directory and filename prefix
+recursivist export --format html --output-dir ./docs --prefix project
 
-To export to a different directory:
-
-```bash
-recursivist export --format html --output-dir ./docs
-```
-
-### Customizing the Filename
-
-To use a custom filename prefix:
-
-```bash
-recursivist export --format json --prefix my-project
-```
-
-This creates a file named `my-project.json`.
-
-### Exporting with Statistics
-
-To include file statistics in the export:
-
-```bash
+# Include statistics
 recursivist export --format html --sort-by-loc --sort-by-size
 ```
 
-## Simple Comparisons
-
-### Comparing Two Directories
-
-To compare two directories:
+## Comparisons
 
 ```bash
+# Side-by-side in the terminal
 recursivist compare dir1 dir2
-```
 
-This displays a side-by-side comparison in the terminal.
-
-### Exporting a Comparison
-
-To save the comparison as an HTML file:
-
-```bash
+# Save as HTML (writes comparison.html)
 recursivist compare dir1 dir2 --save
-```
 
-This creates a file named `comparison.html` in the current directory.
-
-### Comparing with Statistics
-
-To include file statistics in the comparison:
-
-```bash
+# With statistics
 recursivist compare dir1 dir2 --sort-by-loc
 ```
 
-This makes it easy to see not just structural differences but also differences in code volume.
-
-## Shell Completion
-
-### Generating Shell Completion for Bash
+## Configuration and Version
 
 ```bash
-mkdir -p ~/.bash_completion.d
-recursivist completion bash > ~/.bash_completion.d/recursivist
-source ~/.bash_completion.d/recursivist
-```
+# Make Nerd Font icons the default
+recursivist config set icon-style nerd
 
-### Generating Shell Completion for Zsh
-
-```bash
-mkdir -p ~/.zsh/completion
-recursivist completion zsh > ~/.zsh/completion/_recursivist
-```
-
-Then add to your `.zshrc`:
-
-```bash
-fpath=(~/.zsh/completion $fpath)
-autoload -U compinit; compinit
-```
-
-## Version Information
-
-To check the version of Recursivist:
-
-```bash
+# Check the installed version
 recursivist version
 ```
 
 ## Next Steps
 
-These basic examples should help you get started with Recursivist. For more advanced examples, check out:
-
-- [Filtering Examples](filtering.md) - More complex pattern matching
-- [Export Examples](export.md) - Advanced export options
-- [Compare Examples](compare.md) - In-depth comparison examples
-- [Advanced Examples](advanced.md) - Advanced usage patterns
+- [Filtering Examples](filtering.md)
+- [Export Examples](export.md)
+- [Compare Examples](compare.md)
+- [Advanced Examples](advanced.md)

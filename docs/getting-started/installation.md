@@ -1,28 +1,23 @@
 # Installation
 
-Recursivist is available on PyPI and can be installed with pip, the Python package manager.
+Recursivist is published on PyPI and installs with `pip`.
 
 ## Requirements
 
-- Python 3.9 or higher
-- pip (Python package manager)
+- Python 3.10 or higher
+- `pip` (or any compatible installer, such as [uv](https://docs.astral.sh/uv/))
+
+Recursivist depends on [Rich](https://github.com/Textualize/rich) for terminal rendering, [Typer](https://github.com/fastapi/typer) for the command-line interface, and [shellingham](https://github.com/sarugaku/shellingham) for shell detection. These are installed automatically.
 
 ## Installing from PyPI
-
-The recommended way to install Recursivist is through PyPI:
 
 ```bash
 pip install recursivist
 ```
 
-This will install Recursivist and all of its dependencies, including:
-
-- [Rich](https://github.com/Textualize/rich) - For beautiful terminal formatting and colored output
-- [Typer](https://github.com/tiangolo/typer) - For the intuitive CLI interface
-
 ## Installing from Source
 
-For the latest development version or if you want to contribute to the project, you can install Recursivist directly from the source code:
+To get the latest unreleased changes, install from the repository:
 
 ```bash
 git clone https://github.com/ArmaanjeetSandhu/recursivist.git
@@ -30,97 +25,45 @@ cd recursivist
 pip install -e .
 ```
 
-The `-e` flag installs the package in "editable" mode, which means changes to the source code will be reflected in the installed package without needing to reinstall.
+The `-e` flag installs the package in editable mode, so changes to the source are reflected without reinstalling.
 
-## Installing for Development
-
-If you plan to contribute to Recursivist, you should install the development dependencies:
+To also install the development tools (pytest, Ruff, mypy, pyright, nox, and others), add the `dev` extra:
 
 ```bash
-git clone https://github.com/ArmaanjeetSandhu/recursivist.git
-cd recursivist
 pip install -e ".[dev]"
 ```
 
-This installs Recursivist along with all the development tools, such as pytest for testing.
-
-## Verifying Installation
-
-After installation, you can verify that Recursivist was installed correctly by checking its version:
+## Verifying the Installation
 
 ```bash
 recursivist version
 ```
 
-You should see the current version of Recursivist displayed.
+This prints the installed version, e.g. `Recursivist version: 2.1.0`.
 
-## System-specific Notes
+## Nerd Font Icons (Optional)
 
-### Windows
+By default Recursivist labels files and directories with two generic emoji (📄 and 📁), which render everywhere. It can also use file-type-specific [Nerd Font](https://www.nerdfonts.com/) glyphs, which require a patched font installed and selected in your terminal. To switch styles:
 
-On Windows, it's recommended to use a virtual environment:
+```bash
+recursivist config set icon-style nerd
+```
 
-```powershell
-python -m venv venv
-.\venv\Scripts\activate
+See [Basic Usage](../user-guide/basic-usage.md#icon-styles) for details. If glyphs appear as boxes or question marks, your terminal font is not a Nerd Font; switch back with `recursivist config set icon-style emoji`.
+
+## Terminal Compatibility
+
+For the best experience, use a terminal with Unicode and ANSI color support. On Windows, [Windows Terminal](https://aka.ms/terminal) is recommended. A virtual environment keeps the install isolated from system packages:
+
+```bash
+python -m venv .venv
+# Linux/macOS:
+source .venv/bin/activate
+# Windows (PowerShell):
+.venv\Scripts\Activate.ps1
 pip install recursivist
-```
-
-For the best experience on Windows, use a terminal that supports Unicode and ANSI colors, such as Windows Terminal.
-
-### macOS
-
-On macOS, if you're using Homebrew's Python, you might need to use:
-
-```bash
-python3 -m pip install recursivist
-```
-
-### Linux
-
-On Linux, you might need to install Python development headers first:
-
-```bash
-# Debian-based systems (Ubuntu, etc.)
-sudo apt-get install python3-dev
-
-# Red Hat-based systems (Fedora, CentOS, etc.)
-sudo dnf install python3-devel
-
-# Then install Recursivist
-pip3 install recursivist
-```
-
-## Troubleshooting Installation Issues
-
-### Unicode Display Problems
-
-If you see squares or question marks instead of emoji icons in the output:
-
-1. Ensure your terminal supports Unicode
-2. Check that you're using a font that includes emoji characters
-3. On Windows, make sure you're using Windows Terminal or another modern terminal
-
-### Color Display Issues
-
-If colors aren't displaying correctly:
-
-1. Ensure your terminal supports ANSI colors
-2. Check if you need to enable color support in your terminal settings
-3. Try running with the `TERM=xterm-256color` environment variable
-
-### Missing Dependencies
-
-If you encounter missing dependency errors:
-
-```bash
-# Try reinstalling with the --force-reinstall flag
-pip install --force-reinstall recursivist
-
-# Or specify the dependencies explicitly
-pip install rich typer
 ```
 
 ## Next Steps
 
-Now that you have Recursivist installed, check out the [Quick Start Guide](quick-start.md) to begin visualizing directory structures.
+Continue to the [Quick Start Guide](quick-start.md) to start visualizing directory structures.

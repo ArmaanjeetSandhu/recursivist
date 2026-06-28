@@ -1,102 +1,71 @@
 # Basic Usage
 
-Recursivist is designed to be intuitive and easy to use while offering powerful capabilities. This guide covers the basic concepts and usage patterns.
+Recursivist is built around a small set of commands that share a consistent collection of filtering and display options. This guide covers the fundamentals; later guides go deeper into each command.
 
 ## Command Structure
 
-All Recursivist commands follow a consistent structure:
-
 ```bash
-recursivist [command] [options] [arguments]
+recursivist [COMMAND] [OPTIONS] [ARGUMENTS]
 ```
 
-Where:
+The available commands are:
 
-- `command` is one of: `visualize`, `export`, `compare`, `completion`, or `version`
-- `options` are optional flags that modify the command's behavior
-- `arguments` are typically directory paths or other positional arguments
+| Command      | Purpose                                       |
+| ------------ | --------------------------------------------- |
+| `visualize`  | Display a directory structure in the terminal |
+| `export`     | Export a directory structure to files         |
+| `compare`    | Compare two directory structures side by side |
+| `config`     | Manage persistent user preferences            |
+| `completion` | Generate a shell completion script            |
+| `version`    | Show the installed version                    |
 
-## Basic Commands
+## Getting Help
 
-### Checking Version
-
-To check which version of Recursivist you have installed:
-
-```bash
-recursivist version
-```
-
-### Visualizing the Current Directory
-
-To display a tree representation of the current directory:
+Every command has built-in help:
 
 ```bash
-recursivist visualize
-```
-
-This will show a colorful tree of all files and directories, with each file type color-coded for easy identification.
-
-### Visualizing a Specific Directory
-
-To visualize a different directory:
-
-```bash
-recursivist visualize /path/to/directory
-```
-
-### Visualizing with File Statistics
-
-Recursivist can display and sort by various file statistics:
-
-```bash
-# Show lines of code
-recursivist visualize --sort-by-loc
-
-# Show file sizes
-recursivist visualize --sort-by-size
-
-# Show modification times
-recursivist visualize --sort-by-mtime
-
-# Combine multiple statistics
-recursivist visualize --sort-by-loc --sort-by-size
-```
-
-### Getting Help
-
-To see all available commands:
-
-```bash
-recursivist --help
-```
-
-To get help for a specific command:
-
-```bash
-recursivist visualize --help
-recursivist export --help
-recursivist compare --help
+recursivist --help            # list all commands
+recursivist visualize --help  # options for a specific command
 ```
 
 ## Default Behavior
 
-By default, Recursivist:
+By default, `visualize` and `export`:
 
-- Shows all files and directories in the specified location
-- Doesn't limit the depth of the directory tree
-- Displays only filenames (not full paths)
-- Colors files based on their extensions
-- Uses Unicode characters for the tree structure
+- Include every file and directory in the target location.
+- Apply no depth limit.
+- Show bare filenames rather than full paths.
+- Color files by extension (colors are derived deterministically, so a given extension always maps to the same color).
+- List files before subdirectories, ordering files by extension and then name.
+- Label entries with generic emoji icons (📄 for files, 📁 for directories).
 
-You can modify this behavior using the various options described in the following sections.
+## Icon Styles
+
+Recursivist ships with two icon styles:
+
+- **`emoji`** (default): the generic 📄 and 📁 glyphs, which render in virtually any terminal.
+- **`nerd`**: file-type-specific [Nerd Font](https://www.nerdfonts.com/) glyphs (a distinct icon for Python, JavaScript, folders like `.git` or `node_modules`, and so on). This requires a Nerd Font installed and selected in your terminal.
+
+Set the default style persistently with the `config` command:
+
+```bash
+recursivist config set icon-style nerd
+recursivist config set icon-style emoji
+```
+
+The preference is stored in a JSON config file in your platform's application-data directory (for example, `~/.config/recursivist/config.json` on Linux). Override it for a single run with `--icon-style`:
+
+```bash
+recursivist visualize --icon-style nerd
+```
+
+Exports default to the `emoji` style regardless of your configuration, so exported files render consistently on any machine. Pass `--icon-style nerd` to override this.
 
 ## Common Options
 
-These options work with most Recursivist commands:
+The following options are shared by `visualize`, `export`, and `compare`.
 
 ### Excluding Directories
-
-To exclude specific directories:
 
 ```bash
 recursivist visualize --exclude "node_modules .git"
@@ -104,7 +73,7 @@ recursivist visualize --exclude "node_modules .git"
 
 ### Excluding File Extensions
 
-To exclude files with specific extensions:
+Extensions may be given with or without the leading dot:
 
 ```bash
 recursivist visualize --exclude-ext ".pyc .log"
@@ -112,120 +81,73 @@ recursivist visualize --exclude-ext ".pyc .log"
 
 ### Limiting Depth
 
-To limit how deep the directory tree goes:
-
 ```bash
-recursivist visualize --depth 3
+recursivist visualize --depth 2
 ```
 
-### Showing Full Paths
+Subtrees cut off by the limit are marked `⋯ (max depth reached)`.
 
-To show full file paths instead of just names:
+### Showing Full Paths
 
 ```bash
 recursivist visualize --full-path
 ```
 
-### Using Verbose Mode
-
-For more detailed output and logging:
+### Verbose Output
 
 ```bash
 recursivist visualize --verbose
 ```
 
+Verbose mode lowers the log level to `DEBUG`, printing details about how patterns and filters are applied — useful when a filter isn't behaving as expected.
+
+## File Statistics
+
+All three primary commands can display and sort by file metrics:
+
+```bash
+recursivist visualize --sort-by-loc     # lines of code
+recursivist visualize --sort-by-size    # file sizes
+recursivist visualize --sort-by-mtime   # modification times
+```
+
+These flags are combinable; metrics are always shown in the order LOC, size, mtime. See [Visualization](visualization.md#file-statistics) for examples.
+
+## Grouping by Name Similarity
+
+Instead of the default extension-and-name ordering, files can be grouped so that similarly named files sit next to each other:
+
+```bash
+recursivist visualize --sort-by-similarity
+```
+
+This is overridden by any active metric sort (LOC, size, or mtime).
+
 ## Pattern Filtering
 
-Recursivist offers powerful pattern-based filtering options:
-
-### Glob Patterns (Default)
+Glob patterns (default) and regular expressions (`--regex`) give finer control than directory or extension exclusions, and include patterns can override exclusions:
 
 ```bash
-# Exclude test files
-recursivist visualize --exclude-pattern "*.test.js" "*.spec.js"
-```
-
-### Regular Expressions
-
-```bash
-# Exclude test files using regex
+recursivist visualize --exclude-pattern "*.test.js"
 recursivist visualize --exclude-pattern "^test_.*\.py$" --regex
-```
-
-### Include Patterns (Override Exclusions)
-
-```bash
-# Only include specific files/directories
-recursivist visualize --include-pattern "src/**/*.js" "*.md"
-```
-
-### Gitignore Integration
-
-```bash
-# Use patterns from a gitignore-style file
+recursivist visualize --include-pattern "*.py" "*.md"
 recursivist visualize --ignore-file .gitignore
 ```
 
-## Export Formats
-
-Export directory structures to various formats:
-
-```bash
-# Export to Markdown
-recursivist export --format md
-
-# Export to JSON
-recursivist export --format json
-
-# Export to HTML
-recursivist export --format html
-
-# Export to plain text
-recursivist export --format txt
-
-# Export to React component
-recursivist export --format jsx
-```
-
-## Directory Comparison
-
-Compare two directory structures:
-
-```bash
-# Basic comparison
-recursivist compare dir1 dir2
-
-# Save comparison as HTML
-recursivist compare dir1 dir2 --save
-```
-
-## Shell Completion
-
-Generate shell completion scripts:
-
-```bash
-# For Bash
-recursivist completion bash > ~/.bash_completion.d/recursivist
-
-# For Zsh, Fish, or PowerShell
-recursivist completion zsh|fish|powershell
-```
+See [Pattern Filtering](pattern-filtering.md) for the full picture, including the order of precedence.
 
 ## Exit Codes
 
-Recursivist uses standard exit codes to indicate success or failure:
+Recursivist uses standard exit codes:
 
 - `0`: Success
-- `1`: General error (like invalid arguments or directories)
-- Other non-zero values: Specific error conditions
+- `1`: An error occurred (for example, an invalid directory, an unsupported export format, or a failure during scanning or writing)
 
-These exit codes can be useful when incorporating Recursivist into scripts or automation.
+These make Recursivist easy to use in scripts and automation.
 
 ## Next Steps
 
-Now that you're familiar with the basic usage, you can explore:
-
-- [Visualization options](visualization.md) for customizing how directory trees are displayed
-- [Export formats](../reference/export-formats.md) for saving directory structures
-- [Comparison features](compare.md) for identifying differences between directories
-- [Pattern filtering](pattern-filtering.md) for precisely controlling what's included/excluded
+- [Visualization](visualization.md) — terminal output options in depth
+- [Export](export.md) — saving structures to files
+- [Compare](compare.md) — diffing two directories
+- [Pattern Filtering](pattern-filtering.md) — precise include/exclude control

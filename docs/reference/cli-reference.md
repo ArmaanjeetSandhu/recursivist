@@ -1,268 +1,185 @@
 # CLI Reference
 
-This page provides a complete reference for all Recursivist commands and options.
+A complete reference for every Recursivist command and option.
 
-## Command Overview
+## Commands
 
-Recursivist provides several commands for visualizing and exporting directory structures:
+| Command      | Description                                   |
+| ------------ | --------------------------------------------- |
+| `visualize`  | Display a directory structure in the terminal |
+| `export`     | Export a directory structure to files         |
+| `compare`    | Compare two directory structures side by side |
+| `config`     | Manage persistent user preferences            |
+| `completion` | Generate a shell completion snippet           |
+| `version`    | Show the installed version                    |
 
-| Command      | Description                                    |
-| ------------ | ---------------------------------------------- |
-| `visualize`  | Display directory structures in the terminal   |
-| `export`     | Export directory structures to various formats |
-| `compare`    | Compare two directory structures side by side  |
-| `completion` | Generate shell completion scripts              |
-| `version`    | Show the current version                       |
+## Shared Options
 
-## Global Options
+The following options are common to `visualize`, `export`, and `compare`. Repeatable options accept either space-separated values in one flag or several flags.
 
-The following options apply to most Recursivist commands:
+| Option                 | Short | Description                                                      |
+| ---------------------- | ----- | ---------------------------------------------------------------- |
+| `--exclude`            | `-e`  | Directory names to exclude                                       |
+| `--exclude-ext`        | `-x`  | File extensions to exclude (leading dot optional)                |
+| `--exclude-pattern`    | `-p`  | File-name patterns to exclude (glob by default, regex with `-r`) |
+| `--include-pattern`    | `-i`  | File-name patterns to include                                    |
+| `--regex`              | `-r`  | Treat patterns as regular expressions instead of globs           |
+| `--ignore-file`        | `-g`  | Gitignore-style ignore file to honor (e.g. `.gitignore`)         |
+| `--depth`              | `-d`  | Maximum depth to traverse (`0` for unlimited)                    |
+| `--full-path`          | `-l`  | Show full paths instead of bare filenames                        |
+| `--sort-by-loc`        | `-s`  | Sort by and display lines of code                                |
+| `--sort-by-size`       | `-z`  | Sort by and display file sizes                                   |
+| `--sort-by-mtime`      | `-m`  | Sort by and display modification times                           |
+| `--sort-by-similarity` | `-S`  | Group files by name similarity (overridden by a metric sort)     |
+| `--icon-style`         |       | Icon style: `emoji` or `nerd`                                    |
+| `--verbose`            | `-v`  | Enable verbose (DEBUG) logging                                   |
 
-| Option              | Short | Description                                                    |
-| ------------------- | ----- | -------------------------------------------------------------- |
-| `--exclude`         | `-e`  | Directories to exclude (space-separated or multiple flags)     |
-| `--exclude-ext`     | `-x`  | File extensions to exclude (space-separated or multiple flags) |
-| `--exclude-pattern` | `-p`  | Patterns to exclude (glob by default, regex with --regex flag) |
-| `--include-pattern` | `-i`  | Patterns to include (overrides exclusions)                     |
-| `--regex`           | `-r`  | Treat patterns as regex instead of glob patterns               |
-| `--ignore-file`     | `-g`  | Ignore file to use (e.g., .gitignore)                          |
-| `--depth`           | `-d`  | Maximum depth to display (0 for unlimited)                     |
-| `--full-path`       | `-l`  | Show full paths instead of just filenames                      |
-| `--sort-by-loc`     | `-s`  | Sort files by lines of code and display LOC counts             |
-| `--sort-by-size`    | `-z`  | Sort files by size and display file sizes                      |
-| `--sort-by-mtime`   | `-m`  | Sort files by modification time and display timestamps         |
-| `--verbose`         | `-v`  | Enable verbose output                                          |
+!!! note "Pattern scope"
+`--exclude-pattern` and `--include-pattern` match against each file's **name**, not its path. For path-based filtering, use `--exclude` (directory names) or `--ignore-file` (gitignore-style). See [Pattern Matching](pattern-matching.md).
 
-## `visualize` Command
+## `visualize`
 
-The `visualize` command displays a directory structure in the terminal.
-
-### Usage
+Display a directory structure as a tree in the terminal.
 
 ```bash
 recursivist visualize [OPTIONS] [DIRECTORY]
 ```
 
-### Arguments
+| Argument    | Description                                                |
+| ----------- | ---------------------------------------------------------- |
+| `DIRECTORY` | Directory to visualize (defaults to the current directory) |
 
-| Argument    | Description                                                 |
-| ----------- | ----------------------------------------------------------- |
-| `DIRECTORY` | Directory path to visualize (defaults to current directory) |
+In addition to the [shared options](#shared-options), `visualize` supports:
 
-### Options
-
-| Option              | Short | Description                                                    |
-| ------------------- | ----- | -------------------------------------------------------------- |
-| `--exclude`         | `-e`  | Directories to exclude (space-separated or multiple flags)     |
-| `--exclude-ext`     | `-x`  | File extensions to exclude (space-separated or multiple flags) |
-| `--exclude-pattern` | `-p`  | Patterns to exclude (glob by default, regex with --regex flag) |
-| `--include-pattern` | `-i`  | Patterns to include (overrides exclusions)                     |
-| `--regex`           | `-r`  | Treat patterns as regex instead of glob patterns               |
-| `--ignore-file`     | `-g`  | Ignore file to use (e.g., .gitignore)                          |
-| `--depth`           | `-d`  | Maximum depth to display (0 for unlimited)                     |
-| `--full-path`       | `-l`  | Show full paths instead of just filenames                      |
-| `--sort-by-loc`     | `-s`  | Sort files by lines of code and display LOC counts             |
-| `--sort-by-size`    | `-z`  | Sort files by size and display file sizes                      |
-| `--sort-by-mtime`   | `-m`  | Sort files by modification time and display timestamps         |
-| `--verbose`         | `-v`  | Enable verbose output                                          |
+| Option         | Short | Description                                                                                 |
+| -------------- | ----- | ------------------------------------------------------------------------------------------- |
+| `--git-status` | `-G`  | Annotate files with Git status: `[U]` untracked, `[M]` modified, `[A]` added, `[D]` deleted |
 
 ### Examples
 
 ```bash
-# Visualize current directory
 recursivist visualize
-
-# Visualize specific directory
-recursivist visualize /path/to/directory
-
-# Exclude directories
-recursivist visualize --exclude "node_modules .git venv"
-
-# Exclude file extensions
-recursivist visualize --exclude-ext ".pyc .log .cache"
-
-# Use a gitignore-style file
-recursivist visualize --ignore-file .gitignore
-
-# Use glob patterns
+recursivist visualize /path/to/project
+recursivist visualize --exclude "node_modules .git"
+recursivist visualize --exclude-ext ".pyc .log"
 recursivist visualize --exclude-pattern "*.test.js" "*.spec.js"
-
-# Use regex patterns
-recursivist visualize --exclude-pattern "^test_.*\.py$" ".*_test\.js$" --regex
-
-# Include only specific patterns
-recursivist visualize --include-pattern "src/*" "*.md"
-
-# Limit directory depth
+recursivist visualize --exclude-pattern "^test_.*\.py$" --regex
+recursivist visualize --include-pattern "*.md" "*.py"
+recursivist visualize --ignore-file .gitignore
 recursivist visualize --depth 3
-
-# Show full file paths
 recursivist visualize --full-path
-
-# Show lines of code
 recursivist visualize --sort-by-loc
-
-# Show file sizes
-recursivist visualize --sort-by-size
-
-# Show modification times
-recursivist visualize --sort-by-mtime
-
-# Combine statistics
-recursivist visualize --sort-by-loc --sort-by-size
+recursivist visualize --git-status
+recursivist visualize --icon-style nerd
 ```
 
-## `export` Command
+## `export`
 
-The `export` command exports a directory structure to various formats.
-
-### Usage
+Export a directory structure to one or more files.
 
 ```bash
 recursivist export [OPTIONS] [DIRECTORY]
 ```
 
-### Arguments
+| Argument    | Description                                             |
+| ----------- | ------------------------------------------------------- |
+| `DIRECTORY` | Directory to export (defaults to the current directory) |
 
-| Argument    | Description                                              |
-| ----------- | -------------------------------------------------------- |
-| `DIRECTORY` | Directory path to export (defaults to current directory) |
+In addition to the [shared options](#shared-options), `export` supports:
 
-### Options
+| Option         | Short | Description                                                              |
+| -------------- | ----- | ------------------------------------------------------------------------ |
+| `--format`     | `-f`  | Export formats: `txt`, `json`, `html`, `md`, `jsx`, `svg` (default `md`) |
+| `--output-dir` | `-o`  | Output directory (created if missing; defaults to current directory)     |
+| `--prefix`     | `-n`  | Filename prefix for exports (default `structure`)                        |
+| `--git-status` | `-G`  | Annotate exported files with Git status markers                          |
 
-| Option              | Short | Description                                                    |
-| ------------------- | ----- | -------------------------------------------------------------- |
-| `--format`          | `-f`  | Export formats: txt, json, html, md, jsx, svg                  |
-| `--output-dir`      | `-o`  | Output directory for exports                                   |
-| `--prefix`          | `-n`  | Prefix for exported filenames                                  |
-| `--exclude`         | `-e`  | Directories to exclude (space-separated or multiple flags)     |
-| `--exclude-ext`     | `-x`  | File extensions to exclude (space-separated or multiple flags) |
-| `--exclude-pattern` | `-p`  | Patterns to exclude (glob by default, regex with --regex flag) |
-| `--include-pattern` | `-i`  | Patterns to include (overrides exclusions)                     |
-| `--regex`           | `-r`  | Treat patterns as regex instead of glob patterns               |
-| `--ignore-file`     | `-g`  | Ignore file to use (e.g., .gitignore)                          |
-| `--depth`           | `-d`  | Maximum depth to display (0 for unlimited)                     |
-| `--full-path`       | `-l`  | Show full paths instead of just filenames                      |
-| `--sort-by-loc`     | `-s`  | Sort files by lines of code and display LOC counts             |
-| `--sort-by-size`    | `-z`  | Sort files by size and display file sizes                      |
-| `--sort-by-mtime`   | `-m`  | Sort files by modification time and display timestamps         |
-| `--verbose`         | `-v`  | Enable verbose output                                          |
+Exports default to the `emoji` icon style for cross-platform consistency, regardless of saved configuration.
 
 ### Examples
 
 ```bash
-# Export to Markdown format
-recursivist export --format md
-
-# Export to multiple formats
+recursivist export
+recursivist export --format html
 recursivist export --format "json html md"
-
-# Export to a specific directory
 recursivist export --format txt --output-dir ./exports
-
-# Custom filename prefix
 recursivist export --format json --prefix my-project
-
-# Export with exclusions
 recursivist export --exclude node_modules --exclude-ext .pyc
-
-# Export with file statistics
 recursivist export --format html --sort-by-loc --sort-by-size
+recursivist export --format md --icon-style nerd
 ```
 
-## `compare` Command
+## `compare`
 
-The `compare` command compares two directory structures side by side.
-
-### Usage
+Compare two directory structures side by side.
 
 ```bash
 recursivist compare [OPTIONS] DIR1 DIR2
 ```
 
-### Arguments
+| Argument | Description                 |
+| -------- | --------------------------- |
+| `DIR1`   | First directory to compare  |
+| `DIR2`   | Second directory to compare |
 
-| Argument | Description                      |
-| -------- | -------------------------------- |
-| `DIR1`   | First directory path to compare  |
-| `DIR2`   | Second directory path to compare |
+In addition to the [shared options](#shared-options), `compare` supports:
 
-### Options
+| Option         | Short | Description                                                        |
+| -------------- | ----- | ------------------------------------------------------------------ |
+| `--save`       | `-f`  | Save the comparison as an HTML file instead of printing it         |
+| `--output-dir` | `-o`  | Output directory for the HTML file (defaults to current directory) |
+| `--prefix`     | `-n`  | Filename prefix for the HTML file (default `comparison`)           |
 
-| Option              | Short | Description                                                    |
-| ------------------- | ----- | -------------------------------------------------------------- |
-| `--exclude`         | `-e`  | Directories to exclude (space-separated or multiple flags)     |
-| `--exclude-ext`     | `-x`  | File extensions to exclude (space-separated or multiple flags) |
-| `--exclude-pattern` | `-p`  | Patterns to exclude (glob by default, regex with --regex flag) |
-| `--include-pattern` | `-i`  | Patterns to include (overrides exclusions)                     |
-| `--regex`           | `-r`  | Treat patterns as regex instead of glob patterns               |
-| `--ignore-file`     | `-g`  | Ignore file to use (e.g., .gitignore)                          |
-| `--depth`           | `-d`  | Maximum depth to display (0 for unlimited)                     |
-| `--full-path`       | `-l`  | Show full paths instead of just filenames                      |
-| `--save`            | `-f`  | Save comparison result to HTML file                            |
-| `--output-dir`      | `-o`  | Output directory for exports                                   |
-| `--prefix`          | `-n`  | Prefix for exported filenames                                  |
-| `--sort-by-loc`     | `-s`  | Sort files by lines of code and display LOC counts             |
-| `--sort-by-size`    | `-z`  | Sort files by size and display file sizes                      |
-| `--sort-by-mtime`   | `-m`  | Sort files by modification time and display timestamps         |
-| `--verbose`         | `-v`  | Enable verbose output                                          |
+!!! note
+`compare` does not support `--git-status`. Its `-f` is shorthand for `--save`, not `--format`. Items unique to `DIR1` are highlighted in green, items unique to `DIR2` in red.
 
 ### Examples
 
 ```bash
-# Compare two directories
 recursivist compare dir1 dir2
-
-# Compare with exclusions
 recursivist compare dir1 dir2 --exclude "node_modules .git"
-
-# Compare with depth limit
 recursivist compare dir1 dir2 --depth 2
-
-# Export comparison to HTML
 recursivist compare dir1 dir2 --save --output-dir ./reports
-
-# Compare with file statistics
 recursivist compare dir1 dir2 --sort-by-loc --sort-by-size
 ```
 
-## `completion` Command
+## `config`
 
-The `completion` command generates shell completion scripts for different shells.
-
-### Usage
+Manage persistent user preferences, stored as JSON in your platform's application-data directory (for example, `~/.config/recursivist/config.json` on Linux).
 
 ```bash
-recursivist completion [SHELL]
+recursivist config set KEY VALUE
 ```
 
-### Arguments
-
-| Argument | Description                              |
-| -------- | ---------------------------------------- |
-| `SHELL`  | Shell type (bash, zsh, fish, powershell) |
+| Argument | Description                                       |
+| -------- | ------------------------------------------------- |
+| `KEY`    | Configuration key (currently `icon-style`)        |
+| `VALUE`  | Value to set (`emoji` or `nerd` for `icon-style`) |
 
 ### Examples
 
 ```bash
-# Generate Bash completion
-recursivist completion bash > ~/.bash_completion.d/recursivist
-
-# Generate Zsh completion
-recursivist completion zsh > ~/.zsh/completion/_recursivist
-
-# Generate Fish completion
-recursivist completion fish > ~/.config/fish/completions/recursivist.fish
-
-# Generate PowerShell completion
-recursivist completion powershell > recursivist.ps1
+recursivist config set icon-style nerd
+recursivist config set icon-style emoji
 ```
 
-## `version` Command
+## `completion`
 
-The `version` command displays the current version of Recursivist.
+Print a shell completion activation snippet to add to your shell's startup file.
 
-### Usage
+```bash
+recursivist completion SHELL
+```
+
+| Argument | Description                                       |
+| -------- | ------------------------------------------------- |
+| `SHELL`  | Target shell: `bash`, `zsh`, `fish`, `powershell` |
+
+For most users, the built-in `recursivist --install-completion` is the simplest way to enable completion. See [Shell Completion](../user-guide/shell-completion.md).
+
+## `version`
+
+Print the installed version.
 
 ```bash
 recursivist version

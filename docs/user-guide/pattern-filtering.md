@@ -1,188 +1,133 @@
 # Pattern Filtering
 
-Recursivist provides powerful pattern-based filtering to help you focus on the files and directories that matter most. This guide explains the different filtering methods available.
+Recursivist offers several complementary ways to control which files and directories appear. This guide explains each one and, importantly, how they interact.
 
-## Basic Filtering
+## The Four Filtering Mechanisms
 
-### Excluding Directories
+| Mechanism                | Option                                    | Matches against                |
+| ------------------------ | ----------------------------------------- | ------------------------------ |
+| Directory exclusion      | `--exclude`                               | Directory **name**             |
+| Extension exclusion      | `--exclude-ext`                           | File **extension**             |
+| Include/exclude patterns | `--include-pattern` / `--exclude-pattern` | File **name** (glob or regex)  |
+| Ignore file              | `--ignore-file`                           | File **path**, gitignore-style |
 
-To exclude specific directories from the visualization or export, you can specify multiple directories either as space-separated values with a single flag or with multiple flags:
+The distinction in the last column matters: **include and exclude patterns test a file's name, not its path**, whereas an ignore file matches paths. This determines which tool to reach for, as explained below.
+
+## Directory Exclusion
+
+Exclude directories by name. Matching directories are pruned entirely and never descended into:
 
 ```bash
-# Space-separated
 recursivist visualize --exclude "node_modules .git venv"
-
-# Multiple flags
-recursivist visualize --exclude node_modules --exclude .git --exclude venv
+# or with repeated flags:
+recursivist visualize --exclude node_modules --exclude .git
 ```
 
-### Excluding File Extensions
+## Extension Exclusion
 
-To exclude files with specific extensions:
+Exclude files by extension. The leading dot is optional:
 
 ```bash
 recursivist visualize --exclude-ext ".pyc .log .cache"
 ```
 
-File extensions can be specified with or without the leading dot (`.`), as Recursivist normalizes them internally.
+## Include and Exclude Patterns
 
-## Advanced Filtering
-
-### Using Gitignore Files
-
-If you have a `.gitignore` file (or similar), you can use it to filter the directory structure:
+These options accept either glob patterns (the default) or regular expressions (with `--regex`), and **match against each file's name** — the basename, evaluated at every level of the tree.
 
 ```bash
-recursivist visualize --ignore-file .gitignore
-```
-
-You can also specify a different file:
-
-```bash
-recursivist visualize --ignore-file .recursivist-ignore
-```
-
-### Glob Pattern Filtering
-
-By default, Recursivist supports glob patterns for filtering:
-
-```bash
-# Exclude all JavaScript test files
+# Exclude every JavaScript test file, anywhere in the tree
 recursivist visualize --exclude-pattern "*.test.js" "*.spec.js"
 
-# Exclude all Python cache files and directories
-recursivist visualize --exclude-pattern "__pycache__" "*.pyc"
+# Exclude Python cache files
+recursivist visualize --exclude-pattern "*.pyc"
+
+# Keep only Markdown and Python files
+recursivist visualize --include-pattern "*.md" "*.py"
 ```
 
-Glob patterns use simple wildcard characters:
+!!! warning "Patterns match file names, not paths"
+Because patterns are tested against the file name only, a path-style pattern such as `src/*` or `src/**/*.js` will not match anything — file names never contain a `/`. A pattern like `*.js`, by contrast, matches `.js` files at **any** depth. To filter by location rather than by name, use a directory exclusion (`--exclude src`) or an ignore file (see below).
 
-- `*`: Matches any number of characters
-- `?`: Matches a single character
-- `[abc]`: Matches one character in the brackets
-- `[!abc]`: Matches one character not in the brackets
-- `**`: Matches directories recursively (e.g., `src/**/*.js` matches all JS files in src and subdirectories)
-
-### Regex Pattern Filtering
-
-For more complex patterns, you can use regular expressions by adding the `--regex` flag:
+Glob syntax: `*` matches any run of characters, `?` matches a single character, `[abc]` matches one listed character, and `[!abc]` matches one character not listed. With `--regex`, patterns follow Python's regular-expression syntax and are searched within the file name (anchor with `^` and `$` for a full-name match):
 
 ```bash
-# Exclude files starting with "test_" and ending with ".py"
 recursivist visualize --exclude-pattern "^test_.*\.py$" --regex
-
-# Exclude both JavaScript and TypeScript test files
 recursivist visualize --exclude-pattern ".*\.(spec|test)\.(js|ts)$" --regex
 ```
 
-Regular expressions provide more powerful matching capabilities but can be more complex to write.
+## Ignore Files
 
-## Include Patterns
-
-Sometimes it's easier to specify what you want to include rather than what you want to exclude. For this, use the `--include-pattern` option:
+The `--ignore-file` option reads a gitignore-style file and applies its patterns to each file's **path relative to the scan root**. This is the path-aware mechanism, supporting anchoring, the `**` wildcard, directory-only patterns (a trailing `/`), and negation (a leading `!`):
 
 ```bash
-# Include only source code files and documentation
-recursivist visualize --include-pattern "src/**/*.js" "docs/*.md"
+recursivist visualize --ignore-file .gitignore
+recursivist visualize --ignore-file .recursivist-ignore
 ```
 
-When you specify include patterns, they take precedence over exclude patterns. Only files that match at least one include pattern will be shown.
+An example `.recursivist-ignore`:
 
-With regex:
-
-```bash
-# Include only React components and their tests
-recursivist visualize --include-pattern "^src/.*\.(jsx|tsx)$" "^src/.*\.test\.(jsx|tsx)$" --regex
 ```
+# Dependencies and build output
+node_modules/
+dist/
+build/
+
+# Logs and caches
+*.log
+.cache/
+
+# But keep an important generated file
+!build/manifest.json
+```
+
+## Order of Precedence
+
+When several mechanisms are combined, Recursivist resolves them per file as follows:
+
+1. **Directory exclusions** (`--exclude`) prune matching directories before anything else.
+2. **Include patterns** (`--include-pattern`): if any are set, a file must match at least one, or it is dropped.
+3. **Exclude patterns** (`--exclude-pattern`): a matching file is removed — **this overrides include patterns**.
+4. **Excluded extensions** (`--exclude-ext`): a matching file is removed — **this also overrides include patterns**.
+5. **Include match wins over ignore files**: a file that matched an include pattern is kept even if an ignore-file pattern would exclude it.
+6. **Ignore-file patterns** (`--ignore-file`) are applied last to anything still undecided.
+
+!!! note
+This means include patterns do **not** override everything. Explicit exclude patterns and excluded extensions take priority over includes; include patterns only take priority over ignore-file patterns.
 
 ## Combining Filters
 
-You can combine different filtering methods for precise control:
+The mechanisms compose cleanly:
 
 ```bash
 recursivist visualize \
---exclude "node_modules .git" \
---exclude-ext ".pyc .log" \
---exclude-pattern "*.test.js" \
---include-pattern "src/*" "*.md" \
---ignore-file .gitignore
+  --exclude "node_modules .git build" \
+  --exclude-ext ".pyc .log" \
+  --exclude-pattern "*.test.js" \
+  --include-pattern "*.js" "*.md" \
+  --ignore-file .gitignore
 ```
 
-## Filter Order of Precedence
+## Same Behavior Across Commands
 
-When multiple filtering methods are used, Recursivist applies them in the following order:
+Every filtering option works identically with `visualize`, `export`, and `compare`:
 
-1. Include patterns (if specified, only matching files will be considered)
-2. Exclude patterns (matching files are excluded)
-3. Excluded extensions (files with matching extensions are excluded)
-4. Excluded directories (directories matching these names are excluded)
-5. Gitignore patterns (if specified, patterns from the ignore file are applied)
-
-This means that include patterns have the highest precedence and can override all other exclusions.
+```bash
+recursivist export --format md --include-pattern "*.py" --exclude-pattern "test_*.py"
+recursivist compare dir1 dir2 --exclude "node_modules .git" --exclude-ext ".log"
+```
 
 ## Examples
 
-### Focus on Source Code Only
-
 ```bash
-recursivist visualize --include-pattern "src/*"
+# Documentation files only
+recursivist visualize --include-pattern "*.md" "*.rst" "*.txt"
+
+# Exclude generated and minified assets
+recursivist visualize --exclude "dist build" --exclude-ext ".min.js .map"
+
+# Backend source, excluding tests (regex)
+recursivist visualize --include-pattern ".*\.py$" --exclude-pattern "test_.*\.py$" --regex
 ```
 
-### Exclude Generated Files
-
-```bash
-recursivist visualize --exclude "dist build coverage" --exclude-ext ".min.js .map"
-```
-
-### View Only Documentation
-
-```bash
-recursivist visualize --include-pattern "*.md" "*.rst" "docs/*"
-```
-
-### Complex Filtering with Regex
-
-```bash
-recursivist visualize \
---include-pattern "^src/.*\.(jsx?|tsx?)$" \
---exclude-pattern ".*\.(spec|test)\.(jsx?|tsx?)$" \
---regex
-```
-
-This includes only JavaScript and TypeScript source files from the `src` directory, but excludes test files.
-
-### Filtering with File Statistics
-
-You can combine filtering with file statistics to focus on specific aspects of your codebase:
-
-```bash
-# Show only source files with more than 100 lines
-recursivist visualize \
---include-pattern "src/**/*.py" \
---sort-by-loc
-
-# Find largest files in a specific directory
-recursivist visualize \
---include-pattern "assets/**/*" \
---sort-by-size
-
-# See recently modified files
-recursivist visualize \
---exclude "node_modules .git" \
---sort-by-mtime
-```
-
-While Recursivist doesn't directly filter by the statistics themselves (like "show only files larger than X"), sorting by these metrics helps identify key files of interest.
-
-## Filtering in Export and Compare Commands
-
-All the filtering techniques described above work the same way with the `export` and `compare` commands:
-
-```bash
-# Export only source files
-recursivist export --format md --include-pattern "src/**/*.js"
-
-# Compare only specific directories
-recursivist compare dir1 dir2 --include-pattern "src/*" "config/*"
-```
-
-This consistency across commands allows you to apply the same filtering logic regardless of the operation you're performing.
+For a focused reference on glob and regex syntax, see [Pattern Matching](../reference/pattern-matching.md).

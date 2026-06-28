@@ -1,271 +1,220 @@
 # Visualization
 
-The `visualize` command is the primary way to display directory structures in the terminal with Recursivist. This guide explains how to use it effectively and customize the output.
+The `visualize` command renders a directory structure as a color-coded tree in the terminal. This guide covers its display options.
 
 ## Basic Visualization
 
-To visualize the current directory structure:
-
 ```bash
-recursivist visualize
+recursivist visualize                  # current directory
+recursivist visualize /path/to/project # a specific directory
 ```
 
-For a specific directory:
+A progress indicator is shown while the directory is scanned, then the tree is printed:
 
-```bash
-recursivist visualize /path/to/directory
+```
+📁 my-project
+├── 📄 README.md
+├── 📄 setup.py
+├── 📄 requirements.txt
+└── 📁 src
+    ├── 📄 main.py
+    ├── 📄 utils.py
+    └── 📁 tests
+        ├── 📄 test_main.py
+        └── 📄 test_utils.py
 ```
 
-## Customizing the Visualization
+Within each directory, files appear before subdirectories. Files are ordered by extension and then name.
 
-### Color Coding
+## Color Coding
 
-By default, Recursivist color-codes files based on their extensions. Each file extension gets a unique color, generated deterministically to ensure consistent visualization:
+Each file extension is assigned a unique color, generated deterministically from the extension itself. The same extension always gets the same color, and the algorithm spaces colors apart so different types stay visually distinct.
 
-- The same extension always gets the same color in all visualizations
-- Colors are generated to be visually distinct between different file types
-- The color scheme provides good contrast for readability
+## Icon Styles
 
-### File Statistics
+Use file-type-specific Nerd Font glyphs instead of the generic emoji for a single run:
 
-Recursivist can display and sort by various file statistics:
+```bash
+recursivist visualize --icon-style nerd
+```
 
-#### Lines of Code
+To make a style the default, see [Basic Usage](basic-usage.md#icon-styles).
 
-Calculate and display the number of lines in each file and total lines per directory:
+## File Statistics
+
+### Lines of Code
+
+Count lines per file and total them per directory:
 
 ```bash
 recursivist visualize --sort-by-loc
 ```
 
-Output:
-
 ```
-📂 my-project (4328 lines)
-├── 📁 src (3851 lines)
-│   ├── 📄 main.py (245 lines)
-│   ├── 📄 utils.py (157 lines)
-...
+📁 my-project (1262 lines)
+├── 📄 README.md (124 lines)
+├── 📄 setup.py (65 lines)
+├── 📄 requirements.txt (18 lines)
+└── 📁 src (1055 lines)
+    ├── 📄 main.py (245 lines)
+    ├── 📄 utils.py (157 lines)
+    └── 📁 tests (653 lines)
+        ├── 📄 test_main.py (412 lines)
+        └── 📄 test_utils.py (241 lines)
 ```
 
-#### File Sizes
+### File Sizes
 
-Display file sizes with appropriate units (B, KB, MB, GB):
+Display sizes with units (B, KB, MB, GB):
 
 ```bash
 recursivist visualize --sort-by-size
 ```
 
-Output:
-
 ```
-📂 my-project (1.2 MB)
-├── 📁 src (850.5 KB)
-│   ├── 📄 main.py (12.4 KB)
-│   ├── 📄 utils.py (8.2 KB)
-...
+📁 my-project (57.1 KB)
+├── 📄 README.md (4.2 KB)
+├── 📄 setup.py (3.8 KB)
+├── 📄 requirements.txt (512 B)
+└── 📁 src (48.6 KB)
+    ├── 📄 main.py (12.4 KB)
+    ├── 📄 utils.py (8.2 KB)
+    └── 📁 tests (28.0 KB)
+        ├── 📄 test_main.py (18.6 KB)
+        └── 📄 test_utils.py (9.4 KB)
 ```
 
-#### Modification Times
+### Modification Times
 
-Show when files were last modified with smart formatting:
+Show when files were last modified, with recency-aware formatting (`Today HH:MM`, `Yesterday HH:MM`, a weekday and time within the last week, `Mon DD` earlier this year, or `YYYY-MM-DD` for older files):
 
 ```bash
 recursivist visualize --sort-by-mtime
 ```
 
-Output:
-
 ```
-📂 my-project (Today 14:30)
-├── 📁 src (Today 14:25)
-│   ├── 📄 main.py (Today 14:25)
-│   ├── 📄 utils.py (Yesterday 18:10)
-...
+📁 my-project (Today 14:30)
+├── 📄 README.md (Today 10:15)
+├── 📄 setup.py (Today 09:00)
+├── 📄 requirements.txt (Yesterday 16:00)
+└── 📁 src (Today 14:30)
+    ├── 📄 main.py (Today 14:30)
+    ├── 📄 utils.py (Today 09:15)
+    └── 📁 tests (Today 14:25)
+        ├── 📄 test_main.py (Today 14:25)
+        └── 📄 test_utils.py (Yesterday 18:10)
 ```
 
-#### Combining Statistics
+### Combining Statistics
 
-You can combine multiple statistics in a single view:
+Metrics are combinable and always appear in the order LOC, size, mtime:
 
 ```bash
 recursivist visualize --sort-by-loc --sort-by-size --sort-by-mtime
 ```
 
-Output:
+```
+📁 my-project (1262 lines, 57.1 KB, Today 14:30)
+├── 📄 README.md (124 lines, 4.2 KB, Today 10:15)
+├── 📄 setup.py (65 lines, 3.8 KB, Today 09:00)
+├── 📄 requirements.txt (18 lines, 512 B, Yesterday 16:00)
+└── 📁 src (1055 lines, 48.6 KB, Today 14:30)
+    ├── 📄 main.py (245 lines, 12.4 KB, Today 14:30)
+    ├── 📄 utils.py (157 lines, 8.2 KB, Today 09:15)
+    └── 📁 tests (653 lines, 28.0 KB, Today 14:25)
+        ├── 📄 test_main.py (412 lines, 18.6 KB, Today 14:25)
+        └── 📄 test_utils.py (241 lines, 9.4 KB, Yesterday 18:10)
+```
+
+When a metric sort is active, files are ordered by that metric (descending) rather than by name.
+
+## Grouping by Name Similarity
+
+```bash
+recursivist visualize --sort-by-similarity
+```
+
+This groups files with similar names next to each other (for example, `main.py` beside `main.js`). It replaces the default extension-and-name ordering but is overridden by any active metric sort.
+
+## Git Status
+
+Inside a Git repository, annotate files with their status:
+
+```bash
+recursivist visualize --git-status
+```
 
 ```
-📂 my-project (4328 lines, 1.2 MB, Today 14:30)
-├── 📁 src (3851 lines, 850.5 KB, Today 14:25)
-│   ├── 📄 main.py (245 lines, 12.4 KB, Today 14:25)
-...
+📁 my-project
+├── 📄 README.md
+├── 📄 newfile.txt [U]
+└── 📁 src
+    ├── 📄 main.py
+    └── 📄 utils.py [M]
 ```
 
-### Directory Depth Control
+Markers are `[U]` untracked, `[M]` modified, `[A]` added, and `[D]` deleted. Deleted files are also shown struck through, and a file deleted from disk is still listed so the change is visible. If the directory isn't inside a repository (or has no changes), no markers are added.
 
-For large projects, it can be helpful to limit the directory depth:
+## Directory Depth Control
+
+Limit how deep the tree goes — useful for large projects:
 
 ```bash
 recursivist visualize --depth 2
 ```
 
-This will display only the top two levels of the directory structure, with indicators showing where the depth limit was reached:
-
 ```
-📂 my-project
-├── 📁 src
-│   ├── 📄 main.py
-│   ├── 📄 utils.py
-│   └── 📁 tests
-│       ⋯ (max depth reached)
+📁 my-project
 ├── 📄 README.md
-...
+└── 📁 src
+    ├── 📄 main.py
+    ├── 📄 utils.py
+    └── 📁 tests
+        ⋯ (max depth reached)
 ```
 
-### Full Path Display
+## Full Path Display
 
-By default, Recursivist shows only filenames. For a view with full paths:
+Show absolute paths instead of bare filenames:
 
 ```bash
 recursivist visualize --full-path
 ```
 
-Example:
-
 ```
-📂 project
-├── 📄 /home/user/project/README.md
-├── 📁 src
-│   ├── 📄 /home/user/project/src/main.py
-│   └── 📄 /home/user/project/src/utils.py
+📁 my-project
+├── 📄 /home/user/my-project/README.md
+└── 📁 src
+    └── 📄 /home/user/my-project/src/main.py
 ```
 
-## Filtering the Visualization
+## Filtering
 
-### Excluding Directories
-
-To exclude specific directories:
+All of Recursivist's filtering options apply to `visualize`:
 
 ```bash
 recursivist visualize --exclude "node_modules .git"
-```
-
-### Excluding File Extensions
-
-To exclude files with specific extensions:
-
-```bash
 recursivist visualize --exclude-ext ".pyc .log"
-```
-
-### Pattern-Based Filtering
-
-For more precise control, you can use patterns:
-
-```bash
-# Exclude with glob patterns (default)
 recursivist visualize --exclude-pattern "*.test.js" "*.spec.js"
-
-# Exclude with regex patterns
 recursivist visualize --exclude-pattern "^test_.*\.py$" --regex
-
-# Include only specific patterns (overrides exclusions)
-recursivist visualize --include-pattern "src/*" "*.md"
-```
-
-See the [Pattern Filtering](pattern-filtering.md) guide for more details.
-
-### Using Gitignore Files
-
-If you have a `.gitignore` file, you can use it to filter the directory structure:
-
-```bash
+recursivist visualize --include-pattern "*.py" "*.md"
 recursivist visualize --ignore-file .gitignore
 ```
 
-You can also specify a different ignore file:
-
-```bash
-recursivist visualize --ignore-file .recursivist-ignore
-```
-
-## Output Example
-
-The visualization output looks like this:
-
-```
-📂 my-project
-├── 📁 src
-│   ├── 📄 main.py
-│   ├── 📄 utils.py
-│   └── 📁 tests
-│       ├── 📄 test_main.py
-│       └── 📄 test_utils.py
-├── 📄 README.md
-├── 📄 requirements.txt
-└── 📄 setup.py
-```
-
-With depth limits, you might see:
-
-```
-📂 my-project
-├── 📁 src
-│   ├── 📄 main.py
-│   ├── 📄 utils.py
-│   └── 📁 tests
-│       ⋯ (max depth reached)
-├── 📄 README.md
-├── 📄 requirements.txt
-└── 📄 setup.py
-```
-
-With file statistics enabled:
-
-```
-📂 my-project (4328 lines)
-├── 📁 src (3851 lines)
-│   ├── 📄 main.py (245 lines)
-│   ├── 📄 utils.py (157 lines)
-│   └── 📁 tests (653 lines)
-│       ├── 📄 test_main.py (412 lines)
-│       └── 📄 test_utils.py (241 lines)
-├── 📄 README.md (124 lines)
-├── 📄 requirements.txt (18 lines)
-└── 📄 setup.py (65 lines)
-```
-
-## Verbose Mode
-
-For detailed information about the visualization process:
-
-```bash
-recursivist visualize --verbose
-```
-
-This is useful for debugging or understanding how patterns are applied.
-
-## Terminal Compatibility
-
-Recursivist works in most modern terminals with:
-
-- Unicode support for special characters (📁, 📄, etc.)
-- ANSI color support
-
-If your terminal doesn't support these features, you might see different characters or no colors.
+See [Pattern Filtering](pattern-filtering.md) for details.
 
 ## Performance Tips
 
-For large directories:
+For very large directories:
 
-1. Use the `--depth` option to limit the directory depth
-2. Exclude large directories you don't need with `--exclude`
-3. Use pattern matching to focus on specific parts of the directory tree
-4. Avoid using `--sort-by-loc` for very large repositories as line counting can be time-consuming
+1. Limit depth with `--depth`.
+2. Exclude heavy directories (`node_modules`, `.git`, build output) with `--exclude`.
+3. Use include patterns to focus on the part of the tree you care about.
+4. Be aware that `--sort-by-loc` reads every file to count lines, which is slower on large repositories.
 
 ## Related Commands
 
-- [Export](export.md): Save directory structures to various formats
-- [Compare](compare.md): Compare two directory structures side by side
+- [Export](export.md): save structures to files
+- [Compare](compare.md): diff two directories
 
-For complete command options, see the [CLI Reference](../reference/cli-reference.md).
+For every option, see the [CLI Reference](../reference/cli-reference.md).

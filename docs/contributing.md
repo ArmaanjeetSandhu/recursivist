@@ -4,26 +4,28 @@ Thank you for your interest in contributing to Recursivist! This document provid
 
 ## Table of Contents
 
-- [Code of Conduct](#code-of-conduct)
-- [Getting Started](#getting-started)
-  - [Setting Up Your Development Environment](#setting-up-your-development-environment)
-- [Development Workflow](#development-workflow)
-  - [Creating a Branch](#creating-a-branch)
-  - [Making Changes](#making-changes)
-  - [Testing Your Changes](#testing-your-changes)
-  - [Submitting a Pull Request](#submitting-a-pull-request)
-- [Coding Standards](#coding-standards)
-  - [Code Style](#code-style)
-  - [Documentation](#documentation)
-  - [Type Annotations](#type-annotations)
-- [Testing](#testing)
-  - [Running Tests](#running-tests)
-  - [Writing Tests](#writing-tests)
-- [Bug Reports and Feature Requests](#bug-reports-and-feature-requests)
-  - [Reporting Bugs](#reporting-bugs)
-  - [Suggesting Features](#suggesting-features)
-- [Release Process](#release-process)
-- [Community](#community)
+- [Contributing to Recursivist](#contributing-to-recursivist)
+  - [Table of Contents](#table-of-contents)
+  - [Code of Conduct](#code-of-conduct)
+  - [Getting Started](#getting-started)
+    - [Setting Up Your Development Environment](#setting-up-your-development-environment)
+  - [Development Workflow](#development-workflow)
+    - [Creating a Branch](#creating-a-branch)
+    - [Making Changes](#making-changes)
+    - [Testing Your Changes](#testing-your-changes)
+    - [Submitting a Pull Request](#submitting-a-pull-request)
+  - [Coding Standards](#coding-standards)
+    - [Code Style](#code-style)
+    - [Documentation](#documentation)
+    - [Type Annotations](#type-annotations)
+  - [Testing](#testing)
+    - [Running Tests](#running-tests)
+    - [Writing Tests](#writing-tests)
+  - [Bug Reports and Feature Requests](#bug-reports-and-feature-requests)
+    - [Reporting Bugs](#reporting-bugs)
+    - [Suggesting Features](#suggesting-features)
+  - [Release Process](#release-process)
+  - [Community](#community)
 
 ## Code of Conduct
 
@@ -222,7 +224,7 @@ This will run both `mypy --strict` and `pyright` against the codebase.
 We use [pytest](https://pytest.org/) via Nox. Coverage reporting is enabled by default (configured in `pyproject.toml`).
 
 ```bash
-# Run tests across all supported Python versions (3.9–3.13)
+# Run tests across all supported Python versions (3.10–3.14)
 nox -s tests
 
 # Pass extra arguments to pytest (e.g. run a specific test)
@@ -235,14 +237,14 @@ pytest
 ### Writing Tests
 
 - Write tests for all new features and bug fixes.
-- Place tests in the `tests/` directory with a name matching the module being tested (e.g. `tests/test_core.py`).
+- Place tests in the `tests/` directory with a name matching the module being tested (e.g. `tests/test_colors.py`).
 - Follow the test style used in existing tests.
 
 Example test:
 
 ```python
-# tests/test_core.py
-from recursivist.core import generate_color_for_extension
+# tests/test_colors.py
+from recursivist.colors import generate_color_for_extension
 
 def test_generate_color_for_extension():
    # Given

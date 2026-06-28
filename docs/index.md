@@ -24,16 +24,16 @@
     </div>
     <div style="height: 6px;"></div>
     <div class="terminal-output">
-      <pre> my-project (1262 lines)
-├──  src (1055 lines)
-│   ├── <span style="color: #83e43d;"> main.py</span> (245 lines)
-│   ├── <span style="color: #83e43d;"> utils.py</span> (157 lines)
-│   └──  tests (653 lines)
-│       ├── <span style="color: #83e43d;"> test_main.py</span> (412 lines)
-│       └── <span style="color: #83e43d;"> test_utils.py</span> (241 lines)
-├── <span style="color: #f1fa8c;"> README.md</span> (124 lines)
-├── <span style="color: #bd93f9;"> requirements.txt</span> (18 lines)
-└── <span style="color: #83e43d;"> setup.py</span> (65 lines)</pre>
+      <pre> my-project (1262 lines)
+├── <span style="color: #f1fa8c;"> README.md</span> (124 lines)
+├── <span style="color: #83e43d;"> setup.py</span> (65 lines)
+├── <span style="color: #bd93f9;"> requirements.txt</span> (18 lines)
+└──  src (1055 lines)
+    ├── <span style="color: #83e43d;"> main.py</span> (245 lines)
+    ├── <span style="color: #83e43d;"> utils.py</span> (157 lines)
+    └──  tests (653 lines)
+        ├── <span style="color: #83e43d;"> test_main.py</span> (412 lines)
+        └── <span style="color: #83e43d;"> test_utils.py</span> (241 lines)</pre>
     </div>
   </div>
 </div>
@@ -75,7 +75,7 @@
     </div>
     <div class="feature-title">Gitignore Support</div>
     <div class="feature-description">Automatically respects your `.gitignore` patterns and similar ignore files to exclude files and directories you don't want to include in the visualization.</div>
-    <a href="examples/advanced/#using-with-git-repositories" class="feature-link">Using with Git <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
+    <a href="advanced/integration/#git" class="feature-link">Using with Git <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
   </div>
 
   <div class="feature-card">
@@ -101,7 +101,7 @@
       <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 256 256" aria-hidden="true"><rect width="256" height="256" fill="none"/><path d="M216,112v96a8,8,0,0,1-8,8H48a8,8,0,0,1-8-8V112a8,8,0,0,1,8-8H80" opacity="0.2" fill="currentColor"/><path d="M216,112v96a8,8,0,0,1-8,8H48a8,8,0,0,1-8-8V112a8,8,0,0,1,8-8H80" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><line x1="128" y1="24" x2="128" y2="152" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><polyline points="80 72 128 24 176 72" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/></svg>
     </div>
     <div class="feature-title">Multiple Export Formats</div>
-    <div class="feature-description">Export to TXT, JSON, HTML, Markdown, and React components with consistent styling across formats for documentation and integration needs.</div>
+    <div class="feature-description">Export to TXT, JSON, HTML, Markdown, SVG, and React components with consistent styling across formats for documentation and integration needs.</div>
     <a href="reference/export-formats/" class="feature-link">Export formats <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
   </div>
 
@@ -111,7 +111,7 @@
     </div>
     <div class="feature-title">Depth Control</div>
     <div class="feature-description">Limit directory traversal depth to focus on higher-level structure or specific layers of your project hierarchy for better visualization management.</div>
-    <a href="examples/advanced/#limiting-directory-depth" class="feature-link">Depth limiting <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
+    <a href="user-guide/visualization/#directory-depth-control" class="feature-link">Depth limiting <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
   </div>
 
   <div class="feature-card">
@@ -132,7 +132,7 @@ pip install recursivist
 ```
 
 !!! info "Dependencies"
-Recursivist is built with [Rich](https://github.com/Textualize/rich) for beautiful terminal output and [Typer](https://github.com/tiangolo/typer) for an intuitive command interface.
+Recursivist is built with [Rich](https://github.com/Textualize/rich) for beautiful terminal output and [Typer](https://github.com/fastapi/typer) for an intuitive command interface.
 
 ## Getting Started
 

@@ -1,245 +1,236 @@
 # Export
 
-The `export` command allows you to save directory structures to various file formats. This guide covers how to use the export features effectively.
+The `export` command writes a directory structure to one or more files. Nothing is printed to the terminal — each requested format produces its own file.
 
-## Basic Export Usage
-
-To export the current directory structure:
+## Basic Usage
 
 ```bash
-recursivist export --format FORMAT
+recursivist export                       # Markdown (the default), writes structure.md
+recursivist export --format html         # a specific format
+recursivist export /path/to/project --format json
 ```
 
-Replace `FORMAT` with one of: `txt`, `json`, `html`, `md`, or `jsx`.
+The format flag accepts `txt`, `json`, `html`, `md`, `jsx`, and `svg`. When omitted, it defaults to `md`.
 
-For a specific directory:
+## Available Formats
+
+| Format   | Extension | Description                       | Best For                              |
+| -------- | --------- | --------------------------------- | ------------------------------------- |
+| Text     | `.txt`    | Plain ASCII tree                  | Quick reference, text-only contexts   |
+| JSON     | `.json`   | Structured data                   | Programmatic processing, integrations |
+| HTML     | `.html`   | Self-contained styled web page    | Sharing, web documentation            |
+| Markdown | `.md`     | GitHub-compatible nested list     | READMEs, project documentation        |
+| React    | `.jsx`    | Interactive React component       | Web applications, dashboards          |
+| SVG      | `.svg`    | Vector image of the terminal tree | Embedding visuals in docs and READMEs |
+
+## Multiple Formats at Once
 
 ```bash
-recursivist export /path/to/directory --format FORMAT
+recursivist export --format "txt json html md"     # space-separated
+recursivist export --format txt --format json      # repeated flags
 ```
 
-## Available Export Formats
+## Output Location and Filename
 
-Recursivist supports multiple export formats, each suitable for different purposes:
-
-| Format   | Extension | Description           | Use Case                                 |
-| -------- | --------- | --------------------- | ---------------------------------------- |
-| Text     | `.txt`    | Simple ASCII tree     | Quick reference, text-only environments  |
-| JSON     | `.json`   | Structured data       | Integration with other tools, processing |
-| HTML     | `.html`   | Web-based view        | Sharing, web documentation               |
-| Markdown | `.md`     | GitHub-compatible     | Documentation, GitHub readmes            |
-| React    | `.jsx`    | Interactive component | Web applications, dashboards             |
-| SVG      | `.svg`    | Vector image          | Embedding in READMEs, sharing visuals    |
-
-## Exporting to Multiple Formats
-
-You can export to multiple formats in a single command:
+Exports are written to the current directory by default, using the prefix `structure`. Change either:
 
 ```bash
-# Space-separated formats
-recursivist export --format "txt json html md"
-
-# Multiple format flags
-recursivist export --format txt --format json --format html
+recursivist export --format md --output-dir ./exports   # ./exports/structure.md
+recursivist export --format json --prefix my-project     # my-project.json
 ```
 
-## Output Directory
+The output directory is created automatically if it doesn't exist.
 
-By default, exports are saved to the current directory. To specify a different location:
+## File Statistics
 
-```bash
-recursivist export --format md --output-dir ./exports
-```
-
-This will create a file at `./exports/structure.md`.
-
-## Customizing Filenames
-
-By default, all exports use the prefix `structure`. You can specify a different prefix:
+Every format can include lines of code, file sizes, and modification times:
 
 ```bash
-recursivist export --format json --prefix my-project
-```
-
-This will create a file named `my-project.json`.
-
-## Including File Statistics
-
-You can include statistics in your exports, just like with the `visualize` command:
-
-```bash
-# Include lines of code in export
 recursivist export --format md --sort-by-loc
-
-# Include file sizes
 recursivist export --format html --sort-by-size
-
-# Include modification times
 recursivist export --format json --sort-by-mtime
-
-# Combine multiple statistics
 recursivist export --format md --sort-by-loc --sort-by-size
 ```
 
-These statistics will be included in the export file with appropriate formatting for each format.
+## Git Status
 
-## Filtering Exports
+Annotate exported files with their Git status (`[U]`, `[M]`, `[A]`, `[D]`):
 
-All of the filtering options available for the `visualize` command also work with `export`:
+```bash
+recursivist export --format md --git-status
+```
+
+## Icon Style
+
+Exports use the `emoji` icon style by default — independent of your saved configuration — so files render consistently anywhere. Switch to Nerd Font glyphs with:
+
+```bash
+recursivist export --format md --icon-style nerd
+```
+
+## Filtering and Depth
+
+All filtering options, plus depth limiting and full paths, work exactly as they do for `visualize`:
 
 ```bash
 recursivist export --format md \
---exclude "node_modules .git" \
---exclude-ext .pyc \
---exclude-pattern "*.test.js"
+  --exclude "node_modules .git" \
+  --exclude-ext .pyc \
+  --exclude-pattern "*.test.js" \
+  --depth 3 \
+  --full-path
 ```
 
-See the [Pattern Filtering](pattern-filtering.md) guide for more details on filtering options.
+See [Pattern Filtering](pattern-filtering.md).
 
-## Depth Control
+## Format Details
 
-For large projects, you can limit the export depth:
+### Text (`.txt`)
 
-```bash
-recursivist export --format html --depth 3
-```
-
-## Full Path Display
-
-By default, exports show only filenames. To include full paths:
-
-```bash
-recursivist export --format json --full-path
-```
-
-This is particularly useful for JSON exports that might be processed by other tools.
-
-## Format-Specific Features
-
-### Text Format (.txt)
-
-The text format provides a simple ASCII tree view:
+A plain ASCII tree using `├──` and `└──` connectors:
 
 ```
-📂 my-project
-├── 📁 src
-│   ├── 📄 main.py
-│   └── 📄 utils.py
+📁 my-project
 ├── 📄 README.md
-└── 📄 setup.py
+├── 📄 setup.py
+├── 📄 requirements.txt
+└── 📁 src
+    ├── 📄 main.py
+    ├── 📄 utils.py
+    └── 📁 tests
+        ├── 📄 test_main.py
+        └── 📄 test_utils.py
 ```
 
-This format works well in environments where Unicode is supported.
+### JSON (`.json`)
 
-### JSON Format (.json)
-
-The JSON format provides a structured representation:
+A structured representation. Without detail flags, files collapse to bare names:
 
 ```json
 {
   "root": "my-project",
   "structure": {
+    "_files": ["README.md", "setup.py", "requirements.txt"],
     "src": {
-      "_files": ["main.py", "utils.py"]
-    },
-    "_files": ["README.md", "setup.py"]
-  }
+      "_files": ["main.py", "utils.py"],
+      "tests": {
+        "_files": ["test_main.py", "test_utils.py"]
+      }
+    }
+  },
+  "show_loc": false,
+  "show_size": false,
+  "show_mtime": false,
+  "show_git_status": false
 }
 ```
 
-When file statistics are included:
+With a detail flag (full path, LOC, size, mtime, or Git status), each file becomes an object carrying the requested fields, and directories gain aggregate totals:
 
 ```json
 {
   "root": "my-project",
   "structure": {
-    "_loc": 4328,
+    "_loc": 1262,
+    "_files": [
+      { "name": "README.md", "path": "README.md", "loc": 124 },
+      { "name": "setup.py", "path": "setup.py", "loc": 65 },
+      { "name": "requirements.txt", "path": "requirements.txt", "loc": 18 }
+    ],
     "src": {
-      "_loc": 3851,
+      "_loc": 1055,
       "_files": [
         { "name": "main.py", "path": "main.py", "loc": 245 },
         { "name": "utils.py", "path": "utils.py", "loc": 157 }
-      ]
-    },
-    "_files": [
-      { "name": "README.md", "path": "README.md", "loc": 124 },
-      { "name": "setup.py", "path": "setup.py", "loc": 65 }
-    ]
+      ],
+      "tests": {
+        "_loc": 653,
+        "_files": [
+          { "name": "test_main.py", "path": "test_main.py", "loc": 412 },
+          { "name": "test_utils.py", "path": "test_utils.py", "loc": 241 }
+        ]
+      }
+    }
   },
   "show_loc": true,
   "show_size": false,
-  "show_mtime": false
+  "show_mtime": false,
+  "show_git_status": false
 }
 ```
 
-This format is ideal for programmatic processing or integration with other tools.
+Size and mtime entries also include human-readable variants (`size_formatted`, `mtime_formatted`). This format is ideal for processing with tools like [jq](https://jqlang.org).
 
-### HTML Format (.html)
+### HTML (`.html`)
 
-The HTML format creates a web page with an interactive directory structure. It includes:
+A self-contained HTML document with an embedded stylesheet: a nested list with extension-colored files, bold directory names, and any enabled metric or Git-status annotations. It opens in any browser and needs no external assets — well suited to sharing or embedding in documentation.
 
-- Proper styling for directories and files
-- Color coding based on file types
-- Statistics display when enabled
-- Responsive design for viewing on different devices
+### Markdown (`.md`)
 
-When file statistics are included, they are displayed next to each file and directory with appropriate styling.
-
-### Markdown Format (.md)
-
-The Markdown format creates a representation that renders well on platforms like GitHub:
+A nested bullet list that renders cleanly on GitHub and other Markdown viewers — directories in bold, files as inline code:
 
 ```markdown
-# 📂 my-project
+# 📁 my-project
 
+- 📄 `README.md`
+- 📄 `setup.py`
+- 📄 `requirements.txt`
 - 📁 **src**
   - 📄 `main.py`
   - 📄 `utils.py`
-- 📄 `README.md`
-- 📄 `setup.py`
+  - 📁 **tests**
+    - 📄 `test_main.py`
+    - 📄 `test_utils.py`
 ```
 
 With statistics:
 
 ```markdown
-# 📂 my-project (4328 lines)
+# 📁 my-project (1262 lines)
 
-- 📁 **src** (3851 lines)
-  - 📄 `main.py` (245 lines)
-  - 📄 `utils.py` (157 lines)
 - 📄 `README.md` (124 lines)
 - 📄 `setup.py` (65 lines)
+- 📄 `requirements.txt` (18 lines)
+- 📁 **src** (1055 lines)
+  - 📄 `main.py` (245 lines)
+  - 📄 `utils.py` (157 lines)
+  - 📁 **tests** (653 lines)
+    - 📄 `test_main.py` (412 lines)
+    - 📄 `test_utils.py` (241 lines)
 ```
 
-### React Component (.jsx)
+### React Component (`.jsx`)
 
-The JSX format creates an interactive React component with:
+A standalone `DirectoryViewer` React component with an interactive tree:
 
-- Collapsible folder structure
-- Search functionality
-- Breadcrumb navigation
-- Path copying
-- Dark mode toggle
-- File statistics display when enabled
-- Expand/collapse all buttons
-- Mobile-responsive design
+- Collapsible folders with expand-all and collapse-all controls
+- File and path search
+- Breadcrumb navigation and path copying
+- Dark/light mode toggle
+- File-statistics display when the corresponding flags are set
 
-This is the most sophisticated export option, designed for integration into web applications.
+See [Using the React Component](#using-the-react-component) below.
 
-### SVG Format (.svg)
+### SVG (`.svg`)
 
-The SVG format captures an exact image of the terminal visualization, preserving all colors, icons, and tree structures in a scalable vector graphic. This is perfect for embedding your directory structure directly into project READMEs or documentation without losing the beautiful terminal styling.
+A scalable vector image of the tree exactly as it appears in the terminal, preserving the `rich` colors, icons, and connectors. Perfect for embedding a directory structure in a README without losing the styling.
+
+```bash
+recursivist export --format svg
+```
 
 ## Using the React Component
 
-To use the exported React component in your project:
+The `.jsx` export imports `react`, [`lucide-react`](https://lucide.dev/) for icons, and `prop-types`, and is styled with [Tailwind CSS](https://tailwindcss.com/) utility classes.
 
-1. Copy the generated `.jsx` file to your React project's components directory
-2. Install required dependencies:
+1. Copy the generated file into your project's components directory.
+2. Install the dependencies:
+
+   ```bash
+   npm install lucide-react prop-types
    ```
-   npm install lucide-react
-   ```
-3. Import and use the component:
+
+3. Import and render it:
 
    ```jsx
    import DirectoryViewer from "./components/structure.jsx";
@@ -253,51 +244,23 @@ To use the exported React component in your project:
    }
    ```
 
-The component is designed to work with Tailwind CSS. If your project doesn't use Tailwind, you'll need to adapt the component accordingly.
+If your project doesn't use Tailwind, adapt the component's class names to your styling solution.
 
 ## Examples
 
-### Basic Export to Markdown
-
 ```bash
-recursivist export --format md
+# Markdown overview for a README, two levels deep
+recursivist export --format md --depth 2 --exclude "node_modules .git" --prefix project-overview
+
+# Detailed JSON of the source tree with full paths and metrics
+recursivist export src --format json --full-path --sort-by-loc --sort-by-size --prefix source-structure
+
+# A filtered React component focused on source files
+recursivist export --format jsx \
+  --include-pattern "*.py" "*.md" \
+  --output-dir ./src/components \
+  --prefix DirectoryViewer \
+  --sort-by-loc
 ```
 
-### Export to Multiple Formats with Custom Prefix
-
-```bash
-recursivist export \
---format "txt md json" \
---prefix project-structure \
---output-dir ./docs
-```
-
-### Export Source Directory Only
-
-```bash
-recursivist export src \
---format html \
---prefix source-structure
-```
-
-### Export with Depth Control and Exclusions
-
-```bash
-recursivist export \
---format jsx \
---depth 3 \
---exclude "node_modules .git" \
---exclude-ext ".log .tmp"
-```
-
-### Export with File Statistics
-
-```bash
-recursivist export \
---format html \
---sort-by-loc \
---sort-by-size \
---sort-by-mtime
-```
-
-For more detailed information about export formats, see the [Export Formats](../reference/export-formats.md) reference.
+For a per-format reference, see [Export Formats](../reference/export-formats.md).
