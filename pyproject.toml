@@ -59,6 +59,7 @@ dev = [
     "pytest-mock",
     "ruff",
     "mypy",
+    "types-PyYAML",
     "nox",
     "nox-uv",
 ]
