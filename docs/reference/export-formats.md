@@ -203,18 +203,3 @@ A scalable vector image of the tree exactly as it appears in the terminal, prese
    ```
 
 If your project doesn't use Tailwind CSS, adapt the component's class names to your styling solution.
-
-## Format Comparison
-
-| Feature                     | TXT | JSON | HTML | MD  | JSX | SVG |
-| --------------------------- | --- | ---- | ---- | --- | --- | --- |
-| Human-readable              | ✅  | ⚠️   | ✅   | ✅  | ✅  | ✅  |
-| Machine-readable            | ⚠️  | ✅   | ⚠️   | ⚠️  | ❌  | ❌  |
-| Interactive                 | ❌  | ❌   | ❌   | ❌  | ✅  | ❌  |
-| Search / collapsing         | ❌  | ❌   | ❌   | ❌  | ✅  | ❌  |
-| File statistics             | ✅  | ✅   | ✅   | ✅  | ✅  | ✅  |
-| Git-status markers          | ✅  | ✅   | ✅   | ✅  | ✅  | ✅  |
-| Color coding                | ✅  | ❌   | ✅   | ❌  | ✅  | ✅  |
-| Requires external libraries | ❌  | ❌   | ❌   | ❌  | ✅  | ❌  |
-
-Legend: ✅ fully supported, ⚠️ partial, ❌ not supported.

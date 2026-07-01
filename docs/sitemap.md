@@ -862,10 +862,6 @@
                 {
                   "id": "root/reference/export-formats/export-formats/using-the-react-component",
                   "label": "Using the React Component"
-                },
-                {
-                  "id": "root/reference/export-formats/export-formats/format-comparison",
-                  "label": "Format Comparison"
                 }
               ]
             }
@@ -1436,10 +1432,6 @@
             {
               "id": "root/contributing/contributing-to-recursivist/table-of-contents",
               "label": "Table of Contents"
-            },
-            {
-              "id": "root/contributing/contributing-to-recursivist/code-of-conduct",
-              "label": "Code of Conduct"
             },
             {
               "id": "root/contributing/contributing-to-recursivist/getting-started",

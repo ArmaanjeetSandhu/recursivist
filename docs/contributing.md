@@ -6,7 +6,6 @@ Thank you for your interest in contributing to Recursivist! This document provid
 
 - [Contributing to Recursivist](#contributing-to-recursivist)
   - [Table of Contents](#table-of-contents)
-  - [Code of Conduct](#code-of-conduct)
   - [Getting Started](#getting-started)
     - [Setting Up Your Development Environment](#setting-up-your-development-environment)
   - [Development Workflow](#development-workflow)
@@ -26,10 +25,6 @@ Thank you for your interest in contributing to Recursivist! This document provid
     - [Suggesting Features](#suggesting-features)
   - [Release Process](#release-process)
   - [Community](#community)
-
-## Code of Conduct
-
-By participating in this project, you agree to abide by our Code of Conduct. Please be respectful, inclusive, and considerate when interacting with other contributors.
 
 ## Getting Started
 
