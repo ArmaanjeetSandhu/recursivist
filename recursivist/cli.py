@@ -392,6 +392,39 @@ def _resolve_and_validate_directory(directory: Path) -> Path:
     return directory
 
 
+def _resolve_ignore_file(
+    directories: list[Path], ignore_file: str | None
+) -> str | None:
+    """Resolve the ignore file name, optionally adding a leading dot.
+
+    Checks if the provided ignore_file exists in any of the target directories.
+    If it doesn't, but a version with a leading dot does, returns the dotted version.
+    Otherwise, returns the original filename so normal warning logic proceeds.
+
+    Args:
+        directories: List of resolved directory paths to check for the ignore file.
+        ignore_file: Filename of the ignore file to look for, or
+            ``None`` when the option was not supplied.
+
+    Returns:
+        The resolved filename string (potentially with an added dot), or the
+        original filename if no dotted version is found. Returns ``None`` if
+        *ignore_file* is ``None``.
+    """
+    if not ignore_file:
+        return None
+
+    if any((d / ignore_file).exists() for d in directories):
+        return ignore_file
+
+    if not ignore_file.startswith("."):
+        dotted_file = f".{ignore_file}"
+        if any((d / dotted_file).exists() for d in directories):
+            return dotted_file
+
+    return ignore_file
+
+
 def _warn_if_ignore_file_missing(directory: Path, ignore_file: str | None) -> None:
     """Log whether the requested ignore file exists inside *directory*.
 
@@ -619,8 +652,9 @@ def visualize(
     _enable_verbose_if_requested(verbose)
 
     resolved_style = icon_style or USER_CONFIG.get("icon_style", "emoji")
-
     directory = _resolve_and_validate_directory(directory)
+    ignore_file = _resolve_ignore_file([directory], ignore_file)
+
     _log_display_options(
         max_depth,
         show_full_path,
@@ -791,8 +825,9 @@ def export(
     _enable_verbose_if_requested(verbose)
 
     resolved_style = icon_style or "emoji"
-
     directory = _resolve_and_validate_directory(directory)
+    ignore_file = _resolve_ignore_file([directory], ignore_file)
+
     _log_display_options(
         max_depth,
         show_full_path,
@@ -1061,6 +1096,9 @@ def compare(
     """
     _enable_verbose_if_requested(verbose)
     logger.info(f"Comparing directories: {dir1} and {dir2}")
+
+    ignore_file = _resolve_ignore_file([dir1, dir2], ignore_file)
+
     _log_display_options(
         max_depth,
         show_full_path,
