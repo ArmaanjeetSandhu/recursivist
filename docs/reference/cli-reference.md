@@ -89,7 +89,7 @@ In addition to the [shared options](#shared-options), `export` supports:
 
 | Option         | Short | Description                                                              |
 | -------------- | ----- | ------------------------------------------------------------------------ |
-| `--format`     | `-f`  | Export formats: `txt`, `json`, `html`, `md`, `jsx`, `svg` (default `md`) |
+| `--format`     | `-f`  | Export formats: `txt`, `json`, `html`, `md`, `jsx`, `svg`, `rst` (default `md`) |
 | `--output-dir` | `-o`  | Output directory (created if missing; defaults to current directory)     |
 | `--prefix`     | `-n`  | Filename prefix for exports (default `structure`)                        |
 | `--git-status` | `-G`  | Annotate exported files with Git status markers                          |

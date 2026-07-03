@@ -1,5 +1,6 @@
 """Tests for recursivist.exporters: get_exporter and the per-format exporters (including Jsx)."""
 
+import io
 import json
 import os
 import random
@@ -29,6 +30,11 @@ from recursivist.exporters.jsx import (
     sort_key_name,
     sort_key_size,
     sort_key_size_mtime,
+)
+from recursivist.exporters.rst import (
+    _rst_display_width,
+    _rst_escape,
+    _rst_inline_literal,
 )
 from recursivist.scanner import get_directory_structure
 
@@ -480,6 +486,11 @@ class TestJSXComponent:
             "jsx",
             ["import React", "DirectoryViewer", "file1.txt", "file2.py", "subdir"],
         ),
+        (
+            "rst",
+            "rst",
+            ["📄 ``file1.txt``", "📄 ``file2.py``", "📁 **subdir**"],
+        ),
     ],
 )
 def test_export_structure(
@@ -690,6 +701,7 @@ class TestExporterFileOutput:
                 ["<!DOCTYPE html>", "<html>", 'class="file"'],
             ),
             ("json", ["root", "structure", "_files"]),
+            ("rst", ["📁 test_root", "``file1.txt``", "``file2.py``"]),
         ],
     )
     def test_export_formats(
@@ -968,6 +980,15 @@ class TestExporters:
                 lambda c: "DirectoryViewer" in c,
                 lambda c: "ChevronDown" in c,
                 lambda c: "ChevronUp" in c,
+            ],
+        ),
+        (
+            "rst",
+            "rst",
+            [
+                lambda c: "- 📄 ``file1.txt``" in c,
+                lambda c: "- 📁 **subdir**" in c,
+                lambda c: any(line and set(line) == {"="} for line in c.splitlines()),
             ],
         ),
     ],
@@ -1642,3 +1663,339 @@ class TestSvgExporter:
             with pytest.raises(error_type) as excinfo:
                 exporter.export(output_path)
             assert error_msg in str(excinfo.value)
+
+
+def _rst_lines(content: str) -> list[str]:
+    """Split exported reStructuredText into lines for structural assertions."""
+    return content.split("\n")
+
+
+class TestRstExporter:
+    """Tests for the reStructuredText (``rst``) exporter."""
+
+    def test_export_basic_structure(
+        self, nested_structure: dict[str, Any], tmp_path: Path
+    ) -> None:
+        """Root is a section title; dirs are bold, files are inline literals."""
+        output_path = os.path.join(tmp_path, "structure.rst")
+        get_exporter("rst", structure=nested_structure, root_name="test_root").export(
+            output_path
+        )
+
+        assert os.path.exists(output_path)
+        with open(output_path, encoding="utf-8") as f:
+            content = f.read()
+        lines = _rst_lines(content)
+
+        assert lines[0] == "📁 test_root"
+        assert set(lines[1]) == {"="}
+        assert "- 📄 ``root_file1.txt``" in content
+        assert "- 📁 **subdir1**" in content
+        assert "- 📁 **subdir2**" in content
+        assert "  - 📄 ``subdir1_file2.js``" in content
+        assert "    - 📄 ``nested_file1.json``" in content
+
+    def test_section_title_underline_matches_display_width(
+        self, tmp_path: Path
+    ) -> None:
+        """The title underline is sized by display width, not code-point count.
+
+        The emoji icon occupies two columns but one code point, so a naive
+        ``len``-based underline would be one column short. This guards against
+        the docutils "Title underline too short" warning.
+        """
+        output_path = os.path.join(tmp_path, "structure.rst")
+        get_exporter("rst", structure={"_files": ["a.py"]}, root_name="proj").export(
+            output_path
+        )
+        with open(output_path, encoding="utf-8") as f:
+            lines = _rst_lines(f.read())
+
+        title, underline = lines[0], lines[1]
+        assert title == "📁 proj"
+        assert set(underline) == {"="}
+        assert len(underline) == _rst_display_width(title)
+        assert len(underline) == len(title) + 1
+
+    def test_blank_line_precedes_nested_list(self, tmp_path: Path) -> None:
+        """A directory bullet is separated from its nested list by a blank line.
+
+        reStructuredText requires the blank line; without it the nested bullets
+        are not parsed as a child list.
+        """
+        structure = {"outer": {"_files": ["inner.py"]}}
+        output_path = os.path.join(tmp_path, "structure.rst")
+        get_exporter("rst", structure=structure, root_name="root").export(output_path)
+        with open(output_path, encoding="utf-8") as f:
+            lines = _rst_lines(f.read())
+
+        dir_idx = lines.index("- 📁 **outer**")
+        assert lines[dir_idx + 1] == ""
+        assert lines[dir_idx + 2] == "  - 📄 ``inner.py``"
+
+    def test_files_listed_before_directories(self, tmp_path: Path) -> None:
+        """Within a level, files are emitted before subdirectories."""
+        structure = {"_files": ["zzz.py"], "aaadir": {"_files": ["x.py"]}}
+        output_path = os.path.join(tmp_path, "structure.rst")
+        get_exporter("rst", structure=structure, root_name="root").export(output_path)
+        with open(output_path, encoding="utf-8") as f:
+            content = f.read()
+
+        assert content.index("``zzz.py``") < content.index("**aaadir**")
+
+    def test_git_status_badges(self, tmp_path: Path) -> None:
+        """Git markers are rendered as bold ``[U]``/``[M]``/``[A]``/``[D]`` badges."""
+        structure = {
+            "_files": ["untracked.txt", "modified.py", "added.md", "deleted.js"],
+            "_git_markers": {
+                "untracked.txt": "U",
+                "modified.py": "M",
+                "added.md": "A",
+                "deleted.js": "D",
+            },
+        }
+        output_path = os.path.join(tmp_path, "structure.rst")
+        get_exporter(
+            "rst", structure=structure, root_name="root", show_git_status=True
+        ).export(output_path)
+        with open(output_path, encoding="utf-8") as f:
+            content = f.read()
+
+        assert "``untracked.txt`` **[U]**" in content
+        assert "``modified.py`` **[M]**" in content
+        assert "``added.md`` **[A]**" in content
+        assert "``deleted.js`` **[D]**" in content
+
+    def test_git_status_omitted_when_disabled(self, tmp_path: Path) -> None:
+        """No badges are emitted when Git status display is off."""
+        structure = {
+            "_files": ["modified.py"],
+            "_git_markers": {"modified.py": "M"},
+        }
+        output_path = os.path.join(tmp_path, "structure.rst")
+        get_exporter(
+            "rst", structure=structure, root_name="root", show_git_status=False
+        ).export(output_path)
+        with open(output_path, encoding="utf-8") as f:
+            content = f.read()
+
+        assert "[M]" not in content
+
+    def test_max_depth_indicator(
+        self, max_depth_structure: dict[str, Any], tmp_path: Path
+    ) -> None:
+        """Depth-limited directories show an emphasized max-depth marker."""
+        output_path = os.path.join(tmp_path, "structure.rst")
+        get_exporter("rst", structure=max_depth_structure, root_name="root").export(
+            output_path
+        )
+        with open(output_path, encoding="utf-8") as f:
+            lines = _rst_lines(f.read())
+
+        marker = "  - ⋯ *(max depth reached)*"
+        assert marker in lines
+        assert lines[lines.index(marker) - 1] == ""
+
+    def test_metrics_suffix_loc(
+        self, structure_with_stats: dict[str, Any], tmp_path: Path
+    ) -> None:
+        """With ``sort_by_loc``, line counts are appended to files and the root."""
+        output_path = os.path.join(tmp_path, "structure.rst")
+        get_exporter(
+            "rst",
+            structure=structure_with_stats,
+            root_name="root",
+            sort_by_loc=True,
+        ).export(output_path)
+        with open(output_path, encoding="utf-8") as f:
+            content = f.read()
+
+        assert "(100 lines)" in content
+        assert "(50 lines)" in content
+
+    def test_full_path_uses_absolute_paths(self, tmp_path: Path) -> None:
+        """When a base path is set, file literals contain the full path."""
+        structure = {
+            "_files": [FileEntry("a.py", "/abs/root/a.py")],
+            "sub": {"_files": [FileEntry("b.py", "/abs/root/sub/b.py")]},
+        }
+        output_path = os.path.join(tmp_path, "structure.rst")
+        get_exporter(
+            "rst", structure=structure, root_name="root", base_path="/abs/root"
+        ).export(output_path)
+        with open(output_path, encoding="utf-8") as f:
+            content = f.read()
+
+        assert "``/abs/root/a.py``" in content
+        assert "``/abs/root/sub/b.py``" in content
+
+    def test_nerd_icon_style(self, tmp_path: Path) -> None:
+        """The nerd icon style substitutes glyphs for the default emoji."""
+        structure = {"_files": ["main.py"]}
+        output_path = os.path.join(tmp_path, "structure.rst")
+        get_exporter(
+            "rst", structure=structure, root_name="root", icon_style="nerd"
+        ).export(output_path)
+        with open(output_path, encoding="utf-8") as f:
+            content = f.read()
+
+        assert "📄" not in content
+        assert "📁" not in content
+        assert "\ue73c" in content
+
+    def test_special_characters_are_escaped(self, tmp_path: Path) -> None:
+        """Markup characters in directory names are backslash-escaped."""
+        structure = {"weird*name_dir": {"_files": ["ok.py"]}}
+        output_path = os.path.join(tmp_path, "structure.rst")
+        get_exporter("rst", structure=structure, root_name="root").export(output_path)
+        with open(output_path, encoding="utf-8") as f:
+            content = f.read()
+
+        assert "**weird\\*name\\_dir**" in content
+
+    def test_empty_structure(self, tmp_path: Path) -> None:
+        """An empty structure still yields a valid title and underline."""
+        output_path = os.path.join(tmp_path, "structure.rst")
+        get_exporter("rst", structure={}, root_name="empty_root").export(output_path)
+        with open(output_path, encoding="utf-8") as f:
+            lines = _rst_lines(f.read())
+
+        assert lines[0] == "📁 empty_root"
+        assert set(lines[1]) == {"="}
+
+    def test_trailing_newline(self, tmp_path: Path) -> None:
+        """The file ends with a single trailing newline."""
+        output_path = os.path.join(tmp_path, "structure.rst")
+        get_exporter("rst", structure={"_files": ["a.py"]}, root_name="root").export(
+            output_path
+        )
+        with open(output_path, encoding="utf-8") as f:
+            content = f.read()
+
+        assert content.endswith("\n")
+        assert not content.endswith("\n\n")
+
+    @pytest.mark.parametrize(
+        "error_type,error_msg",
+        [
+            (PermissionError, "Permission denied"),
+            (OSError, "No space left on device"),
+        ],
+    )
+    def test_export_error_handling(
+        self,
+        simple_structure: dict[str, Any],
+        tmp_path: Path,
+        error_type: type[Exception],
+        error_msg: str,
+    ) -> None:
+        """Failures while writing the file are re-raised (after being logged)."""
+        output_path = os.path.join(tmp_path, "error.rst")
+        exporter = get_exporter(
+            "rst", structure=simple_structure, root_name="error_root"
+        )
+        error: Exception
+        if error_type is OSError:
+            error = OSError(28, error_msg)
+        else:
+            error = error_type(error_msg)
+        with patch("builtins.open", side_effect=error):
+            with pytest.raises(error_type) as excinfo:
+                exporter.export(output_path)
+            assert error_msg in str(excinfo.value)
+
+    def test_output_parses_cleanly_with_docutils(self, tmp_path: Path) -> None:
+        """The generated reStructuredText parses without docutils warnings.
+
+        Skipped when docutils is unavailable. This exercises the finicky
+        parts of the format together: an emoji-icon section title, nested
+        bullet lists (with the required blank lines), Git-status badges, the
+        max-depth marker, metric suffixes and escaped special characters.
+        """
+        docutils_core = pytest.importorskip("docutils.core")
+
+        now = time.time()
+        structure = {
+            "_loc": 100,
+            "_size": 1024,
+            "_mtime": now,
+            "_files": [
+                ("app.py", "/p/app.py", 50, 512, now),
+                ("weird*name.py", "/p/weird*name.py", 10, 64, now),
+            ],
+            "_git_markers": {"app.py": "M"},
+            "src": {
+                "_loc": 20,
+                "_size": 256,
+                "_mtime": now,
+                "_files": [("helper.py", "/p/src/helper.py", 20, 256, now)],
+                "vendored": {"_max_depth_reached": True},
+            },
+        }
+        output_path = os.path.join(tmp_path, "structure.rst")
+        get_exporter(
+            "rst",
+            structure=structure,
+            root_name="my_project",
+            sort_by_loc=True,
+            show_git_status=True,
+        ).export(output_path)
+        with open(output_path, encoding="utf-8") as f:
+            content = f.read()
+
+        warning_stream = io.StringIO()
+        docutils_core.publish_doctree(
+            content,
+            settings_overrides={
+                "warning_stream": warning_stream,
+                "report_level": 1,
+                "halt_level": 5,
+            },
+        )
+        problems = warning_stream.getvalue().strip()
+        assert not problems, f"docutils reported issues:\n{problems}\n\nrST:\n{content}"
+
+
+class TestRstHelpers:
+    """Unit tests for the reStructuredText exporter helper functions."""
+
+    def test_inline_literal_basic(self) -> None:
+        assert _rst_inline_literal("file.py") == "``file.py``"
+
+    def test_inline_literal_internal_space_is_fine(self) -> None:
+        assert _rst_inline_literal("my file.py") == "``my file.py``"
+
+    def test_inline_literal_double_backtick_falls_back_to_escaped(self) -> None:
+        result = _rst_inline_literal("a``b.py")
+        assert "``a``b.py``" != result
+        assert "\\`\\`" in result
+
+    def test_inline_literal_leading_space_falls_back(self) -> None:
+        result = _rst_inline_literal(" leading.py")
+        assert not result.startswith("`` ")
+
+    def test_inline_literal_trailing_space_falls_back(self) -> None:
+        result = _rst_inline_literal("trailing.py ")
+        assert not result.endswith(" ``")
+
+    def test_inline_literal_empty_falls_back(self) -> None:
+        assert _rst_inline_literal("") == ""
+
+    def test_escape_markup_characters(self) -> None:
+        assert _rst_escape("a*b`c_d|e") == "a\\*b\\`c\\_d\\|e"
+
+    def test_escape_backslash_first(self) -> None:
+        assert _rst_escape("a\\b") == "a\\\\b"
+
+    def test_escape_plain_text_unchanged(self) -> None:
+        assert _rst_escape("plain-name.txt") == "plain-name.txt"
+
+    def test_display_width_ascii_matches_len(self) -> None:
+        assert _rst_display_width("plain_ascii") == len("plain_ascii")
+
+    def test_display_width_counts_wide_chars_as_two(self) -> None:
+        assert _rst_display_width("📁") == 2
+        assert _rst_display_width("日本語") == 6
+
+    def test_display_width_ignores_combining_chars(self) -> None:
+        assert _rst_display_width("e\u0301") == 1

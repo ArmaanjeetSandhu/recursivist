@@ -273,7 +273,16 @@ def test_visualize_with_sort_options(
 
 @pytest.mark.parametrize(
     "format_option",
-    ["txt", "json", "html", "md", "jsx", "txt json", "txt json html md jsx"],
+    [
+        "txt",
+        "json",
+        "html",
+        "md",
+        "jsx",
+        "rst",
+        "txt json",
+        "txt json html md jsx rst",
+    ],
 )
 def test_export_command(
     runner: CliRunner, sample_directory: str, output_dir: str, format_option: str

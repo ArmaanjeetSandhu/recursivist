@@ -10,7 +10,7 @@ recursivist export --format html         # a specific format
 recursivist export /path/to/project --format json
 ```
 
-The format flag accepts `txt`, `json`, `html`, `md`, `jsx`, and `svg`. When omitted, it defaults to `md`.
+The format flag accepts `txt`, `json`, `html`, `md`, `jsx`, `svg`, and `rst`. When omitted, it defaults to `md`.
 
 ## Available Formats
 
@@ -22,6 +22,7 @@ The format flag accepts `txt`, `json`, `html`, `md`, `jsx`, and `svg`. When omit
 | Markdown | `.md`     | GitHub-compatible nested list     | READMEs, project documentation        |
 | React    | `.jsx`    | Interactive React component       | Web applications, dashboards          |
 | SVG      | `.svg`    | Vector image of the terminal tree | Embedding visuals in docs and READMEs |
+| reStructuredText | `.rst` | Sphinx-compatible nested list  | Sphinx/docutils documentation         |
 
 ## Multiple Formats at Once
 
@@ -218,6 +219,26 @@ A scalable vector image of the tree exactly as it appears in the terminal, prese
 ```bash
 recursivist export --format svg
 ```
+
+### reStructuredText (`.rst`)
+
+A nested bullet list that renders cleanly with docutils and Sphinx — the reStructuredText counterpart to the Markdown export. The root is a section title, directories are shown in bold, and files as inline literals:
+
+```rst
+📁 my-project
+=============
+
+- 📄 ``README.md``
+- 📁 **src**
+
+  - 📄 ``main.py``
+```
+
+```bash
+recursivist export --format rst
+```
+
+Drop the file into a Sphinx project directly, or pull it into an existing page with the `.. include::` directive.
 
 ## Using the React Component
 

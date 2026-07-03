@@ -9,7 +9,7 @@ A beautiful command-line tool for visualizing directory structures with rich for
 - 📁 **Smart Filtering**: Easily exclude directories and file extensions you don't want to see
 - 🧩 **Gitignore Support**: Automatically respects your `.gitignore` patterns
 - 🔄 **Directory Comparison**: Compare two directory structures side by side with highlighted differences
-- 📊 **Multiple Export Formats**: Export to TXT, JSON, HTML, Markdown, React components, and SVG images
+- 📊 **Multiple Export Formats**: Export to TXT, rST, Markdown, HTML, JSON, JSX, and SVG
 
 ## Installation
 

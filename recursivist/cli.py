@@ -10,7 +10,7 @@ Main commands:
     visualize: Display a directory structure in the terminal with rich
         formatting and optional statistics.
     export: Export a directory structure to TXT, JSON, HTML, MD, JSX,
-        or SVG.
+        SVG, or RST.
     compare: Compare two directory structures with highlighted
         differences.
     config: Manage persistent user preferences like icon styles.
@@ -691,7 +691,10 @@ def export(
         ".", help="Directory path to export (defaults to current directory)"
     ),
     formats: list[str] = typer.Option(
-        ["md"], "--format", "-f", help="Export formats: txt, json, html, md, jsx, svg"
+        ["md"],
+        "--format",
+        "-f",
+        help="Export formats: txt, json, html, md, jsx, svg, rst",
     ),
     output_dir: Path | None = _output_dir_option(),
     output_prefix: str | None = _output_prefix_option("structure"),
@@ -728,8 +731,8 @@ def export(
             directory. Defaults to the current working directory.
         formats: Export format identifiers. Supported values are
             ``"txt"``, ``"json"``, ``"html"``, ``"md"``, ``"jsx"``,
-            and ``"svg"``. Multiple formats may be given as separate
-            flags or as a single space-separated string.
+            ``"svg"``, and ``"rst"``. Multiple formats may be given as
+            separate flags or as a single space-separated string.
         output_dir: Directory where exported files are written.
             Created automatically if it does not exist. Defaults to
             the current working directory.
@@ -832,7 +835,7 @@ def export(
         parsed_formats = []
         for fmt in formats:
             parsed_formats.extend([x.strip() for x in fmt.split(" ") if x.strip()])
-        valid_formats = ["txt", "json", "html", "md", "jsx", "svg"]
+        valid_formats = ["txt", "json", "html", "md", "jsx", "svg", "rst"]
         invalid_formats = [
             fmt for fmt in parsed_formats if fmt.lower() not in valid_formats
         ]

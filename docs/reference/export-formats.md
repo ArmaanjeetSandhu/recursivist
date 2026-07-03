@@ -1,6 +1,6 @@
 # Export Formats
 
-Recursivist exports directory structures to six formats. This page describes each one in detail. For task-oriented examples, see [Export Examples](../examples/export.md).
+Recursivist exports directory structures to seven formats. This page describes each one in detail. For task-oriented examples, see [Export Examples](../examples/export.md).
 
 ## Available Formats
 
@@ -12,6 +12,7 @@ Recursivist exports directory structures to six formats. This page describes eac
 | Markdown | `.md`     | GitHub-compatible nested list     | READMEs, project documentation        |
 | React    | `.jsx`    | Interactive React component       | Web applications, dashboards          |
 | SVG      | `.svg`    | Vector image of the terminal tree | Embedding visuals in docs and READMEs |
+| reStructuredText | `.rst` | Sphinx-compatible nested list  | Sphinx/docutils documentation         |
 
 ## Basic Usage
 
@@ -19,10 +20,10 @@ Recursivist exports directory structures to six formats. This page describes eac
 recursivist export --format FORMAT
 ```
 
-`FORMAT` is one of `txt`, `json`, `html`, `md`, `jsx`, or `svg`. Markdown is used when `--format` is omitted. Multiple formats can be requested at once:
+`FORMAT` is one of `txt`, `json`, `html`, `md`, `jsx`, `svg`, or `rst`. Markdown is used when `--format` is omitted. Multiple formats can be requested at once:
 
 ```bash
-recursivist export --format "txt json html md jsx svg"
+recursivist export --format "txt json html md jsx svg rst"
 ```
 
 Outputs are written to the current directory with the prefix `structure` unless `--output-dir` and `--prefix` say otherwise. Every format honors the filtering, depth, full-path, file-statistics, Git-status, and icon-style options. Exports use the `emoji` icon style by default for cross-platform consistency.
@@ -162,6 +163,48 @@ With statistics:
     - 📄 `test_main.py` (412 lines)
     - 📄 `test_utils.py` (241 lines)
 ```
+
+## reStructuredText (`.rst`)
+
+A nested bullet list that renders cleanly with [docutils](https://docutils.sourceforge.io/) and [Sphinx](https://www.sphinx-doc.org/), the reStructuredText counterpart to the Markdown export. The root becomes a section title, directories are shown in bold, and files as inline literals:
+
+```rst
+📁 my-project
+=============
+
+- 📄 ``README.md``
+- 📄 ``setup.py``
+- 📄 ``requirements.txt``
+- 📁 **src**
+
+  - 📄 ``main.py``
+  - 📄 ``utils.py``
+  - 📁 **tests**
+
+    - 📄 ``test_main.py``
+    - 📄 ``test_utils.py``
+```
+
+With statistics:
+
+```rst
+📁 my-project (1262 lines)
+==========================
+
+- 📄 ``README.md`` (124 lines)
+- 📄 ``setup.py`` (65 lines)
+- 📄 ``requirements.txt`` (18 lines)
+- 📁 **src** (1055 lines)
+
+  - 📄 ``main.py`` (245 lines)
+  - 📄 ``utils.py`` (157 lines)
+  - 📁 **tests** (653 lines)
+
+    - 📄 ``test_main.py`` (412 lines)
+    - 📄 ``test_utils.py`` (241 lines)
+```
+
+The section-title underline is sized to the title's display width, so emoji icons don't trigger a "Title underline too short" warning. Directory names have rST markup characters escaped, and Git status is shown with bold `[U]`/`[M]`/`[A]`/`[D]` badges (reStructuredText has no standard strike-through, so deleted files carry the `[D]` badge rather than being struck through). Drop the file straight into a Sphinx project or include it with the [`.. include::`](https://docutils.sourceforge.io/docs/ref/rst/directives.html#include) directive.
 
 ## React Component (`.jsx`)
 

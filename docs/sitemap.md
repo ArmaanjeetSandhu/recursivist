@@ -532,6 +532,10 @@
                     {
                       "id": "root/user-guide/export/export/format-details/svg-(.svg)",
                       "label": "SVG (`.svg`)"
+                    },
+                    {
+                      "id": "root/user-guide/export/export/format-details/restructuredtext-(.rst)",
+                      "label": "reStructuredText (`.rst`)"
                     }
                   ]
                 },
@@ -850,6 +854,10 @@
                 {
                   "id": "root/reference/export-formats/export-formats/markdown-(.md)",
                   "label": "Markdown (`.md`)"
+                },
+                {
+                  "id": "root/reference/export-formats/export-formats/restructuredtext-(.rst)",
+                  "label": "reStructuredText (`.rst`)"
                 },
                 {
                   "id": "root/reference/export-formats/export-formats/react-component-(.jsx)",

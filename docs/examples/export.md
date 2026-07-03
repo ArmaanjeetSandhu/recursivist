@@ -11,6 +11,7 @@ recursivist export --format html   # structure.html
 recursivist export --format txt    # structure.txt
 recursivist export --format jsx    # structure.jsx
 recursivist export --format svg    # structure.svg
+recursivist export --format rst    # structure.rst
 ```
 
 Several at once:

@@ -62,7 +62,8 @@ recursivist/
     ├── html.py        # HtmlExporter
     ├── markdown.py    # MarkdownExporter
     ├── jsx.py         # JsxExporter
-    └── svg.py         # SvgExporter
+    ├── svg.py         # SvgExporter
+    └── rst.py         # RstExporter
 ```
 
 See the [API Reference](../reference/api-reference.md) for the public functions of each module.
