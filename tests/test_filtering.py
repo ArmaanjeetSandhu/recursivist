@@ -213,24 +213,57 @@ def test_compile_regex_patterns(
     [
         (
             "# This is a comment\n*.log\n\nnode_modules/\ndist\n# Another comment\n",
-            ["*.log", "node_modules/", "dist"],
+            [
+                "# This is a comment",
+                "*.log",
+                "",
+                "node_modules/",
+                "dist",
+                "# Another comment",
+            ],
         ),
         ("", []),
         (
             "# Logs\n*.log\nlogs/\n!important.log\n# Directories\nnode_modules/\ndist/\n",
-            ["*.log", "logs/", "!important.log", "node_modules/", "dist/"],
+            [
+                "# Logs",
+                "*.log",
+                "logs/",
+                "!important.log",
+                "# Directories",
+                "node_modules/",
+                "dist/",
+            ],
         ),
     ],
 )
 def test_parse_ignore_file(
     temp_dir: str, content: str, expected_patterns: list[str]
 ) -> None:
-    """Test parsing ignore files."""
+    """Test parsing ignore files: lines are returned verbatim, in order."""
     ignore_path = os.path.join(temp_dir, ".testignore")
     with open(ignore_path, "w") as f:
         f.write(content)
     patterns = parse_ignore_file(ignore_path)
-    assert set(patterns) == set(expected_patterns)
+    assert patterns == expected_patterns
+
+
+def test_parse_ignore_file_preserves_escapes_and_whitespace(temp_dir: str) -> None:
+    """Escaped comments/negations and escaped trailing spaces survive parsing.
+
+    These are exactly the cases a pre-stripping parser would corrupt; keeping
+    the lines intact lets the gitignore matcher honor them.
+    """
+    ignore_path = os.path.join(temp_dir, ".testignore")
+    with open(ignore_path, "w") as f:
+        f.write("\\#literal-hash.txt\n\\!literal-bang.txt\ntrailing\\ \n")
+    patterns = parse_ignore_file(ignore_path)
+    assert patterns == ["\\#literal-hash.txt", "\\!literal-bang.txt", "trailing\\ "]
+
+
+def test_parse_ignore_file_missing(temp_dir: str) -> None:
+    """A non-existent ignore file yields no patterns."""
+    assert parse_ignore_file(os.path.join(temp_dir, "does-not-exist")) == []
 
 
 class TestShouldExcludeProperties:
@@ -443,3 +476,63 @@ class TestShouldExclude:
         assert should_exclude(
             "/test/script.PY", ignore_context, exclude_extensions=exclude_extensions
         )
+
+
+class TestShouldExcludeGitignoreEngine:
+    """Behavioral tests for the pathspec-backed gitignore matching, covering
+    directory-only/anchored/negation/`**` semantics.
+
+    Entries are materialized on disk via ``_make_entry`` so that ``os.path.isdir``
+    reflects reality (directory-only patterns depend on it), mirroring how the
+    scanner invokes ``should_exclude``.
+    """
+
+    @staticmethod
+    def _ctx(patterns: list[str], current_dir: str, rel_dir: str) -> dict[str, Any]:
+        return {"patterns": patterns, "current_dir": current_dir, "rel_dir": rel_dir}
+
+    def test_directory_only_pattern_matches_dir_not_file(self, temp_dir: str) -> None:
+        """'logs/' excludes a directory named logs but not a file named logs."""
+        dpath, dcur, drel = _make_entry(temp_dir, "logs", is_dir=True)
+        assert should_exclude(dpath, self._ctx(["logs/"], dcur, drel))
+        fpath, fcur, frel = _make_entry(temp_dir, "logs", is_dir=False)
+        assert not should_exclude(fpath, self._ctx(["logs/"], fcur, frel))
+
+    def test_anchored_pattern_only_matches_root(self, temp_dir: str) -> None:
+        """'/build' matches build at the scan root but not a nested build."""
+        root_build, cur, rel = _make_entry(temp_dir, "build", is_dir=True)
+        assert should_exclude(root_build, self._ctx(["/build"], cur, rel))
+        nested, ncur, nrel = _make_entry(temp_dir, "src/build", is_dir=True)
+        assert not should_exclude(nested, self._ctx(["/build"], ncur, nrel))
+
+    def test_double_star_matches_at_any_depth(self, temp_dir: str) -> None:
+        """'**/foo.py' matches foo.py however deeply it is nested."""
+        deep, cur, rel = _make_entry(temp_dir, "a/b/c/foo.py", is_dir=False)
+        assert should_exclude(deep, self._ctx(["**/foo.py"], cur, rel))
+
+    def test_negation_reincludes_at_depth(self, temp_dir: str) -> None:
+        """Last-match-wins: '!keep.log' re-includes even under a broad '*.log'."""
+        keep, kcur, krel = _make_entry(temp_dir, "pkg/keep.log", is_dir=False)
+        assert not should_exclude(keep, self._ctx(["*.log", "!keep.log"], kcur, krel))
+        drop, dcur, drel = _make_entry(temp_dir, "pkg/debug.log", is_dir=False)
+        assert should_exclude(drop, self._ctx(["*.log", "!keep.log"], dcur, drel))
+
+    def test_unescaped_trailing_whitespace_is_stripped(self, temp_dir: str) -> None:
+        """Git strips unescaped trailing spaces, so 'name   ' matches file 'name'."""
+        p, cur, rel = _make_entry(temp_dir, "name", is_dir=False)
+        assert should_exclude(p, self._ctx(["name   "], cur, rel))
+
+    def test_escaped_trailing_space_is_significant(self, temp_dir: str) -> None:
+        r"""'name\ ' matches a file literally named 'name ' but not 'name'."""
+        with_space, cur, rel = _make_entry(temp_dir, "name ", is_dir=False)
+        assert should_exclude(with_space, self._ctx(["name\\ "], cur, rel))
+        without, wcur, wrel = _make_entry(temp_dir, "name", is_dir=False)
+        assert not should_exclude(without, self._ctx(["name\\ "], wcur, wrel))
+
+    def test_malformed_pattern_is_skipped_not_fatal(self, temp_dir: str) -> None:
+        """A malformed pattern (a lone '!') is skipped, not raised, and valid
+        patterns in the same file still apply."""
+        logf, lcur, lrel = _make_entry(temp_dir, "app.log", is_dir=False)
+        assert should_exclude(logf, self._ctx(["!", "*.log"], lcur, lrel))
+        txtf, tcur, trel = _make_entry(temp_dir, "app.txt", is_dir=False)
+        assert not should_exclude(txtf, self._ctx(["!", "*.log"], tcur, trel))

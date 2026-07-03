@@ -1,10 +1,16 @@
 """File and directory filtering: ignore files, glob/regex patterns, and
 gitignore-style exclusion rules.
 
-Provides the predicate :func:`should_exclude` used by the scanner, plus the
-gitignore glob-to-regex translation that backs it. Pure standard library; no
-dependency on the rest of the package.
+Provides the predicate :func:`should_exclude` used by the scanner. Git-style
+ignore matching is delegated to :mod:`pathspec` (its gitignore matcher),
+which implements the full gitignore specification: anchoring, ``**`` wildcards,
+directory-only (trailing ``/``) patterns, ``!`` negation with last-match-wins,
+character classes, backslash escapes, and trailing-whitespace handling. The glob
+and regex matching used by ``--exclude-pattern``/``--include-pattern`` is
+unrelated and remains pure standard library.
 """
+
+from __future__ import annotations
 
 import fnmatch
 import logging
@@ -15,32 +21,38 @@ from functools import cache
 from re import Pattern
 from typing import Any, cast
 
+from pathspec import PathSpec
+from pathspec.pattern import Pattern as IgnorePattern
+from pathspec.util import lookup_pattern
+
 logger = logging.getLogger(__name__)
+
+try:
+    _IGNORE_PATTERN_FACTORY = lookup_pattern("gitignore")
+except LookupError:
+    _IGNORE_PATTERN_FACTORY = lookup_pattern("gitwildmatch")
 
 
 def parse_ignore_file(ignore_file_path: str) -> list[str]:
-    """Read an ignore file and return its patterns.
+    """Read an ignore file and return its lines as gitignore patterns.
 
-    Blank lines and ``#`` comment lines are skipped; every other line is
-    returned stripped of surrounding whitespace, preserving the order in
-    which the patterns appear.
+    Lines are returned verbatim with only their terminators removed, preserving
+    order and every character that is significant to the gitignore grammar
+    (comments, blank lines, backslash escapes, and escaped trailing
+    whitespace). Interpretation is left entirely to the gitignore matcher, so
+    callers must not strip or filter the returned lines.
 
     Args:
         ignore_file_path: Path to the ignore file (e.g. ``.gitignore``).
 
     Returns:
-        The list of pattern strings, or an empty list when the file does not
+        The list of pattern lines, or an empty list when the file does not
         exist.
     """
     if not os.path.exists(ignore_file_path):
         return []
-    patterns = []
-    with open(ignore_file_path) as f:
-        for line in f:
-            line = line.strip()
-            if line and not line.startswith("#"):
-                patterns.append(line)
-    return patterns
+    with open(ignore_file_path, encoding="utf-8", errors="replace") as f:
+        return f.read().splitlines()
 
 
 def compile_regex_patterns(
@@ -74,85 +86,31 @@ def compile_regex_patterns(
     return compiled_patterns
 
 
-def _gitignore_glob_to_regex(glob: str, anchored: bool) -> str:
-    """Translate a gitignore glob (no leading '!'/'/' and no trailing '/') into
-    a regex for a forward-slash path.
-
-    '*' matches anything but '/', '**' crosses '/', '?' is one non-'/' char, and
-    '[...]' is a character class. Anchored patterns must match from the start of
-    the path; floating patterns may match at any directory depth.
-    """
-    i, n = 0, len(glob)
-    out: list[str] = []
-    while i < n:
-        c = glob[i]
-        if c == "*":
-            star = 0
-            while i < n and glob[i] == "*":
-                star += 1
-                i += 1
-            if star >= 2:
-                if i < n and glob[i] == "/":
-                    out.append("(?:.*/)?")
-                    i += 1
-                else:
-                    out.append(".*")
-            else:
-                out.append("[^/]*")
-        elif c == "?":
-            out.append("[^/]")
-            i += 1
-        elif c == "[":
-            j = i + 1
-            if j < n and glob[j] in ("!", "^"):
-                j += 1
-            if j < n and glob[j] == "]":
-                j += 1
-            while j < n and glob[j] != "]":
-                j += 1
-            if j >= n:
-                out.append(re.escape("["))
-                i += 1
-            else:
-                cls = glob[i + 1 : j]
-                if cls.startswith("!"):
-                    cls = "^" + cls[1:]
-                out.append("[" + cls + "]")
-                i = j + 1
-        elif c == "/":
-            out.append("/")
-            i += 1
-        else:
-            out.append(re.escape(c))
-            i += 1
-    body = "".join(out)
-    prefix = r"\A" if anchored else r"(?:\A|.*/)"
-    return prefix + body + r"(?:/|\Z)"
-
-
 @cache
-def _compile_ignore_pattern(body: str) -> tuple[Pattern[str], bool] | None:
-    """Compile a gitignore pattern body (the part after any leading '!').
+def _build_ignore_spec(patterns: tuple[str, ...]) -> PathSpec[IgnorePattern]:
+    """Compile gitignore pattern lines into a :class:`~pathspec.PathSpec`.
 
-    Returns ``(regex, dir_only)`` or ``None`` for an empty pattern. The regex is
-    searched against a path relative to the ignore file's directory, expressed
-    with forward slashes and no leading slash. ``dir_only`` patterns (trailing
-    '/') match directories only. Cached so each unique pattern compiles once.
+    Uses pathspec's gitignore implementation, which follows the gitignore
+    specification. The resulting spec is matched against a path expressed
+    relative to the scan root using forward slashes;
+    :meth:`~pathspec.PathSpec.match_file` already resolves ``!`` negation with
+    last-match-wins.
+
+    Patterns are compiled one at a time so a single malformed line (which
+    pathspec rejects with a :class:`ValueError`) is skipped with a warning
+    rather than aborting the whole scan. Blank lines and comments compile to
+    inert patterns and are harmless. Cached so each unique tuple of patterns is
+    compiled only once per run.
     """
-    if body.startswith(("\\#", "\\!")):
-        body = body[1:]
-    dir_only = body.endswith("/")
-    if dir_only:
-        body = body[:-1]
-    anchored = "/" in body
-    if body.startswith("/"):
-        body = body[1:]
-    if not body:
-        return None
-    try:
-        return re.compile(_gitignore_glob_to_regex(body, anchored)), dir_only
-    except re.error:
-        return None
+    compiled: list[IgnorePattern] = []
+    for line in patterns:
+        if not line:
+            continue
+        try:
+            compiled.append(_IGNORE_PATTERN_FACTORY(line))
+        except ValueError as exc:
+            logger.warning("Ignoring invalid ignore pattern %r: %s", line, exc)
+    return PathSpec(compiled)
 
 
 def should_exclude(
@@ -172,8 +130,10 @@ def should_exclude(
     3. If the file's extension is in *exclude_extensions*, exclude it.
     4. If an include pattern matched, include the path (this overrides the
        gitignore-style patterns below).
-    5. Otherwise apply the gitignore-style patterns from *ignore_context*,
-       honoring negations (``!``) and directory-only (trailing ``/``) rules.
+    5. Otherwise apply the gitignore-style patterns from *ignore_context* via
+       :mod:`pathspec`, honoring anchoring, ``**`` wildcards, directory-only
+       (trailing ``/``) patterns, ``!`` negation, character classes and escapes
+       per the gitignore specification.
 
     Args:
         path: Filesystem path to test.
@@ -231,18 +191,7 @@ def should_exclude(
     rel_dir = ignore_context.get("rel_dir", "")
     rel_to_root = (f"{rel_dir}/{basename}" if rel_dir else basename).replace("\\", "/")
     rel_to_root = rel_to_root.lstrip("/")
-    is_dir = os.path.isdir(path)
-    excluded = False
-    for pattern in patterns:
-        if not isinstance(pattern, str) or not pattern:
-            continue
-        negated = pattern.startswith("!")
-        compiled = _compile_ignore_pattern(pattern[1:] if negated else pattern)
-        if compiled is None:
-            continue
-        regex, dir_only = compiled
-        if dir_only and not is_dir:
-            continue
-        if regex.search(rel_to_root):
-            excluded = not negated
-    return excluded
+    spec = _build_ignore_spec(tuple(p for p in patterns if isinstance(p, str)))
+    if os.path.isdir(path):
+        rel_to_root += "/"
+    return spec.match_file(rel_to_root)

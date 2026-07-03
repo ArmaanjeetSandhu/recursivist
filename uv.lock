@@ -1475,6 +1475,7 @@ name = "recursivist"
 version = "2.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "pathspec" },
     { name = "rich" },
     { name = "shellingham" },
     { name = "typer" },
@@ -1520,6 +1521,7 @@ requires-dist = [
     { name = "mypy", marker = "extra == 'dev'" },
     { name = "nox", marker = "extra == 'dev'" },
     { name = "nox-uv", marker = "extra == 'dev'" },
+    { name = "pathspec" },
     { name = "pymdown-extensions", marker = "extra == 'docs'" },
     { name = "pyright", marker = "extra == 'dev'" },
     { name = "pytest", marker = "extra == 'dev'" },

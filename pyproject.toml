@@ -38,6 +38,7 @@ dependencies = [
     "rich",
     "typer",
     "shellingham",
+    "pathspec",
 ]
 
 [project.urls]
