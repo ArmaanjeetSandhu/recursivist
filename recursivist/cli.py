@@ -46,6 +46,7 @@ from recursivist.compare import (
 from recursivist.config import load_config, save_config
 from recursivist.exporters import get_exporter
 from recursivist.filtering import compile_regex_patterns
+from recursivist.flags import DisplayOptions, resolve_display_options
 from recursivist.git_status import get_git_status
 from recursivist.scanner import get_directory_structure
 from recursivist.tree import display_tree
@@ -77,17 +78,34 @@ HELP_SHOW_FULL_PATH = "Show full paths instead of just filenames"
 HELP_SORT_BY_LOC = "Sort files by lines of code and display LOC counts"
 HELP_SORT_BY_SIZE = "Sort files by size and display file sizes"
 HELP_SORT_BY_MTIME = "Sort files by modification time and display timestamps"
+HELP_SORT_BY_GIT_STATUS = "Sort files by Git status and display status markers"
 HELP_SORT_BY_SIMILARITY = (
     "Group files with similar names together (overridden by other sort options)"
+)
+HELP_LOC = "Display lines of code without affecting sort order"
+HELP_SIZE = "Display file sizes without affecting sort order"
+HELP_MTIME = "Display modification times without affecting sort order"
+HELP_GIT_STATUS = (
+    "Display Git status markers without affecting sort order: "
+    "[U] untracked, [M] modified, [A] added, [D] deleted"
 )
 HELP_VERBOSE = "Enable verbose output"
 
 MSG_VERBOSE = "Verbose mode enabled"
 MSG_FULL_PATH = "Showing full paths instead of just filenames"
-MSG_SORT_LOC = "Sorting files by lines of code and displaying LOC counts"
-MSG_SORT_SIZE = "Sorting files by size and displaying file sizes"
-MSG_SORT_MTIME = "Sorting files by modification time and displaying timestamps"
-MSG_SORT_SIMILARITY = "Grouping files by name similarity"
+MSG_GIT_STATUS = "Annotating files with Git status markers"
+MSG_SORT_BY = {
+    "loc": "Sorting files by lines of code",
+    "size": "Sorting files by size",
+    "mtime": "Sorting files by modification time (newest first)",
+    "git_status": "Sorting files by Git status",
+    "similarity": "Grouping files by name similarity",
+}
+MSG_DISPLAY_METRIC = {
+    "loc": "Displaying lines of code",
+    "size": "Displaying file sizes",
+    "mtime": "Displaying modification times",
+}
 
 
 def _exclude_dirs_option() -> Any:
@@ -140,13 +158,24 @@ def _sort_by_similarity_option() -> Any:
     )
 
 
+def _sort_by_git_status_option() -> Any:
+    return typer.Option(False, "--sort-by-git-status", help=HELP_SORT_BY_GIT_STATUS)
+
+
+def _loc_option() -> Any:
+    return typer.Option(False, "--loc", help=HELP_LOC)
+
+
+def _size_option() -> Any:
+    return typer.Option(False, "--size", help=HELP_SIZE)
+
+
+def _mtime_option() -> Any:
+    return typer.Option(False, "--mtime", help=HELP_MTIME)
+
+
 def _show_git_status_option() -> Any:
-    return typer.Option(
-        False,
-        "--git-status",
-        "-G",
-        help="Annotate files with Git status markers: [U] untracked, [M] modified, [A] added, [D] deleted",
-    )
+    return typer.Option(False, "--git-status", "-G", help=HELP_GIT_STATUS)
 
 
 def _output_dir_option() -> Any:
@@ -266,38 +295,33 @@ def parse_list_option(option_value: list[str] | None) -> list[str]:
 def _log_display_options(
     max_depth: int,
     show_full_path: bool,
-    sort_by_loc: bool,
-    sort_by_size: bool,
-    sort_by_mtime: bool,
-    sort_by_similarity: bool = False,
+    spec: DisplayOptions,
 ) -> None:
-    """Log the depth and display/sort options selected for a command.
+    """Log the depth and resolved display/sort options for a command.
 
-    Emits the informational messages shared by the visualize, export,
-    and compare commands when the corresponding option is active. Has
-    no effect for options left at their defaults.
+    Emits the informational messages shared by the visualize, export, and
+    compare commands, driven by the already-resolved :class:`DisplayOptions`:
+    the single active sort key (if any), each displayed metric in order, and
+    whether Git-status markers are shown. Has no effect for options left at
+    their defaults.
 
     Args:
-        max_depth: Maximum directory depth; a message is logged when
-            greater than ``0``.
+        max_depth: Maximum directory depth; a message is logged when greater
+            than ``0``.
         show_full_path: Whether full paths are shown.
-        sort_by_loc: Whether files are sorted by lines of code.
-        sort_by_size: Whether files are sorted by size.
-        sort_by_mtime: Whether files are sorted by modification time.
-        sort_by_similarity: Whether files are grouped by name similarity.
+        spec: The resolved sorting and annotation directives to report.
     """
     if max_depth > 0:
         logger.info(f"Limiting depth to {max_depth} levels")
     if show_full_path:
         logger.info(MSG_FULL_PATH)
-    if sort_by_loc:
-        logger.info(MSG_SORT_LOC)
-    if sort_by_size:
-        logger.info(MSG_SORT_SIZE)
-    if sort_by_mtime:
-        logger.info(MSG_SORT_MTIME)
-    if sort_by_similarity:
-        logger.info(MSG_SORT_SIMILARITY)
+    if spec.sort_key and spec.sort_key in MSG_SORT_BY:
+        logger.info(MSG_SORT_BY[spec.sort_key])
+    for metric in spec.metrics:
+        if metric in MSG_DISPLAY_METRIC:
+            logger.info(MSG_DISPLAY_METRIC[metric])
+    if spec.show_git_status:
+        logger.info(MSG_GIT_STATUS)
 
 
 def _parse_filter_options(
@@ -570,7 +594,11 @@ def visualize(
     sort_by_loc: bool = _sort_by_loc_option(),
     sort_by_size: bool = _sort_by_size_option(),
     sort_by_mtime: bool = _sort_by_mtime_option(),
+    sort_by_git_status: bool = _sort_by_git_status_option(),
     sort_by_similarity: bool = _sort_by_similarity_option(),
+    loc: bool = _loc_option(),
+    size: bool = _size_option(),
+    mtime: bool = _mtime_option(),
     show_git_status: bool = _show_git_status_option(),
     icon_style: str | None = _icon_style_option(
         "Override icon style ('emoji' or 'nerd'). Defaults to user config."
@@ -583,6 +611,12 @@ def visualize(
     File-extension colors, optional statistics, and Git status markers
     can be enabled through the available options. An animated progress
     indicator is shown while scanning large directories.
+
+    Sorting and annotation flags are resolved strictly by their left-to-right
+    order on the command line: only the first sorting flag (``--sort-by-*``)
+    takes effect, while every display-only flag (``--loc``, ``--size``,
+    ``--mtime``, ``--git-status``) always annotates, in the order given. See
+    :mod:`recursivist.flags` for the full resolution rules.
 
     Args:
         directory: Root directory to visualize. Must exist and be a
@@ -608,17 +642,29 @@ def visualize(
             of bare filenames.
         sort_by_loc: When ``True``, sort files by lines-of-code count
             (descending) and annotate each file with its LOC count.
+            Ignored entirely if an earlier sorting flag was given.
         sort_by_size: When ``True``, sort files by size (descending)
-            and annotate each file with its size.
+            and annotate each file with its size. Ignored entirely if
+            an earlier sorting flag was given.
         sort_by_mtime: When ``True``, sort files by last-modification
             time (newest first) and annotate each file with its
-            timestamp.
+            timestamp. Ignored entirely if an earlier sorting flag was
+            given.
+        sort_by_git_status: When ``True``, sort files by Git status and
+            annotate each file with its status marker. Ignored entirely
+            if an earlier sorting flag was given.
         sort_by_similarity: When ``True``, group files with similar
-            names next to each other. Has no effect when a numeric
-            sort (LOC, size, or mtime) is also active.
-        show_git_status: When ``True``, annotate files with their Git status:
-            ``[U]`` untracked, ``[M]`` modified, ``[A]`` added, ``[D]``
-            deleted.
+            names next to each other. Ignored entirely if an earlier
+            sorting flag was given.
+        loc: When ``True``, display each file's lines-of-code count
+            without affecting the sort order.
+        size: When ``True``, display each file's size without affecting
+            the sort order.
+        mtime: When ``True``, display each file's modification time
+            without affecting the sort order.
+        show_git_status: When ``True``, annotate files with their Git status
+            without affecting the sort order: ``[U]`` untracked, ``[M]``
+            modified, ``[A]`` added, ``[D]`` deleted.
         icon_style: Icon style to use for file/folder markers. If not
             provided, falls back to the persistent user config.
         verbose: When ``True``, lower the log level to DEBUG so that
@@ -655,16 +701,19 @@ def visualize(
     directory = _resolve_and_validate_directory(directory)
     ignore_file = _resolve_ignore_file([directory], ignore_file)
 
-    _log_display_options(
-        max_depth,
-        show_full_path,
-        sort_by_loc,
-        sort_by_size,
-        sort_by_mtime,
-        sort_by_similarity,
+    spec = resolve_display_options(
+        sort_loc=sort_by_loc,
+        sort_size=sort_by_size,
+        sort_mtime=sort_by_mtime,
+        sort_similarity=sort_by_similarity,
+        sort_git=sort_by_git_status,
+        disp_loc=loc,
+        disp_size=size,
+        disp_mtime=mtime,
+        disp_git=show_git_status,
     )
-    if show_git_status:
-        logger.info("Annotating files with Git status markers")
+
+    _log_display_options(max_depth, show_full_path, spec)
     (
         parsed_exclude_dirs,
         exclude_exts_set,
@@ -689,10 +738,10 @@ def visualize(
             use_regex,
             max_depth,
             show_full_path,
-            sort_by_loc,
-            sort_by_size,
-            sort_by_mtime,
-            show_git_status,
+            spec.show_loc,
+            spec.show_size,
+            spec.show_mtime,
+            spec.show_git_status,
         )
         logger.info("Displaying directory tree:")
         display_tree(
@@ -705,14 +754,10 @@ def visualize(
             use_regex,
             max_depth,
             show_full_path,
-            sort_by_loc,
-            sort_by_size,
-            sort_by_mtime,
-            show_git_status,
+            spec,
             icon_style=resolved_style,
             structure=structure,
             extensions=extensions,
-            sort_by_similarity=sort_by_similarity,
         )
     except Exception as e:
         logger.error(f"Error: {e}", exc_info=verbose)
@@ -743,7 +788,11 @@ def export(
     sort_by_loc: bool = _sort_by_loc_option(),
     sort_by_size: bool = _sort_by_size_option(),
     sort_by_mtime: bool = _sort_by_mtime_option(),
+    sort_by_git_status: bool = _sort_by_git_status_option(),
     sort_by_similarity: bool = _sort_by_similarity_option(),
+    loc: bool = _loc_option(),
+    size: bool = _size_option(),
+    mtime: bool = _mtime_option(),
     show_git_status: bool = _show_git_status_option(),
     icon_style: str | None = _icon_style_option(
         "Override icon style. Defaults to 'emoji' for safe file exports."
@@ -759,6 +808,12 @@ def export(
     *output_dir*. By default, this forces the `emoji` icon style to
     ensure cross-platform compatibility in external viewers, unless
     explicitly overridden.
+
+    Sorting and annotation flags are resolved strictly by their left-to-right
+    order on the command line: only the first sorting flag (``--sort-by-*``)
+    takes effect, while every display-only flag (``--loc``, ``--size``,
+    ``--mtime``, ``--git-status``) always annotates, in the order given. See
+    :mod:`recursivist.flags` for the full resolution rules.
 
     Args:
         directory: Root directory to export. Must exist and be a
@@ -792,16 +847,28 @@ def export(
             bare filenames.
         sort_by_loc: When ``True``, sort files by lines-of-code count
             (descending) and annotate each file with its LOC count.
+            Ignored entirely if an earlier sorting flag was given.
         sort_by_size: When ``True``, sort files by size (descending)
-            and annotate each file with its size.
+            and annotate each file with its size. Ignored entirely if
+            an earlier sorting flag was given.
         sort_by_mtime: When ``True``, sort files by last-modification
             time (newest first) and annotate each file with its
-            timestamp.
+            timestamp. Ignored entirely if an earlier sorting flag was
+            given.
+        sort_by_git_status: When ``True``, sort files by Git status and
+            annotate each file with its status marker. Ignored entirely
+            if an earlier sorting flag was given.
         sort_by_similarity: When ``True``, group files with similar
-            names next to each other. Has no effect when a numeric
-            sort (LOC, size, or mtime) is also active.
+            names next to each other. Ignored entirely if an earlier
+            sorting flag was given.
+        loc: When ``True``, display each file's lines-of-code count
+            without affecting the sort order.
+        size: When ``True``, display each file's size without affecting
+            the sort order.
+        mtime: When ``True``, display each file's modification time
+            without affecting the sort order.
         show_git_status: When ``True``, annotate files with their Git
-            status markers in the exported output.
+            status markers without affecting the sort order.
         icon_style: Icon style to enforce on the export. Defaults to
             'emoji' for external compatibility unless provided.
         verbose: When ``True``, lower the log level to DEBUG so that
@@ -828,16 +895,19 @@ def export(
     directory = _resolve_and_validate_directory(directory)
     ignore_file = _resolve_ignore_file([directory], ignore_file)
 
-    _log_display_options(
-        max_depth,
-        show_full_path,
-        sort_by_loc,
-        sort_by_size,
-        sort_by_mtime,
-        sort_by_similarity,
+    spec = resolve_display_options(
+        sort_loc=sort_by_loc,
+        sort_size=sort_by_size,
+        sort_mtime=sort_by_mtime,
+        sort_similarity=sort_by_similarity,
+        sort_git=sort_by_git_status,
+        disp_loc=loc,
+        disp_size=size,
+        disp_mtime=mtime,
+        disp_git=show_git_status,
     )
-    if show_git_status:
-        logger.info("Annotating files with Git status markers")
+
+    _log_display_options(max_depth, show_full_path, spec)
     (
         parsed_exclude_dirs,
         exclude_exts_set,
@@ -862,10 +932,10 @@ def export(
             use_regex,
             max_depth,
             show_full_path,
-            sort_by_loc,
-            sort_by_size,
-            sort_by_mtime,
-            show_git_status,
+            spec.show_loc,
+            spec.show_size,
+            spec.show_mtime,
+            spec.show_git_status,
         )
         parsed_formats = []
         for fmt in formats:
@@ -882,7 +952,10 @@ def export(
             output_dir.mkdir(parents=True, exist_ok=True)
         else:
             output_dir = Path(".")
-        logger.info(f"Exporting to {len(parsed_formats)} format(s)")
+
+        num_formats = len(parsed_formats)
+        format_word = "format" if num_formats == 1 else "formats"
+        logger.info(f"Exporting to {num_formats} {format_word}")
         for fmt in parsed_formats:
             output_path = output_dir / f"{output_prefix}.{fmt.lower()}"
             try:
@@ -891,12 +964,8 @@ def export(
                     structure=structure,
                     root_name=os.path.basename(str(directory)),
                     base_path=str(directory) if show_full_path else None,
-                    sort_by_loc=sort_by_loc,
-                    sort_by_size=sort_by_size,
-                    sort_by_mtime=sort_by_mtime,
-                    show_git_status=show_git_status,
+                    spec=spec,
                     icon_style=resolved_style,
-                    sort_by_similarity=sort_by_similarity,
                 )
                 exporter.export(str(output_path))
                 logger.info(f"Successfully exported to {output_path}")
@@ -927,10 +996,10 @@ def completion(
             value or if an error occurs while generating the script.
 
     Examples:
-        >>> recursivist completion bash        # Bash
-        >>> recursivist completion zsh         # Zsh
-        >>> recursivist completion fish        # Fish
-        >>> recursivist completion powershell  # PowerShell
+        >>> recursivist completion bash
+        >>> recursivist completion zsh
+        >>> recursivist completion fish
+        >>> recursivist completion powershell
     """
     try:
         valid_shells = ["bash", "zsh", "fish", "powershell"]
@@ -1003,6 +1072,9 @@ def compare(
     sort_by_size: bool = _sort_by_size_option(),
     sort_by_mtime: bool = _sort_by_mtime_option(),
     sort_by_similarity: bool = _sort_by_similarity_option(),
+    loc: bool = _loc_option(),
+    size: bool = _size_option(),
+    mtime: bool = _mtime_option(),
     icon_style: str | None = _icon_style_option(
         "Override icon style. Defaults to 'emoji' if saving to HTML, else user config."
     ),
@@ -1054,14 +1126,23 @@ def compare(
             of bare filenames.
         sort_by_loc: When ``True``, sort files by lines-of-code count
             (descending) and annotate each file with its LOC count.
+            Ignored entirely if an earlier sorting flag was given.
         sort_by_size: When ``True``, sort files by size (descending)
-            and annotate each file with its size.
+            and annotate each file with its size. Ignored entirely if
+            an earlier sorting flag was given.
         sort_by_mtime: When ``True``, sort files by last-modification
             time (newest first) and annotate each file with its
-            timestamp.
+            timestamp. Ignored entirely if an earlier sorting flag was
+            given.
         sort_by_similarity: When ``True``, group files with similar
-            names next to each other. Has no effect when a numeric
-            sort (LOC, size, or mtime) is also active.
+            names next to each other. Ignored entirely if an earlier
+            sorting flag was given.
+        loc: When ``True``, display each file's lines-of-code count
+            without affecting the sort order.
+        size: When ``True``, display each file's size without affecting
+            the sort order.
+        mtime: When ``True``, display each file's modification time
+            without affecting the sort order.
         icon_style: Style to use for folder and file icons. Will use
             the user configuration when visualizing in terminal, and
             default to 'emoji' when outputting to HTML.
@@ -1099,14 +1180,17 @@ def compare(
 
     ignore_file = _resolve_ignore_file([dir1, dir2], ignore_file)
 
-    _log_display_options(
-        max_depth,
-        show_full_path,
-        sort_by_loc,
-        sort_by_size,
-        sort_by_mtime,
-        sort_by_similarity,
+    spec = resolve_display_options(
+        sort_loc=sort_by_loc,
+        sort_size=sort_by_size,
+        sort_mtime=sort_by_mtime,
+        sort_similarity=sort_by_similarity,
+        disp_loc=loc,
+        disp_size=size,
+        disp_mtime=mtime,
     )
+
+    _log_display_options(max_depth, show_full_path, spec)
 
     if icon_style:
         resolved_style = icon_style
@@ -1156,11 +1240,8 @@ def compare(
                     use_regex=use_regex,
                     max_depth=max_depth,
                     show_full_path=show_full_path,
-                    sort_by_loc=sort_by_loc,
-                    sort_by_size=sort_by_size,
-                    sort_by_mtime=sort_by_mtime,
+                    spec=spec,
                     icon_style=resolved_style,
-                    sort_by_similarity=sort_by_similarity,
                 )
                 logger.info(f"Successfully exported to {output_path}")
             except Exception as e:
@@ -1177,11 +1258,8 @@ def compare(
                 use_regex=use_regex,
                 max_depth=max_depth,
                 show_full_path=show_full_path,
-                sort_by_loc=sort_by_loc,
-                sort_by_size=sort_by_size,
-                sort_by_mtime=sort_by_mtime,
+                spec=spec,
                 icon_style=resolved_style,
-                sort_by_similarity=sort_by_similarity,
             )
     except Exception as e:
         logger.error(f"Error: {e}", exc_info=verbose)

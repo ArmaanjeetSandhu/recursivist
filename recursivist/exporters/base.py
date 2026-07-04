@@ -1,18 +1,23 @@
 """Shared base class for directory-structure exporters.
 
 Defines :class:`BaseExporter`, which stores the scanned structure and the
-display options common to every output format. Concrete exporters subclass it
-and implement :meth:`BaseExporter.export`.
+resolved display options common to every output format. Concrete exporters
+subclass it and implement :meth:`BaseExporter.export`.
 """
 
 from typing import Any
+
+from recursivist.flags import DisplayOptions
 
 
 class BaseExporter:
     """Common base for the per-format exporters.
 
-    Holds the scanned structure and the shared display configuration; the
-    actual output is produced by each subclass's :meth:`export`.
+    Holds the scanned structure and the resolved :class:`DisplayOptions`; the
+    actual output is produced by each subclass's :meth:`export`. For
+    convenience, the individual pieces of the spec are also exposed as plain
+    attributes (``metrics``, ``sort_key``, ``show_loc``/``show_size``/
+    ``show_mtime``/``show_git_status``) so exporters can read them directly.
     """
 
     def __init__(
@@ -20,12 +25,8 @@ class BaseExporter:
         structure: dict[str, Any],
         root_name: str,
         base_path: str | None = None,
-        sort_by_loc: bool = False,
-        sort_by_size: bool = False,
-        sort_by_mtime: bool = False,
-        show_git_status: bool = False,
+        spec: DisplayOptions | None = None,
         icon_style: str = "emoji",
-        sort_by_similarity: bool = False,
     ) -> None:
         """Store the structure and display options for an export.
 
@@ -34,23 +35,22 @@ class BaseExporter:
             root_name: Display name of the root directory.
             base_path: Base path for full-path display. When provided (not
                 ``None``), absolute paths are shown instead of bare filenames.
-            sort_by_loc: Whether to sort by and display lines of code.
-            sort_by_size: Whether to sort by and display file sizes.
-            sort_by_mtime: Whether to sort by and display modification times.
-            show_git_status: Whether to annotate files with Git status markers.
+            spec: Resolved sorting and annotation directives. Defaults to a
+                plain :class:`DisplayOptions` (no sorting, no annotations).
             icon_style: Icon style to use, either ``"emoji"`` or ``"nerd"``.
-            sort_by_similarity: Whether to group files by name similarity.
         """
         self.structure = structure
         self.root_name = root_name
         self.base_path = base_path
         self.show_full_path = base_path is not None
-        self.sort_by_loc = sort_by_loc
-        self.sort_by_size = sort_by_size
-        self.sort_by_mtime = sort_by_mtime
-        self.show_git_status = show_git_status
+        self.spec = spec if spec is not None else DisplayOptions()
+        self.metrics = self.spec.metrics
+        self.sort_key = self.spec.sort_key
+        self.show_loc = self.spec.show_loc
+        self.show_size = self.spec.show_size
+        self.show_mtime = self.spec.show_mtime
+        self.show_git_status = self.spec.show_git_status
         self.icon_style = icon_style
-        self.sort_by_similarity = sort_by_similarity
 
     def export(self, output_path: str) -> None:
         """Write the export to *output_path*.

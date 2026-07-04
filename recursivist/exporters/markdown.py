@@ -10,7 +10,7 @@ import os
 from typing import Any
 
 from recursivist.icons import get_icon
-from recursivist.metrics import format_metrics_suffix
+from recursivist.metrics import format_dir_metrics, format_metrics_suffix
 from recursivist.sorting import sort_files_by_type
 
 from .base import BaseExporter
@@ -78,10 +78,8 @@ class MarkdownExporter(BaseExporter):
             if "_files" in structure:
                 for entry in sort_files_by_type(
                     structure["_files"],
-                    self.sort_by_loc,
-                    self.sort_by_size,
-                    self.sort_by_mtime,
-                    self.sort_by_similarity,
+                    self.sort_key,
+                    structure.get("_git_markers"),
                 ):
                     file_icon = get_icon(
                         entry.name, is_dir=False, style=self.icon_style
@@ -113,12 +111,7 @@ class MarkdownExporter(BaseExporter):
                     lines.append(
                         f"{indent}- {file_icon} {_md_display}"
                         + format_metrics_suffix(
-                            entry.loc,
-                            entry.size,
-                            entry.mtime,
-                            sort_by_loc=self.sort_by_loc,
-                            sort_by_size=self.sort_by_size,
-                            sort_by_mtime=self.sort_by_mtime,
+                            entry.loc, entry.size, entry.mtime, self.metrics
                         )
                         + _md_git_suffix
                     )
@@ -137,14 +130,7 @@ class MarkdownExporter(BaseExporter):
 
                 metrics = ""
                 if isinstance(content, dict):
-                    metrics = format_metrics_suffix(
-                        content.get("_loc", 0),
-                        content.get("_size", 0),
-                        content.get("_mtime", 0.0),
-                        sort_by_loc=self.sort_by_loc and "_loc" in content,
-                        sort_by_size=self.sort_by_size and "_size" in content,
-                        sort_by_mtime=self.sort_by_mtime and "_mtime" in content,
-                    )
+                    metrics = format_dir_metrics(content, self.metrics)
                 lines.append(
                     f"{indent}- {folder_icon} **{_md_escape_text(name)}**{metrics}"
                 )
@@ -160,14 +146,7 @@ class MarkdownExporter(BaseExporter):
 
         md_content = [
             f"# {root_icon} {_md_escape_text(self.root_name)}"
-            + format_metrics_suffix(
-                self.structure.get("_loc", 0),
-                self.structure.get("_size", 0),
-                self.structure.get("_mtime", 0.0),
-                sort_by_loc=self.sort_by_loc and "_loc" in self.structure,
-                sort_by_size=self.sort_by_size and "_size" in self.structure,
-                sort_by_mtime=self.sort_by_mtime and "_mtime" in self.structure,
-            ),
+            + format_dir_metrics(self.structure, self.metrics),
             "",
         ]
 

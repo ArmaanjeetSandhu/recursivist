@@ -8,6 +8,7 @@ files and directories. Pure standard library.
 import datetime
 import logging
 import os
+from collections.abc import Sequence
 from datetime import datetime as dt
 from typing import Any
 
@@ -182,35 +183,31 @@ def format_metrics(
     loc: int = 0,
     size: int = 0,
     mtime: float = 0.0,
-    *,
-    sort_by_loc: bool = False,
-    sort_by_size: bool = False,
-    sort_by_mtime: bool = False,
+    metrics: Sequence[str] = (),
 ) -> str:
     """Build the parenthetical metrics annotation for a file or directory.
 
-    Includes only the metrics whose flag is set, always in the fixed order
-    LOC, size, mtime — e.g. ``"(120 lines, 4.2 KB, Today 14:30)"``.
+    Includes exactly the metrics named in *metrics*, in that order — e.g.
+    ``metrics=("size", "loc")`` yields ``"(4.2 KB, 120 lines)"``. The metric
+    names are those defined in :mod:`recursivist.flags`: ``"loc"``, ``"size"``
+    and ``"mtime"``.
 
     Args:
         loc: Lines-of-code count.
         size: Size in bytes.
         mtime: Modification time (seconds since epoch).
-        sort_by_loc: Include the LOC count.
-        sort_by_size: Include the formatted size.
-        sort_by_mtime: Include the formatted timestamp.
+        metrics: The metrics to include, in display order.
 
     Returns:
         The annotation string including the surrounding parentheses, or an
-        empty string when no metric flag is set.
+        empty string when *metrics* is empty.
     """
-    parts: list[str] = []
-    if sort_by_loc:
-        parts.append(f"{loc} lines")
-    if sort_by_size:
-        parts.append(format_size(size))
-    if sort_by_mtime:
-        parts.append(format_timestamp(mtime))
+    renderers = {
+        "loc": lambda: f"{loc} line" if loc == 1 else f"{loc} lines",
+        "size": lambda: format_size(size),
+        "mtime": lambda: format_timestamp(mtime),
+    }
+    parts = [renderers[m]() for m in metrics if m in renderers]
     return f"({', '.join(parts)})" if parts else ""
 
 
@@ -218,57 +215,39 @@ def format_metrics_suffix(
     loc: int = 0,
     size: int = 0,
     mtime: float = 0.0,
-    *,
-    sort_by_loc: bool = False,
-    sort_by_size: bool = False,
-    sort_by_mtime: bool = False,
+    metrics: Sequence[str] = (),
 ) -> str:
     """Like :func:`format_metrics` but prefixed with a single space.
 
     Convenient for appending directly after a file or directory name. Returns
-    an empty string (no leading space) when no metric flag is set.
+    an empty string (no leading space) when *metrics* is empty.
     """
-    metrics = format_metrics(
-        loc,
-        size,
-        mtime,
-        sort_by_loc=sort_by_loc,
-        sort_by_size=sort_by_size,
-        sort_by_mtime=sort_by_mtime,
-    )
-    return f" {metrics}" if metrics else ""
+    annotation = format_metrics(loc, size, mtime, metrics)
+    return f" {annotation}" if annotation else ""
 
 
-def format_dir_metrics(
-    content: Any,
-    *,
-    sort_by_loc: bool = False,
-    sort_by_size: bool = False,
-    sort_by_mtime: bool = False,
-) -> str:
+def format_dir_metrics(content: Any, metrics: Sequence[str] = ()) -> str:
     """Return the space-prefixed metrics suffix for a directory node.
 
     Wraps :func:`format_metrics_suffix`, reading the totals from a directory's
-    structure dict and enabling each metric only when it is both requested and
-    present on that directory. Returns ``""`` for a non-dict node.
+    structure dict and keeping only the requested metrics that are actually
+    present on that directory — while preserving the requested display order.
+    Returns ``""`` for a non-dict node.
 
     Args:
         content: The directory's structure dict (or any value; non-dicts yield
             an empty string).
-        sort_by_loc: Whether LOC display is requested.
-        sort_by_size: Whether size display is requested.
-        sort_by_mtime: Whether modification-time display is requested.
+        metrics: The metrics to display, in order.
 
     Returns:
         The metrics suffix (with a leading space) or an empty string.
     """
     if not isinstance(content, dict):
         return ""
+    present = [m for m in metrics if f"_{m}" in content]
     return format_metrics_suffix(
         content.get("_loc", 0),
         content.get("_size", 0),
         content.get("_mtime", 0.0),
-        sort_by_loc=sort_by_loc and "_loc" in content,
-        sort_by_size=sort_by_size and "_size" in content,
-        sort_by_mtime=sort_by_mtime and "_mtime" in content,
+        present,
     )

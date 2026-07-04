@@ -9,7 +9,7 @@ import os
 from typing import Any
 
 from recursivist.icons import get_icon
-from recursivist.metrics import format_metrics_suffix
+from recursivist.metrics import format_dir_metrics, format_metrics_suffix
 from recursivist.sorting import sort_files_by_type
 
 from .base import BaseExporter
@@ -71,10 +71,8 @@ class TxtExporter(BaseExporter):
             if "_files" in structure:
                 file_items = sort_files_by_type(
                     structure["_files"],
-                    self.sort_by_loc,
-                    self.sort_by_size,
-                    self.sort_by_mtime,
-                    self.sort_by_similarity,
+                    self.sort_key,
+                    structure.get("_git_markers"),
                 )
                 for j, entry in enumerate(file_items):
                     is_last_file = j == len(file_items) - 1
@@ -98,21 +96,16 @@ class TxtExporter(BaseExporter):
                         entry.path
                         if (
                             self.show_full_path
-                            or self.sort_by_loc
-                            or self.sort_by_size
-                            or self.sort_by_mtime
+                            or self.show_loc
+                            or self.show_size
+                            or self.show_mtime
                         )
                         else entry.name
                     )
                     lines.append(
                         f"{item_prefix}{file_icon} {display_path}"
                         + format_metrics_suffix(
-                            entry.loc,
-                            entry.size,
-                            entry.mtime,
-                            sort_by_loc=self.sort_by_loc,
-                            sort_by_size=self.sort_by_size,
-                            sort_by_mtime=self.sort_by_mtime,
+                            entry.loc, entry.size, entry.mtime, self.metrics
                         )
                         + _git_suffix
                     )
@@ -125,14 +118,7 @@ class TxtExporter(BaseExporter):
                 if isinstance(content, dict):
                     lines.append(
                         f"{item_prefix}{folder_icon} {name}"
-                        + format_metrics_suffix(
-                            content.get("_loc", 0),
-                            content.get("_size", 0),
-                            content.get("_mtime", 0.0),
-                            sort_by_loc=self.sort_by_loc and "_loc" in content,
-                            sort_by_size=self.sort_by_size and "_size" in content,
-                            sort_by_mtime=self.sort_by_mtime and "_mtime" in content,
-                        )
+                        + format_dir_metrics(content, self.metrics)
                     )
                     if content.get("_max_depth_reached"):
                         next_prefix = prefix + ("    " if is_last_item else "│   ")
@@ -146,13 +132,8 @@ class TxtExporter(BaseExporter):
             return lines
 
         root_icon = get_icon(self.root_name, is_dir=True, style=self.icon_style)
-        root_label = f"{root_icon} {self.root_name}" + format_metrics_suffix(
-            self.structure.get("_loc", 0),
-            self.structure.get("_size", 0),
-            self.structure.get("_mtime", 0.0),
-            sort_by_loc=self.sort_by_loc and "_loc" in self.structure,
-            sort_by_size=self.sort_by_size and "_size" in self.structure,
-            sort_by_mtime=self.sort_by_mtime and "_mtime" in self.structure,
+        root_label = f"{root_icon} {self.root_name}" + format_dir_metrics(
+            self.structure, self.metrics
         )
 
         tree_lines = [root_label]

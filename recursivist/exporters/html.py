@@ -12,7 +12,11 @@ from typing import Any
 
 from recursivist.colors import generate_color_for_extension
 from recursivist.icons import get_icon
-from recursivist.metrics import format_metrics, format_metrics_suffix
+from recursivist.metrics import (
+    format_dir_metrics,
+    format_metrics,
+    format_metrics_suffix,
+)
 from recursivist.scanner import iter_subdirectories
 from recursivist.sorting import sort_files_by_type
 
@@ -56,10 +60,8 @@ class HtmlExporter(BaseExporter):
             if "_files" in structure:
                 for entry in sort_files_by_type(
                     structure["_files"],
-                    self.sort_by_loc,
-                    self.sort_by_size,
-                    self.sort_by_mtime,
-                    self.sort_by_similarity,
+                    self.sort_key,
+                    structure.get("_git_markers"),
                 ):
                     file_name = entry.name
                     display_path = entry.path
@@ -102,12 +104,7 @@ class HtmlExporter(BaseExporter):
                         f'<li class="file" style="{_file_style}">{file_icon} '
                         f"{_name_open}{html.escape(display_path)}{_name_close}"
                         + format_metrics_suffix(
-                            entry.loc,
-                            entry.size,
-                            entry.mtime,
-                            sort_by_loc=self.sort_by_loc,
-                            sort_by_size=self.sort_by_size,
-                            sort_by_mtime=self.sort_by_mtime,
+                            entry.loc, entry.size, entry.mtime, self.metrics
                         )
                         + f"{_git_badge}</li>"
                     )
@@ -116,12 +113,7 @@ class HtmlExporter(BaseExporter):
 
                 enabled = []
                 if isinstance(content, dict):
-                    if self.sort_by_loc and "_loc" in content:
-                        enabled.append("loc")
-                    if self.sort_by_size and "_size" in content:
-                        enabled.append("size")
-                    if self.sort_by_mtime and "_mtime" in content:
-                        enabled.append("mtime")
+                    enabled = [m for m in self.metrics if f"_{m}" in content]
                 metric_html = ""
                 if enabled:
                     css = "metric-count" if len(enabled) >= 2 else f"{enabled[0]}-count"
@@ -129,9 +121,7 @@ class HtmlExporter(BaseExporter):
                         content.get("_loc", 0),
                         content.get("_size", 0),
                         content.get("_mtime", 0.0),
-                        sort_by_loc=self.sort_by_loc and "_loc" in content,
-                        sort_by_size=self.sort_by_size and "_size" in content,
-                        sort_by_mtime=self.sort_by_mtime and "_mtime" in content,
+                        enabled,
                     )
                     metric_html = f' <span class="{css}">{inner}</span>'
                 html_content.append(
@@ -152,59 +142,37 @@ class HtmlExporter(BaseExporter):
 
         root_icon = get_icon(self.root_name, is_dir=True, style=self.icon_style)
 
-        title = f"{root_icon} {html.escape(self.root_name)}" + format_metrics_suffix(
-            self.structure.get("_loc", 0),
-            self.structure.get("_size", 0),
-            self.structure.get("_mtime", 0.0),
-            sort_by_loc=self.sort_by_loc and "_loc" in self.structure,
-            sort_by_size=self.sort_by_size and "_size" in self.structure,
-            sort_by_mtime=self.sort_by_mtime and "_mtime" in self.structure,
+        title = f"{root_icon} {html.escape(self.root_name)}" + format_dir_metrics(
+            self.structure, self.metrics
         )
-        loc_styles = (
-            """
+        loc_styles = """
             .loc-count {
                 color: #666;
                 font-size: 0.9em;
                 font-weight: normal;
             }
         """
-            if self.sort_by_loc
-            else ""
-        )
-        size_styles = (
-            """
+        size_styles = """
             .size-count {
                 color: #666;
                 font-size: 0.9em;
                 font-weight: normal;
             }
         """
-            if self.sort_by_size
-            else ""
-        )
-        mtime_styles = (
-            """
+        mtime_styles = """
             .mtime-count {
                 color: #666;
                 font-size: 0.9em;
                 font-weight: normal;
             }
         """
-            if self.sort_by_mtime
-            else ""
-        )
-        metric_styles = (
-            """
+        metric_styles = """
             .metric-count {
                 color: #666;
                 font-size: 0.9em;
                 font-weight: normal;
             }
         """
-            if (self.sort_by_size and self.sort_by_loc)
-            or (self.sort_by_mtime and (self.sort_by_loc or self.sort_by_size))
-            else ""
-        )
         git_styles = (
             """
             .git-badge {

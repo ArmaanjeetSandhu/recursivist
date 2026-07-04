@@ -97,3 +97,36 @@ class FileEntry(NamedTuple):
         elif n > 2 and sort_by_mtime and not sort_by_loc and not sort_by_size:
             mtime = item[2]
         return cls(name=name, path=path, loc=loc, size=size, mtime=float(mtime))
+
+    @classmethod
+    def coerce(cls, item: Union["FileEntry", tuple[Any, ...], str]) -> "FileEntry":
+        """Normalize any raw ``_files`` entry to a :class:`FileEntry` by position.
+
+        Unlike :meth:`from_raw`, this makes no assumptions about which metric
+        flags were active: it simply reads the canonical
+        ``(name, path, loc, size, mtime)`` slots by index, defaulting any
+        missing trailing field. This matches how the scanner always emits
+        entries (as full :class:`FileEntry` values) and lets callers that need
+        the metric values — such as sorting — read them unconditionally.
+
+        Args:
+            item: A :class:`FileEntry`, a positional tuple, or a bare filename
+                string.
+
+        Returns:
+            The equivalent :class:`FileEntry`.
+        """
+        if isinstance(item, cls):
+            return item
+        if not isinstance(item, tuple):
+            name = str(item)
+            return cls(name=name, path=name)
+        n = len(item)
+        if n == 0:
+            return cls(name="unknown", path="unknown")
+        name = item[0]
+        path = item[1] if n > 1 else name
+        loc = item[2] if n > 2 else 0
+        size = item[3] if n > 3 else 0
+        mtime = item[4] if n > 4 else 0.0
+        return cls(name=name, path=path, loc=loc, size=size, mtime=float(mtime))

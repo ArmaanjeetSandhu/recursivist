@@ -5,11 +5,21 @@ mtime), or groups them by name similarity. Operates on :class:`FileEntry`.
 """
 
 import os
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from difflib import SequenceMatcher
 from typing import Any
 
 from recursivist._models import FileEntry
+from recursivist.flags import (
+    METRIC_GIT,
+    METRIC_LOC,
+    METRIC_MTIME,
+    METRIC_SIMILARITY,
+    METRIC_SIZE,
+)
+
+_GIT_SORT_RANK: dict[str, int] = {"M": 0, "A": 1, "D": 2, "U": 3}
+_GIT_SORT_CLEAN = 4
 
 
 def sort_files_by_similarity(files: Sequence[Any]) -> list[FileEntry]:
@@ -75,31 +85,35 @@ def sort_files_by_similarity(files: Sequence[Any]) -> list[FileEntry]:
 
 def sort_files_by_type(
     files: Sequence[Any],
-    sort_by_loc: bool = False,
-    sort_by_size: bool = False,
-    sort_by_mtime: bool = False,
-    sort_by_similarity: bool = False,
+    sort_key: str | None = None,
+    git_markers: Mapping[str, str] | None = None,
 ) -> list[FileEntry]:
-    """Sort files by extension and then by name, or by LOC/size/mtime/similarity if requested.
+    """Order files by a single resolved sort key.
 
-    The sort precedence follows: LOC > size > mtime > similarity >
-    extension/name. The numeric metrics are mutually combinable and take
-    priority; name-similarity grouping replaces the default extension/name
-    ordering when requested but is itself overridden by any active numeric
-    sort (a value-based ordering is treated as the stronger intent, exactly
-    as it already overrides the plain alphabetical fallback).
+    Exactly one ordering is applied, chosen by *sort_key*:
+
+    - ``None``: the default — by extension, then case-insensitive name.
+    - ``"loc"`` / ``"size"`` / ``"mtime"``: by that metric, largest/newest
+      first (a stable sort keeps the pre-existing order for equal values).
+    - ``"git_status"``: grouped by Git status (modified, added, deleted,
+      untracked, then clean), and by case-insensitive name within each group.
+      Requires *git_markers*.
+    - ``"similarity"``: by name similarity, via
+      :func:`sort_files_by_similarity`.
+
+    This mirrors the resolution in :mod:`recursivist.flags`, where only the
+    first sorting flag on the command line takes effect, so there is never more
+    than one active metric to combine.
 
     Inputs may be :class:`FileEntry` instances, bare filename strings, or
     positional tuples; every item is normalised to a :class:`FileEntry` via
-    :meth:`FileEntry.from_raw` before sorting.
+    :meth:`FileEntry.coerce` before sorting.
 
     Args:
         files: List of file items (``FileEntry``, tuple, or ``str``).
-        sort_by_loc: Whether to sort by lines of code.
-        sort_by_size: Whether to sort by file size.
-        sort_by_mtime: Whether to sort by modification time.
-        sort_by_similarity: Whether to group files by name similarity (used
-            only when no numeric sort is active).
+        sort_key: The single metric to order by, or ``None`` for the default.
+        git_markers: ``{filename: status_char}`` mapping, required when
+            *sort_key* is ``"git_status"``.
 
     Returns:
         Sorted list of :class:`FileEntry`.
@@ -107,33 +121,24 @@ def sort_files_by_type(
     if not files:
         return []
 
-    has_loc = any(isinstance(item, tuple) and len(item) > 2 for item in files)
-    has_size = any(isinstance(item, tuple) and len(item) > 3 for item in files)
-    has_mtime = any(isinstance(item, tuple) and len(item) > 4 for item in files)
-    has_simple_size = sort_by_size and not sort_by_loc and has_loc
-    has_simple_mtime = (
-        sort_by_mtime and not sort_by_loc and not sort_by_size and (has_loc or has_size)
-    )
+    entries = [FileEntry.coerce(f) for f in files]
 
-    entries = [
-        FileEntry.from_raw(f, sort_by_loc, sort_by_size, sort_by_mtime) for f in files
-    ]
-
-    if sort_by_loc and sort_by_size and sort_by_mtime and has_mtime:
-        return sorted(entries, key=lambda e: (-e.loc, -e.size, -e.mtime))
-    if sort_by_loc and sort_by_size and (has_size or has_simple_size) and has_loc:
-        return sorted(entries, key=lambda e: (-e.loc, -e.size))
-    if sort_by_loc and sort_by_mtime and has_mtime:
-        return sorted(entries, key=lambda e: (-e.loc, -e.mtime))
-    if sort_by_size and sort_by_mtime and has_mtime:
-        return sorted(entries, key=lambda e: (-e.size, -e.mtime))
-    if sort_by_loc and has_loc:
+    if sort_key == METRIC_LOC:
         return sorted(entries, key=lambda e: -e.loc)
-    if sort_by_size and (has_size or has_simple_size):
+    if sort_key == METRIC_SIZE:
         return sorted(entries, key=lambda e: -e.size)
-    if sort_by_mtime and (has_mtime or has_simple_mtime):
+    if sort_key == METRIC_MTIME:
         return sorted(entries, key=lambda e: -e.mtime)
-    if sort_by_similarity:
+    if sort_key == METRIC_GIT:
+        markers = git_markers or {}
+        return sorted(
+            entries,
+            key=lambda e: (
+                _GIT_SORT_RANK.get(markers.get(e.name, ""), _GIT_SORT_CLEAN),
+                e.name.lower(),
+            ),
+        )
+    if sort_key == METRIC_SIMILARITY:
         return sort_files_by_similarity(entries)
     return sorted(
         entries,

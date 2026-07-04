@@ -21,6 +21,7 @@ from rich.tree import Tree
 
 from recursivist.colors import generate_color_for_extension
 from recursivist.filtering import compile_regex_patterns
+from recursivist.flags import DisplayOptions
 from recursivist.icons import get_icon
 from recursivist.metrics import format_dir_metrics, format_metrics_suffix
 from recursivist.scanner import get_directory_structure, iter_subdirectories
@@ -39,9 +40,7 @@ def compare_directory_structures(
     include_patterns: Sequence[str | Pattern[str]] | None = None,
     max_depth: int = 0,
     show_full_path: bool = False,
-    sort_by_loc: bool = False,
-    sort_by_size: bool = False,
-    sort_by_mtime: bool = False,
+    spec: DisplayOptions | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any], set[str]]:
     """Scan two directories for comparison using identical options.
 
@@ -61,14 +60,15 @@ def compare_directory_structures(
         max_depth: Maximum depth to scan, or ``0`` for unlimited.
         show_full_path: Whether to store absolute paths instead of bare
             filenames.
-        sort_by_loc: Whether to count lines of code.
-        sort_by_size: Whether to measure file sizes.
-        sort_by_mtime: Whether to record modification times.
+        spec: Resolved sorting and annotation directives. Only the metrics it
+            enables are computed. Defaults to a plain :class:`DisplayOptions`.
 
     Returns:
         A ``(structure1, structure2, combined_extensions)`` tuple, pairing each
         directory's structure with the union of their file extensions.
     """
+    if spec is None:
+        spec = DisplayOptions()
     structure1, extensions1 = get_directory_structure(
         dir1,
         exclude_dirs,
@@ -78,9 +78,9 @@ def compare_directory_structures(
         include_patterns=include_patterns,
         max_depth=max_depth,
         show_full_path=show_full_path,
-        sort_by_loc=sort_by_loc,
-        sort_by_size=sort_by_size,
-        sort_by_mtime=sort_by_mtime,
+        sort_by_loc=spec.show_loc,
+        sort_by_size=spec.show_size,
+        sort_by_mtime=spec.show_mtime,
     )
     structure2, extensions2 = get_directory_structure(
         dir2,
@@ -91,9 +91,9 @@ def compare_directory_structures(
         include_patterns=include_patterns,
         max_depth=max_depth,
         show_full_path=show_full_path,
-        sort_by_loc=sort_by_loc,
-        sort_by_size=sort_by_size,
-        sort_by_mtime=sort_by_mtime,
+        sort_by_loc=spec.show_loc,
+        sort_by_size=spec.show_size,
+        sort_by_mtime=spec.show_mtime,
     )
     combined_extensions = extensions1.union(extensions2)
     return structure1, structure2, combined_extensions
@@ -104,33 +104,28 @@ def build_comparison_tree(
     other_structure: dict[str, Any],
     tree: Tree,
     color_map: dict[str, str],
+    spec: DisplayOptions,
     show_full_path: bool = False,
-    sort_by_loc: bool = False,
-    sort_by_size: bool = False,
-    sort_by_mtime: bool = False,
     icon_style: str = "emoji",
-    sort_by_similarity: bool = False,
 ) -> None:
     """Populate a ``rich`` tree, highlighting differences against another tree.
 
     Recursively adds the entries of *structure* to *tree*, comparing each
     against *other_structure*: items present in both are shown normally, items
     unique to *structure* are highlighted in green, and items unique to
-    *other_structure* are highlighted in red. Metric annotations are appended
-    when the corresponding sort flag is set.
+    *other_structure* are highlighted in red. Files are ordered by
+    ``spec.sort_key`` and metric annotations are appended in ``spec.metrics``
+    order. (Directory comparison has no Git-status support.)
 
     Args:
         structure: Structure of the directory being rendered.
         other_structure: Structure of the directory being compared against.
         tree: ``rich`` tree to add nodes to. Modified in place.
         color_map: Mapping of lowercase file extension to hex color.
+        spec: Resolved sorting and annotation directives.
         show_full_path: Whether to display absolute paths instead of bare
             filenames.
-        sort_by_loc: Whether to display lines-of-code counts.
-        sort_by_size: Whether to display file sizes.
-        sort_by_mtime: Whether to display modification times.
         icon_style: Icon style to use, either ``"emoji"`` or ``"nerd"``.
-        sort_by_similarity: Whether to group files by name similarity.
     """
     if "_files" in structure:
         files_in_other = other_structure.get("_files", []) if other_structure else []
@@ -140,23 +135,12 @@ def build_comparison_tree(
                 files_in_other_names.append(item[0])
             else:
                 files_in_other_names.append(cast(str, item))
-        for entry in sort_files_by_type(
-            structure["_files"],
-            sort_by_loc,
-            sort_by_size,
-            sort_by_mtime,
-            sort_by_similarity,
-        ):
+        for entry in sort_files_by_type(structure["_files"], spec.sort_key):
             file_icon = get_icon(entry.name, is_dir=False, style=icon_style)
             ext = os.path.splitext(entry.name)[1].lower()
             color = color_map.get(ext, "#FFFFFF")
             label = f"{file_icon} {entry.path}" + format_metrics_suffix(
-                entry.loc,
-                entry.size,
-                entry.mtime,
-                sort_by_loc=sort_by_loc,
-                sort_by_size=sort_by_size,
-                sort_by_mtime=sort_by_mtime,
+                entry.loc, entry.size, entry.mtime, spec.metrics
             )
             style = (
                 f"{color} on green" if entry.name not in files_in_other_names else color
@@ -166,12 +150,7 @@ def build_comparison_tree(
         folder_icon = get_icon(folder, is_dir=True, style=icon_style)
 
         other_content = other_structure.get(folder, {}) if other_structure else {}
-        metrics = format_dir_metrics(
-            content,
-            sort_by_loc=sort_by_loc,
-            sort_by_size=sort_by_size,
-            sort_by_mtime=sort_by_mtime,
-        )
+        metrics = format_dir_metrics(content, spec.metrics)
         folder_label = f"{folder_icon} {folder}{metrics}"
         if folder not in (other_structure or {}):
             subtree = tree.add(Text(folder_label, style="green"))
@@ -185,12 +164,9 @@ def build_comparison_tree(
                 other_content,
                 subtree,
                 color_map,
+                spec,
                 show_full_path,
-                sort_by_loc,
-                sort_by_size,
-                sort_by_mtime,
                 icon_style=icon_style,
-                sort_by_similarity=sort_by_similarity,
             )
     if other_structure and "_files" in other_structure:
         files_in_this_names = []
@@ -200,24 +176,13 @@ def build_comparison_tree(
                 files_in_this_names.append(item[0])
             else:
                 files_in_this_names.append(cast(str, item))
-        for entry in sort_files_by_type(
-            other_structure["_files"],
-            sort_by_loc,
-            sort_by_size,
-            sort_by_mtime,
-            sort_by_similarity,
-        ):
+        for entry in sort_files_by_type(other_structure["_files"], spec.sort_key):
             if entry.name not in files_in_this_names:
                 file_icon = get_icon(entry.name, is_dir=False, style=icon_style)
                 ext = os.path.splitext(entry.name)[1].lower()
                 color = color_map.get(ext, "#FFFFFF")
                 label = f"{file_icon} {entry.path}" + format_metrics_suffix(
-                    entry.loc,
-                    entry.size,
-                    entry.mtime,
-                    sort_by_loc=sort_by_loc,
-                    sort_by_size=sort_by_size,
-                    sort_by_mtime=sort_by_mtime,
+                    entry.loc, entry.size, entry.mtime, spec.metrics
                 )
                 tree.add(Text(label, style=f"{color} on red"))
     if other_structure:
@@ -226,12 +191,7 @@ def build_comparison_tree(
                 continue
             folder_icon = get_icon(folder, is_dir=True, style=icon_style)
 
-            metrics = format_dir_metrics(
-                other_content,
-                sort_by_loc=sort_by_loc,
-                sort_by_size=sort_by_size,
-                sort_by_mtime=sort_by_mtime,
-            )
+            metrics = format_dir_metrics(other_content, spec.metrics)
             subtree = tree.add(Text(f"{folder_icon} {folder}{metrics}", style="red"))
             if isinstance(other_content, dict) and other_content.get(
                 "_max_depth_reached"
@@ -243,12 +203,9 @@ def build_comparison_tree(
                     other_content,
                     subtree,
                     color_map,
+                    spec,
                     show_full_path,
-                    sort_by_loc,
-                    sort_by_size,
-                    sort_by_mtime,
                     icon_style=icon_style,
-                    sort_by_similarity=sort_by_similarity,
                 )
 
 
@@ -263,11 +220,8 @@ def display_comparison(
     use_regex: bool = False,
     max_depth: int = 0,
     show_full_path: bool = False,
-    sort_by_loc: bool = False,
-    sort_by_size: bool = False,
-    sort_by_mtime: bool = False,
+    spec: DisplayOptions | None = None,
     icon_style: str = "emoji",
-    sort_by_similarity: bool = False,
 ) -> None:
     """Render two directory trees side by side in the terminal.
 
@@ -291,12 +245,12 @@ def display_comparison(
         max_depth: Maximum depth to display, or ``0`` for unlimited.
         show_full_path: Whether to display absolute paths instead of bare
             filenames.
-        sort_by_loc: Whether to display and sort by lines of code.
-        sort_by_size: Whether to display and sort by file size.
-        sort_by_mtime: Whether to display and sort by modification time.
+        spec: Resolved sorting and annotation directives. Defaults to a plain
+            :class:`DisplayOptions`.
         icon_style: Icon style to use, either ``"emoji"`` or ``"nerd"``.
-        sort_by_similarity: Whether to group files by name similarity.
     """
+    if spec is None:
+        spec = DisplayOptions()
     if exclude_dirs is None:
         exclude_dirs = []
     if exclude_extensions is None:
@@ -321,9 +275,7 @@ def display_comparison(
         include_patterns=compiled_include,
         max_depth=max_depth,
         show_full_path=show_full_path,
-        sort_by_loc=sort_by_loc,
-        sort_by_size=sort_by_size,
-        sort_by_mtime=sort_by_mtime,
+        spec=spec,
     )
     color_map = {ext: generate_color_for_extension(ext) for ext in extensions}
     console = Console()
@@ -335,30 +287,14 @@ def display_comparison(
 
     tree1 = Tree(
         Text(
-            f"{root_icon1} {root_base1}"
-            + format_metrics_suffix(
-                structure1.get("_loc", 0),
-                structure1.get("_size", 0),
-                structure1.get("_mtime", 0.0),
-                sort_by_loc=sort_by_loc and "_loc" in structure1,
-                sort_by_size=sort_by_size and "_size" in structure1,
-                sort_by_mtime=sort_by_mtime and "_mtime" in structure1,
-            ),
+            f"{root_icon1} {root_base1}" + format_dir_metrics(structure1, spec.metrics),
             style="bold",
         )
     )
 
     tree2 = Tree(
         Text(
-            f"{root_icon2} {root_base2}"
-            + format_metrics_suffix(
-                structure2.get("_loc", 0),
-                structure2.get("_size", 0),
-                structure2.get("_mtime", 0.0),
-                sort_by_loc=sort_by_loc and "_loc" in structure2,
-                sort_by_size=sort_by_size and "_size" in structure2,
-                sort_by_mtime=sort_by_mtime and "_mtime" in structure2,
-            ),
+            f"{root_icon2} {root_base2}" + format_dir_metrics(structure2, spec.metrics),
             style="bold",
         )
     )
@@ -368,24 +304,18 @@ def display_comparison(
         structure2,
         tree1,
         color_map,
+        spec,
         show_full_path=show_full_path,
-        sort_by_loc=sort_by_loc,
-        sort_by_size=sort_by_size,
-        sort_by_mtime=sort_by_mtime,
         icon_style=icon_style,
-        sort_by_similarity=sort_by_similarity,
     )
     build_comparison_tree(
         structure2,
         structure1,
         tree2,
         color_map,
+        spec,
         show_full_path=show_full_path,
-        sort_by_loc=sort_by_loc,
-        sort_by_size=sort_by_size,
-        sort_by_mtime=sort_by_mtime,
         icon_style=icon_style,
-        sort_by_similarity=sort_by_similarity,
     )
     legend_text = Text()
     legend_text.append("Legend: ", style="bold")
@@ -393,22 +323,24 @@ def display_comparison(
     legend_text.append("= In this directory, ")
     legend_text.append("Red background ", style="on red")
     legend_text.append("= In the other directory")
-    if sort_by_loc:
+    if "loc" in spec.metrics:
         legend_text.append("\n")
-        legend_text.append(
-            "LOC counts shown in parentheses, files sorted by line count"
-        )
-    if sort_by_size:
+        legend_text.append("LOC counts shown in parentheses")
+    if "size" in spec.metrics:
         legend_text.append("\n")
-        legend_text.append("File sizes shown in parentheses, files sorted by size")
-    if sort_by_mtime:
+        legend_text.append("File sizes shown in parentheses")
+    if "mtime" in spec.metrics:
         legend_text.append("\n")
-        legend_text.append(
-            "Modification times shown in parentheses, files sorted by newest first"
-        )
-    if sort_by_similarity and not (sort_by_loc or sort_by_size or sort_by_mtime):
+        legend_text.append("Modification times shown in parentheses")
+    _sort_note = {
+        "loc": "Files sorted by line count",
+        "size": "Files sorted by size",
+        "mtime": "Files sorted by modification time (newest first)",
+        "similarity": "Files grouped by name similarity",
+    }.get(spec.sort_key or "")
+    if _sort_note:
         legend_text.append("\n")
-        legend_text.append("Files grouped by name similarity")
+        legend_text.append(_sort_note)
     if max_depth > 0:
         legend_text.append("\n")
         legend_text.append("⋯ (max depth reached) ", style="dim")
@@ -468,11 +400,8 @@ def export_comparison(
     use_regex: bool = False,
     max_depth: int = 0,
     show_full_path: bool = False,
-    sort_by_loc: bool = False,
-    sort_by_size: bool = False,
-    sort_by_mtime: bool = False,
+    spec: DisplayOptions | None = None,
     icon_style: str = "emoji",
-    sort_by_similarity: bool = False,
 ) -> None:
     """Export a side-by-side directory comparison to an HTML file.
 
@@ -497,15 +426,15 @@ def export_comparison(
         max_depth: Maximum depth to include, or ``0`` for unlimited.
         show_full_path: Whether to write absolute paths instead of bare
             filenames.
-        sort_by_loc: Whether to display and sort by lines of code.
-        sort_by_size: Whether to display and sort by file size.
-        sort_by_mtime: Whether to display and sort by modification time.
+        spec: Resolved sorting and annotation directives. Defaults to a plain
+            :class:`DisplayOptions`.
         icon_style: Icon style to use, either ``"emoji"`` or ``"nerd"``.
-        sort_by_similarity: Whether to group files by name similarity.
 
     Raises:
         ValueError: If *format_type* is not ``"html"``.
     """
+    if spec is None:
+        spec = DisplayOptions()
     if exclude_dirs is None:
         exclude_dirs = []
     if exclude_extensions is None:
@@ -530,9 +459,7 @@ def export_comparison(
         include_patterns=compiled_include,
         max_depth=max_depth,
         show_full_path=show_full_path,
-        sort_by_loc=sort_by_loc,
-        sort_by_size=sort_by_size,
-        sort_by_mtime=sort_by_mtime,
+        spec=spec,
     )
     comparison_data = {
         "dir1": {"path": dir1, "name": os.path.basename(dir1), "structure": structure1},
@@ -543,10 +470,11 @@ def export_comparison(
             "pattern_type": "regex" if use_regex else "glob",
             "max_depth": max_depth,
             "show_full_path": show_full_path,
-            "sort_by_loc": sort_by_loc,
-            "sort_by_size": sort_by_size,
-            "sort_by_mtime": sort_by_mtime,
-            "sort_by_similarity": sort_by_similarity,
+            "metrics": list(spec.metrics),
+            "sort_key": spec.sort_key,
+            "show_loc": spec.show_loc,
+            "show_size": spec.show_size,
+            "show_mtime": spec.show_mtime,
         },
     }
     if format_type == "html":
@@ -590,15 +518,10 @@ def _export_comparison_to_html(
             An HTML fragment representing the directory tree.
         """
         html_content = ["<ul>"]
-        show_full_path = comparison_data.get("metadata", {}).get(
-            "show_full_path", False
-        )
-        sort_by_loc = comparison_data.get("metadata", {}).get("sort_by_loc", False)
-        sort_by_size = comparison_data.get("metadata", {}).get("sort_by_size", False)
-        sort_by_mtime = comparison_data.get("metadata", {}).get("sort_by_mtime", False)
-        sort_by_similarity = comparison_data.get("metadata", {}).get(
-            "sort_by_similarity", False
-        )
+        _meta = comparison_data.get("metadata", {})
+        show_full_path = _meta.get("show_full_path", False)
+        metrics = _meta.get("metrics", [])
+        sort_key = _meta.get("sort_key")
         files_in_this = structure.get("_files", [])
         if "_files" in structure:
             files_in_other = (
@@ -610,25 +533,11 @@ def _export_comparison_to_html(
                     files_in_other_names.append(item[0])
                 else:
                     files_in_other_names.append(cast(str, item))
-            sorted_files = sort_files_by_type(
-                files_in_this,
-                sort_by_loc,
-                sort_by_size,
-                sort_by_mtime,
-                sort_by_similarity,
-            )
+            sorted_files = sort_files_by_type(files_in_this, sort_key)
             for entry in sorted_files:
-                if sort_by_loc or sort_by_size or sort_by_mtime:
-                    base = entry.path if show_full_path else entry.name
-                else:
-                    base = entry.path
+                base = entry.path if show_full_path else entry.name
                 display_text = html.escape(base) + format_metrics_suffix(
-                    entry.loc,
-                    entry.size,
-                    entry.mtime,
-                    sort_by_loc=sort_by_loc,
-                    sort_by_size=sort_by_size,
-                    sort_by_mtime=sort_by_mtime,
+                    entry.loc, entry.size, entry.mtime, metrics
                 )
                 if entry.name not in files_in_other_names:
                     file_class = ' class="file-unique-left"'
@@ -646,15 +555,10 @@ def _export_comparison_to_html(
 
             folder_icon = get_icon(name, is_dir=True, style=icon_style)
 
-            metrics = format_dir_metrics(
-                content,
-                sort_by_loc=sort_by_loc,
-                sort_by_size=sort_by_size,
-                sort_by_mtime=sort_by_mtime,
-            )
+            metrics_suffix = format_dir_metrics(content, metrics)
             html_content.append(
                 f'<li{dir_class}><span class="directory">{folder_icon} '
-                f"{html.escape(name)}{metrics}</span>"
+                f"{html.escape(name)}{metrics_suffix}</span>"
             )
             if isinstance(content, dict) and content.get("_max_depth_reached"):
                 html_content.append(
@@ -671,26 +575,12 @@ def _export_comparison_to_html(
                     files_in_this_names.append(item[0])
                 else:
                     files_in_this_names.append(cast(str, item))
-            sorted_other_files = sort_files_by_type(
-                other_structure["_files"],
-                sort_by_loc,
-                sort_by_size,
-                sort_by_mtime,
-                sort_by_similarity,
-            )
+            sorted_other_files = sort_files_by_type(other_structure["_files"], sort_key)
             for entry in sorted_other_files:
                 if entry.name not in files_in_this_names:
-                    if sort_by_loc or sort_by_size or sort_by_mtime:
-                        base = entry.path if show_full_path else entry.name
-                    else:
-                        base = entry.path
+                    base = entry.path if show_full_path else entry.name
                     display_text = html.escape(base) + format_metrics_suffix(
-                        entry.loc,
-                        entry.size,
-                        entry.mtime,
-                        sort_by_loc=sort_by_loc,
-                        sort_by_size=sort_by_size,
-                        sort_by_mtime=sort_by_mtime,
+                        entry.loc, entry.size, entry.mtime, metrics
                     )
                     file_class = ' class="file-unique-right"'
                     file_icon = get_icon(entry.name, is_dir=False, style=icon_style)
@@ -705,15 +595,10 @@ def _export_comparison_to_html(
 
                 folder_icon = get_icon(name, is_dir=True, style=icon_style)
 
-                metrics = format_dir_metrics(
-                    content,
-                    sort_by_loc=sort_by_loc,
-                    sort_by_size=sort_by_size,
-                    sort_by_mtime=sort_by_mtime,
-                )
+                metrics_suffix = format_dir_metrics(content, metrics)
                 html_content.append(
                     f'<li{dir_class}><span class="directory">{folder_icon} '
-                    f"{html.escape(name)}{metrics}</span>"
+                    f"{html.escape(name)}{metrics_suffix}</span>"
                 )
                 if isinstance(content, dict) and content.get("_max_depth_reached"):
                     html_content.append(
@@ -739,14 +624,14 @@ def _export_comparison_to_html(
     if metadata.get("show_full_path"):
         path_info = '<div class="info-block"><span class="info-label">Path Display:</span> Full paths shown</div>'
     loc_info = ""
-    if metadata.get("sort_by_loc"):
-        loc_info = '<div class="info-block"><span class="info-label">Lines of Code:</span> Files sorted by LOC, counts displayed</div>'
+    if metadata.get("show_loc"):
+        loc_info = '<div class="info-block"><span class="info-label">Lines of Code:</span> LOC counts displayed</div>'
     size_info = ""
-    if metadata.get("sort_by_size"):
-        size_info = '<div class="info-block"><span class="info-label">File Sizes:</span> Files sorted by size, sizes displayed</div>'
+    if metadata.get("show_size"):
+        size_info = '<div class="info-block"><span class="info-label">File Sizes:</span> File sizes displayed</div>'
     mtime_info = ""
-    if metadata.get("sort_by_mtime"):
-        mtime_info = '<div class="info-block"><span class="info-label">Modification Times:</span> Files sorted by newest first, timestamps displayed</div>'
+    if metadata.get("show_mtime"):
+        mtime_info = '<div class="info-block"><span class="info-label">Modification Times:</span> Timestamps displayed</div>'
     pattern_info_html = ""
     if metadata.get("exclude_patterns") or metadata.get("include_patterns"):
         pattern_type = metadata.get("pattern_type", "glob").capitalize()
@@ -771,25 +656,9 @@ def _export_comparison_to_html(
             </div>
             """
 
-    _sl = bool(metadata.get("sort_by_loc"))
-    _ss = bool(metadata.get("sort_by_size"))
-    _sm = bool(metadata.get("sort_by_mtime"))
-    dir1_title = dir1_name + format_metrics_suffix(
-        dir1_structure.get("_loc", 0),
-        dir1_structure.get("_size", 0),
-        dir1_structure.get("_mtime", 0.0),
-        sort_by_loc=_sl and "_loc" in dir1_structure,
-        sort_by_size=_ss and "_size" in dir1_structure,
-        sort_by_mtime=_sm and "_mtime" in dir1_structure,
-    )
-    dir2_title = dir2_name + format_metrics_suffix(
-        dir2_structure.get("_loc", 0),
-        dir2_structure.get("_size", 0),
-        dir2_structure.get("_mtime", 0.0),
-        sort_by_loc=_sl and "_loc" in dir2_structure,
-        sort_by_size=_ss and "_size" in dir2_structure,
-        sort_by_mtime=_sm and "_mtime" in dir2_structure,
-    )
+    _metrics = metadata.get("metrics", [])
+    dir1_title = dir1_name + format_dir_metrics(dir1_structure, _metrics)
+    dir2_title = dir2_name + format_dir_metrics(dir2_structure, _metrics)
 
     root_icon1 = get_icon(dir1_name, is_dir=True, style=icon_style)
     root_icon2 = get_icon(dir2_name, is_dir=True, style=icon_style)

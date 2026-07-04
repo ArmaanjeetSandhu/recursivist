@@ -13,7 +13,7 @@ from rich.tree import Tree
 
 from recursivist.colors import generate_color_for_extension
 from recursivist.icons import get_icon
-from recursivist.metrics import format_metrics_suffix
+from recursivist.metrics import format_dir_metrics
 from recursivist.tree import build_tree
 
 from .base import BaseExporter
@@ -63,13 +63,8 @@ class SvgExporter(BaseExporter):
         color_map = {ext: generate_color_for_extension(ext) for ext in extensions}
 
         root_icon = get_icon(self.root_name, is_dir=True, style=self.icon_style)
-        root_label = f"{root_icon} {self.root_name}" + format_metrics_suffix(
-            self.structure.get("_loc", 0),
-            self.structure.get("_size", 0),
-            self.structure.get("_mtime", 0.0),
-            sort_by_loc=self.sort_by_loc and "_loc" in self.structure,
-            sort_by_size=self.sort_by_size and "_size" in self.structure,
-            sort_by_mtime=self.sort_by_mtime and "_mtime" in self.structure,
+        root_label = f"{root_icon} {self.root_name}" + format_dir_metrics(
+            self.structure, self.metrics
         )
 
         tree = Tree(root_label)
@@ -78,13 +73,9 @@ class SvgExporter(BaseExporter):
             structure=self.structure,
             tree=tree,
             color_map=color_map,
+            spec=self.spec,
             show_full_path=self.show_full_path,
-            sort_by_loc=self.sort_by_loc,
-            sort_by_size=self.sort_by_size,
-            sort_by_mtime=self.sort_by_mtime,
-            show_git_status=self.show_git_status,
             icon_style=self.icon_style,
-            sort_by_similarity=self.sort_by_similarity,
         )
 
         console = Console(record=True, width=120)

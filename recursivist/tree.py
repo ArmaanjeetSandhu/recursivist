@@ -16,6 +16,7 @@ from rich.tree import Tree
 
 from recursivist.colors import generate_color_for_extension
 from recursivist.filtering import compile_regex_patterns
+from recursivist.flags import METRIC_GIT, DisplayOptions
 from recursivist.git_status import get_git_status
 from recursivist.icons import get_icon
 from recursivist.metrics import format_dir_metrics, format_metrics_suffix
@@ -29,45 +30,34 @@ def build_tree(
     structure: dict[str, Any],
     tree: Tree,
     color_map: dict[str, str],
+    spec: DisplayOptions,
     show_full_path: bool = False,
-    sort_by_loc: bool = False,
-    sort_by_size: bool = False,
-    sort_by_mtime: bool = False,
-    show_git_status: bool = False,
     icon_style: str = "emoji",
-    sort_by_similarity: bool = False,
 ) -> None:
     """Populate a ``rich`` tree from a scanned directory structure.
 
     Recursively adds each file and subdirectory of *structure* to *tree*, with
-    filenames colored by extension. Files are ordered by
+    filenames colored by extension. Files are ordered by ``spec.sort_key`` via
     :func:`recursivist.sorting.sort_files_by_type`, and a subtree that hit the
     depth limit is shown as a single "max depth reached" placeholder.
 
-    The active sort/display flags control the annotations appended to each
-    entry:
+    The resolved *spec* controls the annotations appended to each entry:
 
-    - *sort_by_loc*, *sort_by_size*, *sort_by_mtime*: append the corresponding
-      lines-of-code, size, and modification-time metrics.
-    - *sort_by_similarity*: group files with similar names together. Applies
-      only when no numeric sort is active and adds no annotation of its own.
-    - *show_git_status*: append a colored marker to each file — ``[U]``
+    - ``spec.metrics``: the ordered lines-of-code, size, and modification-time
+      metrics to append (in the exact order requested).
+    - ``spec.show_git_status``: append a colored marker to each file — ``[U]``
       untracked (grey), ``[M]`` modified (yellow), ``[A]`` added (green),
-      ``[D]`` deleted (red). Deleted files no longer on disk are also struck
-      through.
+      ``[D]`` deleted (red). The marker always trails the metric parenthetical,
+      and deleted files no longer on disk are also struck through.
 
     Args:
         structure: Directory-structure dict to render.
         tree: ``rich`` tree to add nodes to. Modified in place.
         color_map: Mapping of lowercase file extension to hex color.
+        spec: Resolved sorting and annotation directives.
         show_full_path: Whether to display absolute paths instead of bare
             filenames.
-        sort_by_loc: Whether to display lines-of-code counts.
-        sort_by_size: Whether to display file sizes.
-        sort_by_mtime: Whether to display modification times.
-        show_git_status: Whether to display Git status markers.
         icon_style: Icon style to use, either ``"emoji"`` or ``"nerd"``.
-        sort_by_similarity: Whether to group files by name similarity.
     """
     _GIT_MARKER_STYLES = {
         "U": ("dim", "[U]"),
@@ -75,16 +65,13 @@ def build_tree(
         "A": ("green", "[A]"),
         "D": ("red", "[D]"),
     }
+    need_git = spec.show_git_status or spec.sort_key == METRIC_GIT
     git_markers_dict: dict[str, str] = (
-        structure.get("_git_markers", {}) if show_git_status else {}
+        structure.get("_git_markers", {}) if need_git else {}
     )
     if "_files" in structure:
         for entry in sort_files_by_type(
-            structure["_files"],
-            sort_by_loc,
-            sort_by_size,
-            sort_by_mtime,
-            sort_by_similarity,
+            structure["_files"], spec.sort_key, git_markers_dict
         ):
             display_path = entry.path if show_full_path else entry.name
             ext = os.path.splitext(entry.name)[1].lower()
@@ -101,17 +88,12 @@ def build_tree(
             colored_text.append(
                 display_path
                 + format_metrics_suffix(
-                    entry.loc,
-                    entry.size,
-                    entry.mtime,
-                    sort_by_loc=sort_by_loc,
-                    sort_by_size=sort_by_size,
-                    sort_by_mtime=sort_by_mtime,
+                    entry.loc, entry.size, entry.mtime, spec.metrics
                 ),
                 style=name_style,
             )
 
-            if show_git_status and git_marker:
+            if spec.show_git_status and git_marker:
                 marker_style, badge = _GIT_MARKER_STYLES.get(
                     git_marker, ("dim", f"[{git_marker}]")
                 )
@@ -120,29 +102,13 @@ def build_tree(
             tree.add(colored_text)
     for folder, content in iter_subdirectories(structure):
         folder_icon = get_icon(folder, is_dir=True, style=icon_style)
-        metrics = format_dir_metrics(
-            content,
-            sort_by_loc=sort_by_loc,
-            sort_by_size=sort_by_size,
-            sort_by_mtime=sort_by_mtime,
-        )
+        metrics = format_dir_metrics(content, spec.metrics)
         folder_display = f"{folder_icon} {folder}{metrics}"
         subtree = tree.add(folder_display)
         if isinstance(content, dict) and content.get("_max_depth_reached"):
             subtree.add(Text("⋯ (max depth reached)", style="dim"))
         else:
-            build_tree(
-                content,
-                subtree,
-                color_map,
-                show_full_path,
-                sort_by_loc,
-                sort_by_size,
-                sort_by_mtime,
-                show_git_status,
-                icon_style,
-                sort_by_similarity,
-            )
+            build_tree(content, subtree, color_map, spec, show_full_path, icon_style)
 
 
 def display_tree(
@@ -155,14 +121,10 @@ def display_tree(
     use_regex: bool = False,
     max_depth: int = 0,
     show_full_path: bool = False,
-    sort_by_loc: bool = False,
-    sort_by_size: bool = False,
-    sort_by_mtime: bool = False,
-    show_git_status: bool = False,
+    spec: DisplayOptions | None = None,
     icon_style: str = "emoji",
     structure: dict[str, Any] | None = None,
     extensions: set[str] | None = None,
-    sort_by_similarity: bool = False,
 ) -> None:
     """Scan a directory and render it as a tree in the terminal.
 
@@ -185,15 +147,12 @@ def display_tree(
         max_depth: Maximum depth to display, or ``0`` for unlimited.
         show_full_path: Whether to display absolute paths instead of bare
             filenames.
-        sort_by_loc: Whether to display and sort by lines of code.
-        sort_by_size: Whether to display and sort by file size.
-        sort_by_mtime: Whether to display and sort by modification time.
-        show_git_status: Whether to annotate files with Git status markers.
+        spec: Resolved sorting and annotation directives. Defaults to a plain
+            :class:`DisplayOptions` (no sorting, no annotations).
         icon_style: Icon style to use, either ``"emoji"`` or ``"nerd"``.
         structure: Pre-computed directory structure. When given together with
             *extensions*, the directory is not re-scanned.
         extensions: Pre-computed set of file extensions matching *structure*.
-        sort_by_similarity: Whether to group files by name similarity.
     """
     if exclude_dirs is None:
         exclude_dirs = []
@@ -203,6 +162,8 @@ def display_tree(
         exclude_patterns = []
     if include_patterns is None:
         include_patterns = []
+    if spec is None:
+        spec = DisplayOptions()
 
     if structure is None or extensions is None:
         exclude_extensions = {
@@ -213,7 +174,7 @@ def display_tree(
         compiled_include = compile_regex_patterns(include_patterns, use_regex)
 
         git_status_map: dict[str, str] | None = None
-        if show_git_status:
+        if spec.show_git_status:
             git_status_map = get_git_status(root_dir)
             if not git_status_map:
                 logger.debug(
@@ -231,10 +192,10 @@ def display_tree(
             include_patterns=compiled_include,
             max_depth=max_depth,
             show_full_path=show_full_path,
-            sort_by_loc=sort_by_loc,
-            sort_by_size=sort_by_size,
-            sort_by_mtime=sort_by_mtime,
-            show_git_status=show_git_status,
+            sort_by_loc=spec.show_loc,
+            sort_by_size=spec.show_size,
+            sort_by_mtime=spec.show_mtime,
+            show_git_status=spec.show_git_status,
             git_status_map=git_status_map,
         )
     color_map = {ext: generate_color_for_extension(ext) for ext in extensions}
@@ -242,25 +203,16 @@ def display_tree(
 
     root_base = os.path.basename(root_dir)
     root_icon = get_icon(root_base, is_dir=True, style=icon_style)
-    root_label = f"{root_icon} {root_base}" + format_metrics_suffix(
-        structure.get("_loc", 0),
-        structure.get("_size", 0),
-        structure.get("_mtime", 0.0),
-        sort_by_loc=sort_by_loc and "_loc" in structure,
-        sort_by_size=sort_by_size and "_size" in structure,
-        sort_by_mtime=sort_by_mtime and "_mtime" in structure,
+    root_label = f"{root_icon} {root_base}" + format_dir_metrics(
+        structure, spec.metrics
     )
     tree = Tree(root_label)
     build_tree(
         structure,
         tree,
         color_map,
+        spec,
         show_full_path=show_full_path,
-        sort_by_loc=sort_by_loc,
-        sort_by_size=sort_by_size,
-        sort_by_mtime=sort_by_mtime,
-        show_git_status=show_git_status,
         icon_style=icon_style,
-        sort_by_similarity=sort_by_similarity,
     )
     console.print(tree)

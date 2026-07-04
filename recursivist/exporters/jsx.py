@@ -12,51 +12,11 @@ from typing import Any
 
 from recursivist._models import FileEntry
 from recursivist.metrics import format_size, format_timestamp
-from recursivist.sorting import sort_files_by_similarity
+from recursivist.sorting import sort_files_by_type
 
 from .base import BaseExporter
 
 logger = logging.getLogger(__name__)
-
-
-def sort_key_all(e: FileEntry) -> tuple[int, int, float, str]:
-    """Order by LOC, then size, then mtime (all descending), then name."""
-    return (-e.loc, -e.size, -e.mtime, e.name.lower())
-
-
-def sort_key_loc_size(e: FileEntry) -> tuple[int, int, str]:
-    """Order by LOC, then size (descending), then name."""
-    return (-e.loc, -e.size, e.name.lower())
-
-
-def sort_key_loc_mtime(e: FileEntry) -> tuple[int, float, str]:
-    """Order by LOC, then mtime (descending), then name."""
-    return (-e.loc, -e.mtime, e.name.lower())
-
-
-def sort_key_size_mtime(e: FileEntry) -> tuple[int, float, str]:
-    """Order by size, then mtime (descending), then name."""
-    return (-e.size, -e.mtime, e.name.lower())
-
-
-def sort_key_mtime(e: FileEntry) -> tuple[float, str]:
-    """Order by mtime (descending), then name."""
-    return (-e.mtime, e.name.lower())
-
-
-def sort_key_size(e: FileEntry) -> tuple[int, str]:
-    """Order by size (descending), then name."""
-    return (-e.size, e.name.lower())
-
-
-def sort_key_loc(e: FileEntry) -> tuple[int, str]:
-    """Order by LOC (descending), then name."""
-    return (-e.loc, e.name.lower())
-
-
-def sort_key_name(e: FileEntry) -> str:
-    """Order by name (case-insensitive, ascending)."""
-    return e.name.lower()
 
 
 class JsxExporter(BaseExporter):
@@ -118,16 +78,12 @@ class JsxExporter(BaseExporter):
                 loc_prop = ""
                 size_prop = ""
                 mtime_prop = ""
-                if self.sort_by_loc and isinstance(content, dict) and "_loc" in content:
+                if self.show_loc and isinstance(content, dict) and "_loc" in content:
                     loc_prop = f" locCount={{{content['_loc']}}}"
-                if (
-                    self.sort_by_size
-                    and isinstance(content, dict)
-                    and "_size" in content
-                ):
+                if self.show_size and isinstance(content, dict) and "_size" in content:
                     size_prop = f" sizeCount={{{content['_size']}}}"
                 if (
-                    self.sort_by_mtime
+                    self.show_mtime
                     and isinstance(content, dict)
                     and "_mtime" in content
                 ):
@@ -158,30 +114,13 @@ class JsxExporter(BaseExporter):
                 files = structure["_files"]
 
                 entries = [
-                    FileEntry.from_raw(
-                        f, self.sort_by_loc, self.sort_by_size, self.sort_by_mtime
-                    )
+                    FileEntry.coerce(f)
                     for f in files
                     if not (isinstance(f, tuple) and len(f) == 0)
                 ]
-                if self.sort_by_loc and self.sort_by_size and self.sort_by_mtime:
-                    sorted_files = sorted(entries, key=sort_key_all)
-                elif self.sort_by_loc and self.sort_by_size:
-                    sorted_files = sorted(entries, key=sort_key_loc_size)
-                elif self.sort_by_loc and self.sort_by_mtime:
-                    sorted_files = sorted(entries, key=sort_key_loc_mtime)
-                elif self.sort_by_size and self.sort_by_mtime:
-                    sorted_files = sorted(entries, key=sort_key_size_mtime)
-                elif self.sort_by_mtime:
-                    sorted_files = sorted(entries, key=sort_key_mtime)
-                elif self.sort_by_size:
-                    sorted_files = sorted(entries, key=sort_key_size)
-                elif self.sort_by_loc:
-                    sorted_files = sorted(entries, key=sort_key_loc)
-                elif self.sort_by_similarity:
-                    sorted_files = sort_files_by_similarity(entries)
-                else:
-                    sorted_files = sorted(entries, key=sort_key_name)
+                sorted_files = sort_files_by_type(
+                    entries, self.sort_key, structure.get("_git_markers")
+                )
 
                 for entry in sorted_files:
                     file_name = entry.name
@@ -214,14 +153,14 @@ class JsxExporter(BaseExporter):
                         f"level={{{level}}}",
                     ]
 
-                    if self.sort_by_loc:
+                    if self.show_loc:
                         props.append(f"locCount={{{loc}}}")
 
-                    if self.sort_by_size:
+                    if self.show_size:
                         props.append(f"sizeCount={{{size}}}")
                         props.append(f'sizeFormatted="{format_size(size)}"')
 
-                    if self.sort_by_mtime:
+                    if self.show_mtime:
                         props.append(f"mtimeCount={{{mtime}}}")
                         props.append(f'mtimeFormatted="{format_timestamp(mtime)}"')
 
@@ -235,37 +174,21 @@ class JsxExporter(BaseExporter):
 
             return "\n".join(jsx_content)
 
-        combined_imports = ""
-        if self.sort_by_loc and self.sort_by_size and self.sort_by_mtime:
-            combined_imports = (
-                """import { BarChart2, Database, Clock } from 'lucide-react';"""
-            )
-        elif self.sort_by_loc and self.sort_by_size:
-            combined_imports = """import { BarChart2, Database } from 'lucide-react';"""
-        elif self.sort_by_loc and self.sort_by_mtime:
-            combined_imports = """import { BarChart2, Clock } from 'lucide-react';"""
-        elif self.sort_by_size and self.sort_by_mtime:
-            combined_imports = """import { Database, Clock } from 'lucide-react';"""
-        elif self.sort_by_loc:
-            combined_imports = """import { BarChart2 } from 'lucide-react';"""
-        elif self.sort_by_size:
-            combined_imports = """import { Database } from 'lucide-react';"""
-        elif self.sort_by_mtime:
-            combined_imports = """import { Clock } from 'lucide-react';"""
+        metric_order_js = "[" + ", ".join(f'"{m}"' for m in self.metrics) + "]"
 
         loc_state = (
             """const showLoc = true;"""
-            if self.sort_by_loc
+            if self.show_loc
             else """const showLoc = false;"""
         )
         size_state = (
             """const showSize = true;"""
-            if self.sort_by_size
+            if self.show_size
             else """const showSize = false;"""
         )
         mtime_state = (
             """const showMtime = true;"""
-            if self.sort_by_mtime
+            if self.show_mtime
             else """const showMtime = false;"""
         )
         git_status_state = (
@@ -276,32 +199,32 @@ class JsxExporter(BaseExporter):
 
         loc_sort_state = (
             """const sortByLoc = true;"""
-            if self.sort_by_loc
+            if self.sort_key == "loc"
             else """const sortByLoc = false;"""
         )
         size_sort_state = (
             """const sortBySize = true;"""
-            if self.sort_by_size
+            if self.sort_key == "size"
             else """const sortBySize = false;"""
         )
         mtime_sort_state = (
             """const sortByMtime = true;"""
-            if self.sort_by_mtime
+            if self.sort_key == "mtime"
             else """const sortByMtime = false;"""
         )
 
         root_loc_prop = ""
         root_size_prop = ""
         root_mtime_prop = ""
-        if self.sort_by_loc and "_loc" in self.structure:
+        if self.show_loc and "_loc" in self.structure:
             root_loc_prop = f" locCount={{{self.structure['_loc']}}}"
-        if self.sort_by_size and "_size" in self.structure:
+        if self.show_size and "_size" in self.structure:
             root_size_prop = f" sizeCount={{{self.structure['_size']}}}"
-        if self.sort_by_mtime and "_mtime" in self.structure:
+        if self.show_mtime and "_mtime" in self.structure:
             root_mtime_prop = f" mtimeCount={{{self.structure['_mtime']}}}"
 
         format_size_function = ""
-        if self.sort_by_size:
+        if self.show_size:
             format_size_function = """
       const format_size = (size_in_bytes) => {
         if (size_in_bytes < 1024) {
@@ -316,7 +239,7 @@ class JsxExporter(BaseExporter):
       };"""
 
         format_timestamp_function = ""
-        if self.sort_by_mtime:
+        if self.show_mtime:
             format_timestamp_function = """
       const format_timestamp = (timestamp) => {
         const dt = new Date(timestamp * 1000);
@@ -346,8 +269,8 @@ class JsxExporter(BaseExporter):
         component_template = f"""import React, {{ useState, useEffect, useRef }} from 'react';
         import PropTypes from 'prop-types';
         import {{ ChevronDown, ChevronUp, Folder, FolderOpen, File, Maximize2, Minimize2, Search, X, Info, Home, ChevronRight, Copy, Check }} from 'lucide-react';
-        {combined_imports}
         const AppContext = React.createContext();
+        const metricOrder = {metric_order_js};
         const highlightMatch = (text, searchTerm) => {{
           if (!searchTerm) return text;
           const parts = text.split(new RegExp(`(${{searchTerm}})`, 'gi'));
@@ -540,27 +463,36 @@ class JsxExporter(BaseExporter):
                   <span className={{`font-medium truncate ${{isCurrentPath ? (darkMode ? 'text-yellow-300' : 'text-blue-700') : ''}}`}}>
                     {{searchTerm ? highlightMatch(name, searchTerm) : name}}
                   </span>
-                  {{props.locCount !== undefined && showLoc && (
-                    <span className={{`ml-2 text-xs px-1.5 py-0.5 rounded-full ${{isCurrentPath ?
-                      (darkMode ? 'bg-blue-800 text-blue-200' : 'bg-blue-200 text-blue-700') :
-                      (darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-700')}}`}}>
-                      {{props.locCount}} lines
-                    </span>
-                  )}}
-                  {{props.sizeCount !== undefined && showSize && (
-                    <span className={{`ml-2 text-xs px-1.5 py-0.5 rounded-full ${{isCurrentPath ?
-                      (darkMode ? 'bg-teal-800 text-teal-200' : 'bg-teal-200 text-teal-700') :
-                      (darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-700')}}`}}>
-                      {{format_size(props.sizeCount)}}
-                    </span>
-                  )}}
-                  {{props.mtimeCount !== undefined && showMtime && (
-                    <span className={{`ml-2 text-xs px-1.5 py-0.5 rounded-full ${{isCurrentPath ?
-                      (darkMode ? 'bg-purple-800 text-purple-200' : 'bg-purple-200 text-purple-700') :
-                      (darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-700')}}`}}>
-                      {{format_timestamp(props.mtimeCount)}}
-                    </span>
-                  )}}
+                  {{metricOrder.map((m) => {{
+                    if (m === 'loc' && props.locCount !== undefined && showLoc) {{
+                      return (
+                        <span key="loc" className={{`ml-2 text-xs px-1.5 py-0.5 rounded-full ${{isCurrentPath ?
+                          (darkMode ? 'bg-blue-800 text-blue-200' : 'bg-blue-200 text-blue-700') :
+                          (darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-700')}}`}}>
+                          {{props.locCount}} lines
+                        </span>
+                      );
+                    }}
+                    if (m === 'size' && props.sizeCount !== undefined && showSize) {{
+                      return (
+                        <span key="size" className={{`ml-2 text-xs px-1.5 py-0.5 rounded-full ${{isCurrentPath ?
+                          (darkMode ? 'bg-teal-800 text-teal-200' : 'bg-teal-200 text-teal-700') :
+                          (darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-700')}}`}}>
+                          {{format_size(props.sizeCount)}}
+                        </span>
+                      );
+                    }}
+                    if (m === 'mtime' && props.mtimeCount !== undefined && showMtime) {{
+                      return (
+                        <span key="mtime" className={{`ml-2 text-xs px-1.5 py-0.5 rounded-full ${{isCurrentPath ?
+                          (darkMode ? 'bg-purple-800 text-purple-200' : 'bg-purple-200 text-purple-700') :
+                          (darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-700')}}`}}>
+                          {{format_timestamp(props.mtimeCount)}}
+                        </span>
+                      );
+                    }}
+                    return null;
+                  }})}}
                 </div>
                 <button
                   className={{`p-1 rounded-full ${{darkMode ? 'hover:bg-gray-600' : 'hover:bg-gray-200'}}`}}
@@ -644,27 +576,36 @@ class JsxExporter(BaseExporter):
                   <span className={{`truncate block ${{isSelected ? (darkMode ? 'text-yellow-300 font-medium' : 'text-blue-700 font-medium') : ''}} ${{isDeleted ? 'line-through opacity-60' : ''}}`}}>
                     {{searchTerm ? highlightMatch(displayPath, searchTerm) : displayPath}}
                   </span>
-                  {{props.locCount !== undefined && showLoc && (
-                    <span className={{`ml-2 text-xs px-1.5 py-0.5 rounded-full ${{isSelected ?
-                      (darkMode ? 'bg-blue-800 text-blue-200' : 'bg-blue-200 text-blue-700') :
-                      (darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-700')}}`}}>
-                      {{props.locCount}} lines
-                    </span>
-                  )}}
-                  {{props.sizeCount !== undefined && showSize && (
-                    <span className={{`ml-2 text-xs px-1.5 py-0.5 rounded-full ${{isSelected ?
-                      (darkMode ? 'bg-teal-800 text-teal-200' : 'bg-teal-200 text-teal-700') :
-                      (darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-700')}}`}}>
-                      {{props.sizeFormatted}}
-                    </span>
-                  )}}
-                  {{props.mtimeCount !== undefined && showMtime && (
-                    <span className={{`ml-2 text-xs px-1.5 py-0.5 rounded-full ${{isSelected ?
-                      (darkMode ? 'bg-purple-800 text-purple-200' : 'bg-purple-200 text-purple-700') :
-                      (darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-700')}}`}}>
-                      {{props.mtimeFormatted}}
-                    </span>
-                  )}}
+                  {{metricOrder.map((m) => {{
+                    if (m === 'loc' && props.locCount !== undefined && showLoc) {{
+                      return (
+                        <span key="loc" className={{`ml-2 text-xs px-1.5 py-0.5 rounded-full ${{isSelected ?
+                          (darkMode ? 'bg-blue-800 text-blue-200' : 'bg-blue-200 text-blue-700') :
+                          (darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-700')}}`}}>
+                          {{props.locCount}} lines
+                        </span>
+                      );
+                    }}
+                    if (m === 'size' && props.sizeCount !== undefined && showSize) {{
+                      return (
+                        <span key="size" className={{`ml-2 text-xs px-1.5 py-0.5 rounded-full ${{isSelected ?
+                          (darkMode ? 'bg-teal-800 text-teal-200' : 'bg-teal-200 text-teal-700') :
+                          (darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-700')}}`}}>
+                          {{props.sizeFormatted}}
+                        </span>
+                      );
+                    }}
+                    if (m === 'mtime' && props.mtimeCount !== undefined && showMtime) {{
+                      return (
+                        <span key="mtime" className={{`ml-2 text-xs px-1.5 py-0.5 rounded-full ${{isSelected ?
+                          (darkMode ? 'bg-purple-800 text-purple-200' : 'bg-purple-200 text-purple-700') :
+                          (darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-700')}}`}}>
+                          {{props.mtimeFormatted}}
+                        </span>
+                      );
+                    }}
+                    return null;
+                  }})}}
                   {{showGitStatus && gitStatus && GIT_BADGE_COLORS[gitStatus] && (
                     <span className={{`ml-2 text-xs px-1.5 py-0.5 rounded-full font-mono font-bold ${{GIT_BADGE_COLORS[gitStatus].bg}} ${{GIT_BADGE_COLORS[gitStatus].text}}`}}>
                       [{html.escape("{")}gitStatus{html.escape("}")}]

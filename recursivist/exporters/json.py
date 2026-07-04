@@ -2,7 +2,7 @@
 
 Serializes the scanned structure to JSON. Without any detail flags, files
 collapse to bare names; with LOC, size, mtime, or Git status enabled, each file
-becomes an object carrying the requested fields.
+becomes an object carrying the requested fields — in the resolved display order.
 """
 
 import json
@@ -24,9 +24,11 @@ class JsonExporter(BaseExporter):
         """Write the structure to *output_path* as JSON.
 
         The payload records the root name, the (possibly detailed) structure,
-        and which detail flags were active. File entries are emitted as bare
-        names unless a detail flag (full path, LOC, size, mtime, or Git status)
-        requires the richer object form.
+        the resolved sort key, and which detail flags were active. File entries
+        are emitted as bare names unless a detail flag (full path, LOC, size,
+        mtime, or Git status) requires the richer object form. When present, the
+        per-file metric fields are emitted in the resolved display order, with
+        the Git status always last.
 
         Args:
             output_path: Path the ``.json`` file is written to.
@@ -35,12 +37,7 @@ class JsonExporter(BaseExporter):
             Exception: Re-raised if writing the output file fails (after the
                 error is logged).
         """
-        has_detail = (
-            self.show_full_path
-            or self.sort_by_loc
-            or self.sort_by_size
-            or self.sort_by_mtime
-        )
+        has_detail = self.show_full_path or bool(self.metrics) or self.show_git_status
 
         def file_to_json(
             item: Any, git_markers_here: dict[str, str]
@@ -49,8 +46,9 @@ class JsonExporter(BaseExporter):
 
             Bare-string entries are emitted as plain names, optionally wrapped
             with their Git status. Every other entry is normalised through
-            :meth:`FileEntry.from_raw` and rendered with exactly the keys the
-            active flags call for.
+            :meth:`FileEntry.coerce` and rendered with exactly the keys the
+            active flags call for, with metric fields following the resolved
+            display order.
             """
             if not isinstance(item, tuple):
                 name = str(item)
@@ -60,21 +58,20 @@ class JsonExporter(BaseExporter):
                 if git_status:
                     return {"name": name, "git_status": git_status}
                 return name
-            entry = FileEntry.from_raw(
-                item, self.sort_by_loc, self.sort_by_size, self.sort_by_mtime
-            )
+            entry = FileEntry.coerce(item)
             git_status = (
                 git_markers_here.get(entry.name, "") if self.show_git_status else ""
             )
             result: dict[str, Any] = {"name": entry.name, "path": entry.path}
-            if self.sort_by_loc:
-                result["loc"] = entry.loc
-            if self.sort_by_size:
-                result["size"] = entry.size
-                result["size_formatted"] = format_size(entry.size)
-            if self.sort_by_mtime:
-                result["mtime"] = entry.mtime
-                result["mtime_formatted"] = format_timestamp(entry.mtime)
+            for metric in self.metrics:
+                if metric == "loc":
+                    result["loc"] = entry.loc
+                elif metric == "size":
+                    result["size"] = entry.size
+                    result["size_formatted"] = format_size(entry.size)
+                elif metric == "mtime":
+                    result["mtime"] = entry.mtime
+                    result["mtime_formatted"] = format_timestamp(entry.mtime)
             if git_status:
                 result["git_status"] = git_status
             return result
@@ -98,14 +95,14 @@ class JsonExporter(BaseExporter):
                 if k == "_files":
                     result[k] = [file_to_json(item, git_markers_here) for item in v]
                 elif k == "_loc":
-                    if self.sort_by_loc:
+                    if self.show_loc:
                         result[k] = v
                 elif k == "_size":
-                    if self.sort_by_size:
+                    if self.show_size:
                         result[k] = v
                         result["_size_formatted"] = format_size(v)
                 elif k == "_mtime":
-                    if self.sort_by_mtime:
+                    if self.show_mtime:
                         result[k] = v
                         result["_mtime_formatted"] = format_timestamp(v)
                 elif k == "_git_markers":
@@ -129,9 +126,7 @@ class JsonExporter(BaseExporter):
             for k, v in structure.items():
                 if k == "_files":
                     result[k] = [
-                        FileEntry.from_raw(item).name
-                        if isinstance(item, tuple)
-                        else item
+                        FileEntry.coerce(item).name if isinstance(item, tuple) else item
                         for item in v
                     ]
                 elif isinstance(v, dict):
@@ -151,9 +146,11 @@ class JsonExporter(BaseExporter):
                     {
                         "root": self.root_name,
                         "structure": export_structure,
-                        "show_loc": self.sort_by_loc,
-                        "show_size": self.sort_by_size,
-                        "show_mtime": self.sort_by_mtime,
+                        "sort_key": self.sort_key,
+                        "metric_order": list(self.metrics),
+                        "show_loc": self.show_loc,
+                        "show_size": self.show_size,
+                        "show_mtime": self.show_mtime,
                         "show_git_status": self.show_git_status,
                     },
                     f,
