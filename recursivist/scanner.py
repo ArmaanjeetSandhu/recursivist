@@ -33,7 +33,7 @@ def get_directory_structure(
     exclude_dirs: Sequence[str] | None = None,
     ignore_file: str | None = None,
     exclude_extensions: set[str] | None = None,
-    parent_ignore_patterns: Sequence[str] | None = None,
+    parent_ignore_patterns: Sequence[tuple[str, tuple[str, ...]]] | None = None,
     exclude_patterns: Sequence[str | Pattern[str]] | None = None,
     include_patterns: Sequence[str | Pattern[str]] | None = None,
     max_depth: int = 0,
@@ -70,8 +70,11 @@ def get_directory_structure(
         ignore_file: Name of an ignore file to honor within each directory
             (e.g. ``.gitignore``).
         exclude_extensions: Lowercase, dot-prefixed extensions to exclude.
-        parent_ignore_patterns: Ignore patterns inherited from parent
-            directories, accumulated across the recursion.
+        parent_ignore_patterns: Ignore files inherited from parent directories
+            as a shallowest-first stack of ``(base_dir_relative_to_root,
+            patterns)`` pairs. Each ignore file keeps its own anchoring so its
+            patterns stay scoped to its subtree, matching Git. Set internally
+            across the recursion.
         exclude_patterns: Glob or compiled-regex patterns to exclude.
         include_patterns: Glob or compiled-regex patterns to include, which
             override the exclusions.
@@ -101,12 +104,18 @@ def get_directory_structure(
         exclude_patterns = []
     if include_patterns is None:
         include_patterns = []
-    ignore_patterns = list(parent_ignore_patterns) if parent_ignore_patterns else []
-    if ignore_file and os.path.exists(os.path.join(root_dir, ignore_file)):
+    ignore_stack: list[tuple[str, tuple[str, ...]]] = (
+        list(parent_ignore_patterns) if parent_ignore_patterns else []
+    )
+    if ignore_file:
         current_ignore_patterns = parse_ignore_file(os.path.join(root_dir, ignore_file))
-        ignore_patterns.extend(current_ignore_patterns)
+        if current_ignore_patterns:
+            ignore_stack = [
+                *ignore_stack,
+                (current_path, tuple(current_ignore_patterns)),
+            ]
     ignore_context = {
-        "patterns": ignore_patterns,
+        "pattern_stack": ignore_stack,
         "current_dir": root_dir,
         "rel_dir": current_path,
     }
@@ -196,7 +205,7 @@ def get_directory_structure(
                 exclude_dirs,
                 ignore_file,
                 exclude_extensions,
-                ignore_patterns,
+                ignore_stack,
                 exclude_patterns,
                 include_patterns,
                 max_depth,

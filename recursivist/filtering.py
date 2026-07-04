@@ -8,6 +8,14 @@ directory-only (trailing ``/``) patterns, ``!`` negation with last-match-wins,
 character classes, backslash escapes, and trailing-whitespace handling. The glob
 and regex matching used by ``--exclude-pattern``/``--include-pattern`` is
 unrelated and remains pure standard library.
+
+Like Git, each ignore file is evaluated *relative to the directory that
+contains it* rather than relative to the scan root. The active ignore files are
+kept as a stack (shallowest first); a path is tested against every level with
+its own anchoring, and a deeper file's verdict overrides a shallower one, so an
+anchored pattern such as ``/build`` in a nested ``.gitignore`` matches only
+within that subdirectory and does not leak up to the scan root or down past the
+anchor.
 """
 
 from __future__ import annotations
@@ -16,7 +24,7 @@ import fnmatch
 import logging
 import os
 import re
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from functools import cache
 from re import Pattern
 from typing import Any, cast
@@ -91,10 +99,11 @@ def _build_ignore_spec(patterns: tuple[str, ...]) -> PathSpec[IgnorePattern]:
     """Compile gitignore pattern lines into a :class:`~pathspec.PathSpec`.
 
     Uses pathspec's gitignore implementation, which follows the gitignore
-    specification. The resulting spec is matched against a path expressed
-    relative to the scan root using forward slashes;
-    :meth:`~pathspec.PathSpec.match_file` already resolves ``!`` negation with
-    last-match-wins.
+    specification. The resulting spec is matched (by :func:`should_exclude`)
+    against a path expressed relative to the directory of the ignore file the
+    patterns came from, using forward slashes;
+    :meth:`~pathspec.PathSpec.check_file` resolves ``!`` negation with
+    last-match-wins within the file and reports whether any pattern matched.
 
     Patterns are compiled one at a time so a single malformed line (which
     pathspec rejects with a :class:`ValueError`) is skipped with a warning
@@ -111,6 +120,64 @@ def _build_ignore_spec(patterns: tuple[str, ...]) -> PathSpec[IgnorePattern]:
         except ValueError as exc:
             logger.warning("Ignoring invalid ignore pattern %r: %s", line, exc)
     return PathSpec(compiled)
+
+
+def _resolve_ignore_levels(
+    ignore_context: Mapping[str, Any],
+) -> tuple[tuple[str, tuple[str, ...]], ...]:
+    """Return the active ignore levels as ``(base, patterns)`` pairs.
+
+    Each pair is one ignore file: *base* is the file's directory relative to the
+    scan root (``""`` for the root ignore file) and *patterns* are its verbatim
+    pattern lines. Levels are ordered shallowest-first so a caller can let a
+    deeper file's verdict override a shallower one, matching Git's precedence.
+
+    The explicit ``"pattern_stack"`` produced by the scanner is preferred. When
+    it is absent the legacy flat ``"patterns"`` list is used and treated as a
+    single ignore file rooted at the scan root.
+    """
+    stack = ignore_context.get("pattern_stack")
+    if stack is not None:
+        return tuple(
+            (base, tuple(p for p in pats if isinstance(p, str))) for base, pats in stack
+        )
+    patterns = ignore_context.get("patterns", [])
+    root_patterns = tuple(p for p in patterns if isinstance(p, str))
+    return (("", root_patterns),) if root_patterns else ()
+
+
+def _is_ignored_by_stack(
+    target: str, levels: tuple[tuple[str, tuple[str, ...]], ...]
+) -> bool:
+    """Apply a shallow-to-deep stack of ignore files to a single path.
+
+    *target* is the path relative to the scan root, forward-slashed and with a
+    trailing ``/`` when it is a directory. Each level is matched relative to its
+    own *base* directory (levels whose base does not contain *target* are
+    skipped), and the last level that expresses an opinion wins. A level's
+    opinion is tri-state via :meth:`~pathspec.PathSpec.check_file`: matched by an
+    ignore pattern, re-included by a ``!`` negation, or silent -- so a deeper
+    file that says nothing leaves a shallower verdict intact, exactly as Git
+    resolves precedence between nested ``.gitignore`` files.
+    """
+    decision: bool | None = None
+    for base, patterns in levels:
+        if not patterns:
+            continue
+        base = base.replace("\\", "/").strip("/")
+        if base:
+            prefix = f"{base}/"
+            if not target.startswith(prefix):
+                continue
+            rel = target[len(prefix) :]
+        else:
+            rel = target
+        if not rel or rel == "/":
+            continue
+        verdict = _build_ignore_spec(patterns).check_file(rel).include
+        if verdict is not None:
+            decision = verdict
+    return decision is True
 
 
 def should_exclude(
@@ -130,17 +197,23 @@ def should_exclude(
     3. If the file's extension is in *exclude_extensions*, exclude it.
     4. If an include pattern matched, include the path (this overrides the
        gitignore-style patterns below).
-    5. Otherwise apply the gitignore-style patterns from *ignore_context* via
+    5. Otherwise apply the gitignore-style rules from *ignore_context* via
        :mod:`pathspec`, honoring anchoring, ``**`` wildcards, directory-only
        (trailing ``/``) patterns, ``!`` negation, character classes and escapes
-       per the gitignore specification.
+       per the gitignore specification. Each ignore file in the stack is matched
+       relative to its own directory and deeper files override shallower ones,
+       so a nested file's anchored patterns stay scoped to its subtree.
 
     Args:
         path: Filesystem path to test.
         ignore_context: Mapping describing the active ignore rules. Recognized
-            keys are ``"patterns"`` (gitignore-style patterns), ``"current_dir"``
-            (directory the patterns are relative to), and ``"rel_dir"`` (the
-            current directory's path relative to the scan root).
+            keys are ``"pattern_stack"`` (a shallowest-first sequence of
+            ``(base_dir_relative_to_root, patterns)`` pairs, one per ignore
+            file), ``"patterns"`` (a legacy flat pattern list, treated as a
+            single ignore file at the scan root when ``"pattern_stack"`` is
+            absent), ``"current_dir"`` (directory used to anchor the
+            ``--exclude-pattern``/``--include-pattern`` globs), and ``"rel_dir"``
+            (the current directory's path relative to the scan root).
         exclude_extensions: Lowercase, dot-prefixed extensions to exclude.
         exclude_patterns: Glob or compiled-regex patterns to exclude.
         include_patterns: Glob or compiled-regex patterns to include, which
@@ -149,7 +222,6 @@ def should_exclude(
     Returns:
         ``True`` if the path should be excluded, ``False`` otherwise.
     """
-    patterns = ignore_context.get("patterns", [])
     current_dir = ignore_context.get("current_dir", os.path.dirname(path))
     rel_path = os.path.relpath(path, current_dir)
     if os.name == "nt":
@@ -186,12 +258,12 @@ def should_exclude(
             return True
     if include_patterns:
         return False
-    if not patterns:
+    levels = _resolve_ignore_levels(ignore_context)
+    if not levels:
         return False
     rel_dir = ignore_context.get("rel_dir", "")
-    rel_to_root = (f"{rel_dir}/{basename}" if rel_dir else basename).replace("\\", "/")
-    rel_to_root = rel_to_root.lstrip("/")
-    spec = _build_ignore_spec(tuple(p for p in patterns if isinstance(p, str)))
+    target = (f"{rel_dir}/{basename}" if rel_dir else basename).replace("\\", "/")
+    target = target.lstrip("/")
     if os.path.isdir(path):
-        rel_to_root += "/"
-    return spec.match_file(rel_to_root)
+        target += "/"
+    return _is_ignored_by_stack(target, levels)

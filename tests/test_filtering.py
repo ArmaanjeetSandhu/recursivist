@@ -116,6 +116,46 @@ def test_should_exclude_gitignore_patterns(
 
 
 @pytest.mark.parametrize(
+    "stack,rel_path,is_dir,expected",
+    [
+        ([("", ("*.log",)), ("sub", ("/build",))], "sub/build", True, True),
+        ([("", ("*.log",)), ("sub", ("/build",))], "sub/nested/build", True, False),
+        ([("", ("*.log",)), ("sub", ("/build",))], "build", True, False),
+        ([("sub", ("data",))], "sub/data", True, True),
+        ([("sub", ("data",))], "sub/nested/data", True, True),
+        ([("sub", ("data",))], "data", True, False),
+        (
+            [("", ("secret.txt",)), ("a", ("!secret.txt",))],
+            "a/secret.txt",
+            False,
+            False,
+        ),
+        ([("", ("secret.txt",)), ("a", ("!secret.txt",))], "secret.txt", False, True),
+        ([("sub", ("*.tmp", "!/keep.tmp"))], "sub/keep.tmp", False, False),
+        ([("sub", ("*.tmp", "!/keep.tmp"))], "sub/deep/keep.tmp", False, True),
+    ],
+)
+def test_should_exclude_nested_ignore_stack(
+    temp_dir: str,
+    stack: list[tuple[str, tuple[str, ...]]],
+    rel_path: str,
+    is_dir: bool,
+    expected: bool,
+) -> None:
+    """should_exclude honors a per-directory ``pattern_stack``: each ignore file
+    is anchored to its own base directory and deeper files override shallower
+    ones, so a nested file's anchored patterns stay scoped to its subtree,
+    matching Git's treatment of nested ``.gitignore`` files."""
+    target, current_dir, rel_dir = _make_entry(temp_dir, rel_path, is_dir)
+    ignore_context = {
+        "pattern_stack": stack,
+        "current_dir": current_dir,
+        "rel_dir": rel_dir,
+    }
+    assert should_exclude(target, ignore_context) is expected
+
+
+@pytest.mark.parametrize(
     "ignore_patterns,exclude_patterns,exclude_extensions,include_patterns,rel_path,expected",
     [
         (["*.log", "!keep.log"], None, None, None, "keep.log", False),

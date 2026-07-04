@@ -92,6 +92,54 @@ def test_get_directory_structure_gitignore_end_to_end(temp_dir: str) -> None:
     assert extensions == {".log", ".py"}
 
 
+def test_get_directory_structure_nested_gitignore_anchoring(temp_dir: str) -> None:
+    """A nested .gitignore is evaluated relative to its own directory, matching
+    Git rather than accumulating every pattern against the scan root.
+
+    Root .gitignore is ``*.log``; ``sub/.gitignore`` is ``/build`` + ``data`` +
+    ``!important.log``. Verified against ``git check-ignore``:
+
+    - ``sub/build/`` is pruned by the *anchored* ``/build`` (relative to ``sub``)
+      while the root-level ``build/`` and ``sub/nested/build/`` survive, because
+      the anchor neither leaks up to the scan root nor reaches past ``sub``.
+    - ``data`` (unanchored) prunes ``data`` at any depth under ``sub``
+      (``sub/data`` and ``sub/nested/data``) but nowhere above ``sub``.
+    - ``!important.log`` in the nested file overrides the root ``*.log`` for
+      ``sub/important.log`` only; ``app.log`` and ``sub/app.log`` stay excluded.
+    """
+    root = os.path.join(temp_dir, "project")
+    os.makedirs(root, exist_ok=True)
+    _materialize_tree(
+        root,
+        {
+            ".gitignore": "*.log\n",
+            "main.py": "x",
+            "app.log": "x",
+            "build/keep.py": "x",
+            "sub/.gitignore": "/build\ndata\n!important.log\n",
+            "sub/app.log": "x",
+            "sub/important.log": "x",
+            "sub/build/x.py": "x",
+            "sub/data/y.py": "x",
+            "sub/nested/build/z.py": "x",
+            "sub/nested/data/w.py": "x",
+        },
+    )
+
+    structure, extensions = get_directory_structure(root, ignore_file=".gitignore")
+
+    assert _normalize_structure(structure) == {
+        "_files": {".gitignore", "main.py"},
+        "build": {"_files": {"keep.py"}},
+        "sub": {
+            "_files": {".gitignore", "important.log"},
+            "nested": {"build": {"_files": {"z.py"}}},
+        },
+    }
+
+    assert extensions == {".log", ".py"}
+
+
 @pytest.mark.parametrize(
     "option_name,option_value,expected_result",
     [
