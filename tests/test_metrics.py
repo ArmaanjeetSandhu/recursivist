@@ -15,6 +15,9 @@ from pytest_mock import MockerFixture
 
 from recursivist.metrics import (
     count_lines_of_code,
+    format_dir_metrics,
+    format_metrics,
+    format_metrics_suffix,
     format_size,
     format_timestamp,
     get_file_mtime,
@@ -363,15 +366,10 @@ class TestCountLines:
     def test_with_different_encodings(self, temp_dir: str, encoding: str) -> None:
         """Test counting lines with different file encodings."""
         file_path = os.path.join(temp_dir, f"{encoding}.txt")
-        try:
-            with open(file_path, "w", encoding=encoding) as f:
-                f.write("Line 1\nLine 2\n")
-            line_count = count_lines_of_code(file_path)
-            assert line_count == 2, (
-                f"Expected 2 lines in {encoding} file, got {line_count}"
-            )
-        except Exception as e:
-            pytest.fail(f"count_lines_of_code failed with {encoding} encoding: {e}")
+        with open(file_path, "w", encoding=encoding) as f:
+            f.write("Line 1\nLine 2\n")
+        line_count = count_lines_of_code(file_path)
+        assert line_count == 2, f"Expected 2 lines in {encoding} file, got {line_count}"
 
     def test_very_large_file(self, temp_dir: str) -> None:
         """Test counting lines in a large file."""
@@ -570,3 +568,71 @@ class TestFormatFunctions:
             r"Today \d{2}:\d{2}|Yesterday \d{2}:\d{2}|[A-Z][a-z]{2} \d{2}:\d{2}|[A-Z][a-z]{2} \d{1,2}|\d{4}-\d{2}-\d{2}|^-$",
             result,
         ), f"Invalid timestamp format: {result}"
+
+
+class TestFormatMetrics:
+    """The order-aware annotation formatter.
+
+    ``format_metrics`` takes an ordered sequence of metric names and renders
+    exactly those, in that order.
+    """
+
+    def test_empty_metrics_returns_empty_string(self) -> None:
+        assert format_metrics(50, 512, 123.0, ()) == ""
+
+    def test_loc_plural(self) -> None:
+        assert format_metrics(loc=50, metrics=("loc",)) == "(50 lines)"
+
+    def test_loc_singular(self) -> None:
+        """Exactly one line is rendered in the singular."""
+        assert format_metrics(loc=1, metrics=("loc",)) == "(1 line)"
+
+    def test_loc_zero_is_plural(self) -> None:
+        assert format_metrics(loc=0, metrics=("loc",)) == "(0 lines)"
+
+    def test_size_only(self) -> None:
+        assert format_metrics(size=1536, metrics=("size",)) == "(1.5 KB)"
+
+    def test_mtime_only(self) -> None:
+        assert format_metrics(mtime=0.0, metrics=("mtime",)) == "(-)"
+
+    def test_order_is_respected(self) -> None:
+        assert format_metrics(50, 1536, 0.0, ("size", "loc")) == "(1.5 KB, 50 lines)"
+        assert format_metrics(50, 1536, 0.0, ("loc", "size")) == "(50 lines, 1.5 KB)"
+
+    def test_all_three_in_order(self) -> None:
+        result = format_metrics(50, 1536, 0.0, ("loc", "size", "mtime"))
+        assert result == "(50 lines, 1.5 KB, -)"
+
+    def test_unknown_metric_names_are_skipped(self) -> None:
+        assert format_metrics(50, 1536, 0.0, ("bogus", "loc")) == "(50 lines)"
+
+
+class TestFormatMetricsSuffix:
+    def test_empty_has_no_leading_space(self) -> None:
+        assert format_metrics_suffix(50, 512, 0.0, ()) == ""
+
+    def test_nonempty_has_leading_space(self) -> None:
+        assert format_metrics_suffix(50, 512, 0.0, ("loc",)) == " (50 lines)"
+
+
+class TestFormatDirMetrics:
+    def test_non_dict_returns_empty(self) -> None:
+        assert format_dir_metrics("not-a-dict", ("loc",)) == ""
+        assert format_dir_metrics(None, ("loc",)) == ""
+
+    def test_reads_totals_from_dict(self) -> None:
+        content = {"_loc": 100, "_size": 2048, "_mtime": 0.0}
+        assert format_dir_metrics(content, ("loc", "size")) == " (100 lines, 2.0 KB)"
+
+    def test_only_present_metrics_included(self) -> None:
+        """A requested metric absent from the directory dict is dropped."""
+        content = {"_loc": 100}
+        assert format_dir_metrics(content, ("size", "loc")) == " (100 lines)"
+
+    def test_requested_order_preserved(self) -> None:
+        content = {"_loc": 100, "_size": 2048}
+        assert format_dir_metrics(content, ("size", "loc")) == " (2.0 KB, 100 lines)"
+
+    def test_empty_metrics_returns_empty(self) -> None:
+        assert format_dir_metrics({"_loc": 100}, ()) == ""

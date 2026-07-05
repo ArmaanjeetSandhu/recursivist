@@ -922,7 +922,7 @@ def export(
     )
     _warn_if_ignore_file_missing(directory, ignore_file)
     try:
-        structure, extensions = _scan_directory(
+        structure, _ = _scan_directory(
             directory,
             parsed_exclude_dirs,
             ignore_file,

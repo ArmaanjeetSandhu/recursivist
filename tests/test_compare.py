@@ -20,7 +20,22 @@ from recursivist.compare import (
     display_comparison,
     export_comparison,
 )
+from recursivist.flags import (
+    METRIC_LOC,
+    METRIC_MTIME,
+    METRIC_SIZE,
+    DisplayOptions,
+)
 from tests.strategies import simple_directory_structure
+
+_METRIC_SPECS = {
+    "sort_by_loc": DisplayOptions(sort_key=METRIC_LOC, metrics=(METRIC_LOC,)),
+    "sort_by_size": DisplayOptions(sort_key=METRIC_SIZE, metrics=(METRIC_SIZE,)),
+    "sort_by_mtime": DisplayOptions(sort_key=METRIC_MTIME, metrics=(METRIC_MTIME,)),
+}
+_ALL_METRICS_SPEC = DisplayOptions(
+    sort_key=METRIC_LOC, metrics=(METRIC_LOC, METRIC_SIZE, METRIC_MTIME)
+)
 
 
 def get_file_names(
@@ -329,7 +344,7 @@ def test_compare_directory_structures_with_statistics(
 ) -> None:
     dir1, dir2 = comparison_directories
     structure1, structure2, _ = compare_directory_structures(
-        dir1, dir2, sort_by_loc=True, sort_by_size=True, sort_by_mtime=True
+        dir1, dir2, spec=_ALL_METRICS_SPEC
     )
     for structure in [structure1, structure2]:
         assert "_loc" in structure
@@ -382,8 +397,10 @@ def test_display_comparison_with_options(
     elif option_name == "exclude_patterns":
         with open(os.path.join(dir1, "test_pattern.log"), "w") as f:
             f.write("This should be excluded by pattern")
-    kwargs = {option_name: option_value}
-    display_comparison(dir1, dir2, **kwargs)
+    if option_name in _METRIC_SPECS:
+        display_comparison(dir1, dir2, spec=_METRIC_SPECS[option_name])
+    else:
+        display_comparison(dir1, dir2, **{option_name: option_value})
     captured = capsys.readouterr()
     if expected_in_output:
         if isinstance(expected_in_output, list):
@@ -470,8 +487,14 @@ def test_export_comparison_with_options(
         with open(os.path.join(dir1, "test_pattern.log"), "w") as f:
             f.write("This should be excluded by pattern")
     output_path = os.path.join(output_dir, f"comparison_{option_name}.html")
-    kwargs = {option_name: option_value}
-    export_comparison(dir1, dir2, "html", output_path, **kwargs)
+    if option_name in _METRIC_SPECS:
+        export_comparison(
+            dir1, dir2, "html", output_path, spec=_METRIC_SPECS[option_name]
+        )
+    else:
+        export_comparison(
+            dir1, dir2, "html", output_path, **{option_name: option_value}
+        )
     assert os.path.exists(output_path)
     with open(output_path, encoding="utf-8") as f:
         content = f.read()
@@ -559,7 +582,9 @@ def test_build_comparison_tree(
     structure1, structure2, extensions = compare_directory_structures(dir1, dir2)
     color_map = {ext: f"#{i:06x}" for i, ext in enumerate(extensions)}
     mock_tree = mocker.MagicMock()
-    build_comparison_tree(structure1, structure2, mock_tree, color_map)
+    build_comparison_tree(
+        structure1, structure2, mock_tree, color_map, DisplayOptions()
+    )
     assert mock_tree.add.called
     calls = [
         call for call in mock_tree.add.call_args_list if isinstance(call.args[0], Text)
@@ -583,9 +608,7 @@ def test_comparison_with_statistics(
         dir2,
         "html",
         output_path,
-        sort_by_loc=True,
-        sort_by_size=True,
-        sort_by_mtime=True,
+        spec=_ALL_METRICS_SPEC,
     )
     assert os.path.exists(output_path)
     with open(output_path, encoding="utf-8") as f:
@@ -674,9 +697,7 @@ class TestCompareDirectoryStructures:
                 include_patterns=include_patterns,
                 max_depth=max_depth,
                 show_full_path=True,
-                sort_by_loc=True,
-                sort_by_size=True,
-                sort_by_mtime=True,
+                spec=_ALL_METRICS_SPEC,
             )
             mock_get_structure.assert_any_call(
                 dir1,
@@ -715,7 +736,9 @@ class TestBuildComparisonTree:
         structure1, structure2 = structures
         mock_tree = MagicMock()
         mock_tree.add.return_value = mock_tree
-        build_comparison_tree(structure1, structure2, mock_tree, color_map)
+        build_comparison_tree(
+            structure1, structure2, mock_tree, color_map, DisplayOptions()
+        )
         assert mock_tree.add.call_count > 0, "Tree.add should have been called"
 
     @given(
@@ -742,10 +765,8 @@ class TestBuildComparisonTree:
             structure2,
             mock_tree,
             color_map,
+            _ALL_METRICS_SPEC,
             show_full_path=True,
-            sort_by_loc=True,
-            sort_by_size=True,
-            sort_by_mtime=True,
         )
         assert mock_tree.add.call_count > 0, "Tree.add should have been called"
 
@@ -793,9 +814,7 @@ class TestDisplayComparison:
                 use_regex=True,
                 max_depth=2,
                 show_full_path=True,
-                sort_by_loc=True,
-                sort_by_size=True,
-                sort_by_mtime=True,
+                spec=_ALL_METRICS_SPEC,
             )
             mock_compare.assert_called_once_with(
                 dir1,
@@ -807,9 +826,7 @@ class TestDisplayComparison:
                 include_patterns=ANY,
                 max_depth=2,
                 show_full_path=True,
-                sort_by_loc=True,
-                sort_by_size=True,
-                sort_by_mtime=True,
+                spec=_ALL_METRICS_SPEC,
             )
 
 
@@ -874,9 +891,7 @@ class TestExportComparison:
                 use_regex=True,
                 max_depth=2,
                 show_full_path=True,
-                sort_by_loc=True,
-                sort_by_size=True,
-                sort_by_mtime=True,
+                spec=_ALL_METRICS_SPEC,
             )
             mock_compare.assert_called_once_with(
                 dir1,
@@ -888,9 +903,7 @@ class TestExportComparison:
                 include_patterns=ANY,
                 max_depth=2,
                 show_full_path=True,
-                sort_by_loc=True,
-                sort_by_size=True,
-                sort_by_mtime=True,
+                spec=_ALL_METRICS_SPEC,
             )
 
 
@@ -928,9 +941,11 @@ class TestExportComparisonToHTML:
                 "pattern_type": "glob",
                 "max_depth": 0,
                 "show_full_path": False,
-                "sort_by_loc": False,
-                "sort_by_size": False,
-                "sort_by_mtime": False,
+                "metrics": [],
+                "sort_key": None,
+                "show_loc": False,
+                "show_size": False,
+                "show_mtime": False,
             },
         }
         with patch("builtins.open", MagicMock()) as mock_open:
@@ -987,7 +1002,9 @@ class TestBuildComparisonTreeProperties:
         expected_calls = count_files_and_folders(structure1) + count_files_and_folders(
             structure2
         )
-        build_comparison_tree(structure1, structure2, mock_tree, color_map)
+        build_comparison_tree(
+            structure1, structure2, mock_tree, color_map, DisplayOptions()
+        )
         if expected_calls > 0:
             assert mock_tree.add.call_count > 0, (
                 "build_comparison_tree should make at least one call to tree.add when there are files or folders"
@@ -1004,7 +1021,9 @@ class TestBuildComparisonTreeStructures:
         simple_structure: dict[str, Any],
     ) -> None:
         """Test comparing identical structures."""
-        build_comparison_tree(simple_structure, simple_structure, mock_tree, color_map)
+        build_comparison_tree(
+            simple_structure, simple_structure, mock_tree, color_map, DisplayOptions()
+        )
         assert mock_tree.add.call_count == 3
         calls = [
             call
@@ -1021,7 +1040,9 @@ class TestBuildComparisonTreeStructures:
         """Test comparing structures with different files."""
         structure1 = {"_files": ["file1.txt", "common.py"]}
         structure2 = {"_files": ["file2.txt", "common.py"]}
-        build_comparison_tree(structure1, structure2, mock_tree, color_map)
+        build_comparison_tree(
+            structure1, structure2, mock_tree, color_map, DisplayOptions()
+        )
         calls = [
             call
             for call in mock_tree.add.call_args_list
@@ -1052,7 +1073,9 @@ class TestBuildComparisonTreeStructures:
             "common_dir": {"_files": ["common.py"]},
         }
         mock_tree.add.return_value = mock_subtree
-        build_comparison_tree(structure1, structure2, mock_tree, color_map)
+        build_comparison_tree(
+            structure1, structure2, mock_tree, color_map, DisplayOptions()
+        )
         dir_calls = [
             call
             for call in mock_tree.add.call_args_list
@@ -1095,9 +1118,7 @@ class TestBuildComparisonTreeStructures:
             structure2,
             mock_tree,
             color_map,
-            sort_by_loc=True,
-            sort_by_size=True,
-            sort_by_mtime=True,
+            _ALL_METRICS_SPEC,
         )
         calls = [
             str(call.args[0])
@@ -1147,7 +1168,9 @@ class TestBuildComparisonTreeStructures:
 
         mock_tree.add.side_effect = side_effect
         mock_subtree.add.side_effect = side_effect
-        build_comparison_tree(structure1, structure2, mock_tree, color_map)
+        build_comparison_tree(
+            structure1, structure2, mock_tree, color_map, DisplayOptions()
+        )
         file_texts_styles = []
         for args, _ in all_calls:
             if args and isinstance(args[0], Text) and "📄" in args[0].plain:
@@ -1177,7 +1200,9 @@ class TestBuildComparisonTreeStructures:
         }
         structure2 = {"_files": ["file2.txt"], "subdir": {"_files": ["subfile.txt"]}}
         mock_tree.add.return_value = mock_subtree
-        build_comparison_tree(structure1, structure2, mock_tree, color_map)
+        build_comparison_tree(
+            structure1, structure2, mock_tree, color_map, DisplayOptions()
+        )
         subtree_calls = [
             call.args[0]
             for call in mock_subtree.add.call_args_list

@@ -12,7 +12,12 @@ from typer.testing import CliRunner
 from recursivist.cli import app
 from recursivist.compare import compare_directory_structures, export_comparison
 from recursivist.exporters import get_exporter
+from recursivist.flags import METRIC_LOC, METRIC_MTIME, METRIC_SIZE, DisplayOptions
 from recursivist.scanner import get_directory_structure
+
+_ALL_METRICS_SPEC = DisplayOptions(
+    sort_key=METRIC_LOC, metrics=(METRIC_LOC, METRIC_SIZE, METRIC_MTIME)
+)
 
 pytestmark = pytest.mark.integration
 
@@ -330,9 +335,7 @@ def test_export_formats_with_statistics(
         fmt,
         structure=structure,
         root_name=os.path.basename(temp_dir),
-        sort_by_loc=True,
-        sort_by_size=True,
-        sort_by_mtime=True,
+        spec=_ALL_METRICS_SPEC,
     ).export(output_path)
 
     assert os.path.exists(output_path)
@@ -362,7 +365,7 @@ def test_comparison_with_statistics(temp_dir: str, output_dir: str) -> None:
     with open(os.path.join(dir2, "file1.py"), "w") as f:
         f.write("print('Dir 2 different content with more lines')\nprint('Extra line')")
     structure1, structure2, _ = compare_directory_structures(
-        dir1, dir2, sort_by_loc=True, sort_by_size=True, sort_by_mtime=True
+        dir1, dir2, spec=_ALL_METRICS_SPEC
     )
     assert "_loc" in structure1
     assert "_size" in structure1
@@ -376,9 +379,7 @@ def test_comparison_with_statistics(temp_dir: str, output_dir: str) -> None:
         dir2,
         "html",
         output_path,
-        sort_by_loc=True,
-        sort_by_size=True,
-        sort_by_mtime=True,
+        spec=_ALL_METRICS_SPEC,
     )
     assert os.path.exists(output_path)
     with open(output_path, encoding="utf-8") as f:

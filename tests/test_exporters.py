@@ -21,22 +21,70 @@ from pytest_mock import MockerFixture
 
 from recursivist._models import FileEntry
 from recursivist.exporters import get_exporter
-from recursivist.exporters.jsx import (
-    sort_key_all,
-    sort_key_loc,
-    sort_key_loc_mtime,
-    sort_key_loc_size,
-    sort_key_mtime,
-    sort_key_name,
-    sort_key_size,
-    sort_key_size_mtime,
-)
 from recursivist.exporters.rst import (
     _rst_display_width,
     _rst_escape,
     _rst_inline_literal,
 )
+from recursivist.flags import (
+    METRIC_LOC,
+    METRIC_MTIME,
+    METRIC_SIZE,
+    DisplayOptions,
+)
 from recursivist.scanner import get_directory_structure
+
+_METRIC_SPECS = {
+    "sort_by_loc": DisplayOptions(sort_key=METRIC_LOC, metrics=(METRIC_LOC,)),
+    "sort_by_size": DisplayOptions(sort_key=METRIC_SIZE, metrics=(METRIC_SIZE,)),
+    "sort_by_mtime": DisplayOptions(sort_key=METRIC_MTIME, metrics=(METRIC_MTIME,)),
+}
+_ALL_METRICS_SPEC = DisplayOptions(
+    sort_key=METRIC_LOC, metrics=(METRIC_LOC, METRIC_SIZE, METRIC_MTIME)
+)
+
+
+def _spec_from_flags(
+    loc: bool = False,
+    size: bool = False,
+    mtime: bool = False,
+    git: bool = False,
+) -> DisplayOptions:
+    """Build a spec that displays the enabled metrics, sorting by the first."""
+    metrics: list[str] = []
+    if loc:
+        metrics.append(METRIC_LOC)
+    if size:
+        metrics.append(METRIC_SIZE)
+    if mtime:
+        metrics.append(METRIC_MTIME)
+    sort_key = metrics[0] if metrics else None
+    return DisplayOptions(
+        sort_key=sort_key, metrics=tuple(metrics), show_git_status=git
+    )
+
+
+def _render_jsx(
+    structure: dict[str, Any],
+    root_name: str,
+    spec: DisplayOptions | None = None,
+    base_path: str | None = None,
+) -> str:
+    """Export a structure to JSX and return the written text."""
+    with tempfile.NamedTemporaryFile(suffix=".jsx", delete=False) as tf:
+        out = tf.name
+    try:
+        get_exporter(
+            "jsx",
+            structure=structure,
+            root_name=root_name,
+            base_path=base_path,
+            spec=spec,
+        ).export(out)
+        with open(out, encoding="utf-8") as f:
+            return f.read()
+    finally:
+        os.unlink(out)
 
 
 @st.composite
@@ -167,141 +215,47 @@ def random_string(length: int) -> str:
     return "".join(random.choice(string.ascii_letters) for _ in range(length))
 
 
-class TestJSXSort:
-    """Property-based tests for the module-level sort keys in recursivist.exporters.jsx.
+class TestJsxSorting:
+    """The JSX exporter orders files via sort_files_by_type and emits metricOrder.
 
-    Each test builds FileEntry objects the way JsxExporter does, sorts them with
-    the real sort-key function, and asserts the resulting order respects that key.
+    Ordering flows through ``sort_files_by_type`` keyed by ``spec.sort_key``,
+    and the enabled metrics are surfaced to the component as a ``metricOrder``
+    array.
     """
 
     @staticmethod
-    def _entries(files: list[str | tuple[Any, ...]]) -> list[FileEntry]:
-        """Build FileEntry objects as JsxExporter does before sorting."""
-        return [
-            FileEntry.from_raw(f, True, True, True)
-            for f in files
-            if not (isinstance(f, tuple) and len(f) == 0)
-        ]
+    def _file_order(content: str) -> list[str]:
+        return re.findall(r'<FileItem name="([^"]+)"', content)
 
-    @given(files=file_tuple_list)
-    @settings(max_examples=100)
-    def test_sort_key_all(self, files: list[str | tuple[Any, ...]]) -> None:
-        """sort_key_all orders by LOC, size, then mtime (all descending), then name."""
-        entries = self._entries(files)
-        sorted_files = sorted(entries, key=sort_key_all)
-        assert len(sorted_files) == len(entries), "Sorting should preserve all elements"
-        assert sorted(sorted_files, key=sort_key_all) == sorted_files, (
-            "Sorting should be stable"
-        )
-        for i in range(len(sorted_files) - 1):
-            assert sort_key_all(sorted_files[i]) <= sort_key_all(sorted_files[i + 1]), (
-                "Keys should be in sorted order"
-            )
+    def test_sorted_by_loc_descending(self) -> None:
+        structure = {
+            "_files": [
+                ("small.py", "/p/small.py", 5, 0, 0.0),
+                ("big.py", "/p/big.py", 500, 0, 0.0),
+                ("mid.py", "/p/mid.py", 50, 0, 0.0),
+            ]
+        }
+        content = _render_jsx(structure, "root", _METRIC_SPECS["sort_by_loc"])
+        assert self._file_order(content) == ["big.py", "mid.py", "small.py"]
 
-    @given(files=file_tuple_list)
-    @settings(max_examples=100)
-    def test_sort_key_loc_size(self, files: list[str | tuple[Any, ...]]) -> None:
-        """sort_key_loc_size orders by LOC, then size (descending), then name."""
-        entries = self._entries(files)
-        sorted_files = sorted(entries, key=sort_key_loc_size)
-        assert len(sorted_files) == len(entries), "Sorting should preserve all elements"
-        assert sorted(sorted_files, key=sort_key_loc_size) == sorted_files, (
-            "Sorting should be stable"
-        )
-        for i in range(len(sorted_files) - 1):
-            assert sort_key_loc_size(sorted_files[i]) <= sort_key_loc_size(
-                sorted_files[i + 1]
-            ), "Keys should be in sorted order"
+    def test_default_sort_is_extension_then_name(self) -> None:
+        structure = {"_files": ["c.txt", "b.py", "a.txt"]}
+        content = _render_jsx(structure, "root", DisplayOptions())
+        assert self._file_order(content) == ["b.py", "a.txt", "c.txt"]
 
-    @given(files=file_tuple_list)
-    @settings(max_examples=100)
-    def test_sort_key_loc_mtime(self, files: list[str | tuple[Any, ...]]) -> None:
-        """sort_key_loc_mtime orders by LOC, then mtime (descending), then name."""
-        entries = self._entries(files)
-        sorted_files = sorted(entries, key=sort_key_loc_mtime)
-        assert len(sorted_files) == len(entries), "Sorting should preserve all elements"
-        assert sorted(sorted_files, key=sort_key_loc_mtime) == sorted_files, (
-            "Sorting should be stable"
+    def test_metric_order_array_reflects_metrics(self) -> None:
+        structure = {"_files": [("a.py", "/p/a.py", 5, 100, 1.0)]}
+        content = _render_jsx(
+            structure,
+            "root",
+            DisplayOptions(metrics=(METRIC_SIZE, METRIC_LOC)),
         )
-        for i in range(len(sorted_files) - 1):
-            assert sort_key_loc_mtime(sorted_files[i]) <= sort_key_loc_mtime(
-                sorted_files[i + 1]
-            ), "Keys should be in sorted order"
+        assert 'const metricOrder = ["size", "loc"];' in content
 
-    @given(files=file_tuple_list)
-    @settings(max_examples=100)
-    def test_sort_key_size_mtime(self, files: list[str | tuple[Any, ...]]) -> None:
-        """sort_key_size_mtime orders by size, then mtime (descending), then name."""
-        entries = self._entries(files)
-        sorted_files = sorted(entries, key=sort_key_size_mtime)
-        assert len(sorted_files) == len(entries), "Sorting should preserve all elements"
-        assert sorted(sorted_files, key=sort_key_size_mtime) == sorted_files, (
-            "Sorting should be stable"
-        )
-        for i in range(len(sorted_files) - 1):
-            assert sort_key_size_mtime(sorted_files[i]) <= sort_key_size_mtime(
-                sorted_files[i + 1]
-            ), "Keys should be in sorted order"
-
-    @given(files=file_tuple_list)
-    @settings(max_examples=100)
-    def test_sort_key_mtime(self, files: list[str | tuple[Any, ...]]) -> None:
-        """sort_key_mtime orders by mtime (descending), then name."""
-        entries = self._entries(files)
-        sorted_files = sorted(entries, key=sort_key_mtime)
-        assert len(sorted_files) == len(entries), "Sorting should preserve all elements"
-        assert sorted(sorted_files, key=sort_key_mtime) == sorted_files, (
-            "Sorting should be stable"
-        )
-        for i in range(len(sorted_files) - 1):
-            assert sort_key_mtime(sorted_files[i]) <= sort_key_mtime(
-                sorted_files[i + 1]
-            ), "Keys should be in sorted order"
-
-    @given(files=file_tuple_list)
-    @settings(max_examples=100)
-    def test_sort_key_size(self, files: list[str | tuple[Any, ...]]) -> None:
-        """sort_key_size orders by size (descending), then name."""
-        entries = self._entries(files)
-        sorted_files = sorted(entries, key=sort_key_size)
-        assert len(sorted_files) == len(entries), "Sorting should preserve all elements"
-        assert sorted(sorted_files, key=sort_key_size) == sorted_files, (
-            "Sorting should be stable"
-        )
-        for i in range(len(sorted_files) - 1):
-            assert sort_key_size(sorted_files[i]) <= sort_key_size(
-                sorted_files[i + 1]
-            ), "Keys should be in sorted order"
-
-    @given(files=file_tuple_list)
-    @settings(max_examples=100)
-    def test_sort_key_loc(self, files: list[str | tuple[Any, ...]]) -> None:
-        """sort_key_loc orders by LOC (descending), then name."""
-        entries = self._entries(files)
-        sorted_files = sorted(entries, key=sort_key_loc)
-        assert len(sorted_files) == len(entries), "Sorting should preserve all elements"
-        assert sorted(sorted_files, key=sort_key_loc) == sorted_files, (
-            "Sorting should be stable"
-        )
-        for i in range(len(sorted_files) - 1):
-            assert sort_key_loc(sorted_files[i]) <= sort_key_loc(sorted_files[i + 1]), (
-                "Keys should be in sorted order"
-            )
-
-    @given(files=file_tuple_list)
-    @settings(max_examples=100)
-    def test_sort_key_name(self, files: list[str | tuple[Any, ...]]) -> None:
-        """sort_key_name orders by name (case-insensitive, ascending)."""
-        entries = self._entries(files)
-        sorted_files = sorted(entries, key=sort_key_name)
-        assert len(sorted_files) == len(entries), "Sorting should preserve all elements"
-        assert sorted(sorted_files, key=sort_key_name) == sorted_files, (
-            "Sorting should be stable"
-        )
-        for i in range(len(sorted_files) - 1):
-            assert sort_key_name(sorted_files[i]) <= sort_key_name(
-                sorted_files[i + 1]
-            ), "Keys should be in sorted order"
+    def test_git_status_prop_emitted(self) -> None:
+        structure = {"_files": ["mod.py"], "_git_markers": {"mod.py": "M"}}
+        content = _render_jsx(structure, "root", DisplayOptions(show_git_status=True))
+        assert 'gitStatus="M"' in content
 
 
 class TestJSXComponent:
@@ -384,90 +338,60 @@ class TestJSXComponent:
             if os.path.exists(output_path):
                 os.unlink(output_path)
 
-    @given(
-        dir_structure=jsx_directory_structure(),
-        root_name=st.text(min_size=1, max_size=20),
-        show_full_path=st.booleans(),
-        sort_by_loc=st.booleans(),
-        sort_by_size=st.booleans(),
-        sort_by_mtime=st.booleans(),
+    @pytest.mark.parametrize(
+        "spec,shows,sorts",
+        [
+            (
+                DisplayOptions(),
+                {"Loc": False, "Size": False, "Mtime": False},
+                {"Loc": False, "Size": False, "Mtime": False},
+            ),
+            (
+                DisplayOptions(sort_key=METRIC_LOC, metrics=(METRIC_LOC,)),
+                {"Loc": True, "Size": False, "Mtime": False},
+                {"Loc": True, "Size": False, "Mtime": False},
+            ),
+            (
+                DisplayOptions(sort_key=METRIC_SIZE, metrics=(METRIC_SIZE,)),
+                {"Loc": False, "Size": True, "Mtime": False},
+                {"Loc": False, "Size": True, "Mtime": False},
+            ),
+            (
+                DisplayOptions(sort_key=METRIC_MTIME, metrics=(METRIC_MTIME,)),
+                {"Loc": False, "Size": False, "Mtime": True},
+                {"Loc": False, "Size": False, "Mtime": True},
+            ),
+            (
+                DisplayOptions(metrics=(METRIC_LOC, METRIC_SIZE, METRIC_MTIME)),
+                {"Loc": True, "Size": True, "Mtime": True},
+                {"Loc": False, "Size": False, "Mtime": False},
+            ),
+        ],
     )
-    @settings(max_examples=10)
     def test_jsx_options(
         self,
-        dir_structure: dict[str, Any],
-        root_name: str,
-        show_full_path: bool,
-        sort_by_loc: bool,
-        sort_by_size: bool,
-        sort_by_mtime: bool,
+        spec: DisplayOptions,
+        shows: dict[str, bool],
+        sorts: dict[str, bool],
     ) -> None:
-        """Test JSX generation with various options."""
-        with unittest.mock.patch(
-            "builtins.open", unittest.mock.mock_open()
-        ) as mock_open:
-            get_exporter(
-                "jsx",
-                structure=dir_structure,
-                root_name=root_name,
-                base_path="base/path" if show_full_path else None,
-                sort_by_loc=sort_by_loc,
-                sort_by_size=sort_by_size,
-                sort_by_mtime=sort_by_mtime,
-            ).export("output.jsx")
+        """The emitted show*/sortBy* constants and helpers track the spec.
 
-            mock_open.assert_called_once_with("output.jsx", "w", encoding="utf-8")
-            mock_file = mock_open()
-            write_calls = [args[0] for args, _ in mock_file.write.call_args_list]
-            content = "".join(write_calls)
-            if sort_by_loc:
-                assert "const showLoc = true;" in content, (
-                    "LOC display should be enabled"
-                )
-                assert "const sortByLoc = true;" in content, (
-                    "LOC sorting should be enabled"
-                )
-            else:
-                assert "const showLoc = false;" in content, (
-                    "LOC display should be disabled"
-                )
-                assert "const sortByLoc = false;" in content, (
-                    "LOC sorting should be disabled"
-                )
-            if sort_by_size:
-                assert "const showSize = true;" in content, (
-                    "Size display should be enabled"
-                )
-                assert "const sortBySize = true;" in content, (
-                    "Size sorting should be enabled"
-                )
-                assert "format_size" in content, (
-                    "Size formatting function should be included"
-                )
-            else:
-                assert "const showSize = false;" in content, (
-                    "Size display should be disabled"
-                )
-                assert "const sortBySize = false;" in content, (
-                    "Size sorting should be disabled"
-                )
-            if sort_by_mtime:
-                assert "const showMtime = true;" in content, (
-                    "Mtime display should be enabled"
-                )
-                assert "const sortByMtime = true;" in content, (
-                    "Mtime sorting should be enabled"
-                )
-                assert "format_timestamp" in content, (
-                    "Timestamp formatting function should be included"
-                )
-            else:
-                assert "const showMtime = false;" in content, (
-                    "Mtime display should be disabled"
-                )
-                assert "const sortByMtime = false;" in content, (
-                    "Mtime sorting should be disabled"
-                )
+        Exactly one metric can be the sort key, so at most one ``sortBy*``
+        constant is true, while each displayed metric sets its ``show*``
+        constant and pulls in its formatting helper.
+        """
+        structure = {"_files": [("a.py", "/p/a.py", 5, 100, 1600000000.0)]}
+        content = _render_jsx(structure, "root", spec)
+        for metric, want in shows.items():
+            token = "true" if want else "false"
+            assert f"const show{metric} = {token};" in content
+        for metric, want in sorts.items():
+            token = "true" if want else "false"
+            assert f"const sortBy{metric} = {token};" in content
+        if spec.show_size:
+            assert "format_size" in content
+        if spec.show_mtime:
+            assert "format_timestamp" in content
 
 
 @pytest.mark.parametrize(
@@ -581,12 +505,8 @@ def test_export_structure_with_options(
     kwargs: dict[str, Any] = {}
     if option_name == "show_full_path":
         kwargs["base_path"] = sample_directory if option_value else None
-    elif option_name == "sort_by_loc":
-        kwargs["sort_by_loc"] = option_value
-    elif option_name == "sort_by_size":
-        kwargs["sort_by_size"] = option_value
-    elif option_name == "sort_by_mtime":
-        kwargs["sort_by_mtime"] = option_value
+    elif option_name in _METRIC_SPECS:
+        kwargs["spec"] = _METRIC_SPECS[option_name]
 
     get_exporter(
         "json",
@@ -662,9 +582,7 @@ class TestJsxExporter:
                         if any([sort_by_loc, sort_by_size, sort_by_mtime])
                         else None
                     ),
-                    sort_by_loc=sort_by_loc,
-                    sort_by_size=sort_by_size,
-                    sort_by_mtime=sort_by_mtime,
+                    spec=_spec_from_flags(sort_by_loc, sort_by_size, sort_by_mtime),
                 )
                 output_path = "test_output.jsx"
                 exporter.export(output_path)
@@ -761,7 +679,7 @@ class TestExporterFileOutput:
     ) -> None:
         """Test exporting with statistics options."""
         output_path = os.path.join(tmp_path, f"test_output_{option_name}.txt")
-        kwargs: dict[str, Any] = {option_name: option_value}
+        kwargs: dict[str, Any] = {"spec": _METRIC_SPECS[option_name]}
 
         get_exporter(
             "txt", structure=structure_with_stats, root_name="test_root", **kwargs
@@ -820,7 +738,7 @@ class TestExporterFileOutput:
         else:
             error = error_type(error_msg)
         with patch("builtins.open", side_effect=error):
-            with pytest.raises(Exception) as excinfo:
+            with pytest.raises(error_type) as excinfo:
                 exporter.export(output_path)
             assert error_msg in str(excinfo.value)
 
@@ -868,9 +786,7 @@ class TestExporterFileOutput:
             "jsx",
             structure=nested_structure,
             root_name="test_root",
-            sort_by_loc=True,
-            sort_by_size=True,
-            sort_by_mtime=True,
+            spec=_ALL_METRICS_SPEC,
         ).export(output_path)
         assert os.path.exists(output_path)
         with open(output_path, encoding="utf-8") as f:
@@ -922,13 +838,11 @@ class TestExporters:
             structure=structure,
             root_name="test_root",
             base_path="/path/to",
-            sort_by_loc=True,
-            sort_by_size=True,
-            sort_by_mtime=True,
+            spec=_ALL_METRICS_SPEC,
         )
-        assert exporter.sort_by_loc
-        assert exporter.sort_by_size
-        assert exporter.sort_by_mtime
+        assert exporter.show_loc
+        assert exporter.show_size
+        assert exporter.show_mtime
 
 
 @pytest.mark.parametrize(
@@ -1080,8 +994,8 @@ def test_export_with_options(
     kwargs: dict[str, Any] = {}
     if option_name == "show_full_path":
         kwargs["base_path"] = sample_directory if option_value else None
-    elif option_name in ["sort_by_loc", "sort_by_size", "sort_by_mtime"]:
-        kwargs[option_name] = option_value
+    elif option_name in _METRIC_SPECS:
+        kwargs["spec"] = _METRIC_SPECS[option_name]
 
     exporter = get_exporter(
         "txt",
@@ -1219,9 +1133,7 @@ def test_export_with_statistics(sample_directory: str, output_dir: str) -> None:
             fmt,
             structure=structure,
             root_name=os.path.basename(sample_directory),
-            sort_by_loc=True,
-            sort_by_size=True,
-            sort_by_mtime=True,
+            spec=_ALL_METRICS_SPEC,
         ).export(output_path)
 
         with open(output_path, encoding="utf-8") as f:
@@ -1332,7 +1244,7 @@ def test_export_structure_error_types(
         error = error_type(error_msg)
 
     with patch("recursivist.exporters.txt.TxtExporter.export", side_effect=error):
-        with pytest.raises(Exception) as excinfo:
+        with pytest.raises(error_type) as excinfo:
             get_exporter(
                 "txt",
                 structure=structure,
@@ -1383,7 +1295,7 @@ def test_export_with_excessive_loc(temp_dir: str, output_dir: str) -> None:
             fmt,
             structure=structure,
             root_name=os.path.basename(temp_dir),
-            sort_by_loc=True,
+            spec=_METRIC_SPECS["sort_by_loc"],
         ).export(output_path)
 
         assert os.path.exists(output_path)
@@ -1450,24 +1362,21 @@ def test_problematic_filenames(output_dir: str) -> None:
         ).export(output_path)
 
         assert os.path.exists(output_path)
-        try:
-            if fmt == "json":
-                with open(output_path, encoding="utf-8") as f:
-                    json.load(f)
-            elif fmt == "html":
-                with open(output_path, encoding="utf-8") as f:
-                    content = f.read()
-                assert any(entity in content for entity in ["&amp;", "&#x26;"])
-                assert any(entity in content for entity in ["&lt;", "&#x3C;"])
-                assert any(entity in content for entity in ["&gt;", "&#x3E;"])
-                assert any(entity in content for entity in ["&quot;", "&#x22;"])
+        if fmt == "json":
+            with open(output_path, encoding="utf-8") as f:
+                json.load(f)
+        elif fmt == "html":
             with open(output_path, encoding="utf-8") as f:
                 content = f.read()
-            normalized_content = content.replace("&#x20;", " ").replace("&nbsp;", " ")
-            assert "file with spaces" in normalized_content
-            assert "directory with spaces" in normalized_content
-        except Exception as e:
-            pytest.fail(f"Format {fmt} failed validation: {str(e)}")
+            assert any(entity in content for entity in ["&amp;", "&#x26;"])
+            assert any(entity in content for entity in ["&lt;", "&#x3C;"])
+            assert any(entity in content for entity in ["&gt;", "&#x3E;"])
+            assert any(entity in content for entity in ["&quot;", "&#x22;"])
+        with open(output_path, encoding="utf-8") as f:
+            content = f.read()
+        normalized_content = content.replace("&#x20;", " ").replace("&nbsp;", " ")
+        assert "file with spaces" in normalized_content
+        assert "directory with spaces" in normalized_content
 
 
 def test_combined_export_options(output_dir: str) -> None:
@@ -1507,9 +1416,7 @@ def test_combined_export_options(output_dir: str) -> None:
             structure=complex_structure,
             root_name="complex_root",
             base_path="/path/to/complex_root",
-            sort_by_loc=True,
-            sort_by_size=True,
-            sort_by_mtime=True,
+            spec=_ALL_METRICS_SPEC,
         ).export(output_path)
 
         assert os.path.exists(output_path)
@@ -1613,9 +1520,7 @@ class TestSvgExporter:
             "svg",
             structure=structure_with_stats,
             root_name="stats_root",
-            sort_by_loc=True,
-            sort_by_size=True,
-            sort_by_mtime=True,
+            spec=_ALL_METRICS_SPEC,
         ).export(output_path)
 
         assert os.path.exists(output_path)
@@ -1756,7 +1661,10 @@ class TestRstExporter:
         }
         output_path = os.path.join(tmp_path, "structure.rst")
         get_exporter(
-            "rst", structure=structure, root_name="root", show_git_status=True
+            "rst",
+            structure=structure,
+            root_name="root",
+            spec=DisplayOptions(show_git_status=True),
         ).export(output_path)
         with open(output_path, encoding="utf-8") as f:
             content = f.read()
@@ -1774,7 +1682,10 @@ class TestRstExporter:
         }
         output_path = os.path.join(tmp_path, "structure.rst")
         get_exporter(
-            "rst", structure=structure, root_name="root", show_git_status=False
+            "rst",
+            structure=structure,
+            root_name="root",
+            spec=DisplayOptions(),
         ).export(output_path)
         with open(output_path, encoding="utf-8") as f:
             content = f.read()
@@ -1805,7 +1716,7 @@ class TestRstExporter:
             "rst",
             structure=structure_with_stats,
             root_name="root",
-            sort_by_loc=True,
+            spec=_METRIC_SPECS["sort_by_loc"],
         ).export(output_path)
         with open(output_path, encoding="utf-8") as f:
             content = f.read()
@@ -1937,8 +1848,9 @@ class TestRstExporter:
             "rst",
             structure=structure,
             root_name="my_project",
-            sort_by_loc=True,
-            show_git_status=True,
+            spec=DisplayOptions(
+                sort_key=METRIC_LOC, metrics=(METRIC_LOC,), show_git_status=True
+            ),
         ).export(output_path)
         with open(output_path, encoding="utf-8") as f:
             content = f.read()
@@ -1999,3 +1911,71 @@ class TestRstHelpers:
 
     def test_display_width_ignores_combining_chars(self) -> None:
         assert _rst_display_width("e\u0301") == 1
+
+
+class TestJsonGitAndMetrics:
+    """The JSON exporter's detailed git-status + ordered-metric rendering."""
+
+    def _export(
+        self, structure: dict[str, Any], spec: DisplayOptions, tmp_path: Path
+    ) -> dict[str, Any]:
+        out = os.path.join(tmp_path, "out.json")
+        get_exporter("json", structure=structure, root_name="root", spec=spec).export(
+            out
+        )
+        with open(out, encoding="utf-8") as f:
+            result: dict[str, Any] = json.load(f)
+        return result
+
+    def test_tuple_file_has_ordered_metrics_and_git(self, tmp_path: Path) -> None:
+        structure = {
+            "_loc": 60,
+            "_size": 1536,
+            "_mtime": 1600000000.0,
+            "_files": [("a.py", "/p/a.py", 50, 1024, 1600000000.0)],
+            "_git_markers": {"a.py": "M"},
+        }
+        spec = DisplayOptions(
+            sort_key=METRIC_LOC,
+            metrics=(METRIC_SIZE, METRIC_LOC),
+            show_git_status=True,
+        )
+        data = self._export(structure, spec, tmp_path)
+        entry = data["structure"]["_files"][0]
+        assert entry["name"] == "a.py"
+        assert entry["path"] == "/p/a.py"
+        assert entry["loc"] == 50
+        assert entry["size"] == 1024
+        assert entry["size_formatted"] == "1.0 KB"
+        assert entry["git_status"] == "M"
+        assert data["sort_key"] == "loc"
+        assert data["metric_order"] == ["size", "loc"]
+        assert data["show_git_status"] is True
+
+    def test_bare_string_file_wrapped_with_git_status(self, tmp_path: Path) -> None:
+        structure = {
+            "_files": ["b.txt"],
+            "_git_markers": {"b.txt": "A"},
+        }
+        spec = DisplayOptions(show_git_status=True)
+        data = self._export(structure, spec, tmp_path)
+        entry = data["structure"]["_files"][0]
+        assert entry == {"name": "b.txt", "git_status": "A"}
+
+    def test_git_markers_key_not_leaked(self, tmp_path: Path) -> None:
+        structure = {
+            "_files": ["b.txt"],
+            "_git_markers": {"b.txt": "A"},
+        }
+        spec = DisplayOptions(show_git_status=True)
+        data = self._export(structure, spec, tmp_path)
+        assert "_git_markers" not in data["structure"]
+
+    def test_no_git_status_when_disabled(self, tmp_path: Path) -> None:
+        structure = {
+            "_files": ["b.txt"],
+            "_git_markers": {"b.txt": "A"},
+        }
+        data = self._export(structure, DisplayOptions(), tmp_path)
+        assert data["structure"]["_files"] == ["b.txt"]
+        assert data["show_git_status"] is False

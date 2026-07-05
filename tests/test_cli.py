@@ -476,6 +476,12 @@ def test_export_invalid_format(
 def test_export_with_sort_options(
     runner: CliRunner, sample_directory: str, output_dir: str
 ) -> None:
+    """Sorting by loc plus display-only --size/--mtime annotates all three.
+
+    One sorting flag (``--sort-by-loc``) sets the sort key and displays LOC,
+    while display-only ``--size`` and ``--mtime`` add their columns, so the
+    export shows all three metrics.
+    """
     result = runner.invoke(
         app,
         [
@@ -488,8 +494,8 @@ def test_export_with_sort_options(
             "--prefix",
             "sorted_export",
             "--sort-by-loc",
-            "--sort-by-size",
-            "--sort-by-mtime",
+            "--size",
+            "--mtime",
         ],
     )
     assert result.exit_code == 0
@@ -500,6 +506,123 @@ def test_export_with_sort_options(
     assert data["show_loc"] is True
     assert data["show_size"] is True
     assert data["show_mtime"] is True
+    assert data["sort_key"] == "loc"
+    assert data["metric_order"] == ["loc", "size", "mtime"]
+
+
+def test_export_multiple_sort_flags_collapse_to_one(
+    runner: CliRunner, sample_directory: str, output_dir: str
+) -> None:
+    """Multiple --sort-by-* flags collapse to a single sort key; the rest are
+    discarded and contribute no annotation."""
+    result = runner.invoke(
+        app,
+        [
+            "export",
+            sample_directory,
+            "--format",
+            "json",
+            "--output-dir",
+            output_dir,
+            "--prefix",
+            "lr_export",
+            "--sort-by-loc",
+            "--sort-by-size",
+            "--sort-by-mtime",
+        ],
+    )
+    assert result.exit_code == 0
+    with open(os.path.join(output_dir, "lr_export.json"), encoding="utf-8") as f:
+        data: dict[str, Any] = json.load(f)
+    assert data["sort_key"] == "loc"
+    assert data["show_loc"] is True
+    assert data["show_size"] is False
+    assert data["show_mtime"] is False
+    assert data["metric_order"] == ["loc"]
+
+
+def test_export_display_only_flags_show_without_sorting(
+    runner: CliRunner, sample_directory: str, output_dir: str
+) -> None:
+    """Display-only flags annotate their metrics without setting a sort key.
+
+    (The precise left-to-right ordering of display-only flags derives from
+    ``sys.argv`` and is covered directly in the flag-resolution unit tests;
+    here the invocation goes through CliRunner, so only order-independent
+    behaviour is asserted.)
+    """
+    result = runner.invoke(
+        app,
+        [
+            "export",
+            sample_directory,
+            "--format",
+            "json",
+            "--output-dir",
+            output_dir,
+            "--prefix",
+            "order_export",
+            "--size",
+            "--loc",
+        ],
+    )
+    assert result.exit_code == 0
+    with open(os.path.join(output_dir, "order_export.json"), encoding="utf-8") as f:
+        data: dict[str, Any] = json.load(f)
+    assert data["sort_key"] is None
+    assert sorted(data["metric_order"]) == ["loc", "size"]
+    assert data["show_loc"] is True
+    assert data["show_size"] is True
+
+
+def test_export_git_status_display_flag(
+    runner: CliRunner, sample_directory: str, output_dir: str
+) -> None:
+    """--git-status shows the Git column without sorting by it."""
+    result = runner.invoke(
+        app,
+        [
+            "export",
+            sample_directory,
+            "--format",
+            "json",
+            "--output-dir",
+            output_dir,
+            "--prefix",
+            "git_export",
+            "--git-status",
+        ],
+    )
+    assert result.exit_code == 0
+    with open(os.path.join(output_dir, "git_export.json"), encoding="utf-8") as f:
+        data: dict[str, Any] = json.load(f)
+    assert data["show_git_status"] is True
+    assert data["sort_key"] is None
+
+
+def test_export_sort_by_git_status(
+    runner: CliRunner, sample_directory: str, output_dir: str
+) -> None:
+    """--sort-by-git-status sorts by Git status and shows the column."""
+    result = runner.invoke(
+        app,
+        [
+            "export",
+            sample_directory,
+            "--format",
+            "json",
+            "--output-dir",
+            output_dir,
+            "--prefix",
+            "gitsort_export",
+            "--sort-by-git-status",
+        ],
+    )
+    assert result.exit_code == 0
+    with open(os.path.join(output_dir, "gitsort_export.json"), encoding="utf-8") as f:
+        data: dict[str, Any] = json.load(f)
+    assert data["sort_key"] == "git_status"
+    assert data["show_git_status"] is True
 
 
 def test_compare_command(
