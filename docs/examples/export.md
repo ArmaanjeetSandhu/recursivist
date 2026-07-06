@@ -25,8 +25,8 @@ recursivist export --format "md json html"
 ```bash
 recursivist export --format md --sort-by-loc
 recursivist export --format html --sort-by-size
-recursivist export --format json --sort-by-mtime
-recursivist export --format txt --sort-by-loc --sort-by-size --sort-by-mtime
+recursivist export --format json --mtime                         # show mtime, keep order
+recursivist export --format txt --sort-by-loc --size --mtime     # sort by LOC, show all three
 ```
 
 A Markdown export with `--sort-by-loc`:
@@ -80,7 +80,7 @@ recursivist export --format jsx \
   --exclude "node_modules .git" \
   --output-dir ./src/components \
   --prefix DirectoryViewer \
-  --sort-by-loc --sort-by-mtime
+  --sort-by-loc --mtime
 ```
 
 See [Using the React Component](../reference/export-formats.md#using-the-react-component) for installation.
@@ -90,7 +90,7 @@ See [Using the React Component](../reference/export-formats.md#using-the-react-c
 Export to JSON with metrics, then analyze with [jq](https://jqlang.org). With a detail flag, each file is an object carrying `path`, `loc`, and/or `size`:
 
 ```bash
-recursivist export --format json --prefix structure --sort-by-loc --sort-by-size
+recursivist export --format json --prefix structure --sort-by-loc --size
 ```
 
 ```bash

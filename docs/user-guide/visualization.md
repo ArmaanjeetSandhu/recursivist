@@ -42,6 +42,14 @@ To make a style the default, see [Basic Usage](basic-usage.md#icon-styles).
 
 ## File Statistics
 
+Recursivist keeps two things separate: **how files are ordered** and **what each file is annotated with**. That gives three families of flags:
+
+- **Combined** — `--sort-by-loc`, `--sort-by-size`, `--sort-by-mtime` each sort files by a metric _and_ annotate every file with it.
+- **Display-only** — `--loc`, `--size`, `--mtime` annotate files with a metric without touching the order.
+- **Sorting-only** — `--sort-by-similarity` reorders without annotating (covered [below](#grouping-by-name-similarity)).
+
+The combined flags below are the quickest way to see one metric. To mix sorting and annotation freely, see [Combining Statistics](#combining-statistics).
+
 ### Lines of Code
 
 Count lines per file and total them per directory:
@@ -105,12 +113,23 @@ recursivist visualize --sort-by-mtime
         └── 📄 test_utils.py (Yesterday 18:10)
 ```
 
-### Combining Statistics
+### Displaying Without Sorting
 
-Metrics are combinable and always appear in the order LOC, size, mtime:
+Use the display-only flags — `--loc`, `--size`, `--mtime` — to annotate files while keeping the default extension-and-name ordering:
 
 ```bash
-recursivist visualize --sort-by-loc --sort-by-size --sort-by-mtime
+recursivist visualize --size          # show sizes, don't reorder
+recursivist visualize --loc --mtime   # show LOC and mtime, don't reorder
+```
+
+Display-only annotations appear in the exact order you list the flags, so `--loc --mtime` and `--mtime --loc` differ only in column order.
+
+### Combining Statistics
+
+You can sort by one metric and annotate with several. Pair a single sorting flag with as many display-only flags as you like:
+
+```bash
+recursivist visualize --sort-by-loc --size --mtime
 ```
 
 ```
@@ -126,7 +145,14 @@ recursivist visualize --sort-by-loc --sort-by-size --sort-by-mtime
         └── 📄 test_utils.py (241 lines, 9.4 KB, Yesterday 18:10)
 ```
 
-When a metric sort is active, files are ordered by that metric (descending) rather than by name.
+Here files are ordered by lines of code (the sort metric, descending), and each is annotated with LOC, size, and modification time.
+
+Flags are resolved by their **left-to-right order on the command line**:
+
+- Only the **first** sorting flag takes effect. A second `--sort-by-*` is discarded entirely — so `--sort-by-loc --sort-by-size` sorts by LOC and shows only LOC, _not_ both. Use `--sort-by-loc --size` to sort by LOC and display size too.
+- A winning combined numeric metric annotates first; display-only annotations follow in the order given.
+
+See the [CLI Reference](../reference/cli-reference.md#sorting-and-display-flags) for the complete resolution rules.
 
 ## Grouping by Name Similarity
 
@@ -134,7 +160,7 @@ When a metric sort is active, files are ordered by that metric (descending) rath
 recursivist visualize --sort-by-similarity
 ```
 
-This groups files with similar names next to each other (for example, `main.py` beside `main.js`). It replaces the default extension-and-name ordering but is overridden by any active metric sort.
+This groups files with similar names next to each other (for example, `main.py` beside `main.js`). It replaces the default extension-and-name ordering. Because only the first sorting flag on the command line takes effect, `--sort-by-similarity` wins only if it comes before any metric or Git-status sort; a sorting flag given earlier takes precedence and the similarity flag is ignored.
 
 ## Git Status
 
@@ -154,6 +180,14 @@ recursivist visualize --git-status
 ```
 
 Markers are `[U]` untracked, `[M]` modified, `[A]` added, and `[D]` deleted. Deleted files are also shown struck through, and a file deleted from disk is still listed so the change is visible. If the directory isn't inside a repository (or has no changes), no markers are added.
+
+`--git-status` is display-only — it annotates without changing the order. To also **sort** by Git status (modified, added, deleted, untracked, then clean), use the combined flag:
+
+```bash
+recursivist visualize --sort-by-git-status
+```
+
+The Git-status marker always trails at the very end of a file's annotations, after any metric parenthetical. For example, `--sort-by-loc --git-status` shows `main.py (245 lines) [M]`.
 
 ## Directory Depth Control
 

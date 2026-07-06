@@ -14,15 +14,15 @@ The format flag accepts `txt`, `json`, `html`, `md`, `jsx`, `svg`, and `rst`. Wh
 
 ## Available Formats
 
-| Format   | Extension | Description                       | Best For                              |
-| -------- | --------- | --------------------------------- | ------------------------------------- |
-| Text     | `.txt`    | Plain ASCII tree                  | Quick reference, text-only contexts   |
-| JSON     | `.json`   | Structured data                   | Programmatic processing, integrations |
-| HTML     | `.html`   | Self-contained styled web page    | Sharing, web documentation            |
-| Markdown | `.md`     | GitHub-compatible nested list     | READMEs, project documentation        |
-| React    | `.jsx`    | Interactive React component       | Web applications, dashboards          |
-| SVG      | `.svg`    | Vector image of the terminal tree | Embedding visuals in docs and READMEs |
-| reStructuredText | `.rst` | Sphinx-compatible nested list  | Sphinx/docutils documentation         |
+| Format           | Extension | Description                       | Best For                              |
+| ---------------- | --------- | --------------------------------- | ------------------------------------- |
+| Text             | `.txt`    | Plain ASCII tree                  | Quick reference, text-only contexts   |
+| JSON             | `.json`   | Structured data                   | Programmatic processing, integrations |
+| HTML             | `.html`   | Self-contained styled web page    | Sharing, web documentation            |
+| Markdown         | `.md`     | GitHub-compatible nested list     | READMEs, project documentation        |
+| React            | `.jsx`    | Interactive React component       | Web applications, dashboards          |
+| SVG              | `.svg`    | Vector image of the terminal tree | Embedding visuals in docs and READMEs |
+| reStructuredText | `.rst`    | Sphinx-compatible nested list     | Sphinx/docutils documentation         |
 
 ## Multiple Formats at Once
 
@@ -44,14 +44,16 @@ The output directory is created automatically if it doesn't exist.
 
 ## File Statistics
 
-Every format can include lines of code, file sizes, and modification times:
+Every format can include lines of code, file sizes, and modification times. As in the terminal, sorting and display are separate: `--sort-by-loc`/`-size`/`-mtime` sort by and show a metric, while `--loc`/`--size`/`--mtime` show a metric without reordering.
 
 ```bash
-recursivist export --format md --sort-by-loc
-recursivist export --format html --sort-by-size
-recursivist export --format json --sort-by-mtime
-recursivist export --format md --sort-by-loc --sort-by-size
+recursivist export --format md --sort-by-loc          # sort by and show LOC
+recursivist export --format html --sort-by-size       # sort by and show size
+recursivist export --format json --mtime              # show mtime, keep default order
+recursivist export --format md --sort-by-loc --size   # sort by LOC, show LOC and size
 ```
+
+Flags are resolved by command-line order — only the first sorting flag takes effect, and a second `--sort-by-*` is ignored. See the [CLI Reference](../reference/cli-reference.md#sorting-and-display-flags).
 
 ## Git Status
 
@@ -60,6 +62,8 @@ Annotate exported files with their Git status (`[U]`, `[M]`, `[A]`, `[D]`):
 ```bash
 recursivist export --format md --git-status
 ```
+
+`--git-status` annotates without reordering; use `--sort-by-git-status` to also sort by status. The status marker always trails after any metric annotations.
 
 ## Icon Style
 
@@ -274,7 +278,7 @@ If your project doesn't use Tailwind, adapt the component's class names to your 
 recursivist export --format md --depth 2 --exclude "node_modules .git" --prefix project-overview
 
 # Detailed JSON of the source tree with full paths and metrics
-recursivist export src --format json --full-path --sort-by-loc --sort-by-size --prefix source-structure
+recursivist export src --format json --full-path --sort-by-loc --size --prefix source-structure
 
 # A filtered React component focused on source files
 recursivist export --format jsx \

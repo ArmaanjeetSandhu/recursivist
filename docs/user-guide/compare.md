@@ -22,13 +22,13 @@ A legend at the bottom explains the scheme, and notes any active options such as
 
 ## File Statistics
 
-Include metrics in the comparison to surface differences beyond structure — for example, which files grew or were modified more recently:
+Include metrics in the comparison to surface differences beyond structure — for example, which files grew or were modified more recently. As elsewhere, `--sort-by-loc`/`-size`/`-mtime` sort by and show a metric, `--loc`/`--size`/`--mtime` show one without reordering, and only the first sorting flag takes effect:
 
 ```bash
 recursivist compare dir1 dir2 --sort-by-loc
 recursivist compare dir1 dir2 --sort-by-size
-recursivist compare dir1 dir2 --sort-by-mtime
-recursivist compare dir1 dir2 --sort-by-loc --sort-by-size
+recursivist compare dir1 dir2 --mtime               # show mtime, keep default order
+recursivist compare dir1 dir2 --sort-by-loc --size  # sort by LOC, show LOC and size
 ```
 
 ## Saving as HTML
@@ -64,7 +64,7 @@ recursivist compare dir1 dir2 --full-path
 See [Pattern Filtering](pattern-filtering.md) for details.
 
 !!! note
-Unlike `visualize` and `export`, the `compare` command does not support the `--git-status` option. Also note that `-f` here is shorthand for `--save`, not `--format`.
+Unlike `visualize` and `export`, `compare` does not support the Git-status flags (`--git-status` or `--sort-by-git-status`). It does support every other sorting and display flag — the metric sorts, the display-only `--loc`/`--size`/`--mtime`, and `--sort-by-similarity`. Also note that `-f` here is shorthand for `--save`, not `--format`.
 
 ## Use Cases
 

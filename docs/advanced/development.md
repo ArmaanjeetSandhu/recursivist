@@ -42,8 +42,9 @@ Recursivist is organized into small, focused modules:
 recursivist/
 ├── __init__.py        # Package metadata and version
 ├── __main__.py        # `python -m recursivist` entry point
-├── _models.py         # FileEntry (a NamedTuple) and FileEntry.from_raw
+├── _models.py         # FileEntry (a NamedTuple), FileEntry.from_raw and .coerce
 ├── cli.py             # Typer-based command-line interface
+├── flags.py           # DisplayOptions and command-line-order flag resolution
 ├── scanner.py         # Directory traversal -> nested structure dict
 ├── tree.py            # Rich tree rendering (build_tree, display_tree)
 ├── compare.py         # Side-by-side comparison and rendering
@@ -144,8 +145,9 @@ Exporters live in `recursivist/exporters/` and subclass `BaseExporter`, which st
        def export(self, output_path: str) -> None:
            with open(output_path, "w", encoding="utf-8") as f:
                # Build output from self.structure and self.root_name,
-               # honoring self.sort_by_loc, self.show_git_status,
-               # self.icon_style, and the other flags as appropriate.
+               # honoring the resolved display options exposed by BaseExporter:
+               # self.sort_key, self.metrics (ordered), self.show_git_status,
+               # self.icon_style, and self.show_full_path as appropriate.
                ...
    ```
 
@@ -168,8 +170,9 @@ To add a metric beyond lines of code, size, and mtime:
 
 1. Collect it in `get_directory_structure` (`scanner.py`) and add a flag to enable it.
 2. Thread it through `FileEntry` in `_models.py` and the formatting helpers in `metrics.py`.
-3. Surface it in `build_tree` (`tree.py`), the exporters, and `compare.py`.
-4. Add a CLI option in `cli.py`.
+3. Register the metric and its flags in `flags.py` so they resolve into `DisplayOptions` (a sorting flag, a display-only flag, or both).
+4. Surface it in `build_tree` (`tree.py`), the exporters, and `compare.py`.
+5. Add the CLI options in `cli.py` and wire them into `resolve_display_options`.
 
 ### Extend Pattern Matching
 

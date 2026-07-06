@@ -27,15 +27,51 @@ The following options are common to `visualize`, `export`, and `compare`. Repeat
 | `--ignore-file`        | `-g`  | Gitignore-style ignore file to honor (e.g. `.gitignore`)         |
 | `--depth`              | `-d`  | Maximum depth to traverse (`0` for unlimited)                    |
 | `--full-path`          | `-l`  | Show full paths instead of bare filenames                        |
-| `--sort-by-loc`        | `-s`  | Sort by and display lines of code                                |
-| `--sort-by-size`       | `-z`  | Sort by and display file sizes                                   |
-| `--sort-by-mtime`      | `-m`  | Sort by and display modification times                           |
-| `--sort-by-similarity` | `-S`  | Group files by name similarity (overridden by a metric sort)     |
 | `--icon-style`         |       | Icon style: `emoji` or `nerd`                                    |
 | `--verbose`            | `-v`  | Enable verbose (DEBUG) logging                                   |
 
+The `--ignore-file` name is matched with or without a leading dot, so `--ignore-file gitignore` and `--ignore-file .gitignore` behave the same when a `.gitignore` is present.
+
+The sorting and annotation flags (`--sort-by-*`, `--loc`, `--size`, `--mtime`, `--git-status`) are also shared, with a small exception for `compare`; because they follow a specific resolution model, they have their own section below.
+
 !!! note "Pattern scope"
 `--exclude-pattern` and `--include-pattern` match against each file's **name**, not its path. For path-based filtering, use `--exclude` (directory names) or `--ignore-file` (gitignore-style). See [Pattern Matching](pattern-matching.md).
+
+## Sorting and Display Flags
+
+Recursivist keeps two concerns separate: **how files are ordered** and **what each file is annotated with**. The flags fall into three families.
+
+| Family           | Flags                                                                            | Effect                                                              |
+| ---------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| **Sorting-only** | `--sort-by-similarity` (`-S`)                                                    | Reorders files; adds no annotation of its own                      |
+| **Combined**     | `--sort-by-loc` (`-s`), `--sort-by-size` (`-z`), `--sort-by-mtime` (`-m`), `--sort-by-git-status` | Reorders files by a metric **and** annotates every file with it    |
+| **Display-only** | `--loc`, `--size`, `--mtime`, `--git-status` (`-G`)                              | Annotates files with a metric **without** changing the order       |
+
+The combined numeric flags (`--sort-by-loc`, `--sort-by-size`, `--sort-by-mtime`) are shorthand for "sort by this metric and display it too" — equivalent to pairing a sort with the matching display-only flag.
+
+### Resolution by command-line order
+
+When several of these flags are combined, they are resolved strictly by their **left-to-right order on the command line**, not by any fixed precedence:
+
+- **Only the first sorting flag takes effect.** Every later sorting flag — whether sorting-only or combined — is discarded completely, contributing neither ordering nor annotation. So `--sort-by-loc --sort-by-size` sorts by lines of code and shows **only** the LOC annotation; the `--sort-by-size` is dropped.
+- **Display-only flags always annotate,** in the exact order they are given.
+- **A winning combined numeric metric annotates first,** ahead of any display-only annotations.
+- **A Git-status marker always trails last,** after every numeric annotation.
+
+To sort by one metric while displaying others, pair a single sorting flag with display-only flags. For example, `--sort-by-loc --size --mtime` orders files by lines of code and annotates each with its LOC, size, and modification time, in that order.
+
+!!! tip "Migrating from earlier versions"
+Earlier releases combined metrics with repeated `--sort-by-*` flags and always displayed them in a fixed LOC → size → mtime order. That no longer works: a second `--sort-by-*` is now ignored. Replace, for example, `--sort-by-loc --sort-by-size` (old: sort by LOC, show both) with `--sort-by-loc --size`.
+
+### Availability by command
+
+| Command     | `--sort-by-similarity` | `--sort-by-loc` / `-size` / `-mtime` | `--loc` / `--size` / `--mtime` | `--sort-by-git-status` | `--git-status` |
+| ----------- | :--------------------: | :----------------------------------: | :----------------------------: | :--------------------: | :------------: |
+| `visualize` |           ✓            |                  ✓                   |               ✓                |           ✓            |       ✓        |
+| `export`    |           ✓            |                  ✓                   |               ✓                |           ✓            |       ✓        |
+| `compare`   |           ✓            |                  ✓                   |               ✓                |           ✗            |       ✗        |
+
+`compare` supports every sorting and display flag **except** the two Git-status flags.
 
 ## `visualize`
 
@@ -49,11 +85,7 @@ recursivist visualize [OPTIONS] [DIRECTORY]
 | ----------- | ---------------------------------------------------------- |
 | `DIRECTORY` | Directory to visualize (defaults to the current directory) |
 
-In addition to the [shared options](#shared-options), `visualize` supports:
-
-| Option         | Short | Description                                                                                 |
-| -------------- | ----- | ------------------------------------------------------------------------------------------- |
-| `--git-status` | `-G`  | Annotate files with Git status: `[U]` untracked, `[M]` modified, `[A]` added, `[D]` deleted |
+`visualize` supports the [shared options](#shared-options) and the full set of [sorting and display flags](#sorting-and-display-flags), including both Git-status flags.
 
 ### Examples
 
@@ -68,8 +100,11 @@ recursivist visualize --include-pattern "*.md" "*.py"
 recursivist visualize --ignore-file .gitignore
 recursivist visualize --depth 3
 recursivist visualize --full-path
-recursivist visualize --sort-by-loc
-recursivist visualize --git-status
+recursivist visualize --sort-by-loc              # sort by and show lines of code
+recursivist visualize --sort-by-loc --size       # sort by LOC, show LOC and size
+recursivist visualize --mtime --git-status       # annotate only: mtime, then Git status
+recursivist visualize --git-status               # Git status markers
+recursivist visualize --sort-by-git-status       # sort by and show Git status
 recursivist visualize --icon-style nerd
 ```
 
@@ -85,14 +120,13 @@ recursivist export [OPTIONS] [DIRECTORY]
 | ----------- | ------------------------------------------------------- |
 | `DIRECTORY` | Directory to export (defaults to the current directory) |
 
-In addition to the [shared options](#shared-options), `export` supports:
+In addition to the [shared options](#shared-options) and the [sorting and display flags](#sorting-and-display-flags) (including both Git-status flags), `export` supports:
 
 | Option         | Short | Description                                                              |
 | -------------- | ----- | ------------------------------------------------------------------------ |
 | `--format`     | `-f`  | Export formats: `txt`, `json`, `html`, `md`, `jsx`, `svg`, `rst` (default `md`) |
 | `--output-dir` | `-o`  | Output directory (created if missing; defaults to current directory)     |
 | `--prefix`     | `-n`  | Filename prefix for exports (default `structure`)                        |
-| `--git-status` | `-G`  | Annotate exported files with Git status markers                          |
 
 Exports default to the `emoji` icon style for cross-platform consistency, regardless of saved configuration.
 
@@ -105,7 +139,8 @@ recursivist export --format "json html md"
 recursivist export --format txt --output-dir ./exports
 recursivist export --format json --prefix my-project
 recursivist export --exclude node_modules --exclude-ext .pyc
-recursivist export --format html --sort-by-loc --sort-by-size
+recursivist export --format html --sort-by-loc --size   # sort by LOC, show LOC and size
+recursivist export --format md --git-status             # Git status markers
 recursivist export --format md --icon-style nerd
 ```
 
@@ -122,7 +157,7 @@ recursivist compare [OPTIONS] DIR1 DIR2
 | `DIR1`   | First directory to compare  |
 | `DIR2`   | Second directory to compare |
 
-In addition to the [shared options](#shared-options), `compare` supports:
+In addition to the [shared options](#shared-options) and the [sorting and display flags](#sorting-and-display-flags), `compare` supports:
 
 | Option         | Short | Description                                                        |
 | -------------- | ----- | ------------------------------------------------------------------ |
@@ -131,7 +166,7 @@ In addition to the [shared options](#shared-options), `compare` supports:
 | `--prefix`     | `-n`  | Filename prefix for the HTML file (default `comparison`)           |
 
 !!! note
-`compare` does not support `--git-status`. Its `-f` is shorthand for `--save`, not `--format`. Items unique to `DIR1` are highlighted in green, items unique to `DIR2` in red.
+`compare` supports every sorting and display flag **except** the two Git-status flags (`--git-status` and `--sort-by-git-status`). Its `-f` is shorthand for `--save`, not `--format`. Items unique to `DIR1` are highlighted in green, items unique to `DIR2` in red.
 
 ### Examples
 
@@ -140,7 +175,7 @@ recursivist compare dir1 dir2
 recursivist compare dir1 dir2 --exclude "node_modules .git"
 recursivist compare dir1 dir2 --depth 2
 recursivist compare dir1 dir2 --save --output-dir ./reports
-recursivist compare dir1 dir2 --sort-by-loc --sort-by-size
+recursivist compare dir1 dir2 --sort-by-loc --size   # sort by LOC, show LOC and size
 ```
 
 ## `config`

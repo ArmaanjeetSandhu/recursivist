@@ -22,8 +22,8 @@ Items unique to the first directory are highlighted in green; items unique to th
 ```bash
 recursivist compare dir1 dir2 --sort-by-loc
 recursivist compare dir1 dir2 --sort-by-size
-recursivist compare dir1 dir2 --sort-by-mtime
-recursivist compare dir1 dir2 --sort-by-loc --sort-by-size
+recursivist compare dir1 dir2 --mtime               # show mtime, keep default order
+recursivist compare dir1 dir2 --sort-by-loc --size  # sort by LOC, show LOC and size
 ```
 
 ## Filtered Comparisons

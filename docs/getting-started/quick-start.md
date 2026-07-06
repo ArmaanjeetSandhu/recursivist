@@ -33,14 +33,16 @@ recursivist visualize /path/to/your/directory
 
 ## Show File Statistics
 
-Display and sort by lines of code, file size, or modification time. Each flag also annotates every file and directory with the corresponding metric:
+Display and sort by lines of code, file size, or modification time. The `--sort-by-*` flags both sort and annotate; the bare `--loc`/`--size`/`--mtime` flags annotate without reordering:
 
 ```bash
-recursivist visualize --sort-by-loc     # lines of code
-recursivist visualize --sort-by-size    # file sizes
-recursivist visualize --sort-by-mtime   # modification times
-recursivist visualize --sort-by-loc --sort-by-size   # combine metrics
+recursivist visualize --sort-by-loc     # sort by and show lines of code
+recursivist visualize --sort-by-size    # sort by and show file sizes
+recursivist visualize --sort-by-mtime   # sort by and show modification times
+recursivist visualize --sort-by-loc --size   # sort by LOC, show LOC and size
 ```
+
+Flags are read left to right: only the first sorting flag takes effect (a second `--sort-by-*` is ignored), and annotations appear in the order given.
 
 With `--sort-by-loc`:
 

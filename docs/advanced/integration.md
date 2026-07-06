@@ -57,7 +57,7 @@ Make it executable with `chmod +x .git/hooks/pre-commit`.
 The JSON export pairs well with [jq](https://jqlang.org). Export with the detail flags you need (each file then becomes an object with `path`, `loc`, and/or `size`):
 
 ```bash
-recursivist export --format json --prefix structure --sort-by-loc --sort-by-size
+recursivist export --format json --prefix structure --sort-by-loc --size
 ```
 
 ```bash
@@ -84,6 +84,7 @@ Recursivist's modules can be used directly. Scanning produces the nested structu
 ```python
 from recursivist.scanner import get_directory_structure
 from recursivist.exporters import get_exporter
+from recursivist.flags import DisplayOptions
 
 structure, extensions = get_directory_structure(
     "path/to/directory",
@@ -93,20 +94,21 @@ structure, extensions = get_directory_structure(
     sort_by_size=True,
 )
 
+# A DisplayOptions describes how to sort and what to annotate.
+spec = DisplayOptions(sort_key="loc", metrics=("loc", "size"))
 for fmt, out in (("md", "output.md"), ("json", "output.json")):
     get_exporter(
         fmt,
         structure=structure,
         root_name="path/to/directory",
-        sort_by_loc=True,
-        sort_by_size=True,
+        spec=spec,
     ).export(out)
 
 print("Total lines of code:", structure.get("_loc", 0))
 print("Total size (bytes):", structure.get("_size", 0))
 ```
 
-Each entry in a directory's `_files` list is a `FileEntry` (a `NamedTuple`); use `FileEntry.from_raw(...)` to normalize a raw entry, then read attributes like `.name`, `.path`, and `.loc`. Because `FileEntry` subclasses `tuple`, tuple-style access and `isinstance(item, tuple)` still work. See the [API Reference](../reference/api-reference.md) for a complete example.
+Each entry in a directory's `_files` list is a `FileEntry` (a `NamedTuple`); use `FileEntry.coerce(...)` to normalize a raw entry, then read attributes like `.name`, `.path`, and `.loc`. Because `FileEntry` subclasses `tuple`, tuple-style access and `isinstance(item, tuple)` still work. See the [API Reference](../reference/api-reference.md) for a complete example.
 
 ### Serving Structures from Flask
 

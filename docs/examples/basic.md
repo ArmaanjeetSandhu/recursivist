@@ -36,10 +36,11 @@ A depth-limited tree marks where it was cut off:
 ## File Statistics
 
 ```bash
-recursivist visualize --sort-by-loc     # lines of code
-recursivist visualize --sort-by-size    # file sizes
-recursivist visualize --sort-by-mtime   # modification times
-recursivist visualize --sort-by-loc --sort-by-size   # combined
+recursivist visualize --sort-by-loc     # sort by and show lines of code
+recursivist visualize --sort-by-size    # sort by and show file sizes
+recursivist visualize --sort-by-mtime   # sort by and show modification times
+recursivist visualize --loc             # show lines of code, keep default order
+recursivist visualize --sort-by-loc --size   # sort by LOC, show LOC and size
 ```
 
 With `--sort-by-loc`:
@@ -91,7 +92,7 @@ recursivist export --format "txt md json"
 recursivist export --format html --output-dir ./docs --prefix project
 
 # Include statistics
-recursivist export --format html --sort-by-loc --sort-by-size
+recursivist export --format html --sort-by-loc --size
 ```
 
 ## Comparisons

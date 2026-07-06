@@ -103,15 +103,19 @@ Verbose mode lowers the log level to `DEBUG`, printing details about how pattern
 
 ## File Statistics
 
-All three primary commands can display and sort by file metrics:
+All three primary commands can display file metrics, and can sort by them. Sorting and display are separate concerns:
 
 ```bash
-recursivist visualize --sort-by-loc     # lines of code
-recursivist visualize --sort-by-size    # file sizes
-recursivist visualize --sort-by-mtime   # modification times
+recursivist visualize --sort-by-loc     # sort by AND show lines of code
+recursivist visualize --sort-by-size    # sort by AND show file sizes
+recursivist visualize --sort-by-mtime   # sort by AND show modification times
+
+recursivist visualize --loc             # show lines of code, keep default order
+recursivist visualize --size            # show file sizes, keep default order
+recursivist visualize --mtime           # show modification times, keep default order
 ```
 
-These flags are combinable; metrics are always shown in the order LOC, size, mtime. See [Visualization](visualization.md#file-statistics) for examples.
+The `--sort-by-*` forms both sort and annotate; the bare `--loc`/`--size`/`--mtime` forms annotate only. Flags are resolved by their order on the command line: only the first sorting flag takes effect, and annotations appear in the order requested. So to sort by lines of code while also showing size, write `--sort-by-loc --size` — note that a second `--sort-by-*` (as in `--sort-by-loc --sort-by-size`) is ignored. See [Visualization](visualization.md#file-statistics) and the [CLI Reference](../reference/cli-reference.md#sorting-and-display-flags) for details.
 
 ## Grouping by Name Similarity
 
@@ -121,7 +125,7 @@ Instead of the default extension-and-name ordering, files can be grouped so that
 recursivist visualize --sort-by-similarity
 ```
 
-This is overridden by any active metric sort (LOC, size, or mtime).
+Like the metric sorts, this is a sorting flag, so only the first sorting flag on the command line takes effect: an earlier `--sort-by-*` (metric or Git status) wins and the similarity flag is ignored.
 
 ## Pattern Filtering
 

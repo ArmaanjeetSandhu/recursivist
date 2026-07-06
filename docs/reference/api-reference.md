@@ -11,6 +11,7 @@ Recursivist is organized as a set of focused modules that can be used directly f
 | `recursivist.exporters`  | Exporter registry and per-format exporters          |
 | `recursivist.compare`    | Compare and render two structures                   |
 | `recursivist.filtering`  | Ignore-file, glob, and regex exclusion logic        |
+| `recursivist.flags`      | Resolve sort/display flags into a `DisplayOptions`  |
 | `recursivist.sorting`    | File ordering (by type, metric, or name similarity) |
 | `recursivist.metrics`    | Lines of code, size, mtime, and metric formatting   |
 | `recursivist.colors`     | Deterministic per-extension colors                  |
@@ -26,6 +27,19 @@ Most of the API revolves around the nested dictionary produced by `get_directory
 - `_loc`, `_size`, `_mtime`: aggregate totals, present only when the matching metric is requested
 - `_max_depth_reached`: present when traversal stopped at the depth limit
 - `_git_markers`: a `{filename: status}` map, present only with Git status enabled
+
+### DisplayOptions
+
+Sorting and annotation are driven by a single resolved value, `recursivist.flags.DisplayOptions`, which the renderers and exporters consult. It separates ordering (`sort_key`) from annotation (`metrics` and `show_git_status`):
+
+```python
+from recursivist.flags import DisplayOptions
+
+# Sort by lines of code; annotate each file with LOC then size
+spec = DisplayOptions(sort_key="loc", metrics=("loc", "size"))
+```
+
+`sort_key` is one of `"loc"`, `"size"`, `"mtime"`, `"git_status"`, `"similarity"`, or `None` (the default extension/name order). `metrics` is the ordered tuple of numeric metrics to display, and `show_git_status` toggles the Git-status marker. To build a `DisplayOptions` from raw CLI flags — recovering their left-to-right order from `argv` — use `recursivist.flags.resolve_display_options`.
 
 ### FileEntry
 
@@ -54,6 +68,10 @@ Exports go through the `get_exporter` factory, which returns a `BaseExporter` su
 ## Filtering
 
 ::: recursivist.filtering
+
+## Flags
+
+::: recursivist.flags
 
 ## Sorting
 
@@ -88,6 +106,7 @@ import sys
 
 from recursivist.scanner import get_directory_structure
 from recursivist.exporters import get_exporter
+from recursivist.flags import DisplayOptions
 from recursivist._models import FileEntry
 
 
@@ -101,14 +120,15 @@ def analyze_directory(directory_path: str) -> None:
         sort_by_size=True,
     )
 
-    # Export to multiple formats via the factory
+    # Describe how to sort and annotate, then export via the factory.
+    # Here: order by lines of code, annotating each file with LOC then size.
+    spec = DisplayOptions(sort_key="loc", metrics=("loc", "size"))
     for fmt, out in (("md", "analysis.md"), ("json", "analysis.json")):
         exporter = get_exporter(
             fmt,
             structure=structure,
             root_name=directory_path,
-            sort_by_loc=True,
-            sort_by_size=True,
+            spec=spec,
         )
         exporter.export(out)
 
@@ -117,11 +137,13 @@ def analyze_directory(directory_path: str) -> None:
     print(f"Total lines of code: {structure.get('_loc', 0)}")
     print(f"Total size (bytes): {structure.get('_size', 0)}")
 
-    # Collect every file as a FileEntry and find the largest by LOC
+    # Collect every file as a FileEntry and find the largest by LOC.
+    # FileEntry.coerce reads the canonical (name, path, loc, size, mtime)
+    # slots positionally, so it needs no knowledge of which flags were set.
     def collect(struct: dict, path: str = "") -> list[tuple[str, FileEntry]]:
         found: list[tuple[str, FileEntry]] = []
         for entry in struct.get("_files", []):
-            fe = FileEntry.from_raw(entry, sort_by_loc=True, sort_by_size=True)
+            fe = FileEntry.coerce(entry)
             found.append((f"{path}/{fe.name}" if path else fe.name, fe))
         for name, content in struct.items():
             if isinstance(content, dict) and not name.startswith("_"):
@@ -147,6 +169,6 @@ The modular layout makes the common extension points clear:
 - **A new export format**: subclass `BaseExporter` in a new module under `recursivist/exporters/`, implement `export`, and register it in the `_EXPORTERS` map in `recursivist/exporters/__init__.py`.
 - **Custom filtering**: extend `should_exclude` in `recursivist/filtering.py`.
 - **Custom rendering**: build on `build_tree` and `display_tree` in `recursivist/tree.py`.
-- **A new metric**: collect it in `get_directory_structure` (`recursivist/scanner.py`), thread it through `FileEntry`, and surface it in the renderers, exporters, and CLI.
+- **A new metric**: collect it in `get_directory_structure` (`recursivist/scanner.py`), thread it through `FileEntry`, register it in `recursivist/flags.py` (so it resolves into `DisplayOptions`), and surface it in the renderers, exporters, and CLI.
 
 See the [Development Guide](../advanced/development.md) for the full workflow.

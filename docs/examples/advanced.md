@@ -9,7 +9,7 @@ Export a detailed JSON tree, then mine it with [jq](https://jqlang.org). With a 
 ```bash
 recursivist export --format json --full-path \
   --exclude "node_modules .git" \
-  --prefix structure --sort-by-loc --sort-by-size
+  --prefix structure --sort-by-loc --size
 ```
 
 ```bash
@@ -130,7 +130,7 @@ Generate overviews at several depths:
 mkdir -p project-map
 recursivist export --format md --depth 1 --output-dir project-map --prefix L1-overview --sort-by-size
 recursivist export --format md --depth 2 --output-dir project-map --prefix L2-structure --sort-by-loc
-recursivist export --format md --output-dir project-map --prefix L3-complete --sort-by-loc --sort-by-mtime
+recursivist export --format md --output-dir project-map --prefix L3-complete --sort-by-loc --mtime
 ```
 
 ## Embedding a React Component
