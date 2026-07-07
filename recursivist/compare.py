@@ -19,7 +19,6 @@ from rich.panel import Panel
 from rich.text import Text
 from rich.tree import Tree
 
-from recursivist.colors import generate_color_for_extension
 from recursivist.filtering import compile_regex_patterns
 from recursivist.flags import DisplayOptions
 from recursivist.icons import get_icon
@@ -41,12 +40,10 @@ def compare_directory_structures(
     max_depth: int = 0,
     show_full_path: bool = False,
     spec: DisplayOptions | None = None,
-) -> tuple[dict[str, Any], dict[str, Any], set[str]]:
+) -> tuple[dict[str, Any], dict[str, Any]]:
     """Scan two directories for comparison using identical options.
 
-    Each directory is scanned with the same filtering and metric settings, and
-    their extension sets are merged so that a single color map can be shared
-    across both trees.
+    Each directory is scanned with the same filtering and metric settings.
 
     Args:
         dir1: Path to the first directory.
@@ -64,12 +61,12 @@ def compare_directory_structures(
             enables are computed. Defaults to a plain :class:`DisplayOptions`.
 
     Returns:
-        A ``(structure1, structure2, combined_extensions)`` tuple, pairing each
-        directory's structure with the union of their file extensions.
+        A ``(structure1, structure2)`` tuple holding each directory's
+        structure.
     """
     if spec is None:
         spec = DisplayOptions()
-    structure1, extensions1 = get_directory_structure(
+    structure1, _ = get_directory_structure(
         dir1,
         exclude_dirs,
         ignore_file,
@@ -82,7 +79,7 @@ def compare_directory_structures(
         sort_by_size=spec.show_size,
         sort_by_mtime=spec.show_mtime,
     )
-    structure2, extensions2 = get_directory_structure(
+    structure2, _ = get_directory_structure(
         dir2,
         exclude_dirs,
         ignore_file,
@@ -95,15 +92,13 @@ def compare_directory_structures(
         sort_by_size=spec.show_size,
         sort_by_mtime=spec.show_mtime,
     )
-    combined_extensions = extensions1.union(extensions2)
-    return structure1, structure2, combined_extensions
+    return structure1, structure2
 
 
 def build_comparison_tree(
     structure: dict[str, Any],
     other_structure: dict[str, Any],
     tree: Tree,
-    color_map: dict[str, str],
     spec: DisplayOptions,
     show_full_path: bool = False,
     icon_style: str = "emoji",
@@ -113,15 +108,16 @@ def build_comparison_tree(
     Recursively adds the entries of *structure* to *tree*, comparing each
     against *other_structure*: items present in both are shown normally, items
     unique to *structure* are highlighted in green, and items unique to
-    *other_structure* are highlighted in red. Files are ordered by
-    ``spec.sort_key`` and metric annotations are appended in ``spec.metrics``
-    order. (Directory comparison has no Git-status support.)
+    *other_structure* are highlighted in red. File names are rendered without
+    file-type-specific colors so the green/red difference highlighting stands
+    out. Files are ordered by ``spec.sort_key`` and metric annotations are
+    appended in ``spec.metrics`` order. (Directory comparison has no Git-status
+    support.)
 
     Args:
         structure: Structure of the directory being rendered.
         other_structure: Structure of the directory being compared against.
         tree: ``rich`` tree to add nodes to. Modified in place.
-        color_map: Mapping of lowercase file extension to hex color.
         spec: Resolved sorting and annotation directives.
         show_full_path: Whether to display absolute paths instead of bare
             filenames.
@@ -137,14 +133,10 @@ def build_comparison_tree(
                 files_in_other_names.append(cast(str, item))
         for entry in sort_files_by_type(structure["_files"], spec.sort_key):
             file_icon = get_icon(entry.name, is_dir=False, style=icon_style)
-            ext = os.path.splitext(entry.name)[1].lower()
-            color = color_map.get(ext, "#FFFFFF")
             label = f"{file_icon} {entry.path}" + format_metrics_suffix(
                 entry.loc, entry.size, entry.mtime, spec.metrics
             )
-            style = (
-                f"{color} on green" if entry.name not in files_in_other_names else color
-            )
+            style = "on green" if entry.name not in files_in_other_names else ""
             tree.add(Text(label, style=style))
     for folder, content in iter_subdirectories(structure):
         folder_icon = get_icon(folder, is_dir=True, style=icon_style)
@@ -163,7 +155,6 @@ def build_comparison_tree(
                 content,
                 other_content,
                 subtree,
-                color_map,
                 spec,
                 show_full_path,
                 icon_style=icon_style,
@@ -179,12 +170,10 @@ def build_comparison_tree(
         for entry in sort_files_by_type(other_structure["_files"], spec.sort_key):
             if entry.name not in files_in_this_names:
                 file_icon = get_icon(entry.name, is_dir=False, style=icon_style)
-                ext = os.path.splitext(entry.name)[1].lower()
-                color = color_map.get(ext, "#FFFFFF")
                 label = f"{file_icon} {entry.path}" + format_metrics_suffix(
                     entry.loc, entry.size, entry.mtime, spec.metrics
                 )
-                tree.add(Text(label, style=f"{color} on red"))
+                tree.add(Text(label, style="on red"))
     if other_structure:
         for folder, other_content in iter_subdirectories(other_structure):
             if folder in structure:
@@ -202,7 +191,6 @@ def build_comparison_tree(
                     {},
                     other_content,
                     subtree,
-                    color_map,
                     spec,
                     show_full_path,
                     icon_style=icon_style,
@@ -265,7 +253,7 @@ def display_comparison(
     }
     compiled_exclude = compile_regex_patterns(exclude_patterns, use_regex)
     compiled_include = compile_regex_patterns(include_patterns, use_regex)
-    structure1, structure2, extensions = compare_directory_structures(
+    structure1, structure2 = compare_directory_structures(
         dir1,
         dir2,
         exclude_dirs,
@@ -277,7 +265,6 @@ def display_comparison(
         show_full_path=show_full_path,
         spec=spec,
     )
-    color_map = {ext: generate_color_for_extension(ext) for ext in extensions}
     console = Console()
 
     root_base1 = os.path.basename(dir1)
@@ -303,7 +290,6 @@ def display_comparison(
         structure1,
         structure2,
         tree1,
-        color_map,
         spec,
         show_full_path=show_full_path,
         icon_style=icon_style,
@@ -312,7 +298,6 @@ def display_comparison(
         structure2,
         structure1,
         tree2,
-        color_map,
         spec,
         show_full_path=show_full_path,
         icon_style=icon_style,
@@ -449,7 +434,7 @@ def export_comparison(
     }
     compiled_exclude = compile_regex_patterns(exclude_patterns, use_regex)
     compiled_include = compile_regex_patterns(include_patterns, use_regex)
-    structure1, structure2, _ = compare_directory_structures(
+    structure1, structure2 = compare_directory_structures(
         dir1,
         dir2,
         exclude_dirs,

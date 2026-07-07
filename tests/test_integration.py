@@ -136,7 +136,7 @@ def test_comparison_with_complex_directories(
     complex_directory: str, complex_directory_clone: str, output_dir: str
 ) -> None:
     """Test comparison between complex directory structures."""
-    structure1, structure2, _ = compare_directory_structures(
+    structure1, structure2 = compare_directory_structures(
         complex_directory,
         complex_directory_clone,
         exclude_dirs=["build", "dist"],
@@ -364,7 +364,7 @@ def test_comparison_with_statistics(temp_dir: str, output_dir: str) -> None:
         f.write("print('Dir 1 content')")
     with open(os.path.join(dir2, "file1.py"), "w") as f:
         f.write("print('Dir 2 different content with more lines')\nprint('Extra line')")
-    structure1, structure2, _ = compare_directory_structures(
+    structure1, structure2 = compare_directory_structures(
         dir1, dir2, spec=_ALL_METRICS_SPEC
     )
     assert "_loc" in structure1

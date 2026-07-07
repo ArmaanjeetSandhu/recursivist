@@ -225,7 +225,7 @@ safe_path = st.text(
 
 def test_compare_directory_structures(comparison_directories: tuple[str, str]) -> None:
     dir1, dir2 = comparison_directories
-    structure1, structure2, extensions = compare_directory_structures(dir1, dir2)
+    structure1, structure2 = compare_directory_structures(dir1, dir2)
     assert "_files" in structure1
     assert "_files" in structure2
     assert "common_dir" in structure1
@@ -248,8 +248,6 @@ def test_compare_directory_structures(comparison_directories: tuple[str, str]) -
     assert "dir1_only.txt" not in names2_get
     assert "dir2_only.txt" not in names1_get
     assert "dir2_only.txt" in names2
-    assert ".txt" in extensions
-    assert ".py" in extensions
 
 
 @pytest.mark.parametrize(
@@ -292,7 +290,7 @@ def test_compare_directory_structures_with_options(
         with open(os.path.join(dir2, "exclude_me_too.log"), "w") as f:
             f.write("This should be excluded too")
     kwargs = {option_name: option_value}
-    structure1, structure2, _ = compare_directory_structures(dir1, dir2, **kwargs)
+    structure1, structure2 = compare_directory_structures(dir1, dir2, **kwargs)
     if option_name == "show_full_path":
         assert "_files" in structure1
         assert "_files" in structure2
@@ -343,7 +341,7 @@ def test_compare_directory_structures_with_statistics(
     comparison_directories: tuple[str, str],
 ) -> None:
     dir1, dir2 = comparison_directories
-    structure1, structure2, _ = compare_directory_structures(
+    structure1, structure2 = compare_directory_structures(
         dir1, dir2, spec=_ALL_METRICS_SPEC
     )
     for structure in [structure1, structure2]:
@@ -550,7 +548,7 @@ def test_export_comparison_unsupported_format(
 def test_complex_comparison(
     complex_directory: str, complex_directory_clone: str, output_dir: str
 ) -> None:
-    structure1, structure2, _ = compare_directory_structures(
+    structure1, structure2 = compare_directory_structures(
         complex_directory, complex_directory_clone
     )
     assert "src" in structure1
@@ -579,12 +577,9 @@ def test_build_comparison_tree(
     mocker: MockerFixture,
 ) -> None:
     dir1, dir2 = comparison_directories
-    structure1, structure2, extensions = compare_directory_structures(dir1, dir2)
-    color_map = {ext: f"#{i:06x}" for i, ext in enumerate(extensions)}
+    structure1, structure2 = compare_directory_structures(dir1, dir2)
     mock_tree = mocker.MagicMock()
-    build_comparison_tree(
-        structure1, structure2, mock_tree, color_map, DisplayOptions()
-    )
+    build_comparison_tree(structure1, structure2, mock_tree, DisplayOptions())
     assert mock_tree.add.called
     calls = [
         call for call in mock_tree.add.call_args_list if isinstance(call.args[0], Text)
@@ -633,16 +628,13 @@ class TestCompareDirectoryStructures:
                 ({"_files": ["file1.txt"]}, {".txt"}),
                 ({"_files": ["file2.txt"]}, {".txt"}),
             ]
-            structure1, structure2, extensions = compare_directory_structures(
-                dir1, dir2
-            )
+            structure1, structure2 = compare_directory_structures(dir1, dir2)
             assert structure1 == {"_files": ["file1.txt"]}, (
                 "Should return structure1 from get_directory_structure"
             )
             assert structure2 == {"_files": ["file2.txt"]}, (
                 "Should return structure2 from get_directory_structure"
             )
-            assert extensions == {".txt"}, "Should return combined extensions"
             assert mock_get_structure.call_count == 2, (
                 "get_directory_structure should be called twice"
             )
@@ -719,42 +711,26 @@ class TestBuildComparisonTree:
 
     @given(
         structures=comparison_pair(ensure_files=True),
-        color_map=st.dictionaries(
-            st.text(min_size=1, max_size=10),
-            st.text(min_size=1, max_size=10),
-            min_size=1,
-            max_size=5,
-        ),
     )
     @settings(max_examples=10)
     def test_build_comparison_tree(
         self,
         structures: tuple[dict[str, Any], dict[str, Any]],
-        color_map: dict[str, str],
     ) -> None:
         """Test that build_comparison_tree builds a valid tree."""
         structure1, structure2 = structures
         mock_tree = MagicMock()
         mock_tree.add.return_value = mock_tree
-        build_comparison_tree(
-            structure1, structure2, mock_tree, color_map, DisplayOptions()
-        )
+        build_comparison_tree(structure1, structure2, mock_tree, DisplayOptions())
         assert mock_tree.add.call_count > 0, "Tree.add should have been called"
 
     @given(
         structures=comparison_pair(ensure_files=True),
-        color_map=st.dictionaries(
-            st.text(min_size=1, max_size=10),
-            st.text(min_size=1, max_size=10),
-            min_size=1,
-            max_size=5,
-        ),
     )
     @settings(max_examples=5)
     def test_build_comparison_tree_with_options(
         self,
         structures: tuple[dict[str, Any], dict[str, Any]],
-        color_map: dict[str, str],
     ) -> None:
         """Test build_comparison_tree with various options."""
         structure1, structure2 = structures
@@ -764,7 +740,6 @@ class TestBuildComparisonTree:
             structure1,
             structure2,
             mock_tree,
-            color_map,
             _ALL_METRICS_SPEC,
             show_full_path=True,
         )
@@ -780,13 +755,11 @@ class TestDisplayComparison:
         """Test that display_comparison calls the necessary functions."""
         with (
             patch("recursivist.compare.compare_directory_structures") as mock_compare,
-            patch("recursivist.compare.generate_color_for_extension") as mock_color_map,
             patch("recursivist.compare.Console") as mock_console,
             patch("recursivist.compare.build_comparison_tree") as mock_build_tree,
             patch("recursivist.compare.Tree") as mock_tree,
         ):
-            mock_compare.return_value = ({"_files": []}, {"_files": []}, {".txt"})
-            mock_color_map.return_value = "#FFFFFF"
+            mock_compare.return_value = ({"_files": []}, {"_files": []})
             display_comparison(dir1, dir2)
             mock_compare.assert_called_once()
             mock_tree.assert_called()
@@ -799,10 +772,8 @@ class TestDisplayComparison:
         """Test display_comparison with various options."""
         with (
             patch("recursivist.compare.compare_directory_structures") as mock_compare,
-            patch("recursivist.compare.generate_color_for_extension") as mock_color_map,
         ):
-            mock_compare.return_value = ({"_files": []}, {"_files": []}, {".txt"})
-            mock_color_map.return_value = "#FFFFFF"
+            mock_compare.return_value = ({"_files": []}, {"_files": []})
             display_comparison(
                 dir1,
                 dir2,
@@ -845,7 +816,7 @@ class TestExportComparison:
             patch("recursivist.compare.compare_directory_structures") as mock_compare,
             patch("recursivist.compare._export_comparison_to_html") as mock_export_html,
         ):
-            mock_compare.return_value = ({"_files": []}, {"_files": []}, {".txt"})
+            mock_compare.return_value = ({"_files": []}, {"_files": []})
             export_comparison(dir1, dir2, "html", output_path)
             mock_export_html.assert_called_once()
 
@@ -877,7 +848,7 @@ class TestExportComparison:
             patch("recursivist.compare.compare_directory_structures") as mock_compare,
             patch("recursivist.compare._export_comparison_to_html") as _,
         ):
-            mock_compare.return_value = ({"_files": []}, {"_files": []}, {".txt"})
+            mock_compare.return_value = ({"_files": []}, {"_files": []})
             export_comparison(
                 dir1,
                 dir2,
@@ -965,17 +936,12 @@ class TestBuildComparisonTreeProperties:
     @given(
         structure1=simple_directory_structure(),
         structure2=simple_directory_structure(),
-        color_map=st.dictionaries(
-            keys=st.text(min_size=1, max_size=10),
-            values=st.text(min_size=1, max_size=10),
-        ),
     )
     @settings(max_examples=20)
     def test_build_comparison_tree(
         self,
         structure1: dict[str, Any],
         structure2: dict[str, Any],
-        color_map: dict[str, str],
     ) -> None:
         """Test that build_comparison_tree successfully builds a tree."""
         mock_tree = MagicMock(spec=Tree)
@@ -1002,9 +968,7 @@ class TestBuildComparisonTreeProperties:
         expected_calls = count_files_and_folders(structure1) + count_files_and_folders(
             structure2
         )
-        build_comparison_tree(
-            structure1, structure2, mock_tree, color_map, DisplayOptions()
-        )
+        build_comparison_tree(structure1, structure2, mock_tree, DisplayOptions())
         if expected_calls > 0:
             assert mock_tree.add.call_count > 0, (
                 "build_comparison_tree should make at least one call to tree.add when there are files or folders"
@@ -1017,12 +981,11 @@ class TestBuildComparisonTreeStructures:
     def test_identical_structures(
         self,
         mock_tree: MagicMock,
-        color_map: dict[str, str],
         simple_structure: dict[str, Any],
     ) -> None:
         """Test comparing identical structures."""
         build_comparison_tree(
-            simple_structure, simple_structure, mock_tree, color_map, DisplayOptions()
+            simple_structure, simple_structure, mock_tree, DisplayOptions()
         )
         assert mock_tree.add.call_count == 3
         calls = [
@@ -1034,15 +997,11 @@ class TestBuildComparisonTreeStructures:
         assert not any("on green" in style for style in styles)
         assert not any("on red" in style for style in styles)
 
-    def test_different_files(
-        self, mock_tree: MagicMock, color_map: dict[str, str]
-    ) -> None:
+    def test_different_files(self, mock_tree: MagicMock) -> None:
         """Test comparing structures with different files."""
         structure1 = {"_files": ["file1.txt", "common.py"]}
         structure2 = {"_files": ["file2.txt", "common.py"]}
-        build_comparison_tree(
-            structure1, structure2, mock_tree, color_map, DisplayOptions()
-        )
+        build_comparison_tree(structure1, structure2, mock_tree, DisplayOptions())
         calls = [
             call
             for call in mock_tree.add.call_args_list
@@ -1061,7 +1020,7 @@ class TestBuildComparisonTreeStructures:
         )
 
     def test_different_directories(
-        self, mock_tree: MagicMock, mock_subtree: MagicMock, color_map: dict[str, str]
+        self, mock_tree: MagicMock, mock_subtree: MagicMock
     ) -> None:
         """Test comparing structures with different directories."""
         structure1 = {
@@ -1073,9 +1032,7 @@ class TestBuildComparisonTreeStructures:
             "common_dir": {"_files": ["common.py"]},
         }
         mock_tree.add.return_value = mock_subtree
-        build_comparison_tree(
-            structure1, structure2, mock_tree, color_map, DisplayOptions()
-        )
+        build_comparison_tree(structure1, structure2, mock_tree, DisplayOptions())
         dir_calls = [
             call
             for call in mock_tree.add.call_args_list
@@ -1096,9 +1053,7 @@ class TestBuildComparisonTreeStructures:
         ]
         assert len(common_dir_calls) > 0
 
-    def test_with_statistics(
-        self, mock_tree: MagicMock, color_map: dict[str, str]
-    ) -> None:
+    def test_with_statistics(self, mock_tree: MagicMock) -> None:
         """Test comparison tree with statistics."""
         now = time.time()
         structure1 = {
@@ -1117,7 +1072,6 @@ class TestBuildComparisonTreeStructures:
             structure1,
             structure2,
             mock_tree,
-            color_map,
             _ALL_METRICS_SPEC,
         )
         calls = [
@@ -1141,7 +1095,7 @@ class TestBuildComparisonTreeStructures:
         assert has_stats, "No statistics indicators found in comparison tree"
 
     def test_with_complex_structures(
-        self, mock_tree: MagicMock, mock_subtree: MagicMock, color_map: dict[str, str]
+        self, mock_tree: MagicMock, mock_subtree: MagicMock
     ) -> None:
         """Test comparison with complex nested structures."""
         structure1 = {
@@ -1168,9 +1122,7 @@ class TestBuildComparisonTreeStructures:
 
         mock_tree.add.side_effect = side_effect
         mock_subtree.add.side_effect = side_effect
-        build_comparison_tree(
-            structure1, structure2, mock_tree, color_map, DisplayOptions()
-        )
+        build_comparison_tree(structure1, structure2, mock_tree, DisplayOptions())
         file_texts_styles = []
         for args, _ in all_calls:
             if args and isinstance(args[0], Text) and "📄" in args[0].plain:
@@ -1189,7 +1141,7 @@ class TestBuildComparisonTreeStructures:
         )
 
     def test_with_max_depth(
-        self, mock_tree: MagicMock, mock_subtree: MagicMock, color_map: dict[str, str]
+        self, mock_tree: MagicMock, mock_subtree: MagicMock
     ) -> None:
         """Test comparison tree with max depth indicators."""
         structure1 = {
@@ -1200,9 +1152,7 @@ class TestBuildComparisonTreeStructures:
         }
         structure2 = {"_files": ["file2.txt"], "subdir": {"_files": ["subfile.txt"]}}
         mock_tree.add.return_value = mock_subtree
-        build_comparison_tree(
-            structure1, structure2, mock_tree, color_map, DisplayOptions()
-        )
+        build_comparison_tree(structure1, structure2, mock_tree, DisplayOptions())
         subtree_calls = [
             call.args[0]
             for call in mock_subtree.add.call_args_list

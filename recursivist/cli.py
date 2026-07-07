@@ -312,7 +312,8 @@ def _log_display_options(
         spec: The resolved sorting and annotation directives to report.
     """
     if max_depth > 0:
-        logger.info(f"Limiting depth to {max_depth} levels")
+        level_word = "level" if max_depth == 1 else "levels"
+        logger.info(f"Limiting depth to {max_depth} {level_word}")
     if show_full_path:
         logger.info(MSG_FULL_PATH)
     if spec.sort_key and spec.sort_key in MSG_SORT_BY:
