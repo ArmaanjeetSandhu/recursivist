@@ -1537,7 +1537,7 @@ class TestJsonGitAndMetrics:
         spec = DisplayOptions(show_git_status=True)
         data = self._export(structure, spec, tmp_path)
         entry = data["structure"]["_files"][0]
-        assert entry == {"name": "b.txt", "git_status": "A"}
+        assert entry == {"name": "b.txt", "path": "b.txt", "git_status": "A"}
 
     def test_git_markers_key_not_leaked(self, tmp_path: Path) -> None:
         structure = {

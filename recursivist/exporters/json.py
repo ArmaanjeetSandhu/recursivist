@@ -2,7 +2,7 @@
 
 Serializes the scanned structure to JSON. Without any detail flags, files
 collapse to bare names; with LOC, size, mtime, or Git status enabled, each file
-becomes an object carrying the requested fields — in the resolved display order.
+becomes an object carrying the requested fields.
 """
 
 import json
@@ -11,6 +11,7 @@ from typing import Any
 
 from recursivist._models import FileEntry
 from recursivist.metrics import format_size, format_timestamp
+from recursivist.sorting import sort_files_by_type
 
 from .base import BaseExporter
 
@@ -91,28 +92,45 @@ class JsonExporter(BaseExporter):
             """
             result: dict[str, Any] = {}
             git_markers_here = structure.get("_git_markers", {})
-            for k, v in structure.items():
-                if k == "_files":
-                    result[k] = [file_to_json(item, git_markers_here) for item in v]
-                elif k == "_loc":
-                    if self.show_loc:
+
+            if "_files" in structure:
+                sorted_files = sort_files_by_type(
+                    structure["_files"], self.sort_key, git_markers_here
+                )
+                result["_files"] = [
+                    file_to_json(item, git_markers_here) for item in sorted_files
+                ]
+
+            for k in ("_loc", "_size", "_mtime", "_max_depth_reached"):
+                if k in structure:
+                    v = structure[k]
+                    if k == "_loc" and self.show_loc:
                         result[k] = v
-                elif k == "_size":
-                    if self.show_size:
+                    elif k == "_size" and self.show_size:
                         result[k] = v
                         result["_size_formatted"] = format_size(v)
-                elif k == "_mtime":
-                    if self.show_mtime:
+                    elif k == "_mtime" and self.show_mtime:
                         result[k] = v
                         result["_mtime_formatted"] = format_timestamp(v)
-                elif k == "_git_markers":
-                    continue
-                elif k == "_max_depth_reached":
-                    result[k] = v
-                elif isinstance(v, dict):
-                    result[k] = convert_structure_for_json(v)
-                else:
-                    result[k] = v
+                    elif k == "_max_depth_reached":
+                        result[k] = v
+
+            special_keys = {
+                "_files",
+                "_loc",
+                "_size",
+                "_mtime",
+                "_max_depth_reached",
+                "_git_markers",
+            }
+            for k in sorted(structure.keys()):
+                if k not in special_keys:
+                    v = structure[k]
+                    if isinstance(v, dict):
+                        result[k] = convert_structure_for_json(v)
+                    else:
+                        result[k] = v
+
             return result
 
         def names_only(structure: dict[str, Any]) -> dict[str, Any]:
@@ -123,16 +141,34 @@ class JsonExporter(BaseExporter):
             intact.
             """
             result: dict[str, Any] = {}
-            for k, v in structure.items():
-                if k == "_files":
-                    result[k] = [
-                        FileEntry.coerce(item).name if isinstance(item, tuple) else item
-                        for item in v
-                    ]
-                elif isinstance(v, dict):
-                    result[k] = names_only(v)
-                else:
-                    result[k] = v
+            git_markers_here = structure.get("_git_markers", {})
+
+            if "_files" in structure:
+                sorted_files = sort_files_by_type(
+                    structure["_files"], self.sort_key, git_markers_here
+                )
+                result["_files"] = [entry.name for entry in sorted_files]
+
+            for k in ("_loc", "_size", "_mtime", "_max_depth_reached", "_git_markers"):
+                if k in structure:
+                    result[k] = structure[k]
+
+            special_keys = {
+                "_files",
+                "_loc",
+                "_size",
+                "_mtime",
+                "_max_depth_reached",
+                "_git_markers",
+            }
+            for k in sorted(structure.keys()):
+                if k not in special_keys:
+                    v = structure[k]
+                    if isinstance(v, dict):
+                        result[k] = names_only(v)
+                    else:
+                        result[k] = v
+
             return result
 
         if has_detail:
