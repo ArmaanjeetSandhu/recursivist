@@ -4,6 +4,7 @@ Renders the scanned structure with the terminal tree builder into a recording
 ``rich`` console and saves the captured output as an ``.svg`` file.
 """
 
+import io
 import logging
 import os
 from typing import Any
@@ -78,7 +79,8 @@ class SvgExporter(BaseExporter):
             icon_style=self.icon_style,
         )
 
-        console = Console(record=True, width=120)
+        dummy_file = io.StringIO()
+        console = Console(record=True, width=120, file=dummy_file, force_terminal=True)
         console.print(tree)
 
         try:

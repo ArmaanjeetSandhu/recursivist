@@ -327,9 +327,10 @@ def display_comparison(
         legend_text.append("\n")
         legend_text.append(_sort_note)
     if max_depth > 0:
+        level_word = "level" if max_depth == 1 else "levels"
         legend_text.append("\n")
         legend_text.append("⋯ (max depth reached) ", style="dim")
-        legend_text.append(f"= Directory tree is limited to {max_depth} levels")
+        legend_text.append(f"= Directory tree is limited to {max_depth} {level_word}")
     if show_full_path:
         legend_text.append("\n")
         legend_text.append("Full file paths are shown instead of just filenames")
@@ -603,8 +604,10 @@ def _export_comparison_to_html(
     dir2_structure = comparison_data["dir2"]["structure"]
     metadata = comparison_data.get("metadata", {})
     max_depth_info = ""
-    if metadata.get("max_depth", 0) > 0:
-        max_depth_info = f'<div class="info-block"><span class="info-label">Max Depth:</span> {metadata["max_depth"]} levels</div>'
+    max_depth_val = metadata.get("max_depth", 0)
+    if max_depth_val > 0:
+        level_word = "level" if max_depth_val == 1 else "levels"
+        max_depth_info = f'<div class="info-block"><span class="info-label">Max Depth:</span> {max_depth_val} {level_word}</div>'
     path_info = ""
     if metadata.get("show_full_path"):
         path_info = '<div class="info-block"><span class="info-label">Path Display:</span> Full paths shown</div>'
