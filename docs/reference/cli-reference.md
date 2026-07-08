@@ -124,7 +124,7 @@ In addition to the [shared options](#shared-options) and the [sorting and displa
 
 | Option         | Short | Description                                                              |
 | -------------- | ----- | ------------------------------------------------------------------------ |
-| `--format`     | `-f`  | Export formats: `txt`, `json`, `html`, `md`, `jsx`, `svg`, `rst` (default `md`) |
+| `--format`     | `-f`  | Export formats: `txt`, `json`, `html`, `md`, `svg`, `rst` (default `md`) |
 | `--output-dir` | `-o`  | Output directory (created if missing; defaults to current directory)     |
 | `--prefix`     | `-n`  | Filename prefix for exports (default `structure`)                        |
 

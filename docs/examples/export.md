@@ -9,7 +9,6 @@ recursivist export --format md     # structure.md
 recursivist export --format json   # structure.json
 recursivist export --format html   # structure.html
 recursivist export --format txt    # structure.txt
-recursivist export --format jsx    # structure.jsx
 recursivist export --format svg    # structure.svg
 recursivist export --format rst    # structure.rst
 ```
@@ -68,22 +67,6 @@ recursivist export src --format html --prefix source-structure
 # Full paths (handy for JSON consumed by other tools)
 recursivist export --format json --full-path
 ```
-
-## React Component Exports
-
-```bash
-# Basic
-recursivist export --format jsx --output-dir ./src/components
-
-# Focused on source files, with metrics
-recursivist export --format jsx \
-  --exclude "node_modules .git" \
-  --output-dir ./src/components \
-  --prefix DirectoryViewer \
-  --sort-by-loc --mtime
-```
-
-See [Using the React Component](../reference/export-formats.md#using-the-react-component) for installation.
 
 ## Processing JSON with jq
 

@@ -10,7 +10,7 @@ recursivist export --format html         # a specific format
 recursivist export /path/to/project --format json
 ```
 
-The format flag accepts `txt`, `json`, `html`, `md`, `jsx`, `svg`, and `rst`. When omitted, it defaults to `md`.
+The format flag accepts `txt`, `json`, `html`, `md`, `svg`, and `rst`. When omitted, it defaults to `md`.
 
 ## Available Formats
 
@@ -20,7 +20,6 @@ The format flag accepts `txt`, `json`, `html`, `md`, `jsx`, `svg`, and `rst`. Wh
 | JSON             | `.json`   | Structured data                   | Programmatic processing, integrations |
 | HTML             | `.html`   | Self-contained styled web page    | Sharing, web documentation            |
 | Markdown         | `.md`     | GitHub-compatible nested list     | READMEs, project documentation        |
-| React            | `.jsx`    | Interactive React component       | Web applications, dashboards          |
 | SVG              | `.svg`    | Vector image of the terminal tree | Embedding visuals in docs and READMEs |
 | reStructuredText | `.rst`    | Sphinx-compatible nested list     | Sphinx/docutils documentation         |
 
@@ -204,18 +203,6 @@ With statistics:
     - 📄 `test_utils.py` (241 lines)
 ```
 
-### React Component (`.jsx`)
-
-A standalone `DirectoryViewer` React component with an interactive tree:
-
-- Collapsible folders with expand-all and collapse-all controls
-- File and path search
-- Breadcrumb navigation and path copying
-- Dark/light mode toggle
-- File-statistics display when the corresponding flags are set
-
-See [Using the React Component](#using-the-react-component) below.
-
 ### SVG (`.svg`)
 
 A scalable vector image of the tree exactly as it appears in the terminal, preserving the `rich` colors, icons, and connectors. Perfect for embedding a directory structure in a README without losing the styling.
@@ -244,33 +231,6 @@ recursivist export --format rst
 
 Drop the file into a Sphinx project directly, or pull it into an existing page with the `.. include::` directive.
 
-## Using the React Component
-
-The `.jsx` export imports `react`, [`lucide-react`](https://lucide.dev/) for icons, and `prop-types`, and is styled with [Tailwind CSS](https://tailwindcss.com/) utility classes.
-
-1. Copy the generated file into your project's components directory.
-2. Install the dependencies:
-
-   ```bash
-   npm install lucide-react prop-types
-   ```
-
-3. Import and render it:
-
-   ```jsx
-   import DirectoryViewer from "./components/structure.jsx";
-
-   function App() {
-     return (
-       <div className="App">
-         <DirectoryViewer />
-       </div>
-     );
-   }
-   ```
-
-If your project doesn't use Tailwind, adapt the component's class names to your styling solution.
-
 ## Examples
 
 ```bash
@@ -280,11 +240,11 @@ recursivist export --format md --depth 2 --exclude "node_modules .git" --prefix 
 # Detailed JSON of the source tree with full paths and metrics
 recursivist export src --format json --full-path --sort-by-loc --size --prefix source-structure
 
-# A filtered React component focused on source files
-recursivist export --format jsx \
+# A filtered SVG focused on source files
+recursivist export --format svg \
   --include-pattern "*.py" "*.md" \
-  --output-dir ./src/components \
-  --prefix DirectoryViewer \
+  --output-dir ./assets \
+  --prefix directory-structure \
   --sort-by-loc
 ```
 

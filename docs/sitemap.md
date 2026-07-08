@@ -530,10 +530,6 @@
                       "label": "Markdown (`.md`)"
                     },
                     {
-                      "id": "root/user-guide/export/export/format-details/react-component-(.jsx)",
-                      "label": "React Component (`.jsx`)"
-                    },
-                    {
                       "id": "root/user-guide/export/export/format-details/svg-(.svg)",
                       "label": "SVG (`.svg`)"
                     },
@@ -542,10 +538,6 @@
                       "label": "reStructuredText (`.rst`)"
                     }
                   ]
-                },
-                {
-                  "id": "root/user-guide/export/export/using-the-react-component",
-                  "label": "Using the React Component"
                 },
                 {
                   "id": "root/user-guide/export/export/examples",
@@ -886,16 +878,8 @@
                   "label": "reStructuredText (`.rst`)"
                 },
                 {
-                  "id": "root/reference/export-formats/export-formats/react-component-(.jsx)",
-                  "label": "React Component (`.jsx`)"
-                },
-                {
                   "id": "root/reference/export-formats/export-formats/svg-(.svg)",
                   "label": "SVG (`.svg`)"
-                },
-                {
-                  "id": "root/reference/export-formats/export-formats/using-the-react-component",
-                  "label": "Using the React Component"
                 }
               ]
             }
@@ -1102,10 +1086,6 @@
                   "label": "Filtered and Depth-Limited Exports"
                 },
                 {
-                  "id": "root/examples/export-examples/export-examples/react-component-exports",
-                  "label": "React Component Exports"
-                },
-                {
                   "id": "root/examples/export-examples/export-examples/processing-json-with-jq",
                   "label": "Processing JSON with jq"
                 },
@@ -1204,10 +1184,6 @@
                 {
                   "id": "root/examples/advanced-examples/advanced-examples/multi-level-project-map",
                   "label": "Multi-Level Project Map"
-                },
-                {
-                  "id": "root/examples/advanced-examples/advanced-examples/embedding-a-react-component",
-                  "label": "Embedding a React Component"
                 }
               ]
             }
@@ -1258,10 +1234,6 @@
                       "label": "Serving Structures from Flask"
                     }
                   ]
-                },
-                {
-                  "id": "root/advanced/integration/integration-with-other-tools/web-applications",
-                  "label": "Web Applications"
                 },
                 {
                   "id": "root/advanced/integration/integration-with-other-tools/continuous-integration",

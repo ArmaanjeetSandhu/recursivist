@@ -137,29 +137,6 @@ def get_structure():
         return jsonify({"error": str(exc)}), 500
 ```
 
-## Web Applications
-
-Export the structure as a self-contained React component and drop it into an app:
-
-```bash
-recursivist export --format jsx --output-dir ./src/components --prefix DirectoryViewer --sort-by-loc
-```
-
-```jsx
-import DirectoryViewer from "./components/DirectoryViewer";
-
-export default function App() {
-  return (
-    <main>
-      <h1>Project Structure</h1>
-      <DirectoryViewer />
-    </main>
-  );
-}
-```
-
-The component provides collapsible folders, search, breadcrumb navigation, path copying, a dark/light toggle, and statistics when enabled. Install its dependencies with `npm install lucide-react prop-types`, and ensure Tailwind CSS is available (or adapt the class names).
-
 ## Continuous Integration
 
 ### GitHub Actions

@@ -71,7 +71,7 @@ Markers are `[U]` untracked, `[M]` modified, `[A]` added, and `[D]` deleted.
 
 ## Export a Directory Structure
 
-Export to one or more of `txt`, `json`, `html`, `md`, `jsx`, `svg`, or `rst` (Markdown is the default):
+Export to one or more of `txt`, `json`, `html`, `md`, `svg`, or `rst` (Markdown is the default):
 
 ```bash
 recursivist export                       # Markdown (structure.md)

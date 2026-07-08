@@ -107,17 +107,6 @@ def assert_text_based_export_valid(
     return content
 
 
-def assert_jsx_export_valid(file_path: str, root_name: str) -> str:
-    """Assert that a JSX export file is valid."""
-    assert os.path.exists(file_path)
-    with open(file_path, encoding="utf-8") as f:
-        content = f.read()
-    assert "import React" in content
-    assert "DirectoryViewer" in content
-    assert root_name in content
-    return content
-
-
 def assert_cli_command_success(
     result: Any,
     expected_items: list[str] | None = None,

@@ -1,4 +1,4 @@
-"""Tests for recursivist.exporters: get_exporter and the per-format exporters (including Jsx)."""
+"""Tests for recursivist.exporters: get_exporter and the per-format exporters."""
 
 import io
 import json
@@ -6,16 +6,13 @@ import os
 import random
 import re
 import string
-import tempfile
 import time
-import unittest.mock
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
-from hypothesis import given, settings
 from hypothesis import strategies as st
 from pytest_mock import MockerFixture
 
@@ -42,49 +39,6 @@ _METRIC_SPECS = {
 _ALL_METRICS_SPEC = DisplayOptions(
     sort_key=METRIC_LOC, metrics=(METRIC_LOC, METRIC_SIZE, METRIC_MTIME)
 )
-
-
-def _spec_from_flags(
-    loc: bool = False,
-    size: bool = False,
-    mtime: bool = False,
-    git: bool = False,
-) -> DisplayOptions:
-    """Build a spec that displays the enabled metrics, sorting by the first."""
-    metrics: list[str] = []
-    if loc:
-        metrics.append(METRIC_LOC)
-    if size:
-        metrics.append(METRIC_SIZE)
-    if mtime:
-        metrics.append(METRIC_MTIME)
-    sort_key = metrics[0] if metrics else None
-    return DisplayOptions(
-        sort_key=sort_key, metrics=tuple(metrics), show_git_status=git
-    )
-
-
-def _render_jsx(
-    structure: dict[str, Any],
-    root_name: str,
-    spec: DisplayOptions | None = None,
-    base_path: str | None = None,
-) -> str:
-    """Export a structure to JSX and return the written text."""
-    with tempfile.NamedTemporaryFile(suffix=".jsx", delete=False) as tf:
-        out = tf.name
-    try:
-        get_exporter(
-            "jsx",
-            structure=structure,
-            root_name=root_name,
-            base_path=base_path,
-            spec=spec,
-        ).export(out)
-        with open(out, encoding="utf-8") as f:
-            return f.read()
-    finally:
-        os.unlink(out)
 
 
 @st.composite
@@ -134,60 +88,6 @@ file_tuple_list = st.lists(
 )
 
 
-@st.composite
-def jsx_directory_structure(draw: st.DrawFn) -> Any:
-    """Generate a simplified directory structure suitable for JSX component testing."""
-    structure = {}
-    structure["_files"] = draw(
-        st.lists(
-            st.one_of(
-                st.text(
-                    alphabet=st.characters(
-                        whitelist_categories=("Lu", "Ll", "Nd"),
-                        whitelist_characters="_-",
-                    ),
-                    min_size=1,
-                    max_size=20,
-                ).flatmap(
-                    lambda s: st.sampled_from(
-                        [".txt", ".py", ".md", ".json", ".js", ".html", ".css"]
-                    ).map(lambda ext: s + ext)
-                ),
-                st.tuples(
-                    st.text(
-                        alphabet=st.characters(
-                            whitelist_categories=("Lu", "Ll", "Nd"),
-                            whitelist_characters="_-",
-                        ),
-                        min_size=1,
-                        max_size=20,
-                    ).flatmap(
-                        lambda s: st.sampled_from(
-                            [".txt", ".py", ".md", ".json", ".js", ".html", ".css"]
-                        ).map(lambda ext: s + ext)
-                    ),
-                    st.text(min_size=1, max_size=100),
-                ),
-            ),
-            min_size=0,
-            max_size=10,
-        )
-    )
-    if draw(st.booleans()):
-        subdir_name = draw(
-            st.text(
-                alphabet=st.characters(
-                    whitelist_categories=("Lu", "Ll", "Nd"),
-                    whitelist_characters="_-",
-                ),
-                min_size=1,
-                max_size=10,
-            )
-        )
-        structure[subdir_name] = draw(jsx_directory_structure())
-    return structure
-
-
 def generate_large_structure(
     depth: int, files_per_dir: int, dir_branching: int
 ) -> dict[str, Any]:
@@ -215,185 +115,6 @@ def random_string(length: int) -> str:
     return "".join(random.choice(string.ascii_letters) for _ in range(length))
 
 
-class TestJsxSorting:
-    """The JSX exporter orders files via sort_files_by_type and emits metricOrder.
-
-    Ordering flows through ``sort_files_by_type`` keyed by ``spec.sort_key``,
-    and the enabled metrics are surfaced to the component as a ``metricOrder``
-    array.
-    """
-
-    @staticmethod
-    def _file_order(content: str) -> list[str]:
-        return re.findall(r'<FileItem name="([^"]+)"', content)
-
-    def test_sorted_by_loc_descending(self) -> None:
-        structure = {
-            "_files": [
-                ("small.py", "/p/small.py", 5, 0, 0.0),
-                ("big.py", "/p/big.py", 500, 0, 0.0),
-                ("mid.py", "/p/mid.py", 50, 0, 0.0),
-            ]
-        }
-        content = _render_jsx(structure, "root", _METRIC_SPECS["sort_by_loc"])
-        assert self._file_order(content) == ["big.py", "mid.py", "small.py"]
-
-    def test_default_sort_is_extension_then_name(self) -> None:
-        structure = {"_files": ["c.txt", "b.py", "a.txt"]}
-        content = _render_jsx(structure, "root", DisplayOptions())
-        assert self._file_order(content) == ["b.py", "a.txt", "c.txt"]
-
-    def test_metric_order_array_reflects_metrics(self) -> None:
-        structure = {"_files": [("a.py", "/p/a.py", 5, 100, 1.0)]}
-        content = _render_jsx(
-            structure,
-            "root",
-            DisplayOptions(metrics=(METRIC_SIZE, METRIC_LOC)),
-        )
-        assert 'const metricOrder = ["size", "loc"];' in content
-
-    def test_git_status_prop_emitted(self) -> None:
-        structure = {"_files": ["mod.py"], "_git_markers": {"mod.py": "M"}}
-        content = _render_jsx(structure, "root", DisplayOptions(show_git_status=True))
-        assert 'gitStatus="M"' in content
-
-
-class TestJSXComponent:
-    """Test the JSX component generation functionality using the Factory Exporter."""
-
-    @given(
-        dir_structure=jsx_directory_structure(),
-        root_name=st.text(min_size=1, max_size=20),
-    )
-    @settings(max_examples=20)
-    def test_export_jsx_basics(
-        self, dir_structure: dict[str, Any], root_name: str
-    ) -> None:
-        """Test basic generation of JSX component."""
-        with unittest.mock.patch(
-            "builtins.open", unittest.mock.mock_open()
-        ) as mock_open:
-            get_exporter(
-                "jsx",
-                structure=dir_structure,
-                root_name=root_name,
-            ).export("output.jsx")
-            mock_open.assert_called_once_with("output.jsx", "w", encoding="utf-8")
-            mock_file = mock_open()
-            assert mock_file.write.call_count > 0, "No data was written to the file"
-
-    @given(
-        dir_structure=jsx_directory_structure(),
-        root_name=st.text(
-            alphabet=st.characters(
-                whitelist_categories=("Lu", "Ll", "Nd"),
-                whitelist_characters="_-",
-            ),
-            min_size=1,
-            max_size=20,
-        ),
-    )
-    @settings(max_examples=5)
-    def test_jsx_end_to_end(
-        self, dir_structure: dict[str, Any], root_name: str
-    ) -> None:
-        """Test end-to-end JSX component generation with temporary file."""
-        with tempfile.NamedTemporaryFile(suffix=".jsx", delete=False) as temp_file:
-            output_path = temp_file.name
-        try:
-            get_exporter(
-                "jsx",
-                structure=dir_structure,
-                root_name=root_name,
-            ).export(output_path)
-
-            assert os.path.exists(output_path), "The JSX file was not created"
-            assert os.path.getsize(output_path) > 0, "The JSX file is empty"
-            with open(output_path, encoding="utf-8") as f:
-                content = f.read()
-            assert "import React" in content, "JSX should import React"
-            assert "export default DirectoryViewer" in content, (
-                "JSX should export the DirectoryViewer component"
-            )
-            assert root_name in content, "JSX should include the root name"
-            assert "const DirectoryViewer = () =>" in content, (
-                "DirectoryViewer component should be defined"
-            )
-            assert "const DirectoryItem = (props) =>" in content, (
-                "DirectoryItem component should be defined"
-            )
-            assert "const FileItem = (props) =>" in content, (
-                "FileItem component should be defined"
-            )
-            if "_files" in dir_structure and dir_structure["_files"]:
-                for file_item in dir_structure["_files"]:
-                    if isinstance(file_item, tuple):
-                        file_name = file_item[0]
-                    else:
-                        file_name = file_item
-                    assert file_name in content, (
-                        f"File {file_name} should be included in JSX content"
-                    )
-        finally:
-            if os.path.exists(output_path):
-                os.unlink(output_path)
-
-    @pytest.mark.parametrize(
-        "spec,shows,sorts",
-        [
-            (
-                DisplayOptions(),
-                {"Loc": False, "Size": False, "Mtime": False},
-                {"Loc": False, "Size": False, "Mtime": False},
-            ),
-            (
-                DisplayOptions(sort_key=METRIC_LOC, metrics=(METRIC_LOC,)),
-                {"Loc": True, "Size": False, "Mtime": False},
-                {"Loc": True, "Size": False, "Mtime": False},
-            ),
-            (
-                DisplayOptions(sort_key=METRIC_SIZE, metrics=(METRIC_SIZE,)),
-                {"Loc": False, "Size": True, "Mtime": False},
-                {"Loc": False, "Size": True, "Mtime": False},
-            ),
-            (
-                DisplayOptions(sort_key=METRIC_MTIME, metrics=(METRIC_MTIME,)),
-                {"Loc": False, "Size": False, "Mtime": True},
-                {"Loc": False, "Size": False, "Mtime": True},
-            ),
-            (
-                DisplayOptions(metrics=(METRIC_LOC, METRIC_SIZE, METRIC_MTIME)),
-                {"Loc": True, "Size": True, "Mtime": True},
-                {"Loc": False, "Size": False, "Mtime": False},
-            ),
-        ],
-    )
-    def test_jsx_options(
-        self,
-        spec: DisplayOptions,
-        shows: dict[str, bool],
-        sorts: dict[str, bool],
-    ) -> None:
-        """The emitted show*/sortBy* constants and helpers track the spec.
-
-        Exactly one metric can be the sort key, so at most one ``sortBy*``
-        constant is true, while each displayed metric sets its ``show*``
-        constant and pulls in its formatting helper.
-        """
-        structure = {"_files": [("a.py", "/p/a.py", 5, 100, 1600000000.0)]}
-        content = _render_jsx(structure, "root", spec)
-        for metric, want in shows.items():
-            token = "true" if want else "false"
-            assert f"const show{metric} = {token};" in content
-        for metric, want in sorts.items():
-            token = "true" if want else "false"
-            assert f"const sortBy{metric} = {token};" in content
-        if spec.show_size:
-            assert "format_size" in content
-        if spec.show_mtime:
-            assert "format_timestamp" in content
-
-
 @pytest.mark.parametrize(
     "format_name,format_extension,expected_content",
     [
@@ -404,11 +125,6 @@ class TestJSXComponent:
             "html",
             "html",
             ["<!DOCTYPE html>", "<html>", "file1.txt", "file2.py", "subdir"],
-        ),
-        (
-            "jsx",
-            "jsx",
-            ["import React", "DirectoryViewer", "file1.txt", "file2.py", "subdir"],
         ),
         (
             "rst",
@@ -443,9 +159,6 @@ def test_export_structure(
         assert "_files" in data["structure"]
     elif format_name == "html":
         assert "</html>" in content
-    elif format_name == "jsx":
-        assert "ChevronDown" in content
-        assert "ChevronUp" in content
 
 
 @pytest.mark.parametrize(
@@ -542,70 +255,6 @@ def test_get_exporter_invalid_format(temp_dir: str, output_dir: str) -> None:
             "invalid", structure=structure, root_name=os.path.basename(temp_dir)
         ).export(output_path)
     assert "Unsupported export format" in str(excinfo.value)
-
-
-class TestJsxExporter:
-    """Property-based tests for JsxExporter.export method."""
-
-    def test_export_basic(self) -> None:
-        """Basic test for export without property testing."""
-        structure = {"_files": ["file1.txt"]}
-        root_name = "test_root"
-        with patch("builtins.open", MagicMock()) as mock_open:
-            exporter = get_exporter("jsx", structure=structure, root_name=root_name)
-            output_path = "test_output.jsx"
-            exporter.export(output_path)
-            mock_open.assert_called_once_with(output_path, "w", encoding="utf-8")
-
-    def test_export_with_options_basic(self) -> None:
-        """Basic test for export with options, without property testing."""
-        structure = {"_files": ["file1.txt"]}
-        root_name = "test_root"
-        option_combinations = [
-            (False, False, False),
-            (True, False, False),
-            (False, True, False),
-            (False, False, True),
-            (True, True, False),
-            (True, False, True),
-            (False, True, True),
-            (True, True, True),
-        ]
-        for sort_by_loc, sort_by_size, sort_by_mtime in option_combinations:
-            with patch("builtins.open", MagicMock()) as mock_open:
-                exporter = get_exporter(
-                    "jsx",
-                    structure=structure,
-                    root_name=root_name,
-                    base_path=(
-                        "base/path"
-                        if any([sort_by_loc, sort_by_size, sort_by_mtime])
-                        else None
-                    ),
-                    spec=_spec_from_flags(sort_by_loc, sort_by_size, sort_by_mtime),
-                )
-                output_path = "test_output.jsx"
-                exporter.export(output_path)
-                mock_open.assert_called_once_with(output_path, "w", encoding="utf-8")
-
-
-class TestJsxExporterFileWriting:
-    """Tests for JsxExporter file writing."""
-
-    def test_generate_jsx_component_basic(self) -> None:
-        """Basic test for JsxExporter without property testing."""
-        structure = {"_files": ["file1.txt"]}
-        root_name = "test_root"
-        with patch("builtins.open", MagicMock()) as mock_open:
-            mock_file = MagicMock()
-            mock_open.return_value.__enter__.return_value = mock_file
-
-            get_exporter("jsx", structure=structure, root_name=root_name).export(
-                "output.jsx"
-            )
-
-            mock_open.assert_called_once_with("output.jsx", "w", encoding="utf-8")
-            assert mock_file.write.call_count > 0, "No data was written to the file"
 
 
 class TestExporterFileOutput:
@@ -770,29 +419,6 @@ class TestExporterFileOutput:
             content = f.read()
         assert "max-depth" in content
 
-    def test_jsx_export(self, nested_structure: dict[str, Any], tmp_path: Path) -> None:
-        """Test JSX export output matches expected basic structure."""
-        output_path = os.path.join(tmp_path, "test_output.jsx")
-
-        get_exporter("jsx", structure=nested_structure, root_name="test_root").export(
-            output_path
-        )
-        assert os.path.exists(output_path)
-        with open(output_path, encoding="utf-8") as f:
-            content = f.read()
-        assert "import React" in content
-
-        get_exporter(
-            "jsx",
-            structure=nested_structure,
-            root_name="test_root",
-            spec=_ALL_METRICS_SPEC,
-        ).export(output_path)
-        assert os.path.exists(output_path)
-        with open(output_path, encoding="utf-8") as f:
-            content = f.read()
-        assert "import React" in content
-
 
 class TestExporters:
     def test_init(self) -> None:
@@ -884,16 +510,6 @@ class TestExporters:
                 lambda c: "</html>" in c,
                 lambda c: 'class="file"' in c,
                 lambda c: 'class="directory"' in c,
-            ],
-        ),
-        (
-            "jsx",
-            "jsx",
-            [
-                lambda c: "import React" in c,
-                lambda c: "DirectoryViewer" in c,
-                lambda c: "ChevronDown" in c,
-                lambda c: "ChevronUp" in c,
             ],
         ),
         (
@@ -1084,7 +700,6 @@ def test_export_with_max_depth_indicator(temp_dir: str, output_dir: str) -> None
         "json": "_max_depth_reached",
         "html": "max-depth",
         "md": "*(max depth reached)*",
-        "jsx": "max depth reached",
     }
 
     for fmt, indicator in format_indicators.items():
@@ -1124,7 +739,6 @@ def test_export_with_statistics(sample_directory: str, output_dir: str) -> None:
             r"[KMG]?B",
             r"Today|Yesterday|\d{4}-\d{2}-\d{2}",
         ],
-        "jsx": [r"locCount", r"sizeCount", r"mtimeCount"],
     }
 
     for fmt, patterns in format_indicators.items():
@@ -1148,7 +762,7 @@ def test_large_structure_export(output_dir: str) -> None:
     """Test exporting a large directory structure."""
     structure = generate_large_structure(depth=5, files_per_dir=10, dir_branching=3)
 
-    for fmt in ["txt", "json", "html", "md", "jsx"]:
+    for fmt in ["txt", "json", "html", "md"]:
         output_path = os.path.join(output_dir, f"large_structure.{fmt}")
         get_exporter(fmt, structure=structure, root_name="large_root").export(
             output_path
@@ -1170,9 +784,6 @@ def test_large_structure_export(output_dir: str) -> None:
             assert "large_root" in content
         elif fmt == "md":
             assert "# 📁 large_root" in content
-        elif fmt == "jsx":
-            assert "import React" in content
-            assert 'name="large_root"' in content
 
 
 def test_unicode_file_names(output_dir: str) -> None:
@@ -1197,7 +808,7 @@ def test_unicode_file_names(output_dir: str) -> None:
         },
     }
 
-    for fmt in ["txt", "json", "html", "md", "jsx"]:
+    for fmt in ["txt", "json", "html", "md"]:
         output_path = os.path.join(output_dir, f"unicode.{fmt}")
         get_exporter(fmt, structure=unicode_structure, root_name="unicode_root").export(
             output_path
@@ -1213,7 +824,7 @@ def test_unicode_file_names(output_dir: str) -> None:
             assert "中文.py" in files
             assert "русский.md" in files
             assert "目录" in data["structure"]
-        elif fmt != "jsx":
+        else:
             assert "español.txt" in content
             assert "中文.py" in content
             assert "русский.md" in content
@@ -1253,33 +864,6 @@ def test_export_structure_error_types(
         assert error_msg in str(excinfo.value)
 
 
-def test_to_jsx_with_long_paths(output_dir: str) -> None:
-    """Test JSX export with very long file names."""
-    long_name = "a" * 255
-    long_structure = {
-        "_files": [
-            f"{long_name}.txt",
-            (f"{long_name}.py", f"/path/to/{long_name}.py"),
-        ],
-        f"dir_{long_name}": {
-            "_files": [f"nested_{long_name}.md"],
-        },
-    }
-    output_path = os.path.join(output_dir, "long_names.jsx")
-
-    get_exporter("jsx", structure=long_structure, root_name="long_root").export(
-        output_path
-    )
-
-    assert os.path.exists(output_path)
-    with open(output_path, encoding="utf-8") as f:
-        content = f.read()
-    assert f'name="{long_name}.txt"' in content
-    assert f'name="{long_name}.py"' in content
-    assert f'name="dir_{long_name}"' in content
-    assert f'name="nested_{long_name}.md"' in content
-
-
 def test_export_with_excessive_loc(temp_dir: str, output_dir: str) -> None:
     """Test exporting files with very large line counts."""
     test_file = os.path.join(temp_dir, "many_lines.py")
@@ -1289,7 +873,7 @@ def test_export_with_excessive_loc(temp_dir: str, output_dir: str) -> None:
 
     structure, _ = get_directory_structure(temp_dir, sort_by_loc=True)
 
-    for fmt in ["txt", "json", "html", "md", "jsx"]:
+    for fmt in ["txt", "json", "html", "md"]:
         output_path = os.path.join(output_dir, f"large_loc.{fmt}")
         get_exporter(
             fmt,
@@ -1307,8 +891,6 @@ def test_export_with_excessive_loc(temp_dir: str, output_dir: str) -> None:
             assert re.search(r'"loc": \d{4,}', content)
         elif fmt in ["html", "md"]:
             assert re.search(r"many_lines\.py.*\(\d{4,} lines\)", content)
-        elif fmt == "jsx":
-            assert re.search(r"locCount={\d{4,}}", content)
 
 
 def test_many_unique_extensions(output_dir: str) -> None:
@@ -1355,7 +937,7 @@ def test_problematic_filenames(output_dir: str) -> None:
         },
     }
 
-    for fmt in ["txt", "json", "html", "md", "jsx"]:
+    for fmt in ["txt", "json", "html", "md"]:
         output_path = os.path.join(output_dir, f"escaping.{fmt}")
         get_exporter(
             fmt, structure=problematic_structure, root_name="escape_test"
@@ -1409,7 +991,7 @@ def test_combined_export_options(output_dir: str) -> None:
         },
     }
 
-    for fmt in ["txt", "json", "html", "md", "jsx"]:
+    for fmt in ["txt", "json", "html", "md"]:
         output_path = os.path.join(output_dir, f"combined_options.{fmt}")
         get_exporter(
             fmt,
@@ -1423,34 +1005,31 @@ def test_combined_export_options(output_dir: str) -> None:
         with open(output_path, encoding="utf-8") as f:
             content = f.read().replace("&quot;", '"')
         assert "/path/to/file1.txt" in content
-        if fmt != "jsx":
-            assert any(str(count) in content for count in [100, 200, 300])
-            assert any(
-                size in content
-                for size in ["512 B", "0.5 KB", "1.0 KB", "1024 B", "2.0 KB", "2048 B"]
-            )
-            timestamp_patterns = [
-                "Today",
-                "Yesterday",
-                "Jan",
-                "Feb",
-                "Mar",
-                "Apr",
-                "May",
-                "Jun",
-                "Jul",
-                "Aug",
-                "Sep",
-                "Oct",
-                "Nov",
-                "Dec",
-            ]
-            timestamp_matches = [
-                pattern for pattern in timestamp_patterns if pattern in content
-            ]
-            assert len(timestamp_matches) > 0, (
-                f"No timestamp format found in {fmt} export"
-            )
+        assert any(str(count) in content for count in [100, 200, 300])
+        assert any(
+            size in content
+            for size in ["512 B", "0.5 KB", "1.0 KB", "1024 B", "2.0 KB", "2048 B"]
+        )
+        timestamp_patterns = [
+            "Today",
+            "Yesterday",
+            "Jan",
+            "Feb",
+            "Mar",
+            "Apr",
+            "May",
+            "Jun",
+            "Jul",
+            "Aug",
+            "Sep",
+            "Oct",
+            "Nov",
+            "Dec",
+        ]
+        timestamp_matches = [
+            pattern for pattern in timestamp_patterns if pattern in content
+        ]
+        assert len(timestamp_matches) > 0, f"No timestamp format found in {fmt} export"
         if fmt == "txt":
             assert "⋯ (max depth reached)" in content
         elif fmt == "json":
@@ -1459,8 +1038,6 @@ def test_combined_export_options(output_dir: str) -> None:
             assert "max-depth" in content
         elif fmt == "md":
             assert "*(max depth reached)*" in content
-        elif fmt == "jsx":
-            assert "max depth reached" in content
 
 
 class TestSvgExporter:

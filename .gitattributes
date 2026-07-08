@@ -4,9 +4,6 @@
 # Python files
 *.py text eol=lf diff=python
 
-# JavaScript files
-*.jsx text eol=lf
-
 # Documents
 *.md text diff=markdown
 *.txt text

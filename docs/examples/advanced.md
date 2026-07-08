@@ -132,29 +132,3 @@ recursivist export --format md --depth 1 --output-dir project-map --prefix L1-ov
 recursivist export --format md --depth 2 --output-dir project-map --prefix L2-structure --sort-by-loc
 recursivist export --format md --output-dir project-map --prefix L3-complete --sort-by-loc --mtime
 ```
-
-## Embedding a React Component
-
-Export a component, then wrap it in your app. The generated `DirectoryViewer` is self-contained:
-
-```bash
-recursivist export --format jsx \
-  --exclude "node_modules .git" \
-  --output-dir ./src/components --prefix DirectoryViewer --sort-by-loc
-```
-
-```jsx
-// src/App.jsx
-import DirectoryViewer from "./components/DirectoryViewer";
-
-export default function App() {
-  return (
-    <main>
-      <h1>Project Structure</h1>
-      <DirectoryViewer />
-    </main>
-  );
-}
-```
-
-Remember to `npm install lucide-react prop-types` and ensure Tailwind CSS is available (or adapt the class names).

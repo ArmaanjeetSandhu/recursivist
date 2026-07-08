@@ -278,10 +278,9 @@ def test_visualize_with_sort_options(
         "json",
         "html",
         "md",
-        "jsx",
         "rst",
         "txt json",
-        "txt json html md jsx rst",
+        "txt json html md rst",
     ],
 )
 def test_export_command(

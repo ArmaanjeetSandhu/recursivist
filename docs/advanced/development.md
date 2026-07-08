@@ -62,7 +62,6 @@ recursivist/
     ├── json.py        # JsonExporter
     ├── html.py        # HtmlExporter
     ├── markdown.py    # MarkdownExporter
-    ├── jsx.py         # JsxExporter
     ├── svg.py         # SvgExporter
     └── rst.py         # RstExporter
 ```

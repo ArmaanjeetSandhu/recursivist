@@ -10,7 +10,6 @@ from typing import Any
 from .base import BaseExporter
 from .html import HtmlExporter
 from .json import JsonExporter
-from .jsx import JsxExporter
 from .markdown import MarkdownExporter
 from .rst import RstExporter
 from .svg import SvgExporter
@@ -22,7 +21,6 @@ _EXPORTERS: dict[str, type[BaseExporter]] = {
     "html": HtmlExporter,
     "markdown": MarkdownExporter,
     "md": MarkdownExporter,
-    "jsx": JsxExporter,
     "svg": SvgExporter,
     "rst": RstExporter,
 }

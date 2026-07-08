@@ -9,7 +9,7 @@ generate shell completion scripts.
 Main commands:
     visualize: Display a directory structure in the terminal with rich
         formatting and optional statistics.
-    export: Export a directory structure to TXT, JSON, HTML, MD, JSX,
+    export: Export a directory structure to TXT, JSON, HTML, MD,
         SVG, or RST.
     compare: Compare two directory structures with highlighted
         differences.
@@ -774,7 +774,7 @@ def export(
         ["md"],
         "--format",
         "-f",
-        help="Export formats: txt, json, html, md, jsx, svg, rst",
+        help="Export formats: txt, json, html, md, svg, rst",
     ),
     output_dir: Path | None = _output_dir_option(),
     output_prefix: str | None = _output_prefix_option("structure"),
@@ -820,8 +820,8 @@ def export(
         directory: Root directory to export. Must exist and be a
             directory. Defaults to the current working directory.
         formats: Export format identifiers. Supported values are
-            ``"txt"``, ``"json"``, ``"html"``, ``"md"``, ``"jsx"``,
-            ``"svg"``, and ``"rst"``. Multiple formats may be given as
+            ``"txt"``, ``"json"``, ``"html"``, ``"md"``, ``"svg"``,
+            and ``"rst"``. Multiple formats may be given as
             separate flags or as a single space-separated string.
         output_dir: Directory where exported files are written.
             Created automatically if it does not exist. Defaults to
@@ -941,7 +941,7 @@ def export(
         parsed_formats = []
         for fmt in formats:
             parsed_formats.extend([x.strip() for x in fmt.split(" ") if x.strip()])
-        valid_formats = ["txt", "json", "html", "md", "jsx", "svg", "rst"]
+        valid_formats = ["txt", "json", "html", "md", "svg", "rst"]
         invalid_formats = [
             fmt for fmt in parsed_formats if fmt.lower() not in valid_formats
         ]

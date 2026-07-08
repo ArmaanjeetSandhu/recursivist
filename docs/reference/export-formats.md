@@ -1,6 +1,6 @@
 # Export Formats
 
-Recursivist exports directory structures to seven formats. This page describes each one in detail. For task-oriented examples, see [Export Examples](../examples/export.md).
+Recursivist exports directory structures to six formats. This page describes each one in detail. For task-oriented examples, see [Export Examples](../examples/export.md).
 
 ## Available Formats
 
@@ -10,7 +10,6 @@ Recursivist exports directory structures to seven formats. This page describes e
 | JSON     | `.json`   | Structured data                   | Programmatic processing, integrations |
 | HTML     | `.html`   | Self-contained styled web page    | Sharing, web documentation            |
 | Markdown | `.md`     | GitHub-compatible nested list     | READMEs, project documentation        |
-| React    | `.jsx`    | Interactive React component       | Web applications, dashboards          |
 | SVG      | `.svg`    | Vector image of the terminal tree | Embedding visuals in docs and READMEs |
 | reStructuredText | `.rst` | Sphinx-compatible nested list  | Sphinx/docutils documentation         |
 
@@ -20,10 +19,10 @@ Recursivist exports directory structures to seven formats. This page describes e
 recursivist export --format FORMAT
 ```
 
-`FORMAT` is one of `txt`, `json`, `html`, `md`, `jsx`, `svg`, or `rst`. Markdown is used when `--format` is omitted. Multiple formats can be requested at once:
+`FORMAT` is one of `txt`, `json`, `html`, `md`, `svg`, or `rst`. Markdown is used when `--format` is omitted. Multiple formats can be requested at once:
 
 ```bash
-recursivist export --format "txt json html md jsx svg rst"
+recursivist export --format "txt json html md svg rst"
 ```
 
 Outputs are written to the current directory with the prefix `structure` unless `--output-dir` and `--prefix` say otherwise. Every format honors the filtering, depth, full-path, file-statistics, Git-status, and icon-style options. Exports use the `emoji` icon style by default for cross-platform consistency.
@@ -206,43 +205,6 @@ With statistics:
 
 The section-title underline is sized to the title's display width, so emoji icons don't trigger a "Title underline too short" warning. Directory names have rST markup characters escaped, and Git status is shown with bold `[U]`/`[M]`/`[A]`/`[D]` badges (reStructuredText has no standard strike-through, so deleted files carry the `[D]` badge rather than being struck through). Drop the file straight into a Sphinx project or include it with the [`.. include::`](https://docutils.sourceforge.io/docs/ref/rst/directives.html#include) directive.
 
-## React Component (`.jsx`)
-
-A standalone `DirectoryViewer` React component rendering an interactive tree:
-
-- Collapsible folders with expand-all and collapse-all controls
-- File and path search
-- Breadcrumb navigation and path copying
-- Dark/light mode toggle
-- Metric display when statistics are enabled
-
-It imports `react`, [`lucide-react`](https://lucide.dev/) for icons, and `prop-types`, and uses [Tailwind CSS](https://tailwindcss.com/) utility classes. See [Using the React Component](#using-the-react-component).
-
 ## SVG (`.svg`)
 
 A scalable vector image of the tree exactly as it appears in the terminal, preserving the `rich` colors, icons, and connectors. Ideal for embedding a styled directory tree in a README without a screenshot.
-
-## Using the React Component
-
-1. Copy the generated file into your project's components directory.
-2. Install the dependencies:
-
-   ```bash
-   npm install lucide-react prop-types
-   ```
-
-3. Import and render it:
-
-   ```jsx
-   import DirectoryViewer from "./components/structure.jsx";
-
-   function App() {
-     return (
-       <div className="App">
-         <DirectoryViewer />
-       </div>
-     );
-   }
-   ```
-
-If your project doesn't use Tailwind CSS, adapt the component's class names to your styling solution.
