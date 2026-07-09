@@ -125,6 +125,7 @@ def display_tree(
     icon_style: str = "emoji",
     structure: dict[str, Any] | None = None,
     extensions: set[str] | None = None,
+    root_name: str | None = None,
 ) -> None:
     """Scan a directory and render it as a tree in the terminal.
 
@@ -153,6 +154,9 @@ def display_tree(
         structure: Pre-computed directory structure. When given together with
             *extensions*, the directory is not re-scanned.
         extensions: Pre-computed set of file extensions matching *structure*.
+        root_name: Display name for the root node. Defaults to the basename of
+            *root_dir*; supply this to label the tree with something other than
+            the scanned path (e.g. a repository name for a GitHub input).
     """
     if exclude_dirs is None:
         exclude_dirs = []
@@ -201,7 +205,7 @@ def display_tree(
     color_map = {ext: generate_color_for_extension(ext) for ext in extensions}
     console = Console()
 
-    root_base = os.path.basename(root_dir)
+    root_base = root_name if root_name is not None else os.path.basename(root_dir)
     root_icon = get_icon(root_base, is_dir=True, style=icon_style)
     root_label = f"{root_icon} {root_base}" + format_dir_metrics(
         structure, spec.metrics

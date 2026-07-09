@@ -6,6 +6,7 @@ the same filtering and metric options as the single-tree renderer, with
 terminal output for interactive use and HTML export for sharing.
 """
 
+import contextlib
 import html
 import logging
 import os
@@ -22,12 +23,74 @@ from rich.tree import Tree
 from recursivist.filtering import compile_regex_patterns
 from recursivist.flags import METRIC_GIT, DisplayOptions
 from recursivist.git_status import get_git_status
+from recursivist.github import (
+    GitHubTarget,
+    apply_github_urls,
+    checkout_repository,
+    parse_github_url,
+)
 from recursivist.icons import get_icon
 from recursivist.metrics import format_dir_metrics, format_metrics_suffix
 from recursivist.scanner import get_directory_structure, iter_subdirectories
 from recursivist.sorting import sort_files_by_type
 
 logger = logging.getLogger(__name__)
+
+
+def _scan_one_side(
+    scan_dir: str,
+    exclude_dirs: Sequence[str] | None,
+    ignore_file: str | None,
+    exclude_extensions: set[str] | None,
+    exclude_patterns: Sequence[str | Pattern[str]] | None,
+    include_patterns: Sequence[str | Pattern[str]] | None,
+    max_depth: int,
+    show_full_path: bool,
+    spec: DisplayOptions,
+) -> dict[str, Any]:
+    """Scan a single already-resolved directory for one side of a comparison.
+
+    Git status is looked up (and files annotated) only when *spec* requests it.
+    Callers pass a spec with Git status and modification time already removed
+    for GitHub sides (see
+    :meth:`~recursivist.flags.DisplayOptions.without_remote_unsupported`), so a
+    hosted repository is never given Git markers or per-file timestamps.
+
+    Args:
+        scan_dir: The local directory to scan (a real directory, or the
+            temporary checkout of a GitHub repository).
+        exclude_dirs: Directory names to skip entirely.
+        ignore_file: Ignore filename to honor, or ``None``.
+        exclude_extensions: Lowercase, dot-prefixed extensions to exclude.
+        exclude_patterns: Glob or compiled-regex patterns to exclude.
+        include_patterns: Glob or compiled-regex patterns to include.
+        max_depth: Maximum depth to scan, or ``0`` for unlimited.
+        show_full_path: Whether to store absolute paths instead of bare names.
+        spec: Resolved sorting and annotation directives for this side.
+
+    Returns:
+        The scanned structure for this side.
+    """
+    need_git = spec.show_git_status or spec.sort_key == METRIC_GIT
+    git_status_map: dict[str, str] | None = None
+    if need_git:
+        git_status_map = get_git_status(scan_dir)
+    structure, _ = get_directory_structure(
+        scan_dir,
+        exclude_dirs,
+        ignore_file,
+        exclude_extensions,
+        exclude_patterns=exclude_patterns,
+        include_patterns=include_patterns,
+        max_depth=max_depth,
+        show_full_path=show_full_path,
+        sort_by_loc=spec.show_loc,
+        sort_by_size=spec.show_size,
+        sort_by_mtime=spec.show_mtime,
+        show_git_status=need_git,
+        git_status_map=git_status_map,
+    )
+    return structure
 
 
 def compare_directory_structures(
@@ -42,77 +105,86 @@ def compare_directory_structures(
     show_full_path: bool = False,
     spec: DisplayOptions | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
-    """Scan two directories for comparison using identical options.
+    """Scan two inputs for comparison, each a local directory or GitHub URL.
 
-    Each directory is scanned with the same filtering and metric settings.
+    Each side is scanned with the same filtering and metric settings. A side
+    may be a local directory or a GitHub repository URL; a GitHub side is
+    downloaded and extracted to a temporary directory (removed before this
+    function returns), scanned there, and — when *show_full_path* is set — has
+    its file paths rewritten to GitHub blob URLs.
+
+    The ``--ignore-file`` option, Git-status annotations, and modification-time
+    annotations only apply to local directories, so they are skipped for any
+    GitHub side (its spec is adjusted via
+    :meth:`~recursivist.flags.DisplayOptions.without_remote_unsupported`) while
+    still being honored for a local side. When *both* sides are GitHub
+    repositories the caller is expected to have already cleared these from
+    *spec* as well.
 
     Args:
-        dir1: Path to the first directory.
-        dir2: Path to the second directory.
+        dir1: First input — a local directory path or a GitHub repository URL.
+        dir2: Second input — a local directory path or a GitHub repository URL.
         exclude_dirs: Directory names to skip entirely.
-        ignore_file: Name of an ignore file to honor (e.g. ``.gitignore``).
+        ignore_file: Name of an ignore file to honor for local sides (e.g.
+            ``.gitignore``); ignored for GitHub sides.
         exclude_extensions: Lowercase, dot-prefixed extensions to exclude.
         exclude_patterns: Glob or compiled-regex patterns to exclude.
         include_patterns: Glob or compiled-regex patterns to include, which
             override the exclusions.
         max_depth: Maximum depth to scan, or ``0`` for unlimited.
-        show_full_path: Whether to store absolute paths instead of bare
-            filenames.
-        spec: Resolved sorting and annotation directives. Only the metrics it
-            enables are computed. When Git status is requested (via
-            :attr:`~recursivist.flags.DisplayOptions.show_git_status` or a
-            ``git_status`` sort key), each directory's status is looked up
-            independently against its own repository. Defaults to a plain
-            :class:`DisplayOptions`.
+        show_full_path: Whether to store absolute paths (local sides) or GitHub
+            blob URLs (GitHub sides) instead of bare filenames.
+        spec: Resolved sorting and annotation directives. When Git status is
+            requested it is looked up independently for each *local* side.
+            Defaults to a plain :class:`DisplayOptions`.
 
     Returns:
-        A ``(structure1, structure2)`` tuple holding each directory's
-        structure.
+        A ``(structure1, structure2)`` tuple holding each input's structure.
     """
     if spec is None:
         spec = DisplayOptions()
-    need_git = spec.show_git_status or spec.sort_key == METRIC_GIT
-    git_status_map1: dict[str, str] | None = None
-    git_status_map2: dict[str, str] | None = None
-    if need_git:
-        git_status_map1 = get_git_status(dir1)
-        git_status_map2 = get_git_status(dir2)
-        if not git_status_map1 and not git_status_map2:
-            logger.debug(
-                "Git status requested but no data returned for either directory — "
-                "they may not be inside a Git repository, or there are no changes."
+    remote_spec = spec.without_remote_unsupported()
+
+    target1 = parse_github_url(dir1)
+    target2 = parse_github_url(dir2)
+
+    def _side(
+        stack: contextlib.ExitStack,
+        raw: str,
+        target: GitHubTarget | None,
+    ) -> dict[str, Any]:
+        if target is None:
+            return _scan_one_side(
+                raw,
+                exclude_dirs,
+                ignore_file,
+                exclude_extensions,
+                exclude_patterns,
+                include_patterns,
+                max_depth,
+                show_full_path,
+                spec,
             )
-    structure1, _ = get_directory_structure(
-        dir1,
-        exclude_dirs,
-        ignore_file,
-        exclude_extensions,
-        exclude_patterns=exclude_patterns,
-        include_patterns=include_patterns,
-        max_depth=max_depth,
-        show_full_path=show_full_path,
-        sort_by_loc=spec.show_loc,
-        sort_by_size=spec.show_size,
-        sort_by_mtime=spec.show_mtime,
-        show_git_status=need_git,
-        git_status_map=git_status_map1,
-    )
-    structure2, _ = get_directory_structure(
-        dir2,
-        exclude_dirs,
-        ignore_file,
-        exclude_extensions,
-        exclude_patterns=exclude_patterns,
-        include_patterns=include_patterns,
-        max_depth=max_depth,
-        show_full_path=show_full_path,
-        sort_by_loc=spec.show_loc,
-        sort_by_size=spec.show_size,
-        sort_by_mtime=spec.show_mtime,
-        show_git_status=need_git,
-        git_status_map=git_status_map2,
-    )
-    return structure1, structure2
+        checkout = stack.enter_context(checkout_repository(target))
+        structure = _scan_one_side(
+            checkout.local_root,
+            exclude_dirs,
+            None,
+            exclude_extensions,
+            exclude_patterns,
+            include_patterns,
+            max_depth,
+            show_full_path,
+            remote_spec,
+        )
+        if show_full_path:
+            apply_github_urls(structure, checkout)
+        return structure
+
+    with contextlib.ExitStack() as stack:
+        structure1 = _side(stack, dir1, target1)
+        structure2 = _side(stack, dir2, target2)
+        return structure1, structure2
 
 
 def build_comparison_tree(
@@ -253,6 +325,24 @@ def build_comparison_tree(
                 )
 
 
+def _side_display_name(raw: str) -> str:
+    """Return the label for one comparison side, local path or GitHub URL.
+
+    For a GitHub URL this is the repository name (or the subpath's last
+    segment); for a local path it is the path's basename.
+
+    Args:
+        raw: The raw input for one side of the comparison.
+
+    Returns:
+        A short display name for the side.
+    """
+    target = parse_github_url(raw)
+    if target is not None:
+        return target.display_name
+    return os.path.basename(raw)
+
+
 def display_comparison(
     dir1: str,
     dir2: str,
@@ -323,8 +413,8 @@ def display_comparison(
     )
     console = Console()
 
-    root_base1 = os.path.basename(dir1)
-    root_base2 = os.path.basename(dir2)
+    root_base1 = _side_display_name(dir1)
+    root_base2 = _side_display_name(dir2)
     root_icon1 = get_icon(root_base1, is_dir=True, style=icon_style)
     root_icon2 = get_icon(root_base2, is_dir=True, style=icon_style)
 
@@ -360,9 +450,9 @@ def display_comparison(
     )
     legend_text = Text()
     legend_text.append("Legend: ", style="bold")
-    legend_text.append("Green background ", style="on green")
+    legend_text.append("Green background", style="on green")
     legend_text.append("= In this directory, ")
-    legend_text.append("Red background ", style="on red")
+    legend_text.append("Red background", style="on red")
     legend_text.append("= In the other directory")
     if "loc" in spec.metrics:
         legend_text.append("\n")
@@ -510,8 +600,16 @@ def export_comparison(
         spec=spec,
     )
     comparison_data = {
-        "dir1": {"path": dir1, "name": os.path.basename(dir1), "structure": structure1},
-        "dir2": {"path": dir2, "name": os.path.basename(dir2), "structure": structure2},
+        "dir1": {
+            "path": dir1,
+            "name": _side_display_name(dir1),
+            "structure": structure1,
+        },
+        "dir2": {
+            "path": dir2,
+            "name": _side_display_name(dir2),
+            "structure": structure2,
+        },
         "metadata": {
             "exclude_patterns": [str(p) for p in exclude_patterns],
             "include_patterns": [str(p) for p in include_patterns],

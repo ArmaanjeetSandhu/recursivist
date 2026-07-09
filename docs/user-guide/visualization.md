@@ -222,6 +222,25 @@ recursivist visualize --full-path
     └── 📄 /home/user/my-project/src/main.py
 ```
 
+For a GitHub repository, `--full-path` shows each file's canonical blob URL instead of a filesystem path (see [GitHub Repositories](#github-repositories)).
+
+## GitHub Repositories
+
+`visualize` accepts a GitHub repository URL in place of a local directory. The repository is downloaded to a temporary directory, rendered like any local tree, and removed when the command finishes:
+
+```bash
+recursivist visualize https://github.com/owner/repo
+```
+
+Pin a branch, tag, or commit — and, optionally, a subtree — with a `/tree/<ref>` or `/blob/<ref>/<subpath>` selector:
+
+```bash
+recursivist visualize https://github.com/owner/repo/tree/develop
+recursivist visualize https://github.com/owner/repo/tree/main/src
+```
+
+When no ref is pinned, the default branch is used. Set `GITHUB_TOKEN` (or `GH_TOKEN`) to raise GitHub's rate limits and to reach private repositories. Lines of code (`--loc`, `--sort-by-loc`) and size (`--size`, `--sort-by-size`) are read from the file contents and apply normally, and `--full-path` shows each file's blob URL. The options tied to a working copy — `--git-status`, `--sort-by-git-status`, `--mtime`, `--sort-by-mtime`, and `--ignore-file` — do not apply to a hosted repository and are skipped, with a message noting which. The [CLI Reference](../reference/cli-reference.md#github-repositories) lists every accepted URL form.
+
 ## Filtering
 
 All of Recursivist's filtering options apply to `visualize`:

@@ -12,6 +12,16 @@ Filter the tree with a repository's existing ignore rules:
 recursivist visualize --ignore-file .gitignore
 ```
 
+### Scan a Repository by URL
+
+`visualize`, `export`, and `compare` also take a GitHub repository URL in place of a local path, downloading the repository to a temporary directory and scanning it in place — no manual clone required:
+
+```bash
+recursivist export https://github.com/owner/repo --format md --output-dir ./docs
+```
+
+A `/tree/<ref>` or `/blob/<ref>/<subpath>` selector pins a branch, tag, or commit and, optionally, a subtree. In CI or against private repositories, set `GITHUB_TOKEN` (or `GH_TOKEN`) to raise rate limits and authenticate. See the [CLI Reference](../reference/cli-reference.md#github-repositories) for the accepted URL forms.
+
 ### Pre-commit Framework
 
 Recursivist ships an official [pre-commit](https://pre-commit.com) hook (id `recursivist-export`) that regenerates an export before every commit. Add it to `.pre-commit-config.yaml`:

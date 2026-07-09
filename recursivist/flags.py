@@ -131,6 +131,30 @@ class DisplayOptions:
         """Whether ordering is driven by a numeric metric (LOC, size, mtime)."""
         return self.sort_key in NUMERIC_METRICS
 
+    def without_remote_unsupported(self) -> "DisplayOptions":
+        """Return a copy with annotations that don't apply to a hosted repo.
+
+        A GitHub checkout has no meaningful per-file Git status or modification
+        time — every file effectively shares the tip commit's status and
+        timestamp — so the Git-status badge and the modification-time metric are
+        dropped, and a sort keyed on either falls back to the default ordering.
+        The lines-of-code and size metrics are retained, since those are
+        computed from the file contents themselves.
+
+        Returns:
+            A :class:`DisplayOptions` with Git status and modification time
+            removed from both the sort key and the annotation set.
+        """
+        sort_key = self.sort_key
+        if sort_key in (METRIC_GIT, METRIC_MTIME):
+            sort_key = None
+        metrics = tuple(metric for metric in self.metrics if metric != METRIC_MTIME)
+        return DisplayOptions(
+            sort_key=sort_key,
+            metrics=metrics,
+            show_git_status=False,
+        )
+
 
 def resolve_flags(events: Sequence[tuple[str, str]]) -> DisplayOptions:
     """Resolve an ordered sequence of flag events into :class:`DisplayOptions`.

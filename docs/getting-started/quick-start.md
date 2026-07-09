@@ -94,6 +94,18 @@ Save the comparison as an HTML file instead of printing it:
 recursivist compare dir1 dir2 --save
 ```
 
+## Scan a GitHub Repository
+
+`visualize`, `export`, and `compare` accept a GitHub repository URL wherever they accept a directory:
+
+```bash
+recursivist visualize https://github.com/owner/repo
+recursivist export https://github.com/owner/repo --format md
+recursivist compare ./my-fork https://github.com/owner/repo
+```
+
+Add a `/tree/<ref>` selector to pin a branch, tag, or commit (optionally followed by a subtree to scan), and set `GITHUB_TOKEN` (or `GH_TOKEN`) to raise rate limits and reach private repositories. See the [CLI Reference](../reference/cli-reference.md#github-repositories) for the accepted URL forms and the options that apply to a GitHub input.
+
 ## Common Options
 
 These options work across `visualize`, `export`, and `compare`:

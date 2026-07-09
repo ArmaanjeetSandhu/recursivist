@@ -87,6 +87,17 @@ recursivist export --format md \
 
 See [Pattern Filtering](pattern-filtering.md).
 
+## GitHub Repositories
+
+`export` accepts a GitHub repository URL in place of a local directory, writing the same output files it would for a local scan:
+
+```bash
+recursivist export https://github.com/owner/repo --format md
+recursivist export https://github.com/owner/repo/tree/main/src --format "md json"
+```
+
+A `/tree/<ref>` or `/blob/<ref>/<subpath>` selector pins a branch, tag, or commit and, optionally, a subtree; without one, the default branch is used. Set `GITHUB_TOKEN` (or `GH_TOKEN`) to raise rate limits and reach private repositories. Lines of code and size are read from the file contents and export normally; with `--full-path`, each file is written with its GitHub blob URL rather than a filesystem path — convenient for a Markdown or JSON export that links back to the source. The `--git-status`, `--sort-by-git-status`, `--mtime`, `--sort-by-mtime`, and `--ignore-file` options do not apply to a hosted repository and are skipped. See the [CLI Reference](../reference/cli-reference.md#github-repositories) for the accepted URL forms.
+
 ## Format Details
 
 ### Text (`.txt`)

@@ -17,6 +17,7 @@ Recursivist is organized as a set of focused modules that can be used directly f
 | `recursivist.colors`     | Deterministic per-extension colors                  |
 | `recursivist.icons`      | Emoji and Nerd Font icon lookup                     |
 | `recursivist.git_status` | Git status lookup                                   |
+| `recursivist.github`     | Materialize a GitHub repository for scanning        |
 | `recursivist.config`     | User-configuration persistence                      |
 
 ## The Structure Dictionary
@@ -92,6 +93,12 @@ Exports go through the `get_exporter` factory, which returns a `BaseExporter` su
 ## Git Status
 
 ::: recursivist.git_status
+
+## GitHub
+
+A GitHub repository URL passed to `visualize`, `export`, or `compare` is resolved here. `parse_github_url` turns a URL into a `GitHubTarget`, and `checkout_repository` downloads the repository's source archive into a temporary directory and yields a `RepoCheckout` whose `local_root` is scanned like any other directory. `apply_github_urls` rewrites file paths to GitHub blob URLs for `--full-path` output.
+
+::: recursivist.github
 
 ## Configuration
 

@@ -17,6 +17,26 @@ recursivist compare dir1 dir2 --save --output-dir ./reports --prefix dir-diff
 
 Items unique to the first directory are highlighted in green; items unique to the second, in red.
 
+## Comparing GitHub Repositories
+
+Either side of a comparison can be a GitHub repository URL:
+
+```bash
+# Local checkout against the upstream repository
+recursivist compare ./my-fork https://github.com/owner/repo
+
+# Two GitHub repositories
+recursivist compare https://github.com/owner/repo-a https://github.com/owner/repo-b
+
+# Two branches of the same repository, saved as HTML
+recursivist compare \
+  https://github.com/owner/repo/tree/main \
+  https://github.com/owner/repo/tree/develop \
+  --save --prefix main-vs-develop
+```
+
+Set `GITHUB_TOKEN` (or `GH_TOKEN`) to raise rate limits and reach private repositories. When both sides are GitHub repositories, the Git-status, modification-time, and ignore-file options are skipped; in a mixed comparison they still apply to the local side.
+
 ## Comparisons with Statistics
 
 ```bash

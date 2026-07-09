@@ -101,6 +101,18 @@ recursivist visualize --verbose
 
 Verbose mode lowers the log level to `DEBUG`, printing details about how patterns and filters are applied — useful when a filter isn't behaving as expected.
 
+## Scanning a GitHub Repository
+
+Wherever `visualize`, `export`, and `compare` take a directory, they also take a GitHub repository URL. The repository is downloaded to a temporary location, scanned like a local directory, and cleaned up afterward:
+
+```bash
+recursivist visualize https://github.com/owner/repo
+recursivist export https://github.com/owner/repo --format md
+recursivist compare ./local-fork https://github.com/owner/repo
+```
+
+A `/tree/<ref>` or `/blob/<ref>/<subpath>` selector pins a branch, tag, or commit and, optionally, a subtree to scan. Set `GITHUB_TOKEN` (or `GH_TOKEN`) to raise rate limits and reach private repositories. Because a hosted repository has no per-file Git status or modification time and already reflects its ignore rules, the `--git-status`, `--sort-by-git-status`, `--mtime`, `--sort-by-mtime`, and `--ignore-file` options do not apply to a GitHub input and are skipped; `--loc` and `--size` still work, and `--full-path` shows each file's GitHub blob URL. See the [CLI Reference](../reference/cli-reference.md#github-repositories) for the accepted URL forms and full details.
+
 ## File Statistics
 
 All three primary commands can display file metrics, and can sort by them. Sorting and display are separate concerns:

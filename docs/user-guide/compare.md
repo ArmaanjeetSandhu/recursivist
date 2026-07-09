@@ -68,6 +68,25 @@ See [Pattern Filtering](pattern-filtering.md) for details.
 !!! note
 `compare` supports every sorting and display flag, including the Git-status flags (`--git-status` and `--sort-by-git-status`), the metric sorts, the display-only `--loc`/`--size`/`--mtime`, and `--sort-by-similarity`. When Git status is enabled, each directory's status is read independently against its own repository, so both sides are annotated correctly even when they belong to different repos. Also note that `-f` here is shorthand for `--save`, not `--format`.
 
+## GitHub Repositories
+
+Either input to `compare` may be a GitHub repository URL, so a local directory can be compared against a GitHub repository, two GitHub repositories against each other, or two local directories:
+
+```bash
+# Local directory against a GitHub repository
+recursivist compare ./my-fork https://github.com/owner/repo
+
+# Two GitHub repositories
+recursivist compare https://github.com/owner/repo-a https://github.com/owner/repo-b
+
+# Two refs of the same repository
+recursivist compare https://github.com/owner/repo/tree/main https://github.com/owner/repo/tree/develop
+```
+
+Each GitHub side is downloaded and scanned like a local directory. A `/tree/<ref>` or `/blob/<ref>/<subpath>` selector pins a branch, tag, or commit and, optionally, a subtree; set `GITHUB_TOKEN` (or `GH_TOKEN`) to raise rate limits and reach private repositories. Lines of code and size apply to a GitHub side, and `--full-path` shows its files' blob URLs.
+
+The options tied to a working copy — `--git-status`, `--sort-by-git-status`, `--mtime`, `--sort-by-mtime`, and `--ignore-file` — are skipped for a GitHub side. When **both** inputs are GitHub repositories they are skipped entirely; in a **mixed** comparison they still apply to the local side, so a local directory can be annotated with Git status while the GitHub side is not. See the [CLI Reference](../reference/cli-reference.md#github-repositories) for the accepted URL forms.
+
 ## Use Cases
 
 Comparing structures is useful for tracking how a project changes over time:

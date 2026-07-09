@@ -17,6 +17,9 @@ Main commands:
     version: Display the current version information.
     completion: Generate shell completion scripts for various shells.
 
+The visualize, export, and compare commands accept a GitHub repository URL
+anywhere they accept a local directory; see :mod:`recursivist.github`.
+
 All commands share a consistent set of filtering and display options:
     - Exclude directories, file extensions, glob, or regex patterns.
     - Include specific patterns that override exclusions.
@@ -27,6 +30,7 @@ All commands share a consistent set of filtering and display options:
       modification time.
 """
 
+import contextlib
 import logging
 import os
 import sys
@@ -48,6 +52,12 @@ from recursivist.exporters import get_exporter
 from recursivist.filtering import compile_regex_patterns
 from recursivist.flags import DisplayOptions, resolve_display_options
 from recursivist.git_status import get_git_status
+from recursivist.github import (
+    GitHubError,
+    apply_github_urls,
+    checkout_repository,
+    parse_github_url,
+)
 from recursivist.scanner import get_directory_structure
 from recursivist.tree import display_tree
 
@@ -74,7 +84,10 @@ HELP_INCLUDE_PATTERNS = (
 )
 HELP_USE_REGEX = "Treat patterns as regex instead of glob patterns"
 HELP_IGNORE_FILE = "Ignore file to use (e.g., .gitignore)"
-HELP_SHOW_FULL_PATH = "Show full paths instead of just filenames"
+HELP_SHOW_FULL_PATH = (
+    "Show full paths instead of just filenames "
+    "(GitHub blob URLs for GitHub repositories)"
+)
 HELP_SORT_BY_LOC = "Sort files by lines of code and display LOC counts"
 HELP_SORT_BY_SIZE = "Sort files by size and display file sizes"
 HELP_SORT_BY_MTIME = "Sort files by modification time and display timestamps"
@@ -579,10 +592,55 @@ def _scan_directory(
     return structure, extensions
 
 
+def _log_ignored_remote_flags(
+    ignore_file: str | None,
+    sort_by_git_status: bool,
+    show_git_status: bool,
+    sort_by_mtime: bool,
+    show_mtime: bool,
+) -> None:
+    """Report which options are being skipped for a GitHub input.
+
+    The ``--ignore-file``, ``--git-status``, ``--sort-by-git-status``,
+    ``--mtime`` and ``--sort-by-mtime`` options are not meaningful for a hosted
+    repository (see :mod:`recursivist.github`); when any were supplied for a
+    GitHub input, this logs an informational message naming them so the behavior
+    is not silent.
+
+    Args:
+        ignore_file: The requested ignore filename, if any.
+        sort_by_git_status: Whether ``--sort-by-git-status`` was given.
+        show_git_status: Whether ``--git-status`` was given.
+        sort_by_mtime: Whether ``--sort-by-mtime`` was given.
+        show_mtime: Whether ``--mtime`` was given.
+    """
+    ignored: list[str] = []
+    if ignore_file:
+        ignored.append("--ignore-file")
+    if sort_by_git_status:
+        ignored.append("--sort-by-git-status")
+    if show_git_status:
+        ignored.append("--git-status")
+    if sort_by_mtime:
+        ignored.append("--sort-by-mtime")
+    if show_mtime:
+        ignored.append("--mtime")
+    if ignored:
+        logger.info(
+            "Ignoring "
+            + ", ".join(ignored)
+            + " for GitHub repository (not applicable to hosted repositories)"
+        )
+
+
 @app.command()
 def visualize(
-    directory: Path = typer.Argument(
-        ".", help="Directory path to visualize (defaults to current directory)"
+    directory: str = typer.Argument(
+        ".",
+        help=(
+            "Directory path or GitHub repository URL to visualize "
+            "(defaults to current directory)"
+        ),
     ),
     exclude_dirs: list[str] | None = _exclude_dirs_option(),
     exclude_extensions: list[str] | None = _exclude_extensions_option(),
@@ -613,6 +671,15 @@ def visualize(
     can be enabled through the available options. An animated progress
     indicator is shown while scanning large directories.
 
+    *directory* may also be a GitHub repository URL (optionally pinning a
+    branch/tag and subtree via ``/tree/<ref>`` or ``/tree/<ref>/<subpath>``),
+    in which case the
+    repository is downloaded and scanned like a local directory. For a GitHub
+    input the ``--ignore-file``, ``--git-status``, ``--sort-by-git-status``,
+    ``--mtime`` and ``--sort-by-mtime`` options do not apply and are skipped,
+    while ``--full-path`` shows each file's GitHub blob URL instead of a
+    filesystem path.
+
     Sorting and annotation flags are resolved strictly by their left-to-right
     order on the command line: only the first sorting flag (``--sort-by-*``)
     takes effect, while every display-only flag (``--loc``, ``--size``,
@@ -620,8 +687,9 @@ def visualize(
     :mod:`recursivist.flags` for the full resolution rules.
 
     Args:
-        directory: Root directory to visualize. Must exist and be a
-            directory. Defaults to the current working directory.
+        directory: Root directory to visualize, or a GitHub repository URL.
+            Must exist and be a directory when local. Defaults to the current
+            working directory.
         exclude_dirs: Directory names to omit from the tree entirely
             (e.g. ``["node_modules", ".git"]``).
         exclude_extensions: File extensions to hide. Values are
@@ -695,24 +763,38 @@ def visualize(
         >>> recursivist visualize -d 2
         >>> # Override icon style for this run
         >>> recursivist visualize --icon-style nerd
+        >>> # Visualize a GitHub repository
+        >>> recursivist visualize https://github.com/ArmaanjeetSandhu/recursivist
+        >>> # Visualize a subtree on a specific branch, showing blob URLs
+        >>> recursivist visualize https://github.com/owner/repo/tree/main/src -l
     """
     _enable_verbose_if_requested(verbose)
 
     resolved_style = icon_style or USER_CONFIG.get("icon_style", "emoji")
-    directory = _resolve_and_validate_directory(directory)
-    ignore_file = _resolve_ignore_file([directory], ignore_file)
+    target = parse_github_url(directory)
+    is_remote = target is not None
 
     spec = resolve_display_options(
         sort_loc=sort_by_loc,
         sort_size=sort_by_size,
-        sort_mtime=sort_by_mtime,
+        sort_mtime=sort_by_mtime and not is_remote,
         sort_similarity=sort_by_similarity,
-        sort_git=sort_by_git_status,
+        sort_git=sort_by_git_status and not is_remote,
         disp_loc=loc,
         disp_size=size,
-        disp_mtime=mtime,
-        disp_git=show_git_status,
+        disp_mtime=mtime and not is_remote,
+        disp_git=show_git_status and not is_remote,
     )
+
+    validated: Path = Path(directory)
+    if is_remote:
+        _log_ignored_remote_flags(
+            ignore_file, sort_by_git_status, show_git_status, sort_by_mtime, mtime
+        )
+        ignore_file = None
+    else:
+        validated = _resolve_and_validate_directory(Path(directory))
+        ignore_file = _resolve_ignore_file([validated], ignore_file)
 
     _log_display_options(max_depth, show_full_path, spec)
     (
@@ -727,39 +809,54 @@ def visualize(
         include_patterns,
         use_regex,
     )
-    _warn_if_ignore_file_missing(directory, ignore_file)
     try:
-        structure, extensions = _scan_directory(
-            directory,
-            parsed_exclude_dirs,
-            ignore_file,
-            exclude_exts_set,
-            parsed_exclude_patterns,
-            parsed_include_patterns,
-            use_regex,
-            max_depth,
-            show_full_path,
-            spec.show_loc,
-            spec.show_size,
-            spec.show_mtime,
-            spec.show_git_status,
-        )
-        logger.info("Displaying directory tree:")
-        display_tree(
-            str(directory),
-            parsed_exclude_dirs,
-            ignore_file,
-            exclude_exts_set,
-            parsed_exclude_patterns,
-            parsed_include_patterns,
-            use_regex,
-            max_depth,
-            show_full_path,
-            spec,
-            icon_style=resolved_style,
-            structure=structure,
-            extensions=extensions,
-        )
+        with contextlib.ExitStack() as stack:
+            if target is not None:
+                checkout = stack.enter_context(checkout_repository(target))
+                scan_dir = checkout.local_root
+                root_name = checkout.root_name
+            else:
+                checkout = None
+                scan_dir = str(validated)
+                root_name = os.path.basename(scan_dir)
+                _warn_if_ignore_file_missing(Path(scan_dir), ignore_file)
+            structure, extensions = _scan_directory(
+                Path(scan_dir),
+                parsed_exclude_dirs,
+                ignore_file,
+                exclude_exts_set,
+                parsed_exclude_patterns,
+                parsed_include_patterns,
+                use_regex,
+                max_depth,
+                show_full_path,
+                spec.show_loc,
+                spec.show_size,
+                spec.show_mtime,
+                spec.show_git_status,
+            )
+            if checkout is not None and show_full_path:
+                apply_github_urls(structure, checkout)
+            logger.info("Displaying directory tree:")
+            display_tree(
+                scan_dir,
+                parsed_exclude_dirs,
+                ignore_file,
+                exclude_exts_set,
+                parsed_exclude_patterns,
+                parsed_include_patterns,
+                use_regex,
+                max_depth,
+                show_full_path,
+                spec,
+                icon_style=resolved_style,
+                structure=structure,
+                extensions=extensions,
+                root_name=root_name,
+            )
+    except GitHubError as e:
+        logger.exception(f"Error: {e}")
+        raise typer.Exit(1) from None
     except Exception as e:
         logger.error(f"Error: {e}", exc_info=verbose)
         raise typer.Exit(1) from None
@@ -767,8 +864,12 @@ def visualize(
 
 @app.command()
 def export(
-    directory: Path = typer.Argument(
-        ".", help="Directory path to export (defaults to current directory)"
+    directory: str = typer.Argument(
+        ".",
+        help=(
+            "Directory path or GitHub repository URL to export "
+            "(defaults to current directory)"
+        ),
     ),
     formats: list[str] = typer.Option(
         ["md"],
@@ -810,6 +911,15 @@ def export(
     ensure cross-platform compatibility in external viewers, unless
     explicitly overridden.
 
+    *directory* may also be a GitHub repository URL (optionally pinning a
+    branch/tag and subtree via ``/tree/<ref>`` or ``/tree/<ref>/<subpath>``),
+    in which case the
+    repository is downloaded and scanned like a local directory. For a GitHub
+    input the ``--ignore-file``, ``--git-status``, ``--sort-by-git-status``,
+    ``--mtime`` and ``--sort-by-mtime`` options do not apply and are skipped,
+    while ``--full-path`` writes each file's GitHub blob URL instead of a
+    filesystem path.
+
     Sorting and annotation flags are resolved strictly by their left-to-right
     order on the command line: only the first sorting flag (``--sort-by-*``)
     takes effect, while every display-only flag (``--loc``, ``--size``,
@@ -817,8 +927,9 @@ def export(
     :mod:`recursivist.flags` for the full resolution rules.
 
     Args:
-        directory: Root directory to export. Must exist and be a
-            directory. Defaults to the current working directory.
+        directory: Root directory to export, or a GitHub repository URL.
+            Must exist and be a directory when local. Defaults to the current
+            working directory.
         formats: Export format identifiers. Supported values are
             ``"txt"``, ``"json"``, ``"html"``, ``"md"``, ``"svg"``,
             and ``"rst"``. Multiple formats may be given as
@@ -889,24 +1000,36 @@ def export(
         >>> recursivist export -f "json md html"
         >>> # Force export with nerd fonts
         >>> recursivist export --icon-style nerd
+        >>> # Export a GitHub repository to Markdown with blob URLs
+        >>> recursivist export https://github.com/owner/repo -f md -l
     """
     _enable_verbose_if_requested(verbose)
 
     resolved_style = icon_style or "emoji"
-    directory = _resolve_and_validate_directory(directory)
-    ignore_file = _resolve_ignore_file([directory], ignore_file)
+    target = parse_github_url(directory)
+    is_remote = target is not None
 
     spec = resolve_display_options(
         sort_loc=sort_by_loc,
         sort_size=sort_by_size,
-        sort_mtime=sort_by_mtime,
+        sort_mtime=sort_by_mtime and not is_remote,
         sort_similarity=sort_by_similarity,
-        sort_git=sort_by_git_status,
+        sort_git=sort_by_git_status and not is_remote,
         disp_loc=loc,
         disp_size=size,
-        disp_mtime=mtime,
-        disp_git=show_git_status,
+        disp_mtime=mtime and not is_remote,
+        disp_git=show_git_status and not is_remote,
     )
+
+    validated: Path = Path(directory)
+    if is_remote:
+        _log_ignored_remote_flags(
+            ignore_file, sort_by_git_status, show_git_status, sort_by_mtime, mtime
+        )
+        ignore_file = None
+    else:
+        validated = _resolve_and_validate_directory(Path(directory))
+        ignore_file = _resolve_ignore_file([validated], ignore_file)
 
     _log_display_options(max_depth, show_full_path, spec)
     (
@@ -921,57 +1044,79 @@ def export(
         include_patterns,
         use_regex,
     )
-    _warn_if_ignore_file_missing(directory, ignore_file)
     try:
-        structure, _ = _scan_directory(
-            directory,
-            parsed_exclude_dirs,
-            ignore_file,
-            exclude_exts_set,
-            parsed_exclude_patterns,
-            parsed_include_patterns,
-            use_regex,
-            max_depth,
-            show_full_path,
-            spec.show_loc,
-            spec.show_size,
-            spec.show_mtime,
-            spec.show_git_status,
-        )
-        parsed_formats = []
-        for fmt in formats:
-            parsed_formats.extend([x.strip() for x in fmt.split(" ") if x.strip()])
-        valid_formats = ["txt", "json", "html", "md", "svg", "rst"]
-        invalid_formats = [
-            fmt for fmt in parsed_formats if fmt.lower() not in valid_formats
-        ]
-        if invalid_formats:
-            logger.error(f"Unsupported export format(s): {', '.join(invalid_formats)}")
-            logger.info(f"Supported formats: {', '.join(valid_formats)}")
-            raise typer.Exit(1)
-        if output_dir:
-            output_dir.mkdir(parents=True, exist_ok=True)
-        else:
-            output_dir = Path(".")
-
-        num_formats = len(parsed_formats)
-        format_word = "format" if num_formats == 1 else "formats"
-        logger.info(f"Exporting to {num_formats} {format_word}")
-        for fmt in parsed_formats:
-            output_path = output_dir / f"{output_prefix}.{fmt.lower()}"
-            try:
-                exporter = get_exporter(
-                    format_type=fmt.lower(),
-                    structure=structure,
-                    root_name=os.path.basename(str(directory)),
-                    base_path=str(directory) if show_full_path else None,
-                    spec=spec,
-                    icon_style=resolved_style,
+        with contextlib.ExitStack() as stack:
+            if target is not None:
+                checkout = stack.enter_context(checkout_repository(target))
+                scan_dir = checkout.local_root
+                root_name = checkout.root_name
+                full_path_base: str | None = (
+                    f"https://github.com/{target.owner}/{target.repo}"
+                    if show_full_path
+                    else None
                 )
-                exporter.export(str(output_path))
-                logger.info(f"Successfully exported to {output_path}")
-            except Exception as e:
-                logger.exception(f"Failed to export to {fmt}: {e}")
+            else:
+                checkout = None
+                scan_dir = str(validated)
+                root_name = os.path.basename(scan_dir)
+                full_path_base = scan_dir if show_full_path else None
+                _warn_if_ignore_file_missing(Path(scan_dir), ignore_file)
+            structure, _ = _scan_directory(
+                Path(scan_dir),
+                parsed_exclude_dirs,
+                ignore_file,
+                exclude_exts_set,
+                parsed_exclude_patterns,
+                parsed_include_patterns,
+                use_regex,
+                max_depth,
+                show_full_path,
+                spec.show_loc,
+                spec.show_size,
+                spec.show_mtime,
+                spec.show_git_status,
+            )
+            if checkout is not None and show_full_path:
+                apply_github_urls(structure, checkout)
+            parsed_formats = []
+            for fmt in formats:
+                parsed_formats.extend([x.strip() for x in fmt.split(" ") if x.strip()])
+            valid_formats = ["txt", "json", "html", "md", "svg", "rst"]
+            invalid_formats = [
+                fmt for fmt in parsed_formats if fmt.lower() not in valid_formats
+            ]
+            if invalid_formats:
+                logger.error(
+                    f"Unsupported export format(s): {', '.join(invalid_formats)}"
+                )
+                logger.info(f"Supported formats: {', '.join(valid_formats)}")
+                raise typer.Exit(1)
+            if output_dir:
+                output_dir.mkdir(parents=True, exist_ok=True)
+            else:
+                output_dir = Path(".")
+
+            num_formats = len(parsed_formats)
+            format_word = "format" if num_formats == 1 else "formats"
+            logger.info(f"Exporting to {num_formats} {format_word}")
+            for fmt in parsed_formats:
+                output_path = output_dir / f"{output_prefix}.{fmt.lower()}"
+                try:
+                    exporter = get_exporter(
+                        format_type=fmt.lower(),
+                        structure=structure,
+                        root_name=root_name,
+                        base_path=full_path_base,
+                        spec=spec,
+                        icon_style=resolved_style,
+                    )
+                    exporter.export(str(output_path))
+                    logger.info(f"Successfully exported to {output_path}")
+                except Exception as e:
+                    logger.exception(f"Failed to export to {fmt}: {e}")
+    except GitHubError as e:
+        logger.exception(f"Error: {e}")
+        raise typer.Exit(1) from None
     except Exception as e:
         logger.error(f"Error: {e}", exc_info=verbose)
         raise typer.Exit(1) from None
@@ -1039,19 +1184,13 @@ def version() -> None:
 
 @app.command()
 def compare(
-    dir1: Path = typer.Argument(
+    dir1: str = typer.Argument(
         ...,
-        help="First directory path to compare",
-        exists=True,
-        file_okay=False,
-        dir_okay=True,
+        help="First directory path or GitHub repository URL to compare",
     ),
-    dir2: Path = typer.Argument(
+    dir2: str = typer.Argument(
         ...,
-        help="Second directory path to compare",
-        exists=True,
-        file_okay=False,
-        dir_okay=True,
+        help="Second directory path or GitHub repository URL to compare",
     ),
     exclude_dirs: list[str] | None = _exclude_dirs_option(),
     exclude_extensions: list[str] | None = _exclude_extensions_option(),
@@ -1085,12 +1224,24 @@ def compare(
 ) -> None:
     """Compare two directory structures side by side.
 
-    Builds the tree for each directory using identical filtering
-    options, then renders a color-highlighted side-by-side diff.
-    Items present only in *dir1* are highlighted in one color; items
-    present only in *dir2* in another; shared items are shown normally.
-    A legend is included in the output. When *save_as_html* is
-    ``True`` the comparison is written to an HTML file instead.
+    Builds the tree for each input using identical filtering options,
+    then renders a color-highlighted side-by-side diff. Items present
+    only in *dir1* are highlighted in one color; items present only in
+    *dir2* in another; shared items are shown normally. A legend is
+    included in the output. When *save_as_html* is ``True`` the
+    comparison is written to an HTML file instead.
+
+    Either input may be a local directory or a GitHub repository URL
+    (optionally pinning a branch/tag and subtree via
+    ``/tree/<ref>`` or ``/tree/<ref>/<subpath>``), allowing a local directory
+    to be compared
+    against a GitHub repository, two GitHub repositories, or two local
+    directories. A GitHub side is downloaded and scanned like a local
+    directory, and ``--full-path`` shows its files' GitHub blob URLs. The
+    ``--ignore-file``, ``--git-status`` and ``--sort-by-git-status`` options do
+    not apply to a GitHub side and are skipped for it; when *both* inputs are
+    GitHub repositories they are skipped entirely, but when either input is a
+    local directory those options are still honored for the local side.
 
     Sorting and annotation flags are resolved strictly by their left-to-right
     order on the command line: only the first sorting flag (``--sort-by-*``)
@@ -1105,10 +1256,10 @@ def compare(
     the 'emoji' style to ensure cross-platform compatibility.
 
     Args:
-        dir1: First directory to compare. Must exist and be a
-            directory (validated by Typer before the function runs).
-        dir2: Second directory to compare. Must exist and be a
-            directory (validated by Typer before the function runs).
+        dir1: First input to compare — a local directory path or a
+            GitHub repository URL.
+        dir2: Second input to compare — a local directory path or a
+            GitHub repository URL.
         exclude_dirs: Directory names to omit from both trees.
         exclude_extensions: File extensions to hide from both trees.
             Values are normalized so both ``"pyc"`` and ``".pyc"``
@@ -1196,23 +1347,58 @@ def compare(
         >>> recursivist compare dir1 dir2 -f
         >>> # Override icon styling
         >>> recursivist compare dir1 dir2 --icon-style nerd
+        >>> # Compare a local directory against a GitHub repository
+        >>> recursivist compare ./my-fork https://github.com/owner/repo
+        >>> # Compare two GitHub repositories
+        >>> recursivist compare https://github.com/owner/repo-a https://github.com/owner/repo-b
     """
     _enable_verbose_if_requested(verbose)
-    logger.info(f"Comparing directories: {dir1} and {dir2}")
+    logger.info(f"Comparing: {dir1} and {dir2}")
 
-    ignore_file = _resolve_ignore_file([dir1, dir2], ignore_file)
+    target1 = parse_github_url(dir1)
+    target2 = parse_github_url(dir2)
+    remote1 = target1 is not None
+    remote2 = target2 is not None
+    both_remote = remote1 and remote2
+    any_remote = remote1 or remote2
+
+    local_inputs = [
+        raw for raw, is_remote in ((dir1, remote1), (dir2, remote2)) if not is_remote
+    ]
+    for raw in local_inputs:
+        local_dir = Path(raw)
+        if not local_dir.exists() or not local_dir.is_dir():
+            logger.error(f"Error: {raw} is not a valid directory or GitHub URL")
+            raise typer.Exit(1)
+
+    local_paths = [Path(raw) for raw in local_inputs]
+    ignore_file = _resolve_ignore_file(local_paths, ignore_file)
 
     spec = resolve_display_options(
         sort_loc=sort_by_loc,
         sort_size=sort_by_size,
-        sort_mtime=sort_by_mtime,
+        sort_mtime=sort_by_mtime and not both_remote,
         sort_similarity=sort_by_similarity,
-        sort_git=sort_by_git_status,
+        sort_git=sort_by_git_status and not both_remote,
         disp_loc=loc,
         disp_size=size,
-        disp_mtime=mtime,
-        disp_git=show_git_status,
+        disp_mtime=mtime and not both_remote,
+        disp_git=show_git_status and not both_remote,
     )
+
+    if both_remote:
+        _log_ignored_remote_flags(
+            ignore_file, sort_by_git_status, show_git_status, sort_by_mtime, mtime
+        )
+        ignore_file = None
+    elif any_remote and (
+        ignore_file or sort_by_git_status or show_git_status or sort_by_mtime or mtime
+    ):
+        logger.info(
+            "Ignoring --ignore-file, --git-status, --sort-by-git-status, --mtime and "
+            "--sort-by-mtime for the GitHub repository; they still apply to the local "
+            "directory"
+        )
 
     _log_display_options(max_depth, show_full_path, spec)
 
@@ -1236,7 +1422,7 @@ def compare(
         use_regex,
     )
     if ignore_file:
-        for d in [dir1, dir2]:
+        for d in local_paths:
             ignore_path = d / ignore_file
             if ignore_path.exists():
                 logger.debug(f"Using ignore file from {d}: {ignore_path}")
@@ -1252,8 +1438,8 @@ def compare(
             output_path = output_dir / f"{output_prefix}.html"
             try:
                 export_comparison(
-                    str(dir1),
-                    str(dir2),
+                    dir1,
+                    dir2,
                     "html",
                     str(output_path),
                     parsed_exclude_dirs,
@@ -1272,8 +1458,8 @@ def compare(
                 logger.exception(f"Failed to export to HTML: {e}")
         else:
             display_comparison(
-                str(dir1),
-                str(dir2),
+                dir1,
+                dir2,
                 parsed_exclude_dirs,
                 actual_ignore_file,
                 exclude_exts_set,
@@ -1285,6 +1471,9 @@ def compare(
                 spec=spec,
                 icon_style=resolved_style,
             )
+    except GitHubError as e:
+        logger.exception(f"Error: {e}")
+        raise typer.Exit(1) from None
     except Exception as e:
         logger.error(f"Error: {e}", exc_info=verbose)
         raise typer.Exit(1) from None

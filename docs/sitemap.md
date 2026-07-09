@@ -296,6 +296,10 @@
                   "label": "Compare Two Directories"
                 },
                 {
+                  "id": "root/getting-started/quick-start/quick-start-guide/scan-a-github-repository",
+                  "label": "Scan a GitHub Repository"
+                },
+                {
                   "id": "root/getting-started/quick-start/quick-start-guide/common-options",
                   "label": "Common Options"
                 },
@@ -366,6 +370,10 @@
                       "label": "Verbose Output"
                     }
                   ]
+                },
+                {
+                  "id": "root/user-guide/basic-usage/basic-usage/scanning-a-github-repository",
+                  "label": "Scanning a GitHub Repository"
                 },
                 {
                   "id": "root/user-guide/basic-usage/basic-usage/file-statistics",
@@ -454,6 +462,10 @@
                   "label": "Full Path Display"
                 },
                 {
+                  "id": "root/user-guide/visualization/visualization/github-repositories",
+                  "label": "GitHub Repositories"
+                },
+                {
                   "id": "root/user-guide/visualization/visualization/filtering",
                   "label": "Filtering"
                 },
@@ -508,6 +520,10 @@
                 {
                   "id": "root/user-guide/export/export/filtering-and-depth",
                   "label": "Filtering and Depth"
+                },
+                {
+                  "id": "root/user-guide/export/export/github-repositories",
+                  "label": "GitHub Repositories"
                 },
                 {
                   "id": "root/user-guide/export/export/format-details",
@@ -574,6 +590,10 @@
                 {
                   "id": "root/user-guide/compare/compare/filtering-and-depth",
                   "label": "Filtering and Depth"
+                },
+                {
+                  "id": "root/user-guide/compare/compare/github-repositories",
+                  "label": "GitHub Repositories"
                 },
                 {
                   "id": "root/user-guide/compare/compare/use-cases",
@@ -700,6 +720,24 @@
                   ]
                 },
                 {
+                  "id": "root/reference/cli-reference/cli-reference/github-repositories",
+                  "label": "GitHub Repositories",
+                  "children": [
+                    {
+                      "id": "root/reference/cli-reference/cli-reference/github-repositories/accepted-url-forms",
+                      "label": "Accepted URL forms"
+                    },
+                    {
+                      "id": "root/reference/cli-reference/cli-reference/github-repositories/authentication",
+                      "label": "Authentication"
+                    },
+                    {
+                      "id": "root/reference/cli-reference/cli-reference/github-repositories/options-for-a-github-input",
+                      "label": "Options for a GitHub input"
+                    }
+                  ]
+                },
+                {
                   "id": "root/reference/cli-reference/cli-reference/visualize",
                   "label": "`visualize`",
                   "children": [
@@ -820,6 +858,10 @@
                 {
                   "id": "root/reference/api-reference/api-reference/git-status",
                   "label": "Git Status"
+                },
+                {
+                  "id": "root/reference/api-reference/api-reference/github",
+                  "label": "GitHub"
                 },
                 {
                   "id": "root/reference/api-reference/api-reference/configuration",
@@ -984,6 +1026,10 @@
                   "label": "Comparisons"
                 },
                 {
+                  "id": "root/examples/basic-examples/basic-examples/github-repositories",
+                  "label": "GitHub Repositories"
+                },
+                {
                   "id": "root/examples/basic-examples/basic-examples/configuration-and-version",
                   "label": "Configuration and Version"
                 },
@@ -1106,6 +1152,10 @@
                   "label": "Basic Comparisons"
                 },
                 {
+                  "id": "root/examples/compare-examples/compare-examples/comparing-github-repositories",
+                  "label": "Comparing GitHub Repositories"
+                },
+                {
                   "id": "root/examples/compare-examples/compare-examples/comparisons-with-statistics",
                   "label": "Comparisons with Statistics"
                 },
@@ -1206,6 +1256,10 @@
                     {
                       "id": "root/advanced/integration/integration-with-other-tools/git/use-your-.gitignore",
                       "label": "Use Your `.gitignore`"
+                    },
+                    {
+                      "id": "root/advanced/integration/integration-with-other-tools/git/scan-a-repository-by-url",
+                      "label": "Scan a Repository by URL"
                     },
                     {
                       "id": "root/advanced/integration/integration-with-other-tools/git/pre-commit-framework",

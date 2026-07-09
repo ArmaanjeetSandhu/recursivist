@@ -108,6 +108,26 @@ recursivist compare dir1 dir2 --save
 recursivist compare dir1 dir2 --sort-by-loc
 ```
 
+## GitHub Repositories
+
+Point any of the three commands at a GitHub repository URL instead of a directory:
+
+```bash
+# Visualize a repository (default branch)
+recursivist visualize https://github.com/owner/repo
+
+# Pin a branch and a subtree
+recursivist visualize https://github.com/owner/repo/tree/main/src
+
+# Export a repository to Markdown
+recursivist export https://github.com/owner/repo --format md
+
+# Compare a local checkout against the upstream repository
+recursivist compare ./my-fork https://github.com/owner/repo
+```
+
+Set `GITHUB_TOKEN` (or `GH_TOKEN`) to raise rate limits and reach private repositories.
+
 ## Configuration and Version
 
 ```bash
