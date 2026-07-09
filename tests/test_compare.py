@@ -11,9 +11,11 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 from pytest_mock import MockerFixture
+from rich.console import Console
 from rich.text import Text
 from rich.tree import Tree
 
+from recursivist._models import FileEntry
 from recursivist.compare import (
     build_comparison_tree,
     compare_directory_structures,
@@ -21,6 +23,7 @@ from recursivist.compare import (
     export_comparison,
 )
 from recursivist.flags import (
+    METRIC_GIT,
     METRIC_LOC,
     METRIC_MTIME,
     METRIC_SIZE,
@@ -650,6 +653,8 @@ class TestCompareDirectoryStructures:
                 sort_by_loc=False,
                 sort_by_size=False,
                 sort_by_mtime=False,
+                show_git_status=False,
+                git_status_map=None,
             )
             mock_get_structure.assert_any_call(
                 dir2,
@@ -663,6 +668,8 @@ class TestCompareDirectoryStructures:
                 sort_by_loc=False,
                 sort_by_size=False,
                 sort_by_mtime=False,
+                show_git_status=False,
+                git_status_map=None,
             )
 
     @given(dir1=safe_path, dir2=safe_path)
@@ -703,6 +710,8 @@ class TestCompareDirectoryStructures:
                 sort_by_loc=True,
                 sort_by_size=True,
                 sort_by_mtime=True,
+                show_git_status=False,
+                git_status_map=None,
             )
 
 
@@ -1159,3 +1168,226 @@ class TestBuildComparisonTreeStructures:
             if isinstance(call.args[0], Text)
         ]
         assert any("max depth reached" in text.plain for text in subtree_calls)
+
+
+_GIT_SPEC_DISPLAY = DisplayOptions(show_git_status=True)
+_GIT_SPEC_SORT = DisplayOptions(sort_key=METRIC_GIT, show_git_status=True)
+
+
+def _plain_texts(mock_tree: MagicMock) -> list[str]:
+    """Collect the plain text of every rich ``Text`` added to a mock tree."""
+    return [
+        call.args[0].plain
+        for call in mock_tree.add.call_args_list
+        if call.args and isinstance(call.args[0], Text)
+    ]
+
+
+class TestCompareGitStatus:
+    """Git-status support for the compare command (display, sort, export)."""
+
+    def test_compare_directory_structures_fetches_git_per_directory(
+        self, mocker: MockerFixture
+    ) -> None:
+        """With git enabled, get_git_status is called once per directory and
+        each map is threaded into the matching scan."""
+        gs = mocker.patch(
+            "recursivist.compare.get_git_status",
+            side_effect=[{"a.py": "M"}, {"b.py": "U"}],
+        )
+        scan = mocker.patch(
+            "recursivist.compare.get_directory_structure",
+            side_effect=[({"_files": []}, set()), ({"_files": []}, set())],
+        )
+        compare_directory_structures("d1", "d2", spec=_GIT_SPEC_DISPLAY)
+
+        assert gs.call_count == 2
+        gs.assert_any_call("d1")
+        gs.assert_any_call("d2")
+        first, second = scan.call_args_list
+        assert first.kwargs["show_git_status"] is True
+        assert first.kwargs["git_status_map"] == {"a.py": "M"}
+        assert second.kwargs["git_status_map"] == {"b.py": "U"}
+
+    def test_compare_directory_structures_no_git_when_not_requested(
+        self, mocker: MockerFixture
+    ) -> None:
+        """Without git flags, git status is never looked up and scans are told
+        not to compute it."""
+        gs = mocker.patch("recursivist.compare.get_git_status")
+        scan = mocker.patch(
+            "recursivist.compare.get_directory_structure",
+            side_effect=[({"_files": []}, set()), ({"_files": []}, set())],
+        )
+        compare_directory_structures("d1", "d2", spec=DisplayOptions())
+
+        gs.assert_not_called()
+        for call in scan.call_args_list:
+            assert call.kwargs["show_git_status"] is False
+            assert call.kwargs["git_status_map"] is None
+
+    def test_sort_by_git_status_fetches_status_without_display_flag(
+        self, mocker: MockerFixture
+    ) -> None:
+        """A git *sort* alone (no --git-status) still triggers status lookup."""
+        gs = mocker.patch(
+            "recursivist.compare.get_git_status",
+            side_effect=[{}, {}],
+        )
+        mocker.patch(
+            "recursivist.compare.get_directory_structure",
+            side_effect=[({"_files": []}, set()), ({"_files": []}, set())],
+        )
+        compare_directory_structures(
+            "d1", "d2", spec=DisplayOptions(sort_key=METRIC_GIT)
+        )
+        assert gs.call_count == 2
+
+    def test_build_comparison_tree_renders_git_badges(self) -> None:
+        """Files carry their status badge; deleted files are struck through."""
+        structure = {
+            "_files": ["mod.py", "del.py"],
+            "_git_markers": {"mod.py": "M", "del.py": "D"},
+        }
+        tree = MagicMock()
+        tree.add.return_value = tree
+        build_comparison_tree(structure, {}, tree, _GIT_SPEC_DISPLAY)
+
+        texts = _plain_texts(tree)
+        assert any("mod.py" in t and "[M]" in t for t in texts)
+        assert any("del.py" in t and "[D]" in t for t in texts)
+
+        deleted_text = next(
+            call.args[0]
+            for call in tree.add.call_args_list
+            if call.args
+            and isinstance(call.args[0], Text)
+            and "del.py" in call.args[0].plain
+        )
+        assert "strike" in str(deleted_text.style)
+
+    def test_build_comparison_tree_no_badges_without_flag(self) -> None:
+        """Markers present in the structure are ignored when git is off."""
+        structure = {
+            "_files": ["mod.py"],
+            "_git_markers": {"mod.py": "M"},
+        }
+        tree = MagicMock()
+        tree.add.return_value = tree
+        build_comparison_tree(structure, {}, tree, DisplayOptions())
+        assert all("[M]" not in t for t in _plain_texts(tree))
+
+    def test_build_comparison_tree_badges_on_other_side_files(self) -> None:
+        """Files unique to the *other* structure use the other side's markers."""
+        this_structure: dict[str, Any] = {"_files": []}
+        other_structure = {
+            "_files": ["only_other.py"],
+            "_git_markers": {"only_other.py": "A"},
+        }
+        tree = MagicMock()
+        tree.add.return_value = tree
+        build_comparison_tree(this_structure, other_structure, tree, _GIT_SPEC_DISPLAY)
+        assert any("only_other.py" in t and "[A]" in t for t in _plain_texts(tree))
+
+    def test_build_comparison_tree_git_sort_order(self) -> None:
+        """git_status sort orders files modified, added, deleted, untracked,
+        then clean."""
+        structure = {
+            "_files": ["clean.py", "unt.py", "del.py", "add.py", "mod.py"],
+            "_git_markers": {
+                "unt.py": "U",
+                "del.py": "D",
+                "add.py": "A",
+                "mod.py": "M",
+            },
+        }
+        tree = MagicMock()
+        tree.add.return_value = tree
+        build_comparison_tree(structure, {}, tree, _GIT_SPEC_SORT)
+
+        names = _plain_texts(tree)
+        seq = ["mod.py", "add.py", "del.py", "unt.py", "clean.py"]
+        positions = [next(i for i, t in enumerate(names) if s in t) for s in seq]
+        assert positions == sorted(positions)
+
+    def test_export_comparison_html_includes_git_badges(
+        self, mocker: MockerFixture, tmp_path: Any
+    ) -> None:
+        """Exported HTML contains Git badges, a legend block, and a
+        struck-through deleted file."""
+        mocker.patch(
+            "recursivist.compare.get_git_status",
+            side_effect=[{"mod.py": "M", "del.py": "D"}, {}],
+        )
+        mocker.patch(
+            "recursivist.compare.compile_regex_patterns",
+            side_effect=lambda patterns, use_regex: list(patterns),
+        )
+
+        def fake_scan(
+            directory: str, *args: Any, **kwargs: Any
+        ) -> tuple[dict[str, Any], set[str]]:
+            if kwargs.get("git_status_map"):
+                return (
+                    {
+                        "_files": [
+                            FileEntry(name="mod.py", path="mod.py"),
+                            FileEntry(name="del.py", path="del.py"),
+                        ],
+                        "_git_markers": {"mod.py": "M", "del.py": "D"},
+                    },
+                    {".py"},
+                )
+            return ({"_files": []}, set())
+
+        mocker.patch(
+            "recursivist.compare.get_directory_structure", side_effect=fake_scan
+        )
+        out = str(tmp_path / "cmp.html")
+        export_comparison("d1", "d2", "html", out, spec=_GIT_SPEC_DISPLAY)
+
+        with open(out, encoding="utf-8") as f:
+            content = f.read()
+        assert 'class="git-badge git-m"' in content
+        assert 'class="git-badge git-d"' in content
+        assert 'info-label">Git Status:' in content
+        assert "line-through" in content
+
+    def test_export_comparison_html_no_git_section_without_flag(
+        self, mocker: MockerFixture, tmp_path: Any
+    ) -> None:
+        """No git legend block appears when git status is disabled."""
+        mocker.patch(
+            "recursivist.compare.compile_regex_patterns",
+            side_effect=lambda patterns, use_regex: list(patterns),
+        )
+        mocker.patch(
+            "recursivist.compare.get_directory_structure",
+            side_effect=[({"_files": []}, set()), ({"_files": []}, set())],
+        )
+        out = str(tmp_path / "cmp.html")
+        export_comparison("d1", "d2", "html", out, spec=DisplayOptions())
+        with open(out, encoding="utf-8") as f:
+            content = f.read()
+        assert 'info-label">Git Status:' not in content
+
+    def test_display_comparison_legend_mentions_git(
+        self, mocker: MockerFixture
+    ) -> None:
+        """The terminal legend gains a git-status marker line when enabled."""
+        mocker.patch("recursivist.compare.get_git_status", side_effect=[{}, {}])
+        mocker.patch(
+            "recursivist.compare.get_directory_structure",
+            side_effect=[({"_files": []}, set()), ({"_files": []}, set())],
+        )
+        recorded: dict[str, Console] = {}
+
+        def capture_console() -> Console:
+            console = Console(record=True, width=200)
+            recorded["console"] = console
+            return console
+
+        mocker.patch("recursivist.compare.Console", side_effect=capture_console)
+        display_comparison("d1", "d2", spec=_GIT_SPEC_DISPLAY)
+        text = recorded["console"].export_text()
+        assert "Git status markers" in text

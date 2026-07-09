@@ -59,12 +59,14 @@ recursivist compare dir1 dir2 --include-pattern "*.py" "*.md"
 recursivist compare dir1 dir2 --ignore-file .gitignore
 recursivist compare dir1 dir2 --depth 3
 recursivist compare dir1 dir2 --full-path
+recursivist compare dir1 dir2 --git-status
+recursivist compare dir1 dir2 --sort-by-git-status
 ```
 
 See [Pattern Filtering](pattern-filtering.md) for details.
 
 !!! note
-Unlike `visualize` and `export`, `compare` does not support the Git-status flags (`--git-status` or `--sort-by-git-status`). It does support every other sorting and display flag — the metric sorts, the display-only `--loc`/`--size`/`--mtime`, and `--sort-by-similarity`. Also note that `-f` here is shorthand for `--save`, not `--format`.
+`compare` supports every sorting and display flag, including the Git-status flags (`--git-status` and `--sort-by-git-status`), the metric sorts, the display-only `--loc`/`--size`/`--mtime`, and `--sort-by-similarity`. When Git status is enabled, each directory's status is read independently against its own repository, so both sides are annotated correctly even when they belong to different repos. Also note that `-f` here is shorthand for `--save`, not `--format`.
 
 ## Use Cases
 

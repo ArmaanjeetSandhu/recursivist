@@ -1072,10 +1072,12 @@ def compare(
     sort_by_loc: bool = _sort_by_loc_option(),
     sort_by_size: bool = _sort_by_size_option(),
     sort_by_mtime: bool = _sort_by_mtime_option(),
+    sort_by_git_status: bool = _sort_by_git_status_option(),
     sort_by_similarity: bool = _sort_by_similarity_option(),
     loc: bool = _loc_option(),
     size: bool = _size_option(),
     mtime: bool = _mtime_option(),
+    show_git_status: bool = _show_git_status_option(),
     icon_style: str | None = _icon_style_option(
         "Override icon style. Defaults to 'emoji' if saving to HTML, else user config."
     ),
@@ -1089,6 +1091,14 @@ def compare(
     present only in *dir2* in another; shared items are shown normally.
     A legend is included in the output. When *save_as_html* is
     ``True`` the comparison is written to an HTML file instead.
+
+    Sorting and annotation flags are resolved strictly by their left-to-right
+    order on the command line: only the first sorting flag (``--sort-by-*``)
+    takes effect, while every display-only flag (``--loc``, ``--size``,
+    ``--mtime``, ``--git-status``) always annotates, in the order given. See
+    :mod:`recursivist.flags` for the full resolution rules. Git status is read
+    independently for each directory, so each side is annotated against its own
+    repository.
 
     By default, uses the persistent user configuration for icon styling
     in the terminal. If exported to HTML, strictly falls back to
@@ -1135,6 +1145,9 @@ def compare(
             time (newest first) and annotate each file with its
             timestamp. Ignored entirely if an earlier sorting flag was
             given.
+        sort_by_git_status: When ``True``, sort files by Git status and
+            annotate each file with its status marker. Ignored entirely
+            if an earlier sorting flag was given.
         sort_by_similarity: When ``True``, group files with similar
             names next to each other. Ignored entirely if an earlier
             sorting flag was given.
@@ -1144,6 +1157,10 @@ def compare(
             the sort order.
         mtime: When ``True``, display each file's modification time
             without affecting the sort order.
+        show_git_status: When ``True``, annotate files with their Git status
+            without affecting the sort order: ``[U]`` untracked, ``[M]``
+            modified, ``[A]`` added, ``[D]`` deleted. Read independently for
+            each directory.
         icon_style: Style to use for folder and file icons. Will use
             the user configuration when visualizing in terminal, and
             default to 'emoji' when outputting to HTML.
@@ -1171,6 +1188,10 @@ def compare(
         >>> recursivist compare dir1 dir2 -d 2
         >>> # Show full paths
         >>> recursivist compare dir1 dir2 -l
+        >>> # Annotate files with Git status markers
+        >>> recursivist compare dir1 dir2 -G
+        >>> # Sort files by Git status
+        >>> recursivist compare dir1 dir2 --sort-by-git-status
         >>> # Export to HTML
         >>> recursivist compare dir1 dir2 -f
         >>> # Override icon styling
@@ -1186,9 +1207,11 @@ def compare(
         sort_size=sort_by_size,
         sort_mtime=sort_by_mtime,
         sort_similarity=sort_by_similarity,
+        sort_git=sort_by_git_status,
         disp_loc=loc,
         disp_size=size,
         disp_mtime=mtime,
+        disp_git=show_git_status,
     )
 
     _log_display_options(max_depth, show_full_path, spec)

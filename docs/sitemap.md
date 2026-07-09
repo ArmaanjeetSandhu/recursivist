@@ -696,10 +696,6 @@
                     {
                       "id": "root/reference/cli-reference/cli-reference/sorting-and-display-flags/resolution-by-command-line-order",
                       "label": "Resolution by command-line order"
-                    },
-                    {
-                      "id": "root/reference/cli-reference/cli-reference/sorting-and-display-flags/availability-by-command",
-                      "label": "Availability by command"
                     }
                   ]
                 },

@@ -20,7 +20,8 @@ from rich.text import Text
 from rich.tree import Tree
 
 from recursivist.filtering import compile_regex_patterns
-from recursivist.flags import DisplayOptions
+from recursivist.flags import METRIC_GIT, DisplayOptions
+from recursivist.git_status import get_git_status
 from recursivist.icons import get_icon
 from recursivist.metrics import format_dir_metrics, format_metrics_suffix
 from recursivist.scanner import get_directory_structure, iter_subdirectories
@@ -58,7 +59,11 @@ def compare_directory_structures(
         show_full_path: Whether to store absolute paths instead of bare
             filenames.
         spec: Resolved sorting and annotation directives. Only the metrics it
-            enables are computed. Defaults to a plain :class:`DisplayOptions`.
+            enables are computed. When Git status is requested (via
+            :attr:`~recursivist.flags.DisplayOptions.show_git_status` or a
+            ``git_status`` sort key), each directory's status is looked up
+            independently against its own repository. Defaults to a plain
+            :class:`DisplayOptions`.
 
     Returns:
         A ``(structure1, structure2)`` tuple holding each directory's
@@ -66,6 +71,17 @@ def compare_directory_structures(
     """
     if spec is None:
         spec = DisplayOptions()
+    need_git = spec.show_git_status or spec.sort_key == METRIC_GIT
+    git_status_map1: dict[str, str] | None = None
+    git_status_map2: dict[str, str] | None = None
+    if need_git:
+        git_status_map1 = get_git_status(dir1)
+        git_status_map2 = get_git_status(dir2)
+        if not git_status_map1 and not git_status_map2:
+            logger.debug(
+                "Git status requested but no data returned for either directory — "
+                "they may not be inside a Git repository, or there are no changes."
+            )
     structure1, _ = get_directory_structure(
         dir1,
         exclude_dirs,
@@ -78,6 +94,8 @@ def compare_directory_structures(
         sort_by_loc=spec.show_loc,
         sort_by_size=spec.show_size,
         sort_by_mtime=spec.show_mtime,
+        show_git_status=need_git,
+        git_status_map=git_status_map1,
     )
     structure2, _ = get_directory_structure(
         dir2,
@@ -91,6 +109,8 @@ def compare_directory_structures(
         sort_by_loc=spec.show_loc,
         sort_by_size=spec.show_size,
         sort_by_mtime=spec.show_mtime,
+        show_git_status=need_git,
+        git_status_map=git_status_map2,
     )
     return structure1, structure2
 
@@ -111,8 +131,14 @@ def build_comparison_tree(
     *other_structure* are highlighted in red. File names are rendered without
     file-type-specific colors so the green/red difference highlighting stands
     out. Files are ordered by ``spec.sort_key`` and metric annotations are
-    appended in ``spec.metrics`` order. (Directory comparison has no Git-status
-    support.)
+    appended in ``spec.metrics`` order.
+
+    When ``spec.show_git_status`` is set, each file is followed by a plain
+    Git-status badge — ``[U]`` untracked, ``[M]`` modified, ``[A]`` added,
+    ``[D]`` deleted — read from the ``_git_markers`` stored on *structure* (and
+    on *other_structure* for entries unique to it). The badge is not
+    color-coded; it trails the metric parenthetical, and deleted files are
+    struck through.
 
     Args:
         structure: Structure of the directory being rendered.
@@ -123,6 +149,40 @@ def build_comparison_tree(
             filenames.
         icon_style: Icon style to use, either ``"emoji"`` or ``"nerd"``.
     """
+    need_git = spec.show_git_status or spec.sort_key == METRIC_GIT
+    git_markers_dict: dict[str, str] = (
+        structure.get("_git_markers", {}) if need_git else {}
+    )
+    other_git_markers: dict[str, str] = (
+        other_structure.get("_git_markers", {}) if need_git and other_structure else {}
+    )
+
+    def _add_file_node(entry: Any, markers: dict[str, str], highlight: str) -> None:
+        """Add a single file entry to *tree* with metrics and Git badge.
+
+        The Git badge (``[U]``/``[M]``/``[A]``/``[D]``) is rendered without any
+        color of its own; deleted files are struck through.
+
+        Args:
+            entry: The :class:`FileEntry` to render.
+            markers: The ``{filename: status_char}`` map for this file's side.
+            highlight: The background highlight style (``"on green"``,
+                ``"on red"``, or ``""``) marking difference state.
+        """
+        file_icon = get_icon(entry.name, is_dir=False, style=icon_style)
+        label = f"{file_icon} {entry.path}" + format_metrics_suffix(
+            entry.loc, entry.size, entry.mtime, spec.metrics
+        )
+        git_marker = markers.get(entry.name, "") if need_git else ""
+        if git_marker == "D":
+            name_style = f"{highlight} strike".strip()
+        else:
+            name_style = highlight
+        text = Text(label, style=name_style)
+        if spec.show_git_status and git_marker:
+            text.append(f" [{git_marker}]", style=highlight)
+        tree.add(text)
+
     if "_files" in structure:
         files_in_other = other_structure.get("_files", []) if other_structure else []
         files_in_other_names = []
@@ -131,13 +191,11 @@ def build_comparison_tree(
                 files_in_other_names.append(item[0])
             else:
                 files_in_other_names.append(cast(str, item))
-        for entry in sort_files_by_type(structure["_files"], spec.sort_key):
-            file_icon = get_icon(entry.name, is_dir=False, style=icon_style)
-            label = f"{file_icon} {entry.path}" + format_metrics_suffix(
-                entry.loc, entry.size, entry.mtime, spec.metrics
-            )
-            style = "on green" if entry.name not in files_in_other_names else ""
-            tree.add(Text(label, style=style))
+        for entry in sort_files_by_type(
+            structure["_files"], spec.sort_key, git_markers_dict
+        ):
+            highlight = "on green" if entry.name not in files_in_other_names else ""
+            _add_file_node(entry, git_markers_dict, highlight)
     for folder, content in iter_subdirectories(structure):
         folder_icon = get_icon(folder, is_dir=True, style=icon_style)
 
@@ -167,13 +225,11 @@ def build_comparison_tree(
                 files_in_this_names.append(item[0])
             else:
                 files_in_this_names.append(cast(str, item))
-        for entry in sort_files_by_type(other_structure["_files"], spec.sort_key):
+        for entry in sort_files_by_type(
+            other_structure["_files"], spec.sort_key, other_git_markers
+        ):
             if entry.name not in files_in_this_names:
-                file_icon = get_icon(entry.name, is_dir=False, style=icon_style)
-                label = f"{file_icon} {entry.path}" + format_metrics_suffix(
-                    entry.loc, entry.size, entry.mtime, spec.metrics
-                )
-                tree.add(Text(label, style="on red"))
+                _add_file_node(entry, other_git_markers, "on red")
     if other_structure:
         for folder, other_content in iter_subdirectories(other_structure):
             if folder in structure:
@@ -317,10 +373,16 @@ def display_comparison(
     if "mtime" in spec.metrics:
         legend_text.append("\n")
         legend_text.append("Modification times shown in parentheses")
+    if spec.show_git_status:
+        legend_text.append("\n")
+        legend_text.append(
+            "Git status markers: [U] untracked, [M] modified, [A] added, [D] deleted"
+        )
     _sort_note = {
         "loc": "Files sorted by line count",
         "size": "Files sorted by size",
         "mtime": "Files sorted by modification time (newest first)",
+        "git_status": "Files sorted by Git status",
         "similarity": "Files grouped by name similarity",
     }.get(spec.sort_key or "")
     if _sort_note:
@@ -461,6 +523,7 @@ def export_comparison(
             "show_loc": spec.show_loc,
             "show_size": spec.show_size,
             "show_mtime": spec.show_mtime,
+            "show_git_status": spec.show_git_status,
         },
     }
     if format_type == "html":
@@ -475,8 +538,8 @@ def _export_comparison_to_html(
     """Write the comparison HTML document from prepared comparison data.
 
     Generates a responsive, styled HTML page with the two directory trees side
-    by side and their differences highlighted, including any LOC, size, or
-    modification-time annotations enabled in the metadata.
+    by side and their differences highlighted, including any LOC, size,
+    modification-time, or Git-status annotations enabled in the metadata.
 
     Args:
         comparison_data: Prepared comparison payload holding each directory's
@@ -508,6 +571,53 @@ def _export_comparison_to_html(
         show_full_path = _meta.get("show_full_path", False)
         metrics = _meta.get("metrics", [])
         sort_key = _meta.get("sort_key")
+        show_git_status = _meta.get("show_git_status", False)
+        git_markers = structure.get("_git_markers", {}) if show_git_status else {}
+        other_git_markers = (
+            other_structure.get("_git_markers", {})
+            if show_git_status and other_structure
+            else {}
+        )
+        _GIT_HTML_MARKERS = {"U", "M", "A", "D"}
+
+        def _file_li(entry: Any, markers: dict[str, str], file_class: str) -> str:
+            """Render one file ``<li>`` with metrics and an optional Git badge.
+
+            The badge is not color-coded; deleted files are struck through.
+
+            Args:
+                entry: The :class:`FileEntry` to render.
+                markers: The ``{filename: status_char}`` map for this side.
+                file_class: The ``class="..."`` attribute (including a leading
+                    space) marking difference state, or ``""``.
+
+            Returns:
+                The ``<li>`` HTML fragment for the file.
+            """
+            base = entry.path if show_full_path else entry.name
+            escaped = html.escape(base)
+            git_marker = markers.get(entry.name, "") if show_git_status else ""
+            if git_marker and git_marker in _GIT_HTML_MARKERS:
+                git_badge = (
+                    f' <span class="git-badge git-{git_marker.lower()}" '
+                    f'style="font-size:0.8em;font-weight:bold;">'
+                    f"[{git_marker}]</span>"
+                )
+                if git_marker == "D":
+                    escaped = (
+                        f'<span style="text-decoration: line-through;">{escaped}</span>'
+                    )
+            else:
+                git_badge = ""
+            display_text = escaped + format_metrics_suffix(
+                entry.loc, entry.size, entry.mtime, metrics
+            )
+            file_icon = get_icon(entry.name, is_dir=False, style=icon_style)
+            return (
+                f'<li{file_class}><span class="file">{file_icon} '
+                f"{display_text}</span>{git_badge}</li>"
+            )
+
         files_in_this = structure.get("_files", [])
         if "_files" in structure:
             files_in_other = (
@@ -519,20 +629,13 @@ def _export_comparison_to_html(
                     files_in_other_names.append(item[0])
                 else:
                     files_in_other_names.append(cast(str, item))
-            sorted_files = sort_files_by_type(files_in_this, sort_key)
+            sorted_files = sort_files_by_type(files_in_this, sort_key, git_markers)
             for entry in sorted_files:
-                base = entry.path if show_full_path else entry.name
-                display_text = html.escape(base) + format_metrics_suffix(
-                    entry.loc, entry.size, entry.mtime, metrics
-                )
                 if entry.name not in files_in_other_names:
                     file_class = ' class="file-unique-left"'
                 else:
                     file_class = ""
-                file_icon = get_icon(entry.name, is_dir=False, style=icon_style)
-                html_content.append(
-                    f'<li{file_class}><span class="file">{file_icon} {display_text}</span></li>'
-                )
+                html_content.append(_file_li(entry, git_markers, file_class))
         for name, content in iter_subdirectories(structure):
             if name not in other_structure:
                 dir_class = ' class="directory-unique-left"'
@@ -561,17 +664,13 @@ def _export_comparison_to_html(
                     files_in_this_names.append(item[0])
                 else:
                     files_in_this_names.append(cast(str, item))
-            sorted_other_files = sort_files_by_type(other_structure["_files"], sort_key)
+            sorted_other_files = sort_files_by_type(
+                other_structure["_files"], sort_key, other_git_markers
+            )
             for entry in sorted_other_files:
                 if entry.name not in files_in_this_names:
-                    base = entry.path if show_full_path else entry.name
-                    display_text = html.escape(base) + format_metrics_suffix(
-                        entry.loc, entry.size, entry.mtime, metrics
-                    )
-                    file_class = ' class="file-unique-right"'
-                    file_icon = get_icon(entry.name, is_dir=False, style=icon_style)
                     html_content.append(
-                        f'<li{file_class}><span class="file">{file_icon} {display_text}</span></li>'
+                        _file_li(entry, other_git_markers, ' class="file-unique-right"')
                     )
         if other_structure:
             for name, content in iter_subdirectories(other_structure):
@@ -620,6 +719,16 @@ def _export_comparison_to_html(
     mtime_info = ""
     if metadata.get("show_mtime"):
         mtime_info = '<div class="info-block"><span class="info-label">Modification Times:</span> Timestamps displayed</div>'
+    git_status_info = ""
+    if metadata.get("show_git_status"):
+        git_status_info = (
+            '<div class="info-block"><span class="info-label">Git Status:</span> '
+            "Status markers displayed &mdash; "
+            '<span class="git-badge git-u">[U]</span> untracked, '
+            '<span class="git-badge git-m">[M]</span> modified, '
+            '<span class="git-badge git-a">[A]</span> added, '
+            '<span class="git-badge git-d">[D]</span> deleted</div>'
+        )
     pattern_info_html = ""
     if metadata.get("exclude_patterns") or metadata.get("include_patterns"):
         pattern_type = metadata.get("pattern_type", "glob").capitalize()
@@ -756,6 +865,10 @@ def _export_comparison_to_html(
                 color: #6c757d;
                 font-size: 0.9em;
             }}
+            .git-badge {{
+                font-size: 0.8em;
+                font-weight: bold;
+            }}
         </style>
     </head>
     <body>
@@ -765,6 +878,7 @@ def _export_comparison_to_html(
         {loc_info}
         {size_info}
         {mtime_info}
+        {git_status_info}
         {pattern_info_html}
         <div class="legend">
             <div class="legend-item">

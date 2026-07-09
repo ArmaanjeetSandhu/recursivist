@@ -4,6 +4,7 @@ import json
 import os
 import re
 import shutil
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -742,6 +743,102 @@ def test_compare_with_full_path(
     has_full_path = dir1_clean in clean_output or dir2_clean in clean_output
 
     assert has_full_path, "No full paths found in the output"
+
+
+git_available = shutil.which("git") is not None
+requires_git = pytest.mark.skipif(not git_available, reason="git is not installed")
+
+
+def _init_repo_with_changes(path: str) -> None:
+    """Create a git repo under *path* with one modified and one untracked file."""
+    import subprocess
+
+    subprocess.run(["git", "init", "-q"], cwd=path, check=True)
+    subprocess.run(
+        ["git", "config", "user.email", "test@example.com"], cwd=path, check=True
+    )
+    subprocess.run(["git", "config", "user.name", "Test User"], cwd=path, check=True)
+    subprocess.run(["git", "config", "commit.gpgsign", "false"], cwd=path, check=True)
+    with open(os.path.join(path, "tracked.txt"), "w") as f:
+        f.write("initial\n")
+    subprocess.run(["git", "add", "-A"], cwd=path, check=True)
+    subprocess.run(["git", "commit", "-qm", "init"], cwd=path, check=True)
+    with open(os.path.join(path, "tracked.txt"), "w") as f:
+        f.write("initial\nchanged\n")
+    with open(os.path.join(path, "fresh.txt"), "w") as f:
+        f.write("new\n")
+
+
+@requires_git
+def test_compare_git_status_flag(runner: CliRunner, tmp_path: Path) -> None:
+    """--git-status annotates each side of the comparison with status markers."""
+    dir1 = str(tmp_path / "gitcmp1")
+    dir2 = str(tmp_path / "gitcmp2")
+    os.makedirs(dir1, exist_ok=True)
+    os.makedirs(dir2, exist_ok=True)
+    _init_repo_with_changes(dir1)
+    _init_repo_with_changes(dir2)
+
+    result = runner.invoke(app, ["compare", dir1, dir2, "--git-status", "-e", ".git"])
+    assert result.exit_code == 0
+    assert "Git status markers" in result.stdout
+    assert "[M]" in result.stdout
+    assert "[U]" in result.stdout
+
+
+@requires_git
+def test_compare_sort_by_git_status_flag(runner: CliRunner, tmp_path: Path) -> None:
+    """--sort-by-git-status sorts and annotates even without --git-status."""
+    dir1 = str(tmp_path / "gitsort1")
+    dir2 = str(tmp_path / "gitsort2")
+    os.makedirs(dir1, exist_ok=True)
+    os.makedirs(dir2, exist_ok=True)
+    _init_repo_with_changes(dir1)
+    _init_repo_with_changes(dir2)
+
+    result = runner.invoke(
+        app, ["compare", dir1, dir2, "--sort-by-git-status", "-e", ".git"]
+    )
+    assert result.exit_code == 0
+    assert "Files sorted by Git status" in result.stdout
+    assert "[M]" in result.stdout
+
+
+@requires_git
+def test_compare_git_status_html_export(
+    runner: CliRunner, tmp_path: Path, output_dir: str
+) -> None:
+    """HTML export of a comparison carries git badges and a legend block."""
+    dir1 = str(tmp_path / "githtml1")
+    dir2 = str(tmp_path / "githtml2")
+    os.makedirs(dir1, exist_ok=True)
+    os.makedirs(dir2, exist_ok=True)
+    _init_repo_with_changes(dir1)
+    _init_repo_with_changes(dir2)
+
+    result = runner.invoke(
+        app,
+        [
+            "compare",
+            dir1,
+            dir2,
+            "--git-status",
+            "-e",
+            ".git",
+            "--save",
+            "--output-dir",
+            output_dir,
+            "--prefix",
+            "git_comparison",
+        ],
+    )
+    assert result.exit_code == 0
+    export_file = os.path.join(output_dir, "git_comparison.html")
+    assert os.path.exists(export_file)
+    with open(export_file, encoding="utf-8") as f:
+        content = f.read()
+    assert 'class="git-badge' in content
+    assert 'info-label">Git Status:' in content
 
 
 @pytest.mark.parametrize(
