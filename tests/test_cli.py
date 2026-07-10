@@ -729,7 +729,10 @@ def test_compare_with_full_path(
     runner: CliRunner, comparison_directories: tuple[str, str]
 ) -> None:
     dir1, dir2 = comparison_directories
-    result = runner.invoke(app, ["compare", dir1, dir2, "--full-path"])
+
+    width = (max(len(dir1), len(dir2)) + 40) * 2
+    env = {**os.environ, "COLUMNS": str(width)}
+    result = runner.invoke(app, ["compare", dir1, dir2, "--full-path"], env=env)
 
     assert result.exit_code == 0
     assert "dir1" in result.stdout

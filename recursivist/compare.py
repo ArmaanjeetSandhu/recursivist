@@ -14,9 +14,9 @@ from collections.abc import Mapping, Sequence
 from re import Pattern
 from typing import Any
 
-from rich.columns import Columns
 from rich.console import Console
 from rich.panel import Panel
+from rich.table import Table
 from rich.text import Text
 from rich.tree import Tree
 
@@ -471,6 +471,34 @@ def _identity_spec_for(dir1: str, dir2: str, spec: DisplayOptions) -> DisplayOpt
     return spec.without_remote_unsupported() if involves_remote else spec
 
 
+def _render_side_by_side(console: Console, left: Panel, right: Panel) -> Table:
+    """Lay two comparison panels out side by side at a fixed half-width each.
+
+    Each pane is pinned to half the available terminal width, with a
+    single-column gap between them, so the two panels always render side by
+    side. Because the panes cannot grow to fit their content, the wrapped trees
+    inside them break long entries — long names, several annotation flags, or
+    ``--full-path`` — across lines via the ``"fold"`` overflow, keeping the two
+    panes aligned at any width.
+
+    Args:
+        console: Console the grid will be printed to; its width sets the split.
+        left: Panel for the first directory.
+        right: Panel for the second directory.
+
+    Returns:
+        A ``rich`` grid holding the two panels side by side.
+    """
+    gap = 1
+    panel_width = max((console.width - gap) // 2, 1)
+    grid = Table.grid(padding=0)
+    grid.add_column(width=panel_width, overflow="fold")
+    grid.add_column(width=gap)
+    grid.add_column(width=panel_width, overflow="fold")
+    grid.add_row(left, "", right)
+    return grid
+
+
 def display_comparison(
     dir1: str,
     dir2: str,
@@ -652,21 +680,18 @@ def display_comparison(
     legend_panel = Panel(legend_text, border_style="dim")
     console.print(legend_panel)
     console.print(
-        Columns(
-            [
-                Panel(
-                    tree1,
-                    title=f"Directory 1: {root_base1}",
-                    border_style="blue",
-                ),
-                Panel(
-                    tree2,
-                    title=f"Directory 2: {root_base2}",
-                    border_style="green",
-                ),
-            ],
-            equal=True,
-            expand=True,
+        _render_side_by_side(
+            console,
+            Panel(
+                tree1,
+                title=f"Directory 1: {root_base1}",
+                border_style="blue",
+            ),
+            Panel(
+                tree2,
+                title=f"Directory 2: {root_base2}",
+                border_style="green",
+            ),
         )
     )
 

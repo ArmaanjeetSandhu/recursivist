@@ -369,6 +369,40 @@ def test_display_comparison(
     assert "Legend" in captured.out
 
 
+def test_display_comparison_stays_side_by_side_when_names_are_long(
+    tmp_path: Any,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Long filenames wrap so the two panels stay side by side.
+
+    A filename wider than half the terminal must break across lines rather than
+    widen its panel, so the two directory panels remain on the same terminal
+    line regardless of entry length.
+    """
+    long_name = "a_very_long_filename_that_far_exceeds_half_the_terminal_width.py"
+    dir1 = tmp_path / "left"
+    dir2 = tmp_path / "right"
+    dir1.mkdir()
+    dir2.mkdir()
+    (dir1 / long_name).write_text("x")
+    (dir2 / "short.py").write_text("y")
+
+    monkeypatch.setenv("COLUMNS", "70")
+    display_comparison(str(dir1), str(dir2))
+    out = capsys.readouterr().out
+
+    header_lines = [
+        line
+        for line in out.splitlines()
+        if "Directory 1:" in line and "Directory 2:" in line
+    ]
+    assert header_lines, "the two directory panels are not on the same line"
+
+    assert long_name not in out, "the long filename was not wrapped"
+    assert "a_very_long_filename" in out, "the wrapped filename is missing entirely"
+
+
 @pytest.mark.parametrize(
     "option_name,option_value,expected_in_output,expected_not_in_output",
     [
@@ -769,6 +803,7 @@ class TestDisplayComparison:
             patch("recursivist.compare.build_comparison_tree") as mock_build_tree,
             patch("recursivist.compare.Tree") as mock_tree,
         ):
+            mock_console.return_value.width = 100
             mock_compare.return_value = ({"_files": []}, {"_files": []})
             display_comparison(dir1, dir2)
             mock_compare.assert_called_once()
@@ -1598,7 +1633,9 @@ class TestCompareRemoteIdentity:
             "recursivist.compare.compare_directory_structures",
             return_value=({"_files": []}, {"_files": []}),
         )
-        mocker.patch("recursivist.compare.Console", return_value=MagicMock())
+        mock_console = MagicMock()
+        mock_console.width = 100
+        mocker.patch("recursivist.compare.Console", return_value=mock_console)
         captured: dict[str, DisplayOptions | None] = {}
         real = build_comparison_tree
 
