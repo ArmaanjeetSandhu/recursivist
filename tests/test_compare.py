@@ -17,6 +17,7 @@ from rich.tree import Tree
 
 from recursivist._models import FileEntry
 from recursivist.compare import (
+    _identity_spec_for,
     build_comparison_tree,
     compare_directory_structures,
     display_comparison,
@@ -1391,3 +1392,284 @@ class TestCompareGitStatus:
         display_comparison("d1", "d2", spec=_GIT_SPEC_DISPLAY)
         text = recorded["console"].export_text()
         assert "Git status markers" in text
+
+
+def _styles_by_text(mock_tree: MagicMock) -> dict[str, str]:
+    """Map each added ``Text``'s plain content to its style string."""
+    return {
+        call.args[0].plain: str(call.args[0].style)
+        for call in mock_tree.add.call_args_list
+        if call.args and isinstance(call.args[0], Text)
+    }
+
+
+class TestCompareAnnotationAwareDifferences:
+    """A differing annotation on identically named files marks them unique.
+
+    The comparison highlight keys on the *displayed* annotation, so two files
+    that share a name but differ in an active metric (LOC/size/mtime) or Git
+    status are shown as unique to their side rather than silently treated as
+    equal, while files whose annotations match stay shared.
+    """
+
+    def _render(
+        self, structure: dict[str, Any], other: dict[str, Any], spec: DisplayOptions
+    ) -> dict[str, str]:
+        tree = MagicMock()
+        tree.add.return_value = tree
+        build_comparison_tree(structure, other, tree, spec)
+        return _styles_by_text(tree)
+
+    def test_differing_loc_marks_same_named_file_unique(self) -> None:
+        """Same name, different LOC under --sort-by-loc: highlighted, not shared."""
+        spec = DisplayOptions(sort_key=METRIC_LOC, metrics=(METRIC_LOC,))
+        this = {"_files": [FileEntry(name="shared.py", path="shared.py", loc=3)]}
+        other = {"_files": [FileEntry(name="shared.py", path="shared.py", loc=1)]}
+
+        styles = self._render(this, other, spec)
+        assert styles["📄 shared.py (3 lines)"] == "on green"
+        assert styles["📄 shared.py (1 line)"] == "on red"
+
+    def test_matching_loc_keeps_same_named_file_shared(self) -> None:
+        """Same name, identical LOC: not highlighted (still shared)."""
+        spec = DisplayOptions(sort_key=METRIC_LOC, metrics=(METRIC_LOC,))
+        this = {"_files": [FileEntry(name="shared.py", path="shared.py", loc=5)]}
+        other = {"_files": [FileEntry(name="shared.py", path="shared.py", loc=5)]}
+
+        styles = self._render(this, other, spec)
+        assert styles["📄 shared.py (5 lines)"] == ""
+
+    def test_no_annotation_ignores_metric_differences(self) -> None:
+        """Without an active metric, stored LOC differences do not split files."""
+        this = {"_files": [FileEntry(name="shared.py", path="shared.py", loc=3)]}
+        other = {"_files": [FileEntry(name="shared.py", path="shared.py", loc=1)]}
+
+        styles = self._render(this, other, DisplayOptions())
+        assert styles["📄 shared.py"] == ""
+
+    def test_differing_git_status_marks_same_named_file_unique(self) -> None:
+        """Same name, different Git status: highlighted on each side."""
+        this = {
+            "_files": [FileEntry(name="foo.py", path="foo.py")],
+            "_git_markers": {"foo.py": "M"},
+        }
+        other = {
+            "_files": [FileEntry(name="foo.py", path="foo.py")],
+            "_git_markers": {},
+        }
+
+        styles = self._render(this, other, _GIT_SPEC_DISPLAY)
+        assert styles["📄 foo.py [M]"] == "on green"
+        assert styles["📄 foo.py"] == "on red"
+
+    def test_matching_git_status_keeps_same_named_file_shared(self) -> None:
+        """Same name, identical Git status: not highlighted."""
+        this = {
+            "_files": [FileEntry(name="foo.py", path="foo.py")],
+            "_git_markers": {"foo.py": "M"},
+        }
+        other = {
+            "_files": [FileEntry(name="foo.py", path="foo.py")],
+            "_git_markers": {"foo.py": "M"},
+        }
+
+        styles = self._render(this, other, _GIT_SPEC_DISPLAY)
+        assert styles["📄 foo.py [M]"] == ""
+
+    def test_html_export_marks_differing_loc_unique(
+        self, mocker: MockerFixture, tmp_path: Any
+    ) -> None:
+        """The HTML exporter tags a same-named, differing-LOC file as unique."""
+        mocker.patch(
+            "recursivist.compare.compile_regex_patterns",
+            side_effect=lambda patterns, use_regex: list(patterns),
+        )
+        mocker.patch(
+            "recursivist.compare.get_directory_structure",
+            side_effect=[
+                (
+                    {"_files": [FileEntry(name="shared.py", path="shared.py", loc=3)]},
+                    {".py"},
+                ),
+                (
+                    {"_files": [FileEntry(name="shared.py", path="shared.py", loc=1)]},
+                    {".py"},
+                ),
+            ],
+        )
+        out = str(tmp_path / "cmp.html")
+        export_comparison(
+            "d1",
+            "d2",
+            "html",
+            out,
+            spec=DisplayOptions(sort_key=METRIC_LOC, metrics=(METRIC_LOC,)),
+        )
+        with open(out, encoding="utf-8") as f:
+            content = f.read()
+        assert 'class="file-unique-left"' in content
+        assert 'class="file-unique-right"' in content
+
+
+_GITHUB_URL = "https://github.com/owner/repo"
+
+
+class TestCompareRemoteIdentity:
+    """Local-vs-remote comparisons drop remote-unsupported annotations from
+    identity.
+
+    A hosted repository cannot supply a meaningful per-file modification time
+    or Git status, so those annotations must not split otherwise-matching files
+    when one side is a GitHub repository — even though they are still displayed.
+    Line count and size, which are computed from file contents, keep splitting.
+    """
+
+    def _render_with_identity(
+        self,
+        structure: dict[str, Any],
+        other: dict[str, Any],
+        spec: DisplayOptions,
+        identity_spec: DisplayOptions,
+    ) -> dict[str, str]:
+        tree = MagicMock()
+        tree.add.return_value = tree
+        build_comparison_tree(structure, other, tree, spec, identity_spec=identity_spec)
+        return _styles_by_text(tree)
+
+    def test_identity_spec_local_vs_local_is_full_spec(self) -> None:
+        """With two local paths, identity uses the full display spec."""
+        spec = DisplayOptions(metrics=(METRIC_LOC, METRIC_MTIME), show_git_status=True)
+        assert _identity_spec_for("/a", "/b", spec) is spec
+
+    def test_identity_spec_drops_mtime_and_git_for_github_side(self) -> None:
+        """With a GitHub side, mtime and Git status leave the identity."""
+        spec = DisplayOptions(
+            metrics=(METRIC_LOC, METRIC_SIZE, METRIC_MTIME), show_git_status=True
+        )
+        reduced = _identity_spec_for("/local", _GITHUB_URL, spec)
+        assert reduced.metrics == (METRIC_LOC, METRIC_SIZE)
+        assert reduced.show_git_status is False
+
+    def test_identity_spec_reduced_when_first_side_is_github(self) -> None:
+        """The GitHub side may be either argument."""
+        spec = DisplayOptions(metrics=(METRIC_MTIME,), show_git_status=True)
+        reduced = _identity_spec_for(_GITHUB_URL, "/local", spec)
+        assert reduced.metrics == ()
+        assert reduced.show_git_status is False
+
+    def test_mtime_difference_does_not_split_when_dropped(self) -> None:
+        """Same name and LOC, differing mtime: shared once identity drops mtime."""
+        spec = DisplayOptions(metrics=(METRIC_LOC, METRIC_MTIME))
+        identity_spec = spec.without_remote_unsupported()
+        this = {"_files": [FileEntry(name="a.py", path="a.py", loc=5, mtime=1.6e9)]}
+        remote = {"_files": [FileEntry(name="a.py", path="a.py", loc=5, mtime=0.0)]}
+
+        styles = self._render_with_identity(this, remote, spec, identity_spec)
+
+        assert all(style == "" for style in styles.values())
+        assert sum("a.py" in text for text in styles) == 1
+
+    def test_mtime_difference_still_splits_when_identity_keeps_it(self) -> None:
+        """The same inputs *do* split when identity keeps mtime (local-vs-local)."""
+        spec = DisplayOptions(metrics=(METRIC_LOC, METRIC_MTIME))
+        this = {"_files": [FileEntry(name="a.py", path="a.py", loc=5, mtime=1.6e9)]}
+        other = {"_files": [FileEntry(name="a.py", path="a.py", loc=5, mtime=0.0)]}
+
+        styles = self._render_with_identity(this, other, spec, spec)
+        assert "on green" in styles.values()
+        assert "on red" in styles.values()
+
+    def test_loc_difference_still_splits_with_github_side(self) -> None:
+        """LOC is content-derived, so it keeps splitting even against a remote."""
+        spec = DisplayOptions(metrics=(METRIC_LOC,))
+        identity_spec = spec.without_remote_unsupported()
+        this = {"_files": [FileEntry(name="a.py", path="a.py", loc=5)]}
+        remote = {"_files": [FileEntry(name="a.py", path="a.py", loc=9)]}
+
+        styles = self._render_with_identity(this, remote, spec, identity_spec)
+        assert styles["📄 a.py (5 lines)"] == "on green"
+        assert styles["📄 a.py (9 lines)"] == "on red"
+
+    def test_display_comparison_threads_reduced_identity_for_github(
+        self, mocker: MockerFixture
+    ) -> None:
+        """The terminal entry point passes the reduced identity spec downstream."""
+        mocker.patch(
+            "recursivist.compare.compare_directory_structures",
+            return_value=({"_files": []}, {"_files": []}),
+        )
+        mocker.patch("recursivist.compare.Console", return_value=MagicMock())
+        captured: dict[str, DisplayOptions | None] = {}
+        real = build_comparison_tree
+
+        def spy(*args: Any, **kwargs: Any) -> None:
+            captured.setdefault("identity_spec", kwargs.get("identity_spec"))
+            return real(*args, **kwargs)
+
+        mocker.patch("recursivist.compare.build_comparison_tree", side_effect=spy)
+        display_comparison(
+            "/local",
+            _GITHUB_URL,
+            spec=DisplayOptions(
+                metrics=(METRIC_LOC, METRIC_MTIME), show_git_status=True
+            ),
+        )
+        identity_spec = captured["identity_spec"]
+        assert identity_spec is not None
+        assert identity_spec.metrics == (METRIC_LOC,)
+        assert identity_spec.show_git_status is False
+
+    def test_export_html_github_side_ignores_mtime_for_identity(
+        self, mocker: MockerFixture, tmp_path: Any
+    ) -> None:
+        """HTML export: a shared file differing only in mtime is not unique."""
+        mocker.patch(
+            "recursivist.compare.compile_regex_patterns",
+            side_effect=lambda patterns, use_regex: list(patterns),
+        )
+        local = {"_files": [FileEntry(name="a.py", path="a.py", loc=5, mtime=1.6e9)]}
+        remote = {"_files": [FileEntry(name="a.py", path="a.py", loc=5, mtime=0.0)]}
+        mocker.patch(
+            "recursivist.compare.compare_directory_structures",
+            return_value=(local, remote),
+        )
+        out = str(tmp_path / "cmp.html")
+        export_comparison(
+            "/local",
+            _GITHUB_URL,
+            "html",
+            out,
+            spec=DisplayOptions(metrics=(METRIC_LOC, METRIC_MTIME)),
+        )
+        with open(out, encoding="utf-8") as f:
+            content = f.read()
+        assert "a.py" in content
+        assert 'class="file-unique-left"' not in content
+        assert 'class="file-unique-right"' not in content
+
+    def test_export_html_local_vs_local_splits_on_mtime(
+        self, mocker: MockerFixture, tmp_path: Any
+    ) -> None:
+        """The same inputs between two local paths still split on mtime."""
+        mocker.patch(
+            "recursivist.compare.compile_regex_patterns",
+            side_effect=lambda patterns, use_regex: list(patterns),
+        )
+        left = {"_files": [FileEntry(name="a.py", path="a.py", loc=5, mtime=1.6e9)]}
+        right = {"_files": [FileEntry(name="a.py", path="a.py", loc=5, mtime=0.0)]}
+        mocker.patch(
+            "recursivist.compare.compare_directory_structures",
+            return_value=(left, right),
+        )
+        out = str(tmp_path / "cmp.html")
+        export_comparison(
+            "/local-a",
+            "/local-b",
+            "html",
+            out,
+            spec=DisplayOptions(metrics=(METRIC_LOC, METRIC_MTIME)),
+        )
+        with open(out, encoding="utf-8") as f:
+            content = f.read()
+        assert 'class="file-unique-left"' in content
+        assert 'class="file-unique-right"' in content
