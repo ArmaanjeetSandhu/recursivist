@@ -27,9 +27,11 @@ from recursivist.github import (
     GitHubTarget,
     apply_github_urls,
     checkout_repository,
+    commit_shas_equal,
     get_github_token,
     is_github_url,
     parse_github_url,
+    resolve_commit_shas,
     resolve_default_branch,
 )
 
@@ -260,6 +262,107 @@ def test_resolve_default_branch_missing_symref(
     monkeypatch.setattr("recursivist.github.urllib.request.urlopen", fake)
     with pytest.raises(GitHubError, match="default branch"):
         resolve_default_branch(GitHubTarget("o", "r"))
+
+
+def _pkt(line: bytes) -> bytes:
+    """Frame *line* as a Git smart-HTTP pkt-line."""
+    return f"{len(line) + 4:04x}".encode() + line
+
+
+def _full_refs_payload() -> bytes:
+    """A properly pkt-framed advertisement with branches and an annotated tag.
+
+    ``HEAD`` and ``main`` share a commit; ``dev`` has its own commit; the
+    annotated tag ``v1.0`` peels to the ``dev`` commit.
+    """
+    head = b"1" * 40
+    dev = b"2" * 40
+    tag_obj = b"3" * 40
+    return b"".join(
+        [
+            _pkt(b"# service=git-upload-pack\n"),
+            b"0000",
+            _pkt(
+                head
+                + b" HEAD\x00multi_ack symref=HEAD:refs/heads/main object-format=sha1\n"
+            ),
+            _pkt(head + b" refs/heads/main\n"),
+            _pkt(dev + b" refs/heads/dev\n"),
+            _pkt(tag_obj + b" refs/tags/v1.0\n"),
+            _pkt(dev + b" refs/tags/v1.0^{}\n"),
+            b"0000",
+        ]
+    )
+
+
+def _serve_payload(payload: bytes) -> Callable[..., Any]:
+    def fake(request: Any, timeout: Any = None) -> io.BytesIO:
+        return io.BytesIO(payload)
+
+    return fake
+
+
+def test_resolve_commit_shas_branch_and_default(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "recursivist.github.urllib.request.urlopen",
+        _serve_payload(_full_refs_payload()),
+    )
+    assert resolve_commit_shas(GitHubTarget("o", "r"), [None, "main"]) == [
+        "1" * 40,
+        "1" * 40,
+    ]
+
+
+def test_resolve_commit_shas_annotated_tag_peels_to_commit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "recursivist.github.urllib.request.urlopen",
+        _serve_payload(_full_refs_payload()),
+    )
+    dev_sha, tag_sha = resolve_commit_shas(GitHubTarget("o", "r"), ["dev", "v1.0"])
+    assert dev_sha == "2" * 40
+    assert tag_sha == "2" * 40
+
+
+def test_resolve_commit_shas_explicit_commit_id(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "recursivist.github.urllib.request.urlopen",
+        _serve_payload(_full_refs_payload()),
+    )
+    assert resolve_commit_shas(GitHubTarget("o", "r"), ["2222222"]) == ["2222222"]
+
+
+def test_resolve_commit_shas_unknown_ref_is_none(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "recursivist.github.urllib.request.urlopen",
+        _serve_payload(_full_refs_payload()),
+    )
+    assert resolve_commit_shas(GitHubTarget("o", "r"), ["nope"]) == [None]
+
+
+def test_resolve_commit_shas_network_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        "recursivist.github.urllib.request.urlopen",
+        _fake_urlopen(refs_error=URLError("boom")),
+    )
+    with pytest.raises(GitHubError, match="Could not reach GitHub"):
+        resolve_commit_shas(GitHubTarget("o", "r"), [None])
+
+
+def test_commit_shas_equal() -> None:
+    assert commit_shas_equal("a" * 40, "A" * 40) is True
+    assert commit_shas_equal("a" * 40, "b" * 40) is False
+    assert commit_shas_equal("abcdef1234567890", "abcdef1") is True
+    assert commit_shas_equal("abcdef1234", "abcde") is False
+    assert commit_shas_equal(None, "a" * 40) is False
+    assert commit_shas_equal("a" * 40, None) is False
 
 
 def test_checkout_repository_default_branch(monkeypatch: pytest.MonkeyPatch) -> None:

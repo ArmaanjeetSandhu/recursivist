@@ -40,7 +40,7 @@ import urllib.request
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
 from recursivist._models import FileEntry
 
@@ -235,6 +235,101 @@ def _request(
     return urllib.request.Request(url, headers=headers)
 
 
+def _fetch_refs_advertisement(target: GitHubTarget, token: str | None) -> bytes:
+    """Fetch a repository's Git smart-HTTP ``info/refs`` advertisement.
+
+    The advertisement is served by the ``git-upload-pack`` service and lists
+    every ref (branches, tags, and the symbolic ``HEAD``) together with the
+    commit each points at. It is not subject to the REST API's unauthenticated
+    rate limit, so it is used both to discover the default branch and to resolve
+    refs to commit SHAs.
+
+    Args:
+        target: The repository whose refs are wanted.
+        token: Optional GitHub token for private repositories.
+
+    Returns:
+        The raw advertisement payload.
+
+    Raises:
+        GitHubError: If the repository is missing or private without a valid
+            token, or cannot otherwise be reached.
+    """
+    url = f"{_WEB_HOST}/{target.owner}/{target.repo}/info/refs?service=git-upload-pack"
+    try:
+        with urllib.request.urlopen(_request(url, token), timeout=30) as response:
+            return cast(bytes, response.read())
+    except urllib.error.HTTPError as exc:
+        if exc.code in (401, 404):
+            raise GitHubError(
+                f"Repository '{target.slug}' was not found. It may not exist, "
+                "or it may be private (set GITHUB_TOKEN to access private repositories)."
+            ) from exc
+        raise GitHubError(
+            f"Could not reach GitHub for '{target.slug}' (HTTP {exc.code})."
+        ) from exc
+    except OSError as exc:
+        raise GitHubError(f"Could not reach GitHub for '{target.slug}': {exc}") from exc
+
+
+def _iter_pkt_lines(payload: bytes) -> Iterator[bytes]:
+    """Yield the content of each pkt-line in a Git smart-HTTP *payload*.
+
+    The advertisement is framed as pkt-lines: a 4-hex-digit length prefix
+    (counting itself) followed by that many bytes of content, with ``0000``
+    acting as a flush marker. Malformed framing stops iteration rather than
+    raising, since callers treat missing data as an unresolved ref.
+    """
+    i, n = 0, len(payload)
+    while i + 4 <= n:
+        try:
+            length = int(payload[i : i + 4], 16)
+        except ValueError:
+            return
+        if length == 0:
+            i += 4
+            continue
+        if length < 4 or i + length > n:
+            return
+        yield payload[i + 4 : i + length]
+        i += length
+
+
+def _parse_advertised_refs(payload: bytes) -> dict[str, str]:
+    """Parse an ``info/refs`` advertisement into a ``ref name -> commit SHA`` map.
+
+    The returned mapping includes ``HEAD``, every ``refs/heads/*`` branch and
+    every ``refs/tags/*`` tag. Annotated tags are advertised both as the tag
+    object (``refs/tags/x``) and as the commit they dereference to
+    (``refs/tags/x^{}``); the peeled commit is preferred so that a tag always
+    maps to a commit.
+
+    Args:
+        payload: The raw advertisement bytes.
+
+    Returns:
+        A mapping from ref name to lowercase 40-character commit SHA.
+    """
+    refs: dict[str, str] = {}
+    peeled: dict[str, str] = {}
+    for content in _iter_pkt_lines(payload):
+        line = content.split(b"\x00", 1)[0].strip(b"\n")
+        parts = line.split(b" ", 1)
+        if len(parts) != 2 or len(parts[0]) != 40:
+            continue
+        try:
+            sha = parts[0].decode("ascii").lower()
+        except UnicodeDecodeError:
+            continue
+        name = parts[1].decode("utf-8", "replace")
+        if name.endswith("^{}"):
+            peeled[name[:-3]] = sha
+        else:
+            refs[name] = sha
+    refs.update(peeled)
+    return refs
+
+
 def resolve_default_branch(target: GitHubTarget, token: str | None = None) -> str:
     """Resolve a repository's default branch without using the REST API.
 
@@ -253,28 +348,87 @@ def resolve_default_branch(target: GitHubTarget, token: str | None = None) -> st
         GitHubError: If the repository is missing or private without a valid
             token, or if the default branch cannot be determined.
     """
-    url = f"{_WEB_HOST}/{target.owner}/{target.repo}/info/refs?service=git-upload-pack"
-    try:
-        with urllib.request.urlopen(_request(url, token), timeout=30) as response:
-            payload = response.read()
-    except urllib.error.HTTPError as exc:
-        if exc.code in (401, 404):
-            raise GitHubError(
-                f"Repository '{target.slug}' was not found. It may not exist, "
-                "or it may be private (set GITHUB_TOKEN to access private repositories)."
-            ) from exc
-        raise GitHubError(
-            f"Could not reach GitHub for '{target.slug}' (HTTP {exc.code})."
-        ) from exc
-    except OSError as exc:
-        raise GitHubError(f"Could not reach GitHub for '{target.slug}': {exc}") from exc
-
+    payload = _fetch_refs_advertisement(target, token)
     match = re.search(rb"symref=HEAD:refs/heads/([^\x00 \n]+)", payload)
     if not match:
         raise GitHubError(
             f"Could not determine the default branch for '{target.slug}'."
         )
     return match.group(1).decode("utf-8", "replace")
+
+
+_SHA_RE = re.compile(r"[0-9a-fA-F]{7,40}")
+
+
+def resolve_commit_shas(
+    target: GitHubTarget,
+    refs: list[str | None],
+    token: str | None = None,
+) -> list[str | None]:
+    """Resolve each ref in *refs* to a commit SHA using one advertisement fetch.
+
+    A single ``info/refs`` request is made and reused for every ref, so this is
+    cheap even for several refs on the same repository. Each entry is resolved
+    as follows:
+
+    * ``None`` resolves to the commit the default branch (``HEAD``) points at.
+    * A branch or tag name resolves to its tip commit; annotated tags resolve to
+      the commit they dereference to.
+    * A value that is not an advertised ref but looks like a commit SHA (7–40
+      hex characters) is returned as-is, lowercased, so explicit commit pins are
+      supported.
+    * Anything else resolves to ``None``.
+
+    Args:
+        target: The repository to resolve against.
+        refs: The refs to resolve, in order. ``None`` means the default branch.
+        token: Optional GitHub token for private repositories.
+
+    Returns:
+        A list the same length as *refs*, each a lowercase commit SHA or
+        ``None`` when the ref could not be resolved.
+
+    Raises:
+        GitHubError: If the repository is missing, private, or unreachable.
+    """
+    advertised = _parse_advertised_refs(_fetch_refs_advertisement(target, token))
+    resolved: list[str | None] = []
+    for ref in refs:
+        if ref is None:
+            resolved.append(advertised.get("HEAD"))
+            continue
+        sha = (
+            advertised.get(f"refs/heads/{ref}")
+            or advertised.get(f"refs/tags/{ref}")
+            or advertised.get(ref)
+        )
+        if sha is None and _SHA_RE.fullmatch(ref):
+            sha = ref.lower()
+        resolved.append(sha)
+    return resolved
+
+
+def commit_shas_equal(sha1: str | None, sha2: str | None) -> bool:
+    """Return whether two commit SHAs identify the same commit.
+
+    Handles abbreviated SHAs (as short as 7 characters, Git's conventional
+    minimum) by treating one as a match for the other when it is a
+    case-insensitive prefix. ``None`` never matches.
+
+    Args:
+        sha1: The first commit SHA, or ``None``.
+        sha2: The second commit SHA, or ``None``.
+
+    Returns:
+        ``True`` if both are non-``None`` and identify the same commit.
+    """
+    if sha1 is None or sha2 is None:
+        return False
+    a, b = sha1.lower(), sha2.lower()
+    if a == b:
+        return True
+    shorter, longer = (a, b) if len(a) <= len(b) else (b, a)
+    return len(shorter) >= 7 and longer.startswith(shorter)
 
 
 def _download_archive(

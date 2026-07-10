@@ -6,6 +6,7 @@ import re
 import shutil
 from pathlib import Path
 from typing import Any
+from unittest import mock
 
 import pytest
 from typer.testing import CliRunner
@@ -693,6 +694,172 @@ def test_compare_with_depth_limit(runner: CliRunner, temp_dir: str) -> None:
     assert "(max depth reached)" in result.stdout
     assert "file2.txt" not in result.stdout
     assert "different.txt" not in result.stdout
+
+
+def test_compare_same_directory_rejected(
+    runner: CliRunner, temp_dir: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    dir1 = os.path.join(temp_dir, "same_dir")
+    os.makedirs(dir1, exist_ok=True)
+    with open(os.path.join(dir1, "file.txt"), "w") as f:
+        f.write("content")
+    result = runner.invoke(app, ["compare", dir1, dir1])
+    assert result.exit_code == 1
+    assert any("with itself" in record.message for record in caplog.records)
+
+
+def test_compare_same_directory_trailing_slash_rejected(
+    runner: CliRunner, temp_dir: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    dir1 = os.path.join(temp_dir, "same_dir_slash")
+    os.makedirs(dir1, exist_ok=True)
+    with open(os.path.join(dir1, "file.txt"), "w") as f:
+        f.write("content")
+    result = runner.invoke(app, ["compare", dir1, dir1 + os.sep])
+    assert result.exit_code == 1
+    assert any("with itself" in record.message for record in caplog.records)
+
+
+def test_compare_same_directory_relative_spelling_rejected(
+    runner: CliRunner, temp_dir: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    dir1 = os.path.join(temp_dir, "same_dir_rel")
+    os.makedirs(dir1, exist_ok=True)
+    with open(os.path.join(dir1, "file.txt"), "w") as f:
+        f.write("content")
+    other_spelling = os.path.join(temp_dir, "same_dir_rel", "..", "same_dir_rel")
+    result = runner.invoke(app, ["compare", dir1, other_spelling])
+    assert result.exit_code == 1
+    assert any("with itself" in record.message for record in caplog.records)
+
+
+def test_compare_different_directories_not_rejected(
+    runner: CliRunner, temp_dir: str
+) -> None:
+    dir1 = os.path.join(temp_dir, "distinct_a")
+    dir2 = os.path.join(temp_dir, "distinct_b")
+    os.makedirs(dir1, exist_ok=True)
+    os.makedirs(dir2, exist_ok=True)
+    with open(os.path.join(dir1, "a.txt"), "w") as f:
+        f.write("a")
+    with open(os.path.join(dir2, "b.txt"), "w") as f:
+        f.write("b")
+    result = runner.invoke(app, ["compare", dir1, dir2])
+    assert result.exit_code == 0
+
+
+def test_compare_same_github_repo_rejected(
+    runner: CliRunner, caplog: pytest.LogCaptureFixture
+) -> None:
+    url = "https://github.com/owner/repo"
+    result = runner.invoke(app, ["compare", url, url])
+    assert result.exit_code == 1
+    assert any("with itself" in record.message for record in caplog.records)
+
+
+def test_compare_same_github_repo_case_insensitive_rejected(
+    runner: CliRunner, caplog: pytest.LogCaptureFixture
+) -> None:
+    result = runner.invoke(
+        app,
+        [
+            "compare",
+            "github.com/ArmaanjeetSandhu/zoom-anchor",
+            "github.com/armaanjeetsandhu/zoom-anchor",
+        ],
+    )
+    assert result.exit_code == 1
+    assert any("with itself" in record.message for record in caplog.records)
+
+
+def test_compare_github_default_branch_matches_explicit_ref_rejected(
+    runner: CliRunner, caplog: pytest.LogCaptureFixture
+) -> None:
+    with mock.patch(
+        "recursivist.cli.resolve_commit_shas", return_value=["a" * 40, "a" * 40]
+    ):
+        result = runner.invoke(
+            app,
+            [
+                "compare",
+                "github.com/ArmaanjeetSandhu/zoom-anchor",
+                "github.com/ArmaanjeetSandhu/zoom-anchor/tree/main",
+            ],
+        )
+    assert result.exit_code == 1
+    assert any("with itself" in record.message for record in caplog.records)
+
+
+def test_compare_github_distinct_refs_same_commit_rejected(
+    runner: CliRunner, caplog: pytest.LogCaptureFixture
+) -> None:
+    with mock.patch(
+        "recursivist.cli.resolve_commit_shas",
+        return_value=["abc1234" * 5 + "def12", "abc1234" * 5 + "def12"],
+    ):
+        result = runner.invoke(
+            app,
+            [
+                "compare",
+                "github.com/owner/repo/tree/main",
+                "github.com/owner/repo/tree/v1.0",
+            ],
+        )
+    assert result.exit_code == 1
+    assert any("with itself" in record.message for record in caplog.records)
+
+
+def test_compare_github_explicit_ref_differs_from_default_allowed(
+    runner: CliRunner,
+) -> None:
+    with mock.patch(
+        "recursivist.cli.resolve_commit_shas", return_value=["a" * 40, "b" * 40]
+    ):
+        with mock.patch("recursivist.cli.display_comparison") as display:
+            result = runner.invoke(
+                app,
+                [
+                    "compare",
+                    "github.com/owner/repo",
+                    "github.com/owner/repo/tree/main",
+                ],
+            )
+    assert result.exit_code == 0
+    assert display.called
+
+
+def test_compare_github_different_refs_different_commits_allowed(
+    runner: CliRunner,
+) -> None:
+    with mock.patch(
+        "recursivist.cli.resolve_commit_shas", return_value=["a" * 40, "b" * 40]
+    ):
+        with mock.patch("recursivist.cli.display_comparison") as display:
+            result = runner.invoke(
+                app,
+                [
+                    "compare",
+                    "github.com/owner/repo/tree/main",
+                    "github.com/owner/repo/tree/dev",
+                ],
+            )
+    assert result.exit_code == 0
+    assert display.called
+
+
+def test_compare_github_identical_refs_no_resolution(runner: CliRunner) -> None:
+    with mock.patch("recursivist.cli.resolve_commit_shas") as resolve:
+        result = runner.invoke(
+            app,
+            [
+                "compare",
+                "github.com/owner/repo/tree/main",
+                "github.com/owner/repo/tree/main",
+            ],
+        )
+    assert result.exit_code == 1
+    resolve.assert_not_called()
+    resolve.assert_not_called()
 
 
 def test_compare_export_to_html(
