@@ -127,7 +127,7 @@ A self-contained HTML document with an embedded stylesheet — no external asset
 - Metric annotations when statistics are enabled
 - Git-status badges when `--git-status` is used
 
-Open it in any browser, or embed it in documentation. The output is a static page (it does not include search or collapsing — for those, use the React export).
+Open it in any browser, or embed it in documentation. The output is a static page.
 
 ## Markdown (`.md`)
 

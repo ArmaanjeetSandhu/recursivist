@@ -1,2162 +1,302 @@
 # Sitemap
 
-<link
-  rel="stylesheet"
-  href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/duotone/style.css"
-/>
-
-<div class="mm-controls">
-  <button class="mm-btn mm-icon-btn" id="mm-expcol-toggle" title="Collapse All">
-    <i class="ph-duotone ph-arrows-in" id="mm-expcol-icon"></i>
-  </button>
-
-  <button class="mm-btn mm-icon-btn" id="mm-reset-view" title="Reset View">
-    <i class="ph-duotone ph-arrows-counter-clockwise"></i>
-  </button>
-
-  <button class="mm-btn mm-orient-btn" id="mm-orient-toggle" title="Switch to Top → Bottom">
-
-    <span id="mm-icons-lr" style="display: none">
-      <i class="ph-duotone ph-arrow-circle-left"></i>
-      <i class="ph-duotone ph-arrow-circle-right"></i>
-    </span>
-    <span id="mm-icons-tb">
-      <i class="ph-duotone ph-arrow-circle-up"></i>
-      <i class="ph-duotone ph-arrow-circle-down"></i>
-    </span>
-
-  </button>
-</div>
-
-<div id="mm-root" style="position: fixed; inset: 0; pointer-events: none; z-index: 9999; overflow: visible">
-  <svg id="mm-svg" xmlns="http://www.w3.org/2000/svg" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow: visible"
-  ></svg>
-</div>
-
-<style>
-  .mm-controls i[class*="ph-"] {
-    font-size: 1rem;
-    line-height: 1;
-    display: inline-flex;
-    align-items: center;
-  }
-
-  .mm-controls {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    margin: 1rem 0;
-    position: relative;
-    z-index: 10000;
-  }
-
-  .mm-btn {
-    font-family: "IBM Plex Mono", monospace;
-    font-size: 0.72rem;
-    font-weight: 600;
-    letter-spacing: 0.02em;
-    border-radius: 8px;
-    cursor: pointer;
-    border: 1px solid transparent;
-    background: transparent;
-    color: var(--md-typeset-color, #1a1a1a);
-    transition: background 0.15s ease, border-color 0.15s ease,
-      transform 0.1s ease;
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    white-space: nowrap;
-    line-height: 1;
-  }
-
-  .mm-btn:hover {
-    background: rgba(34, 197, 94, 0.1);
-    border-color: rgba(34, 197, 94, 0.3);
-    transform: translateY(-1px);
-  }
-
-  .mm-btn:active {
-    transform: scale(0.96);
-  }
-
-  [data-md-color-scheme="slate"] .mm-btn {
-    color: rgba(255, 255, 255, 0.85);
-  }
-
-  [data-md-color-scheme="slate"] .mm-btn:hover {
-    background: rgba(34, 197, 94, 0.12);
-    border-color: rgba(34, 197, 94, 0.35);
-  }
-
-  .mm-icon-btn {
-    padding: 5px 6px;
-  }
-
-  .mm-orient-btn {
-    padding: 5px 8px;
-    gap: 3px;
-  }
-
-  .mm-orient-btn span {
-    display: inline-flex;
-    align-items: center;
-    gap: 2px;
-  }
-
-  .mm-divider {
-    width: 1px;
-    height: 16px;
-    background: var(--border, rgba(0, 0, 0, 0.1));
-    margin: 0 2px;
-    flex-shrink: 0;
-  }
-
-  [data-md-color-scheme="slate"] .mm-divider {
-    background: rgba(255, 255, 255, 0.1);
-  }
-
-  .mm-node-g {
-    cursor: grab;
-    pointer-events: all;
-  }
-
-  .mm-node-g:active {
-    cursor: grabbing;
-  }
-
-  .mm-pill {
-    transition: filter 0.15s ease;
-  }
-
-  .mm-node-g:hover .mm-pill {
-    filter: brightness(1.08)
-      drop-shadow(0 4px 12px rgba(0, 0, 0, 0.35));
-  }
-
-  .mm-label {
-    font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
-    font-size: 12px;
-    font-weight: 600;
-    fill: #fff;
-    dominant-baseline: middle;
-    text-anchor: middle;
-    pointer-events: none;
-    user-select: none;
-  }
-
-  .mm-toggle-g {
-    cursor: pointer;
-    pointer-events: all;
-  }
-
-  .mm-toggle-g circle {
-    fill: rgba(0, 0, 0, 0.32);
-    stroke: rgba(255, 255, 255, 0.75);
-    stroke-width: 1.5;
-    transition: fill 0.12s;
-  }
-
-  .mm-toggle-g:hover circle {
-    fill: rgba(0, 0, 0, 0.52);
-  }
-
-  .mm-toggle-g text {
-    fill: #fff;
-    font-size: 11px;
-    font-weight: 700;
-    dominant-baseline: middle;
-    text-anchor: middle;
-    pointer-events: none;
-    user-select: none;
-  }
-
-  [data-md-color-scheme="slate"] .mm-toggle-g circle {
-    fill: rgba(0, 0, 0, 0.45);
-    stroke: rgba(255, 255, 255, 0.6);
-  }
-
-  [data-md-color-scheme="slate"] .mm-toggle-g:hover circle {
-    fill: rgba(0, 0, 0, 0.65);
-  }
-
-  .mm-edge {
-    fill: none;
-    stroke-linecap: round;
-  }
-</style>
-
-<script>
-  (function () {
-    const TREE = {
-  "id": "root",
-  "label": "Recursivist",
-  "children": [
-    {
-      "id": "root/home",
-      "label": "Home",
-      "children": [
-        {
-          "id": "root/home/recursivist",
-          "label": "Recursivist",
-          "children": [
-            {
-              "id": "root/home/recursivist/key-features",
-              "label": "Key Features"
-            },
-            {
-              "id": "root/home/recursivist/quick-install",
-              "label": "Quick Install"
-            },
-            {
-              "id": "root/home/recursivist/getting-started",
-              "label": "Getting Started"
-            },
-            {
-              "id": "root/home/recursivist/next-steps",
-              "label": "Next Steps"
-            },
-            {
-              "id": "root/home/recursivist/license",
-              "label": "License"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "id": "root/getting-started",
-      "label": "Getting Started",
-      "children": [
-        {
-          "id": "root/getting-started/installation",
-          "label": "Installation",
-          "children": [
-            {
-              "id": "root/getting-started/installation/installation",
-              "label": "Installation",
-              "children": [
-                {
-                  "id": "root/getting-started/installation/installation/requirements",
-                  "label": "Requirements"
-                },
-                {
-                  "id": "root/getting-started/installation/installation/installing-from-pypi",
-                  "label": "Installing from PyPI"
-                },
-                {
-                  "id": "root/getting-started/installation/installation/installing-from-source",
-                  "label": "Installing from Source"
-                },
-                {
-                  "id": "root/getting-started/installation/installation/verifying-the-installation",
-                  "label": "Verifying the Installation"
-                },
-                {
-                  "id": "root/getting-started/installation/installation/nerd-font-icons-(optional)",
-                  "label": "Nerd Font Icons (Optional)"
-                },
-                {
-                  "id": "root/getting-started/installation/installation/terminal-compatibility",
-                  "label": "Terminal Compatibility"
-                },
-                {
-                  "id": "root/getting-started/installation/installation/next-steps",
-                  "label": "Next Steps"
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "id": "root/getting-started/quick-start",
-          "label": "Quick Start",
-          "children": [
-            {
-              "id": "root/getting-started/quick-start/quick-start-guide",
-              "label": "Quick Start Guide",
-              "children": [
-                {
-                  "id": "root/getting-started/quick-start/quick-start-guide/visualize-a-directory",
-                  "label": "Visualize a Directory"
-                },
-                {
-                  "id": "root/getting-started/quick-start/quick-start-guide/show-file-statistics",
-                  "label": "Show File Statistics"
-                },
-                {
-                  "id": "root/getting-started/quick-start/quick-start-guide/show-git-status",
-                  "label": "Show Git Status"
-                },
-                {
-                  "id": "root/getting-started/quick-start/quick-start-guide/export-a-directory-structure",
-                  "label": "Export a Directory Structure"
-                },
-                {
-                  "id": "root/getting-started/quick-start/quick-start-guide/compare-two-directories",
-                  "label": "Compare Two Directories"
-                },
-                {
-                  "id": "root/getting-started/quick-start/quick-start-guide/scan-a-github-repository",
-                  "label": "Scan a GitHub Repository"
-                },
-                {
-                  "id": "root/getting-started/quick-start/quick-start-guide/common-options",
-                  "label": "Common Options"
-                },
-                {
-                  "id": "root/getting-started/quick-start/quick-start-guide/shell-completion",
-                  "label": "Shell Completion"
-                },
-                {
-                  "id": "root/getting-started/quick-start/quick-start-guide/next-steps",
-                  "label": "Next Steps"
-                }
-              ]
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "id": "root/user-guide",
-      "label": "User Guide",
-      "children": [
-        {
-          "id": "root/user-guide/basic-usage",
-          "label": "Basic Usage",
-          "children": [
-            {
-              "id": "root/user-guide/basic-usage/basic-usage",
-              "label": "Basic Usage",
-              "children": [
-                {
-                  "id": "root/user-guide/basic-usage/basic-usage/command-structure",
-                  "label": "Command Structure"
-                },
-                {
-                  "id": "root/user-guide/basic-usage/basic-usage/getting-help",
-                  "label": "Getting Help"
-                },
-                {
-                  "id": "root/user-guide/basic-usage/basic-usage/default-behavior",
-                  "label": "Default Behavior"
-                },
-                {
-                  "id": "root/user-guide/basic-usage/basic-usage/icon-styles",
-                  "label": "Icon Styles"
-                },
-                {
-                  "id": "root/user-guide/basic-usage/basic-usage/common-options",
-                  "label": "Common Options",
-                  "children": [
-                    {
-                      "id": "root/user-guide/basic-usage/basic-usage/common-options/excluding-directories",
-                      "label": "Excluding Directories"
-                    },
-                    {
-                      "id": "root/user-guide/basic-usage/basic-usage/common-options/excluding-file-extensions",
-                      "label": "Excluding File Extensions"
-                    },
-                    {
-                      "id": "root/user-guide/basic-usage/basic-usage/common-options/limiting-depth",
-                      "label": "Limiting Depth"
-                    },
-                    {
-                      "id": "root/user-guide/basic-usage/basic-usage/common-options/showing-full-paths",
-                      "label": "Showing Full Paths"
-                    },
-                    {
-                      "id": "root/user-guide/basic-usage/basic-usage/common-options/verbose-output",
-                      "label": "Verbose Output"
-                    }
-                  ]
-                },
-                {
-                  "id": "root/user-guide/basic-usage/basic-usage/scanning-a-github-repository",
-                  "label": "Scanning a GitHub Repository"
-                },
-                {
-                  "id": "root/user-guide/basic-usage/basic-usage/file-statistics",
-                  "label": "File Statistics"
-                },
-                {
-                  "id": "root/user-guide/basic-usage/basic-usage/grouping-by-name-similarity",
-                  "label": "Grouping by Name Similarity"
-                },
-                {
-                  "id": "root/user-guide/basic-usage/basic-usage/pattern-filtering",
-                  "label": "Pattern Filtering"
-                },
-                {
-                  "id": "root/user-guide/basic-usage/basic-usage/exit-codes",
-                  "label": "Exit Codes"
-                },
-                {
-                  "id": "root/user-guide/basic-usage/basic-usage/next-steps",
-                  "label": "Next Steps"
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "id": "root/user-guide/visualization",
-          "label": "Visualization",
-          "children": [
-            {
-              "id": "root/user-guide/visualization/visualization",
-              "label": "Visualization",
-              "children": [
-                {
-                  "id": "root/user-guide/visualization/visualization/basic-visualization",
-                  "label": "Basic Visualization"
-                },
-                {
-                  "id": "root/user-guide/visualization/visualization/color-coding",
-                  "label": "Color Coding"
-                },
-                {
-                  "id": "root/user-guide/visualization/visualization/icon-styles",
-                  "label": "Icon Styles"
-                },
-                {
-                  "id": "root/user-guide/visualization/visualization/file-statistics",
-                  "label": "File Statistics",
-                  "children": [
-                    {
-                      "id": "root/user-guide/visualization/visualization/file-statistics/lines-of-code",
-                      "label": "Lines of Code"
-                    },
-                    {
-                      "id": "root/user-guide/visualization/visualization/file-statistics/file-sizes",
-                      "label": "File Sizes"
-                    },
-                    {
-                      "id": "root/user-guide/visualization/visualization/file-statistics/modification-times",
-                      "label": "Modification Times"
-                    },
-                    {
-                      "id": "root/user-guide/visualization/visualization/file-statistics/displaying-without-sorting",
-                      "label": "Displaying Without Sorting"
-                    },
-                    {
-                      "id": "root/user-guide/visualization/visualization/file-statistics/combining-statistics",
-                      "label": "Combining Statistics"
-                    }
-                  ]
-                },
-                {
-                  "id": "root/user-guide/visualization/visualization/grouping-by-name-similarity",
-                  "label": "Grouping by Name Similarity"
-                },
-                {
-                  "id": "root/user-guide/visualization/visualization/git-status",
-                  "label": "Git Status"
-                },
-                {
-                  "id": "root/user-guide/visualization/visualization/directory-depth-control",
-                  "label": "Directory Depth Control"
-                },
-                {
-                  "id": "root/user-guide/visualization/visualization/full-path-display",
-                  "label": "Full Path Display"
-                },
-                {
-                  "id": "root/user-guide/visualization/visualization/github-repositories",
-                  "label": "GitHub Repositories"
-                },
-                {
-                  "id": "root/user-guide/visualization/visualization/filtering",
-                  "label": "Filtering"
-                },
-                {
-                  "id": "root/user-guide/visualization/visualization/performance-tips",
-                  "label": "Performance Tips"
-                },
-                {
-                  "id": "root/user-guide/visualization/visualization/related-commands",
-                  "label": "Related Commands"
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "id": "root/user-guide/export",
-          "label": "Export",
-          "children": [
-            {
-              "id": "root/user-guide/export/export",
-              "label": "Export",
-              "children": [
-                {
-                  "id": "root/user-guide/export/export/basic-usage",
-                  "label": "Basic Usage"
-                },
-                {
-                  "id": "root/user-guide/export/export/available-formats",
-                  "label": "Available Formats"
-                },
-                {
-                  "id": "root/user-guide/export/export/multiple-formats-at-once",
-                  "label": "Multiple Formats at Once"
-                },
-                {
-                  "id": "root/user-guide/export/export/output-location-and-filename",
-                  "label": "Output Location and Filename"
-                },
-                {
-                  "id": "root/user-guide/export/export/file-statistics",
-                  "label": "File Statistics"
-                },
-                {
-                  "id": "root/user-guide/export/export/git-status",
-                  "label": "Git Status"
-                },
-                {
-                  "id": "root/user-guide/export/export/icon-style",
-                  "label": "Icon Style"
-                },
-                {
-                  "id": "root/user-guide/export/export/filtering-and-depth",
-                  "label": "Filtering and Depth"
-                },
-                {
-                  "id": "root/user-guide/export/export/github-repositories",
-                  "label": "GitHub Repositories"
-                },
-                {
-                  "id": "root/user-guide/export/export/format-details",
-                  "label": "Format Details",
-                  "children": [
-                    {
-                      "id": "root/user-guide/export/export/format-details/text-(.txt)",
-                      "label": "Text (`.txt`)"
-                    },
-                    {
-                      "id": "root/user-guide/export/export/format-details/json-(.json)",
-                      "label": "JSON (`.json`)"
-                    },
-                    {
-                      "id": "root/user-guide/export/export/format-details/html-(.html)",
-                      "label": "HTML (`.html`)"
-                    },
-                    {
-                      "id": "root/user-guide/export/export/format-details/markdown-(.md)",
-                      "label": "Markdown (`.md`)"
-                    },
-                    {
-                      "id": "root/user-guide/export/export/format-details/svg-(.svg)",
-                      "label": "SVG (`.svg`)"
-                    },
-                    {
-                      "id": "root/user-guide/export/export/format-details/restructuredtext-(.rst)",
-                      "label": "reStructuredText (`.rst`)"
-                    }
-                  ]
-                },
-                {
-                  "id": "root/user-guide/export/export/examples",
-                  "label": "Examples"
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "id": "root/user-guide/compare",
-          "label": "Compare",
-          "children": [
-            {
-              "id": "root/user-guide/compare/compare",
-              "label": "Compare",
-              "children": [
-                {
-                  "id": "root/user-guide/compare/compare/basic-comparison",
-                  "label": "Basic Comparison"
-                },
-                {
-                  "id": "root/user-guide/compare/compare/reading-the-output",
-                  "label": "Reading the Output"
-                },
-                {
-                  "id": "root/user-guide/compare/compare/file-statistics",
-                  "label": "File Statistics"
-                },
-                {
-                  "id": "root/user-guide/compare/compare/saving-as-html",
-                  "label": "Saving as HTML"
-                },
-                {
-                  "id": "root/user-guide/compare/compare/filtering-and-depth",
-                  "label": "Filtering and Depth"
-                },
-                {
-                  "id": "root/user-guide/compare/compare/github-repositories",
-                  "label": "GitHub Repositories"
-                },
-                {
-                  "id": "root/user-guide/compare/compare/use-cases",
-                  "label": "Use Cases"
-                },
-                {
-                  "id": "root/user-guide/compare/compare/html-output",
-                  "label": "HTML Output"
-                },
-                {
-                  "id": "root/user-guide/compare/compare/terminal-compatibility",
-                  "label": "Terminal Compatibility"
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "id": "root/user-guide/pattern-filtering",
-          "label": "Pattern Filtering",
-          "children": [
-            {
-              "id": "root/user-guide/pattern-filtering/pattern-filtering",
-              "label": "Pattern Filtering",
-              "children": [
-                {
-                  "id": "root/user-guide/pattern-filtering/pattern-filtering/the-four-filtering-mechanisms",
-                  "label": "The Four Filtering Mechanisms"
-                },
-                {
-                  "id": "root/user-guide/pattern-filtering/pattern-filtering/directory-exclusion",
-                  "label": "Directory Exclusion"
-                },
-                {
-                  "id": "root/user-guide/pattern-filtering/pattern-filtering/extension-exclusion",
-                  "label": "Extension Exclusion"
-                },
-                {
-                  "id": "root/user-guide/pattern-filtering/pattern-filtering/include-and-exclude-patterns",
-                  "label": "Include and Exclude Patterns"
-                },
-                {
-                  "id": "root/user-guide/pattern-filtering/pattern-filtering/ignore-files",
-                  "label": "Ignore Files"
-                },
-                {
-                  "id": "root/user-guide/pattern-filtering/pattern-filtering/order-of-precedence",
-                  "label": "Order of Precedence"
-                },
-                {
-                  "id": "root/user-guide/pattern-filtering/pattern-filtering/combining-filters",
-                  "label": "Combining Filters"
-                },
-                {
-                  "id": "root/user-guide/pattern-filtering/pattern-filtering/same-behavior-across-commands",
-                  "label": "Same Behavior Across Commands"
-                },
-                {
-                  "id": "root/user-guide/pattern-filtering/pattern-filtering/examples",
-                  "label": "Examples"
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "id": "root/user-guide/shell-completion",
-          "label": "Shell Completion",
-          "children": [
-            {
-              "id": "root/user-guide/shell-completion/shell-completion",
-              "label": "Shell Completion",
-              "children": [
-                {
-                  "id": "root/user-guide/shell-completion/shell-completion/recommended:-built-in-installer",
-                  "label": "Recommended: Built-in Installer"
-                },
-                {
-                  "id": "root/user-guide/shell-completion/shell-completion/the-completion-command",
-                  "label": "The `completion` Command"
-                },
-                {
-                  "id": "root/user-guide/shell-completion/shell-completion/using-completion",
-                  "label": "Using Completion"
-                },
-                {
-                  "id": "root/user-guide/shell-completion/shell-completion/troubleshooting",
-                  "label": "Troubleshooting"
-                }
-              ]
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "id": "root/reference",
-      "label": "Reference",
-      "children": [
-        {
-          "id": "root/reference/cli-reference",
-          "label": "CLI Reference",
-          "children": [
-            {
-              "id": "root/reference/cli-reference/cli-reference",
-              "label": "CLI Reference",
-              "children": [
-                {
-                  "id": "root/reference/cli-reference/cli-reference/commands",
-                  "label": "Commands"
-                },
-                {
-                  "id": "root/reference/cli-reference/cli-reference/shared-options",
-                  "label": "Shared Options"
-                },
-                {
-                  "id": "root/reference/cli-reference/cli-reference/sorting-and-display-flags",
-                  "label": "Sorting and Display Flags",
-                  "children": [
-                    {
-                      "id": "root/reference/cli-reference/cli-reference/sorting-and-display-flags/resolution-by-command-line-order",
-                      "label": "Resolution by command-line order"
-                    }
-                  ]
-                },
-                {
-                  "id": "root/reference/cli-reference/cli-reference/github-repositories",
-                  "label": "GitHub Repositories",
-                  "children": [
-                    {
-                      "id": "root/reference/cli-reference/cli-reference/github-repositories/accepted-url-forms",
-                      "label": "Accepted URL forms"
-                    },
-                    {
-                      "id": "root/reference/cli-reference/cli-reference/github-repositories/authentication",
-                      "label": "Authentication"
-                    },
-                    {
-                      "id": "root/reference/cli-reference/cli-reference/github-repositories/options-for-a-github-input",
-                      "label": "Options for a GitHub input"
-                    }
-                  ]
-                },
-                {
-                  "id": "root/reference/cli-reference/cli-reference/visualize",
-                  "label": "`visualize`",
-                  "children": [
-                    {
-                      "id": "root/reference/cli-reference/cli-reference/visualize/examples",
-                      "label": "Examples"
-                    }
-                  ]
-                },
-                {
-                  "id": "root/reference/cli-reference/cli-reference/export",
-                  "label": "`export`",
-                  "children": [
-                    {
-                      "id": "root/reference/cli-reference/cli-reference/export/examples",
-                      "label": "Examples"
-                    }
-                  ]
-                },
-                {
-                  "id": "root/reference/cli-reference/cli-reference/compare",
-                  "label": "`compare`",
-                  "children": [
-                    {
-                      "id": "root/reference/cli-reference/cli-reference/compare/examples",
-                      "label": "Examples"
-                    }
-                  ]
-                },
-                {
-                  "id": "root/reference/cli-reference/cli-reference/config",
-                  "label": "`config`",
-                  "children": [
-                    {
-                      "id": "root/reference/cli-reference/cli-reference/config/examples",
-                      "label": "Examples"
-                    }
-                  ]
-                },
-                {
-                  "id": "root/reference/cli-reference/cli-reference/completion",
-                  "label": "`completion`"
-                },
-                {
-                  "id": "root/reference/cli-reference/cli-reference/version",
-                  "label": "`version`"
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "id": "root/reference/api-reference",
-          "label": "API Reference",
-          "children": [
-            {
-              "id": "root/reference/api-reference/api-reference",
-              "label": "API Reference",
-              "children": [
-                {
-                  "id": "root/reference/api-reference/api-reference/module-overview",
-                  "label": "Module Overview"
-                },
-                {
-                  "id": "root/reference/api-reference/api-reference/the-structure-dictionary",
-                  "label": "The Structure Dictionary",
-                  "children": [
-                    {
-                      "id": "root/reference/api-reference/api-reference/the-structure-dictionary/displayoptions",
-                      "label": "DisplayOptions"
-                    },
-                    {
-                      "id": "root/reference/api-reference/api-reference/the-structure-dictionary/fileentry",
-                      "label": "FileEntry"
-                    }
-                  ]
-                },
-                {
-                  "id": "root/reference/api-reference/api-reference/scanner",
-                  "label": "Scanner"
-                },
-                {
-                  "id": "root/reference/api-reference/api-reference/tree-rendering",
-                  "label": "Tree Rendering"
-                },
-                {
-                  "id": "root/reference/api-reference/api-reference/exporters",
-                  "label": "Exporters"
-                },
-                {
-                  "id": "root/reference/api-reference/api-reference/compare",
-                  "label": "Compare"
-                },
-                {
-                  "id": "root/reference/api-reference/api-reference/filtering",
-                  "label": "Filtering"
-                },
-                {
-                  "id": "root/reference/api-reference/api-reference/flags",
-                  "label": "Flags"
-                },
-                {
-                  "id": "root/reference/api-reference/api-reference/sorting",
-                  "label": "Sorting"
-                },
-                {
-                  "id": "root/reference/api-reference/api-reference/metrics",
-                  "label": "Metrics"
-                },
-                {
-                  "id": "root/reference/api-reference/api-reference/colors",
-                  "label": "Colors"
-                },
-                {
-                  "id": "root/reference/api-reference/api-reference/icons",
-                  "label": "Icons"
-                },
-                {
-                  "id": "root/reference/api-reference/api-reference/git-status",
-                  "label": "Git Status"
-                },
-                {
-                  "id": "root/reference/api-reference/api-reference/github",
-                  "label": "GitHub"
-                },
-                {
-                  "id": "root/reference/api-reference/api-reference/configuration",
-                  "label": "Configuration"
-                },
-                {
-                  "id": "root/reference/api-reference/api-reference/example:-custom-analysis-script",
-                  "label": "Example: Custom Analysis Script"
-                },
-                {
-                  "id": "root/reference/api-reference/api-reference/extending-recursivist",
-                  "label": "Extending Recursivist"
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "id": "root/reference/export-formats",
-          "label": "Export Formats",
-          "children": [
-            {
-              "id": "root/reference/export-formats/export-formats",
-              "label": "Export Formats",
-              "children": [
-                {
-                  "id": "root/reference/export-formats/export-formats/available-formats",
-                  "label": "Available Formats"
-                },
-                {
-                  "id": "root/reference/export-formats/export-formats/basic-usage",
-                  "label": "Basic Usage"
-                },
-                {
-                  "id": "root/reference/export-formats/export-formats/text-(.txt)",
-                  "label": "Text (`.txt`)"
-                },
-                {
-                  "id": "root/reference/export-formats/export-formats/json-(.json)",
-                  "label": "JSON (`.json`)"
-                },
-                {
-                  "id": "root/reference/export-formats/export-formats/html-(.html)",
-                  "label": "HTML (`.html`)"
-                },
-                {
-                  "id": "root/reference/export-formats/export-formats/markdown-(.md)",
-                  "label": "Markdown (`.md`)"
-                },
-                {
-                  "id": "root/reference/export-formats/export-formats/restructuredtext-(.rst)",
-                  "label": "reStructuredText (`.rst`)"
-                },
-                {
-                  "id": "root/reference/export-formats/export-formats/svg-(.svg)",
-                  "label": "SVG (`.svg`)"
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "id": "root/reference/pattern-matching",
-          "label": "Pattern Matching",
-          "children": [
-            {
-              "id": "root/reference/pattern-matching/pattern-matching",
-              "label": "Pattern Matching",
-              "children": [
-                {
-                  "id": "root/reference/pattern-matching/pattern-matching/what-patterns-match",
-                  "label": "What Patterns Match"
-                },
-                {
-                  "id": "root/reference/pattern-matching/pattern-matching/glob-patterns",
-                  "label": "Glob Patterns",
-                  "children": [
-                    {
-                      "id": "root/reference/pattern-matching/pattern-matching/glob-patterns/syntax",
-                      "label": "Syntax"
-                    },
-                    {
-                      "id": "root/reference/pattern-matching/pattern-matching/glob-patterns/examples",
-                      "label": "Examples"
-                    },
-                    {
-                      "id": "root/reference/pattern-matching/pattern-matching/glob-patterns/usage",
-                      "label": "Usage"
-                    }
-                  ]
-                },
-                {
-                  "id": "root/reference/pattern-matching/pattern-matching/regular-expressions",
-                  "label": "Regular Expressions",
-                  "children": [
-                    {
-                      "id": "root/reference/pattern-matching/pattern-matching/regular-expressions/common-syntax",
-                      "label": "Common Syntax"
-                    },
-                    {
-                      "id": "root/reference/pattern-matching/pattern-matching/regular-expressions/examples",
-                      "label": "Examples"
-                    },
-                    {
-                      "id": "root/reference/pattern-matching/pattern-matching/regular-expressions/usage",
-                      "label": "Usage"
-                    }
-                  ]
-                },
-                {
-                  "id": "root/reference/pattern-matching/pattern-matching/precedence",
-                  "label": "Precedence"
-                },
-                {
-                  "id": "root/reference/pattern-matching/pattern-matching/performance",
-                  "label": "Performance"
-                },
-                {
-                  "id": "root/reference/pattern-matching/pattern-matching/troubleshooting",
-                  "label": "Troubleshooting"
-                }
-              ]
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "id": "root/examples",
-      "label": "Examples",
-      "children": [
-        {
-          "id": "root/examples/basic-examples",
-          "label": "Basic Examples",
-          "children": [
-            {
-              "id": "root/examples/basic-examples/basic-examples",
-              "label": "Basic Examples",
-              "children": [
-                {
-                  "id": "root/examples/basic-examples/basic-examples/visualization",
-                  "label": "Visualization"
-                },
-                {
-                  "id": "root/examples/basic-examples/basic-examples/file-statistics",
-                  "label": "File Statistics"
-                },
-                {
-                  "id": "root/examples/basic-examples/basic-examples/git-status",
-                  "label": "Git Status"
-                },
-                {
-                  "id": "root/examples/basic-examples/basic-examples/exclusions",
-                  "label": "Exclusions"
-                },
-                {
-                  "id": "root/examples/basic-examples/basic-examples/exports",
-                  "label": "Exports"
-                },
-                {
-                  "id": "root/examples/basic-examples/basic-examples/comparisons",
-                  "label": "Comparisons"
-                },
-                {
-                  "id": "root/examples/basic-examples/basic-examples/github-repositories",
-                  "label": "GitHub Repositories"
-                },
-                {
-                  "id": "root/examples/basic-examples/basic-examples/configuration-and-version",
-                  "label": "Configuration and Version"
-                },
-                {
-                  "id": "root/examples/basic-examples/basic-examples/next-steps",
-                  "label": "Next Steps"
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "id": "root/examples/filtering-examples",
-          "label": "Filtering Examples",
-          "children": [
-            {
-              "id": "root/examples/filtering-examples/filtering-examples",
-              "label": "Filtering Examples",
-              "children": [
-                {
-                  "id": "root/examples/filtering-examples/filtering-examples/excluding-directories-and-extensions",
-                  "label": "Excluding Directories and Extensions"
-                },
-                {
-                  "id": "root/examples/filtering-examples/filtering-examples/glob-patterns",
-                  "label": "Glob Patterns"
-                },
-                {
-                  "id": "root/examples/filtering-examples/filtering-examples/regular-expressions",
-                  "label": "Regular Expressions"
-                },
-                {
-                  "id": "root/examples/filtering-examples/filtering-examples/include-patterns",
-                  "label": "Include Patterns"
-                },
-                {
-                  "id": "root/examples/filtering-examples/filtering-examples/ignore-files",
-                  "label": "Ignore Files"
-                },
-                {
-                  "id": "root/examples/filtering-examples/filtering-examples/combining-filters",
-                  "label": "Combining Filters"
-                },
-                {
-                  "id": "root/examples/filtering-examples/filtering-examples/language-specific-recipes",
-                  "label": "Language-Specific Recipes",
-                  "children": [
-                    {
-                      "id": "root/examples/filtering-examples/filtering-examples/language-specific-recipes/python",
-                      "label": "Python"
-                    },
-                    {
-                      "id": "root/examples/filtering-examples/filtering-examples/language-specific-recipes/javascript-/-typescript",
-                      "label": "JavaScript / TypeScript"
-                    },
-                    {
-                      "id": "root/examples/filtering-examples/filtering-examples/language-specific-recipes/java-/-maven",
-                      "label": "Java / Maven"
-                    }
-                  ]
-                },
-                {
-                  "id": "root/examples/filtering-examples/filtering-examples/filtering-with-statistics",
-                  "label": "Filtering with Statistics"
-                },
-                {
-                  "id": "root/examples/filtering-examples/filtering-examples/filtering-in-export-and-compare",
-                  "label": "Filtering in Export and Compare"
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "id": "root/examples/export-examples",
-          "label": "Export Examples",
-          "children": [
-            {
-              "id": "root/examples/export-examples/export-examples",
-              "label": "Export Examples",
-              "children": [
-                {
-                  "id": "root/examples/export-examples/export-examples/exporting-to-each-format",
-                  "label": "Exporting to Each Format"
-                },
-                {
-                  "id": "root/examples/export-examples/export-examples/statistics-in-exports",
-                  "label": "Statistics in Exports"
-                },
-                {
-                  "id": "root/examples/export-examples/export-examples/output-location-and-filename",
-                  "label": "Output Location and Filename"
-                },
-                {
-                  "id": "root/examples/export-examples/export-examples/filtered-and-depth-limited-exports",
-                  "label": "Filtered and Depth-Limited Exports"
-                },
-                {
-                  "id": "root/examples/export-examples/export-examples/processing-json-with-jq",
-                  "label": "Processing JSON with jq"
-                },
-                {
-                  "id": "root/examples/export-examples/export-examples/including-a-structure-in-documentation",
-                  "label": "Including a Structure in Documentation"
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "id": "root/examples/compare-examples",
-          "label": "Compare Examples",
-          "children": [
-            {
-              "id": "root/examples/compare-examples/compare-examples",
-              "label": "Compare Examples",
-              "children": [
-                {
-                  "id": "root/examples/compare-examples/compare-examples/basic-comparisons",
-                  "label": "Basic Comparisons"
-                },
-                {
-                  "id": "root/examples/compare-examples/compare-examples/comparing-github-repositories",
-                  "label": "Comparing GitHub Repositories"
-                },
-                {
-                  "id": "root/examples/compare-examples/compare-examples/comparisons-with-statistics",
-                  "label": "Comparisons with Statistics"
-                },
-                {
-                  "id": "root/examples/compare-examples/compare-examples/filtered-comparisons",
-                  "label": "Filtered Comparisons"
-                },
-                {
-                  "id": "root/examples/compare-examples/compare-examples/real-world-uses",
-                  "label": "Real-World Uses",
-                  "children": [
-                    {
-                      "id": "root/examples/compare-examples/compare-examples/real-world-uses/compare-two-versions",
-                      "label": "Compare Two Versions"
-                    },
-                    {
-                      "id": "root/examples/compare-examples/compare-examples/real-world-uses/compare-two-git-branches",
-                      "label": "Compare Two Git Branches"
-                    },
-                    {
-                      "id": "root/examples/compare-examples/compare-examples/real-world-uses/source-vs.-build",
-                      "label": "Source vs. Build"
-                    },
-                    {
-                      "id": "root/examples/compare-examples/compare-examples/real-world-uses/backup-verification",
-                      "label": "Backup Verification"
-                    }
-                  ]
-                },
-                {
-                  "id": "root/examples/compare-examples/compare-examples/in-continuous-integration",
-                  "label": "In Continuous Integration"
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "id": "root/examples/advanced-examples",
-          "label": "Advanced Examples",
-          "children": [
-            {
-              "id": "root/examples/advanced-examples/advanced-examples",
-              "label": "Advanced Examples",
-              "children": [
-                {
-                  "id": "root/examples/advanced-examples/advanced-examples/codebase-analysis-with-jq",
-                  "label": "Codebase Analysis with jq"
-                },
-                {
-                  "id": "root/examples/advanced-examples/advanced-examples/focusing-on-recent-or-similar-files",
-                  "label": "Focusing on Recent or Similar Files"
-                },
-                {
-                  "id": "root/examples/advanced-examples/advanced-examples/keeping-structure-docs-up-to-date",
-                  "label": "Keeping Structure Docs Up to Date",
-                  "children": [
-                    {
-                      "id": "root/examples/advanced-examples/advanced-examples/keeping-structure-docs-up-to-date/pre-commit-framework",
-                      "label": "Pre-commit Framework"
-                    },
-                    {
-                      "id": "root/examples/advanced-examples/advanced-examples/keeping-structure-docs-up-to-date/manual-git-hook",
-                      "label": "Manual Git Hook"
-                    }
-                  ]
-                },
-                {
-                  "id": "root/examples/advanced-examples/advanced-examples/continuous-integration",
-                  "label": "Continuous Integration"
-                },
-                {
-                  "id": "root/examples/advanced-examples/advanced-examples/multi-level-project-map",
-                  "label": "Multi-Level Project Map"
-                }
-              ]
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "id": "root/advanced",
-      "label": "Advanced",
-      "children": [
-        {
-          "id": "root/advanced/integration",
-          "label": "Integration",
-          "children": [
-            {
-              "id": "root/advanced/integration/integration-with-other-tools",
-              "label": "Integration with Other Tools",
-              "children": [
-                {
-                  "id": "root/advanced/integration/integration-with-other-tools/git",
-                  "label": "Git",
-                  "children": [
-                    {
-                      "id": "root/advanced/integration/integration-with-other-tools/git/use-your-.gitignore",
-                      "label": "Use Your `.gitignore`"
-                    },
-                    {
-                      "id": "root/advanced/integration/integration-with-other-tools/git/scan-a-repository-by-url",
-                      "label": "Scan a Repository by URL"
-                    },
-                    {
-                      "id": "root/advanced/integration/integration-with-other-tools/git/pre-commit-framework",
-                      "label": "Pre-commit Framework"
-                    },
-                    {
-                      "id": "root/advanced/integration/integration-with-other-tools/git/manual-git-hook",
-                      "label": "Manual Git Hook"
-                    }
-                  ]
-                },
-                {
-                  "id": "root/advanced/integration/integration-with-other-tools/processing-json-with-jq",
-                  "label": "Processing JSON with jq"
-                },
-                {
-                  "id": "root/advanced/integration/integration-with-other-tools/python",
-                  "label": "Python",
-                  "children": [
-                    {
-                      "id": "root/advanced/integration/integration-with-other-tools/python/serving-structures-from-flask",
-                      "label": "Serving Structures from Flask"
-                    }
-                  ]
-                },
-                {
-                  "id": "root/advanced/integration/integration-with-other-tools/continuous-integration",
-                  "label": "Continuous Integration",
-                  "children": [
-                    {
-                      "id": "root/advanced/integration/integration-with-other-tools/continuous-integration/github-actions",
-                      "label": "GitHub Actions"
-                    },
-                    {
-                      "id": "root/advanced/integration/integration-with-other-tools/continuous-integration/gitlab-ci",
-                      "label": "GitLab CI"
-                    }
-                  ]
-                },
-                {
-                  "id": "root/advanced/integration/integration-with-other-tools/documentation-tools",
-                  "label": "Documentation Tools"
-                },
-                {
-                  "id": "root/advanced/integration/integration-with-other-tools/shell-automation",
-                  "label": "Shell Automation"
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "id": "root/advanced/development",
-          "label": "Development",
-          "children": [
-            {
-              "id": "root/advanced/development/development-guide",
-              "label": "Development Guide",
-              "children": [
-                {
-                  "id": "root/advanced/development/development-guide/setting-up-a-development-environment",
-                  "label": "Setting Up a Development Environment",
-                  "children": [
-                    {
-                      "id": "root/advanced/development/development-guide/setting-up-a-development-environment/prerequisites",
-                      "label": "Prerequisites"
-                    },
-                    {
-                      "id": "root/advanced/development/development-guide/setting-up-a-development-environment/clone-and-install",
-                      "label": "Clone and Install"
-                    },
-                    {
-                      "id": "root/advanced/development/development-guide/setting-up-a-development-environment/install-pre-commit-hooks",
-                      "label": "Install Pre-commit Hooks"
-                    }
-                  ]
-                },
-                {
-                  "id": "root/advanced/development/development-guide/project-structure",
-                  "label": "Project Structure"
-                },
-                {
-                  "id": "root/advanced/development/development-guide/development-workflow",
-                  "label": "Development Workflow"
-                },
-                {
-                  "id": "root/advanced/development/development-guide/code-style-and-checks",
-                  "label": "Code Style and Checks"
-                },
-                {
-                  "id": "root/advanced/development/development-guide/extending-recursivist",
-                  "label": "Extending Recursivist",
-                  "children": [
-                    {
-                      "id": "root/advanced/development/development-guide/extending-recursivist/add-a-new-command",
-                      "label": "Add a New Command"
-                    },
-                    {
-                      "id": "root/advanced/development/development-guide/extending-recursivist/add-a-new-export-format",
-                      "label": "Add a New Export Format"
-                    },
-                    {
-                      "id": "root/advanced/development/development-guide/extending-recursivist/add-a-new-file-statistic",
-                      "label": "Add a New File Statistic"
-                    },
-                    {
-                      "id": "root/advanced/development/development-guide/extending-recursivist/extend-pattern-matching",
-                      "label": "Extend Pattern Matching"
-                    },
-                    {
-                      "id": "root/advanced/development/development-guide/extending-recursivist/customize-colorization",
-                      "label": "Customize Colorization"
-                    }
-                  ]
-                },
-                {
-                  "id": "root/advanced/development/development-guide/debugging",
-                  "label": "Debugging"
-                },
-                {
-                  "id": "root/advanced/development/development-guide/documentation",
-                  "label": "Documentation"
-                },
-                {
-                  "id": "root/advanced/development/development-guide/release-process",
-                  "label": "Release Process"
-                },
-                {
-                  "id": "root/advanced/development/development-guide/performance-notes",
-                  "label": "Performance Notes"
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "id": "root/advanced/testing",
-          "label": "Testing",
-          "children": [
-            {
-              "id": "root/advanced/testing/testing-guide",
-              "label": "Testing Guide",
-              "children": [
-                {
-                  "id": "root/advanced/testing/testing-guide/framework",
-                  "label": "Framework"
-                },
-                {
-                  "id": "root/advanced/testing/testing-guide/running-tests",
-                  "label": "Running Tests",
-                  "children": [
-                    {
-                      "id": "root/advanced/testing/testing-guide/running-tests/markers",
-                      "label": "Markers"
-                    }
-                  ]
-                },
-                {
-                  "id": "root/advanced/testing/testing-guide/test-organization",
-                  "label": "Test Organization"
-                },
-                {
-                  "id": "root/advanced/testing/testing-guide/writing-tests",
-                  "label": "Writing Tests",
-                  "children": [
-                    {
-                      "id": "root/advanced/testing/testing-guide/writing-tests/directory-operations",
-                      "label": "Directory Operations"
-                    },
-                    {
-                      "id": "root/advanced/testing/testing-guide/writing-tests/cli-commands",
-                      "label": "CLI Commands"
-                    },
-                    {
-                      "id": "root/advanced/testing/testing-guide/writing-tests/export-formats",
-                      "label": "Export Formats"
-                    },
-                    {
-                      "id": "root/advanced/testing/testing-guide/writing-tests/file-statistics",
-                      "label": "File Statistics"
-                    },
-                    {
-                      "id": "root/advanced/testing/testing-guide/writing-tests/parametrization",
-                      "label": "Parametrization"
-                    },
-                    {
-                      "id": "root/advanced/testing/testing-guide/writing-tests/property-based-tests",
-                      "label": "Property-Based Tests"
-                    }
-                  ]
-                },
-                {
-                  "id": "root/advanced/testing/testing-guide/fixtures-and-mocking",
-                  "label": "Fixtures and Mocking"
-                },
-                {
-                  "id": "root/advanced/testing/testing-guide/edge-cases",
-                  "label": "Edge Cases"
-                },
-                {
-                  "id": "root/advanced/testing/testing-guide/debugging-failing-tests",
-                  "label": "Debugging Failing Tests"
-                },
-                {
-                  "id": "root/advanced/testing/testing-guide/continuous-integration",
-                  "label": "Continuous Integration"
-                },
-                {
-                  "id": "root/advanced/testing/testing-guide/best-practices",
-                  "label": "Best Practices"
-                }
-              ]
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "id": "root/contributing",
-      "label": "Contributing",
-      "children": [
-        {
-          "id": "root/contributing/contributing-to-recursivist",
-          "label": "Contributing to Recursivist",
-          "children": [
-            {
-              "id": "root/contributing/contributing-to-recursivist/table-of-contents",
-              "label": "Table of Contents"
-            },
-            {
-              "id": "root/contributing/contributing-to-recursivist/getting-started",
-              "label": "Getting Started",
-              "children": [
-                {
-                  "id": "root/contributing/contributing-to-recursivist/getting-started/setting-up-your-development-environment",
-                  "label": "Setting Up Your Development Environment"
-                }
-              ]
-            },
-            {
-              "id": "root/contributing/contributing-to-recursivist/development-workflow",
-              "label": "Development Workflow",
-              "children": [
-                {
-                  "id": "root/contributing/contributing-to-recursivist/development-workflow/creating-a-branch",
-                  "label": "Creating a Branch"
-                },
-                {
-                  "id": "root/contributing/contributing-to-recursivist/development-workflow/making-changes",
-                  "label": "Making Changes"
-                },
-                {
-                  "id": "root/contributing/contributing-to-recursivist/development-workflow/testing-your-changes",
-                  "label": "Testing Your Changes"
-                },
-                {
-                  "id": "root/contributing/contributing-to-recursivist/development-workflow/submitting-a-pull-request",
-                  "label": "Submitting a Pull Request"
-                }
-              ]
-            },
-            {
-              "id": "root/contributing/contributing-to-recursivist/coding-standards",
-              "label": "Coding Standards",
-              "children": [
-                {
-                  "id": "root/contributing/contributing-to-recursivist/coding-standards/code-style",
-                  "label": "Code Style"
-                },
-                {
-                  "id": "root/contributing/contributing-to-recursivist/coding-standards/documentation",
-                  "label": "Documentation"
-                },
-                {
-                  "id": "root/contributing/contributing-to-recursivist/coding-standards/type-annotations",
-                  "label": "Type Annotations"
-                }
-              ]
-            },
-            {
-              "id": "root/contributing/contributing-to-recursivist/testing",
-              "label": "Testing",
-              "children": [
-                {
-                  "id": "root/contributing/contributing-to-recursivist/testing/running-tests",
-                  "label": "Running Tests"
-                },
-                {
-                  "id": "root/contributing/contributing-to-recursivist/testing/writing-tests",
-                  "label": "Writing Tests"
-                }
-              ]
-            },
-            {
-              "id": "root/contributing/contributing-to-recursivist/bug-reports-and-feature-requests",
-              "label": "Bug Reports and Feature Requests",
-              "children": [
-                {
-                  "id": "root/contributing/contributing-to-recursivist/bug-reports-and-feature-requests/reporting-bugs",
-                  "label": "Reporting Bugs"
-                },
-                {
-                  "id": "root/contributing/contributing-to-recursivist/bug-reports-and-feature-requests/suggesting-features",
-                  "label": "Suggesting Features"
-                }
-              ]
-            },
-            {
-              "id": "root/contributing/contributing-to-recursivist/release-process",
-              "label": "Release Process"
-            },
-            {
-              "id": "root/contributing/contributing-to-recursivist/community",
-              "label": "Community"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "id": "root/sitemap",
-      "label": "Sitemap",
-      "children": [
-        {
-          "id": "root/sitemap/sitemap",
-          "label": "Sitemap"
-        }
-      ]
-    }
-  ]
-};
-
-    const BRANCH_COLORS = ["#7c3aed", "#ec4899", "#10b981", "#f59e0b"];
-
-    function isDark() {
-      return (
-        document.documentElement.getAttribute("data-md-color-scheme") ===
-        "slate"
-      );
-    }
-
-    function assignColors(node, branchIdx, depth) {
-      if (depth === 0) {
-        node._color = "#3b82f6";
-      } else if (depth === 1) {
-        const i = TREE.children.indexOf(node);
-        node._branchIdx = i;
-        node._color =
-          BRANCH_COLORS[i % BRANCH_COLORS.length];
-      } else {
-        const bi = branchIdx ?? 0;
-        node._branchIdx = bi;
-        node._color = BRANCH_COLORS[bi % BRANCH_COLORS.length];
-      }
-
-      if (node.children) {
-        const nextBI = node._branchIdx ?? branchIdx;
-        node.children.forEach((c) =>
-          assignColors(c, nextBI, depth + 1)
-        );
-      }
-    }
-
-    const NH = 38,
-      TR = 9;
-    const LR_HGAP = 58,
-      LR_VGAP = 14;
-    const TB_XGAP = 22,
-      TB_YGAP = 58;
-
-    const collapsed = new Set();
-    const pos = {};
-    const nodeMap = {};
-
-    let orientation = "LR";
-    let allCollapsed = false;
-    let panX = 0,
-      panY = 0;
-
-    function index(n) {
-      nodeMap[n.id] = n;
-      n._w = Math.max(110, n.label.length * 7 + 36);
-      (n.children || []).forEach(index);
-    }
-    index(TREE);
-
-    function setInitialCollapse(node, depth) {
-      if (depth >= 1 && node.children?.length) {
-        collapsed.add(node.id);
-      }
-      (node.children || []).forEach((c) => setInitialCollapse(c, depth + 1));
-    }
-
-    setInitialCollapse(TREE, 0);
-
-    function lrH(node) {
-      if (collapsed.has(node.id) || !node.children?.length)
-        return NH;
-
-      const h =
-        node.children.reduce((s, c) => s + lrH(c), 0) +
-        (node.children.length - 1) * LR_VGAP;
-
-      return Math.max(NH, h);
-    }
-
-    function lrPlace(node, x, y) {
-      pos[node.id] = { x, y };
-
-      if (collapsed.has(node.id) || !node.children?.length)
-        return;
-
-      const total =
-        node.children.reduce((s, c) => s + lrH(c), 0) +
-        (node.children.length - 1) * LR_VGAP;
-
-      let cy = y - total / 2;
-      const cx = x + node._w + LR_HGAP;
-
-      for (const c of node.children) {
-        const h = lrH(c);
-        lrPlace(c, cx, cy + h / 2);
-        cy += h + LR_VGAP;
-      }
-    }
-
-    function tbW(node) {
-      if (collapsed.has(node.id) || !node.children?.length)
-        return node._w;
-
-      const w =
-        node.children.reduce((s, c) => s + tbW(c), 0) +
-        (node.children.length - 1) * TB_XGAP;
-
-      return Math.max(node._w, w);
-    }
-
-    function tbPlace(node, x, y) {
-      pos[node.id] = { x, y };
-
-      if (collapsed.has(node.id) || !node.children?.length)
-        return;
-
-      const total =
-        node.children.reduce((s, c) => s + tbW(c), 0) +
-        (node.children.length - 1) * TB_XGAP;
-
-      const parentCenterX = x + node._w / 2;
-      let cx = parentCenterX - total / 2;
-      const cy = y + NH + TB_YGAP;
-
-      for (const c of node.children) {
-        const w = tbW(c);
-        tbPlace(c, cx + w / 2 - c._w / 2, cy);
-        cx += w + TB_XGAP;
-      }
-    }
-
-    function doLayout() {
-      const isFirstRender = !pos[TREE.id];
-
-      const targetX = isFirstRender ? (orientation === "LR" ? 300 : window.innerWidth / 2) : pos[TREE.id].x;
-      const targetY = isFirstRender ? (orientation === "LR" ? 325 : 300) : pos[TREE.id].y;
-
-      if (orientation === "LR") {
-        lrPlace(TREE, 0, 0);
-      } else {
-        tbPlace(TREE, 0, 0);
-      }
-
-      const dx = targetX - pos[TREE.id].x;
-      const dy = targetY - pos[TREE.id].y;
-
-      Object.keys(pos).forEach((id) => {
-        pos[id].x += dx;
-        pos[id].y += dy;
-      });
-    }
-
-    const NS = "http://www.w3.org/2000/svg";
-
-    function el(tag, attrs, parent) {
-      const e = document.createElementNS(NS, tag);
-      for (const [k, v] of Object.entries(attrs || {})) {
-        e.setAttribute(k, v);
-      }
-      if (parent) parent.appendChild(e);
-      return e;
-    }
-
-    function lrCurve(p, c) {
-      const startX = pos[p.id].x + p._w;
-      const startY = pos[p.id].y;
-      const endX = pos[c.id].x;
-      const endY = pos[c.id].y;
-      const mx = startX + (endX - startX) * 0.55;
-      return `M${startX},${startY} C${mx},${startY} ${mx},${endY} ${endX},${endY}`;
-    }
-
-    function tbCurve(p, c) {
-      const startX = pos[p.id].x + p._w / 2;
-      const startY = pos[p.id].y + NH / 2;
-      const endX = pos[c.id].x + c._w / 2;
-      const endY = pos[c.id].y - NH / 2;
-      const my = startY + (endY - startY) * 0.55;
-      return `M${startX},${startY} C${startX},${my} ${endX},${my} ${endX},${endY}`;
-    }
-
-    function doDraw() {
-      const svg = document.getElementById("mm-svg");
-      svg.innerHTML = "";
-
-      assignColors(TREE, null, 0);
-
-      const eL = el("g", {}, svg);
-      const nL = el("g", {}, svg);
-
-      function drawNode(node) {
-        const p = pos[node.id];
-        if (!p) return;
-
-        const { x, y } = p;
-        const isCol = collapsed.has(node.id);
-        const hasKids =
-          node.children?.length > 0;
-
-        if (!isCol && node.children) {
-          for (const c of node.children) {
-            const cp = pos[c.id];
-            if (!cp) continue;
-
-            const d =
-              orientation === "LR"
-                ? lrCurve(node, c)
-                : tbCurve(node, c);
-
-            el(
-              "path",
-              {
-                class: "mm-edge",
-                d,
-                stroke: c._color,
-                "stroke-width": 2,
-                "stroke-opacity": 0.5,
-              },
-              eL
-            );
-          }
-        }
-
-        const g = el(
-          "g",
-          { class: "mm-node-g", "data-id": node.id },
-          nL
-        );
-
-        el(
-          "rect",
-          {
-            x,
-            y: y - NH / 2,
-            width: node._w,
-            height: NH,
-            rx: NH / 2,
-            ry: NH / 2,
-            fill: node._color,
-            class: "mm-pill",
-          },
-          g
-        );
-
-        el(
-          "text",
-          {
-            class: "mm-label",
-            x: x + node._w / 2,
-            y,
-          },
-          g
-        ).textContent = node.label;
-
-        if (hasKids) {
-          const [tx, ty] =
-            orientation === "LR"
-              ? [x + node._w - 2, y]
-              : [x + node._w / 2, y + NH / 2 + 2];
-
-          const tg = el(
-            "g",
-            {
-              class: "mm-toggle-g",
-              "data-id": node.id,
-              transform: `translate(${tx},${ty})`,
-            },
-            nL
-          );
-
-          el("circle", { r: TR }, tg);
-          el("text", { x: 0, y: 0.5 }, tg).textContent =
-            isCol ? "+" : "−";
-
-          tg.addEventListener("click", (e) => {
-            e.stopPropagation();
-            collapsed.has(node.id)
-              ? collapsed.delete(node.id)
-              : collapsed.add(node.id);
-            render();
-          });
-        }
-
-        if (!isCol && node.children) {
-          node.children.forEach(drawNode);
-        }
-      }
-
-      drawNode(TREE);
-      attachNodeDrag();
-    }
-
-    function shiftTree(node, dx, dy) {
-      if (!pos[node.id]) return;
-
-      pos[node.id].x += dx;
-      pos[node.id].y += dy;
-
-      if (
-        !collapsed.has(node.id) &&
-        node.children
-      ) {
-        node.children.forEach((c) =>
-          shiftTree(c, dx, dy)
-        );
-      }
-    }
-
-    function attachNodeDrag() {
-      const svg =
-        document.getElementById("mm-svg");
-
-      let drag = null,
-        sx,
-        sy,
-        snx,
-        sny;
-
-      svg
-        .querySelectorAll(".mm-node-g")
-        .forEach((g) => {
-          g.addEventListener("mousedown", (e) => {
-            if (e.target.closest(".mm-toggle-g"))
-              return;
-
-            drag = g.dataset.id;
-            sx = e.clientX;
-            sy = e.clientY;
-            snx = pos[drag].x;
-            sny = pos[drag].y;
-
-            e.preventDefault();
-            e.stopPropagation();
-          });
-        });
-
-      function onMove(e) {
-        if (!drag) return;
-
-        const ddx =
-          snx + (e.clientX - sx) - pos[drag].x;
-        const ddy =
-          sny + (e.clientY - sy) - pos[drag].y;
-
-        shiftTree(
-          nodeMap[drag],
-          ddx,
-          ddy
-        );
-        doDraw();
-      }
-
-      document.addEventListener(
-        "mousemove",
-        onMove
-      );
-      document.addEventListener(
-        "mouseup",
-        () => {
-          drag = null;
-        }
-      );
-    }
-
-    (function () {
-      const svg =
-        document.getElementById("mm-svg");
-
-      let panning = false,
-        px,
-        py;
-
-      svg.addEventListener("mousedown", (e) => {
-        if (
-          e.target.closest(".mm-node-g") ||
-          e.target.closest(".mm-toggle-g")
-        )
-          return;
-
-        panning = true;
-        px = e.clientX;
-        py = e.clientY;
-        e.preventDefault();
-      });
-
-      document.addEventListener(
-        "mousemove",
-        (e) => {
-          if (!panning) return;
-
-          const dx = e.clientX - px;
-          const dy = e.clientY - py;
-
-          panX += dx;
-          panY += dy;
-
-          shiftTree(TREE, dx, dy);
-          doDraw();
-
-          px = e.clientX;
-          py = e.clientY;
-        }
-      );
-
-      document.addEventListener(
-        "mouseup",
-        () => {
-          panning = false;
-        }
-      );
-    })();
-
-    function render() {
-      doLayout();
-      doDraw();
-    }
-
-    const expcolBtn =
-      document.getElementById(
-        "mm-expcol-toggle"
-      );
-    const expcolIcon =
-      document.getElementById(
-        "mm-expcol-icon"
-      );
-
-    function syncExpcolBtn() {
-      if (allCollapsed) {
-        expcolIcon.className =
-          "ph-duotone ph-arrows-out";
-        expcolBtn.title = "Expand All";
-      } else {
-        expcolIcon.className =
-          "ph-duotone ph-arrows-in";
-        expcolBtn.title = "Collapse All";
-      }
-    }
-
-    expcolBtn.onclick = () => {
-      if (allCollapsed) {
-        collapsed.clear();
-        allCollapsed = false;
-      } else {
-        function col(n) {
-          if (n.children?.length) {
-            collapsed.add(n.id);
-            n.children.forEach(col);
-          }
-        }
-        col(TREE);
-        allCollapsed = true;
-      }
-
-      panX = 0;
-      panY = 0;
-
-      syncExpcolBtn();
-      render();
-    };
-
-    document.getElementById(
-      "mm-reset-view"
-    ).onclick = () => {
-      collapsed.clear();
-      setInitialCollapse(TREE, 0);
-      allCollapsed = false;
-      panX = 0;
-      panY = 0;
-      Object.keys(pos).forEach(k => delete pos[k]);
-      syncExpcolBtn();
-      render();
-    };
-
-    const orientBtn =
-      document.getElementById(
-        "mm-orient-toggle"
-      );
-    const iconsLR =
-      document.getElementById(
-        "mm-icons-lr"
-      );
-    const iconsTB =
-      document.getElementById(
-        "mm-icons-tb"
-      );
-
-    orientBtn.onclick = () => {
-      orientation =
-        orientation === "LR" ? "TB" : "LR";
-
-      const isLR =
-        orientation === "LR";
-
-      iconsLR.style.display = isLR
-        ? "none"
-        : "";
-      iconsTB.style.display = isLR
-        ? ""
-        : "none";
-
-      orientBtn.title = isLR
-        ? "Switch to Top → Bottom"
-        : "Switch to Left → Right";
-
-      panX = 0;
-      panY = 0;
-
-      render();
-    };
-
-    new MutationObserver(() =>
-      doDraw()
-    ).observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: [
-        "data-md-color-scheme",
-      ],
-    });
-
-    syncExpcolBtn();
-    render();
-
-    window.addEventListener(
-      "resize",
-      () => {
-        panX = 0;
-        panY = 0;
-        Object.keys(pos).forEach(k => delete pos[k]);
-        render();
-      }
-    );
-
-    (function transplantControls() {
-      function doTransplant() {
-        const sidebar = document.querySelector(
-          ".md-sidebar--primary .md-sidebar__inner"
-        );
-        const controls =
-          document.querySelector(
-            ".mm-controls"
-          );
-
-        if (!sidebar || !controls) return;
-
-        sidebar.innerHTML = "";
-
-        const panel =
-          document.createElement("div");
-        panel.className =
-          "mm-sidebar-panel";
-
-        panel.appendChild(controls);
-        sidebar.appendChild(panel);
-
-        const mapRoot = document.getElementById("mm-root");
-        if (mapRoot) {
-          document.body.appendChild(mapRoot);
-        }
-      }
-
-      if (
-        document.readyState === "loading"
-      ) {
-        document.addEventListener(
-          "DOMContentLoaded",
-          doTransplant
-        );
-      } else {
-        doTransplant();
-      }
-    })();
-  })();
-</script>
+## [Home](index.md)
+
+- [Key Features](index.md#key-features)
+- [Quick Install](index.md#quick-install)
+- [Getting Started](index.md#getting-started)
+- [Next Steps](index.md#next-steps)
+- [License](index.md#license)
+
+## Getting Started
+
+- [Installation](getting-started/installation.md)
+    - [Requirements](getting-started/installation.md#requirements)
+    - [Installing from PyPI](getting-started/installation.md#installing-from-pypi)
+    - [Installing from Source](getting-started/installation.md#installing-from-source)
+    - [Verifying the Installation](getting-started/installation.md#verifying-the-installation)
+    - [Nerd Font Icons (Optional)](getting-started/installation.md#nerd-font-icons-optional)
+    - [Terminal Compatibility](getting-started/installation.md#terminal-compatibility)
+    - [Next Steps](getting-started/installation.md#next-steps)
+- [Quick Start](getting-started/quick-start.md)
+    - [Visualize a Directory](getting-started/quick-start.md#visualize-a-directory)
+    - [Show File Statistics](getting-started/quick-start.md#show-file-statistics)
+    - [Show Git Status](getting-started/quick-start.md#show-git-status)
+    - [Export a Directory Structure](getting-started/quick-start.md#export-a-directory-structure)
+    - [Compare Two Directories](getting-started/quick-start.md#compare-two-directories)
+    - [Scan a GitHub Repository](getting-started/quick-start.md#scan-a-github-repository)
+    - [Common Options](getting-started/quick-start.md#common-options)
+    - [Shell Completion](getting-started/quick-start.md#shell-completion)
+    - [Next Steps](getting-started/quick-start.md#next-steps)
+
+## User Guide
+
+- [Basic Usage](user-guide/basic-usage.md)
+    - [Command Structure](user-guide/basic-usage.md#command-structure)
+    - [Getting Help](user-guide/basic-usage.md#getting-help)
+    - [Default Behavior](user-guide/basic-usage.md#default-behavior)
+    - [Icon Styles](user-guide/basic-usage.md#icon-styles)
+    - [Common Options](user-guide/basic-usage.md#common-options)
+        - [Excluding Directories](user-guide/basic-usage.md#excluding-directories)
+        - [Excluding File Extensions](user-guide/basic-usage.md#excluding-file-extensions)
+        - [Limiting Depth](user-guide/basic-usage.md#limiting-depth)
+        - [Showing Full Paths](user-guide/basic-usage.md#showing-full-paths)
+        - [Verbose Output](user-guide/basic-usage.md#verbose-output)
+    - [Scanning a GitHub Repository](user-guide/basic-usage.md#scanning-a-github-repository)
+    - [File Statistics](user-guide/basic-usage.md#file-statistics)
+    - [Grouping by Name Similarity](user-guide/basic-usage.md#grouping-by-name-similarity)
+    - [Pattern Filtering](user-guide/basic-usage.md#pattern-filtering)
+    - [Exit Codes](user-guide/basic-usage.md#exit-codes)
+    - [Next Steps](user-guide/basic-usage.md#next-steps)
+- [Visualization](user-guide/visualization.md)
+    - [Basic Visualization](user-guide/visualization.md#basic-visualization)
+    - [Color Coding](user-guide/visualization.md#color-coding)
+    - [Icon Styles](user-guide/visualization.md#icon-styles)
+    - [File Statistics](user-guide/visualization.md#file-statistics)
+        - [Lines of Code](user-guide/visualization.md#lines-of-code)
+        - [File Sizes](user-guide/visualization.md#file-sizes)
+        - [Modification Times](user-guide/visualization.md#modification-times)
+        - [Displaying Without Sorting](user-guide/visualization.md#displaying-without-sorting)
+        - [Combining Statistics](user-guide/visualization.md#combining-statistics)
+    - [Grouping by Name Similarity](user-guide/visualization.md#grouping-by-name-similarity)
+    - [Git Status](user-guide/visualization.md#git-status)
+    - [Directory Depth Control](user-guide/visualization.md#directory-depth-control)
+    - [Full Path Display](user-guide/visualization.md#full-path-display)
+    - [GitHub Repositories](user-guide/visualization.md#github-repositories)
+    - [Filtering](user-guide/visualization.md#filtering)
+    - [Performance Tips](user-guide/visualization.md#performance-tips)
+    - [Related Commands](user-guide/visualization.md#related-commands)
+- [Export](user-guide/export.md)
+    - [Basic Usage](user-guide/export.md#basic-usage)
+    - [Available Formats](user-guide/export.md#available-formats)
+    - [Multiple Formats at Once](user-guide/export.md#multiple-formats-at-once)
+    - [Output Location and Filename](user-guide/export.md#output-location-and-filename)
+    - [File Statistics](user-guide/export.md#file-statistics)
+    - [Git Status](user-guide/export.md#git-status)
+    - [Icon Style](user-guide/export.md#icon-style)
+    - [Filtering and Depth](user-guide/export.md#filtering-and-depth)
+    - [GitHub Repositories](user-guide/export.md#github-repositories)
+    - [Format Details](user-guide/export.md#format-details)
+        - [Text (`.txt`)](user-guide/export.md#text-txt)
+        - [JSON (`.json`)](user-guide/export.md#json-json)
+        - [HTML (`.html`)](user-guide/export.md#html-html)
+        - [Markdown (`.md`)](user-guide/export.md#markdown-md)
+        - [SVG (`.svg`)](user-guide/export.md#svg-svg)
+        - [reStructuredText (`.rst`)](user-guide/export.md#restructuredtext-rst)
+    - [Examples](user-guide/export.md#examples)
+- [Compare](user-guide/compare.md)
+    - [Basic Comparison](user-guide/compare.md#basic-comparison)
+    - [Reading the Output](user-guide/compare.md#reading-the-output)
+    - [File Statistics](user-guide/compare.md#file-statistics)
+    - [Saving as HTML](user-guide/compare.md#saving-as-html)
+    - [Filtering and Depth](user-guide/compare.md#filtering-and-depth)
+    - [GitHub Repositories](user-guide/compare.md#github-repositories)
+    - [Use Cases](user-guide/compare.md#use-cases)
+    - [HTML Output](user-guide/compare.md#html-output)
+    - [Terminal Compatibility](user-guide/compare.md#terminal-compatibility)
+- [Pattern Filtering](user-guide/pattern-filtering.md)
+    - [The Four Filtering Mechanisms](user-guide/pattern-filtering.md#the-four-filtering-mechanisms)
+    - [Directory Exclusion](user-guide/pattern-filtering.md#directory-exclusion)
+    - [Extension Exclusion](user-guide/pattern-filtering.md#extension-exclusion)
+    - [Include and Exclude Patterns](user-guide/pattern-filtering.md#include-and-exclude-patterns)
+    - [Ignore Files](user-guide/pattern-filtering.md#ignore-files)
+    - [Order of Precedence](user-guide/pattern-filtering.md#order-of-precedence)
+    - [Combining Filters](user-guide/pattern-filtering.md#combining-filters)
+    - [Same Behavior Across Commands](user-guide/pattern-filtering.md#same-behavior-across-commands)
+    - [Examples](user-guide/pattern-filtering.md#examples)
+- [Shell Completion](user-guide/shell-completion.md)
+    - [Recommended: Built-in Installer](user-guide/shell-completion.md#recommended-built-in-installer)
+    - [The `completion` Command](user-guide/shell-completion.md#the-completion-command)
+    - [Using Completion](user-guide/shell-completion.md#using-completion)
+    - [Troubleshooting](user-guide/shell-completion.md#troubleshooting)
+
+## Reference
+
+- [CLI Reference](reference/cli-reference.md)
+    - [Commands](reference/cli-reference.md#commands)
+    - [Shared Options](reference/cli-reference.md#shared-options)
+    - [Sorting and Display Flags](reference/cli-reference.md#sorting-and-display-flags)
+        - [Resolution by command-line order](reference/cli-reference.md#resolution-by-command-line-order)
+    - [GitHub Repositories](reference/cli-reference.md#github-repositories)
+        - [Accepted URL forms](reference/cli-reference.md#accepted-url-forms)
+        - [Authentication](reference/cli-reference.md#authentication)
+        - [Options for a GitHub input](reference/cli-reference.md#options-for-a-github-input)
+    - [`visualize`](reference/cli-reference.md#visualize)
+        - [Examples](reference/cli-reference.md#examples)
+    - [`export`](reference/cli-reference.md#export)
+        - [Examples](reference/cli-reference.md#examples_1)
+    - [`compare`](reference/cli-reference.md#compare)
+        - [Examples](reference/cli-reference.md#examples_2)
+    - [`config`](reference/cli-reference.md#config)
+        - [Examples](reference/cli-reference.md#examples_3)
+    - [`completion`](reference/cli-reference.md#completion)
+    - [`version`](reference/cli-reference.md#version)
+- [API Reference](reference/api-reference.md)
+    - [Module Overview](reference/api-reference.md#module-overview)
+    - [The Structure Dictionary](reference/api-reference.md#the-structure-dictionary)
+        - [DisplayOptions](reference/api-reference.md#displayoptions)
+        - [FileEntry](reference/api-reference.md#fileentry)
+    - [Scanner](reference/api-reference.md#scanner)
+    - [Tree Rendering](reference/api-reference.md#tree-rendering)
+    - [Exporters](reference/api-reference.md#exporters)
+    - [Compare](reference/api-reference.md#compare)
+    - [Filtering](reference/api-reference.md#filtering)
+    - [Flags](reference/api-reference.md#flags)
+    - [Sorting](reference/api-reference.md#sorting)
+    - [Metrics](reference/api-reference.md#metrics)
+    - [Colors](reference/api-reference.md#colors)
+    - [Icons](reference/api-reference.md#icons)
+    - [Git Status](reference/api-reference.md#git-status)
+    - [GitHub](reference/api-reference.md#github)
+    - [Configuration](reference/api-reference.md#configuration)
+    - [Example: Custom Analysis Script](reference/api-reference.md#example-custom-analysis-script)
+    - [Extending Recursivist](reference/api-reference.md#extending-recursivist)
+- [Export Formats](reference/export-formats.md)
+    - [Available Formats](reference/export-formats.md#available-formats)
+    - [Basic Usage](reference/export-formats.md#basic-usage)
+    - [Text (`.txt`)](reference/export-formats.md#text-txt)
+    - [JSON (`.json`)](reference/export-formats.md#json-json)
+    - [HTML (`.html`)](reference/export-formats.md#html-html)
+    - [Markdown (`.md`)](reference/export-formats.md#markdown-md)
+    - [reStructuredText (`.rst`)](reference/export-formats.md#restructuredtext-rst)
+    - [SVG (`.svg`)](reference/export-formats.md#svg-svg)
+- [Pattern Matching](reference/pattern-matching.md)
+    - [What Patterns Match](reference/pattern-matching.md#what-patterns-match)
+    - [Glob Patterns](reference/pattern-matching.md#glob-patterns)
+        - [Syntax](reference/pattern-matching.md#syntax)
+        - [Examples](reference/pattern-matching.md#examples)
+        - [Usage](reference/pattern-matching.md#usage)
+    - [Regular Expressions](reference/pattern-matching.md#regular-expressions)
+        - [Common Syntax](reference/pattern-matching.md#common-syntax)
+        - [Examples](reference/pattern-matching.md#examples_1)
+        - [Usage](reference/pattern-matching.md#usage_1)
+    - [Precedence](reference/pattern-matching.md#precedence)
+    - [Performance](reference/pattern-matching.md#performance)
+    - [Troubleshooting](reference/pattern-matching.md#troubleshooting)
+
+## Examples
+
+- [Basic Examples](examples/basic.md)
+    - [Visualization](examples/basic.md#visualization)
+    - [File Statistics](examples/basic.md#file-statistics)
+    - [Git Status](examples/basic.md#git-status)
+    - [Exclusions](examples/basic.md#exclusions)
+    - [Exports](examples/basic.md#exports)
+    - [Comparisons](examples/basic.md#comparisons)
+    - [GitHub Repositories](examples/basic.md#github-repositories)
+    - [Configuration and Version](examples/basic.md#configuration-and-version)
+    - [Next Steps](examples/basic.md#next-steps)
+- [Filtering Examples](examples/filtering.md)
+    - [Excluding Directories and Extensions](examples/filtering.md#excluding-directories-and-extensions)
+    - [Glob Patterns](examples/filtering.md#glob-patterns)
+    - [Regular Expressions](examples/filtering.md#regular-expressions)
+    - [Include Patterns](examples/filtering.md#include-patterns)
+    - [Ignore Files](examples/filtering.md#ignore-files)
+    - [Combining Filters](examples/filtering.md#combining-filters)
+    - [Language-Specific Recipes](examples/filtering.md#language-specific-recipes)
+        - [Python](examples/filtering.md#python)
+        - [JavaScript / TypeScript](examples/filtering.md#javascript-typescript)
+        - [Java / Maven](examples/filtering.md#java-maven)
+    - [Filtering with Statistics](examples/filtering.md#filtering-with-statistics)
+    - [Filtering in Export and Compare](examples/filtering.md#filtering-in-export-and-compare)
+- [Export Examples](examples/export.md)
+    - [Exporting to Each Format](examples/export.md#exporting-to-each-format)
+    - [Statistics in Exports](examples/export.md#statistics-in-exports)
+    - [Output Location and Filename](examples/export.md#output-location-and-filename)
+    - [Filtered and Depth-Limited Exports](examples/export.md#filtered-and-depth-limited-exports)
+    - [Processing JSON with jq](examples/export.md#processing-json-with-jq)
+    - [Including a Structure in Documentation](examples/export.md#including-a-structure-in-documentation)
+- [Compare Examples](examples/compare.md)
+    - [Basic Comparisons](examples/compare.md#basic-comparisons)
+    - [Comparing GitHub Repositories](examples/compare.md#comparing-github-repositories)
+    - [Comparisons with Statistics](examples/compare.md#comparisons-with-statistics)
+    - [Filtered Comparisons](examples/compare.md#filtered-comparisons)
+    - [Real-World Uses](examples/compare.md#real-world-uses)
+        - [Compare Two Versions](examples/compare.md#compare-two-versions)
+        - [Compare Two Git Branches](examples/compare.md#compare-two-git-branches)
+        - [Source vs. Build](examples/compare.md#source-vs-build)
+        - [Backup Verification](examples/compare.md#backup-verification)
+    - [In Continuous Integration](examples/compare.md#in-continuous-integration)
+- [Advanced Examples](examples/advanced.md)
+    - [Codebase Analysis with jq](examples/advanced.md#codebase-analysis-with-jq)
+    - [Focusing on Recent or Similar Files](examples/advanced.md#focusing-on-recent-or-similar-files)
+    - [Keeping Structure Docs Up to Date](examples/advanced.md#keeping-structure-docs-up-to-date)
+        - [Pre-commit Framework](examples/advanced.md#pre-commit-framework)
+        - [Manual Git Hook](examples/advanced.md#manual-git-hook)
+    - [Continuous Integration](examples/advanced.md#continuous-integration)
+    - [Multi-Level Project Map](examples/advanced.md#multi-level-project-map)
+
+## Advanced
+
+- [Integration](advanced/integration.md)
+    - [Git](advanced/integration.md#git)
+        - [Use Your `.gitignore`](advanced/integration.md#use-your-gitignore)
+        - [Scan a Repository by URL](advanced/integration.md#scan-a-repository-by-url)
+        - [Pre-commit Framework](advanced/integration.md#pre-commit-framework)
+        - [Manual Git Hook](advanced/integration.md#manual-git-hook)
+    - [Processing JSON with jq](advanced/integration.md#processing-json-with-jq)
+    - [Python](advanced/integration.md#python)
+        - [Serving Structures from Flask](advanced/integration.md#serving-structures-from-flask)
+    - [Continuous Integration](advanced/integration.md#continuous-integration)
+        - [GitHub Actions](advanced/integration.md#github-actions)
+        - [GitLab CI](advanced/integration.md#gitlab-ci)
+    - [Documentation Tools](advanced/integration.md#documentation-tools)
+    - [Shell Automation](advanced/integration.md#shell-automation)
+- [Development](advanced/development.md)
+    - [Setting Up a Development Environment](advanced/development.md#setting-up-a-development-environment)
+        - [Prerequisites](advanced/development.md#prerequisites)
+        - [Clone and Install](advanced/development.md#clone-and-install)
+        - [Install Pre-commit Hooks](advanced/development.md#install-pre-commit-hooks)
+    - [Project Structure](advanced/development.md#project-structure)
+    - [Development Workflow](advanced/development.md#development-workflow)
+    - [Code Style and Checks](advanced/development.md#code-style-and-checks)
+    - [Extending Recursivist](advanced/development.md#extending-recursivist)
+        - [Add a New Command](advanced/development.md#add-a-new-command)
+        - [Add a New Export Format](advanced/development.md#add-a-new-export-format)
+        - [Add a New File Statistic](advanced/development.md#add-a-new-file-statistic)
+        - [Extend Pattern Matching](advanced/development.md#extend-pattern-matching)
+        - [Customize Colorization](advanced/development.md#customize-colorization)
+    - [Debugging](advanced/development.md#debugging)
+    - [Documentation](advanced/development.md#documentation)
+    - [Release Process](advanced/development.md#release-process)
+    - [Performance Notes](advanced/development.md#performance-notes)
+- [Testing](advanced/testing.md)
+    - [Framework](advanced/testing.md#framework)
+    - [Running Tests](advanced/testing.md#running-tests)
+        - [Markers](advanced/testing.md#markers)
+    - [Test Organization](advanced/testing.md#test-organization)
+    - [Writing Tests](advanced/testing.md#writing-tests)
+        - [Directory Operations](advanced/testing.md#directory-operations)
+        - [CLI Commands](advanced/testing.md#cli-commands)
+        - [Export Formats](advanced/testing.md#export-formats)
+        - [File Statistics](advanced/testing.md#file-statistics)
+        - [Parametrization](advanced/testing.md#parametrization)
+        - [Property-Based Tests](advanced/testing.md#property-based-tests)
+    - [Fixtures and Mocking](advanced/testing.md#fixtures-and-mocking)
+    - [Edge Cases](advanced/testing.md#edge-cases)
+    - [Debugging Failing Tests](advanced/testing.md#debugging-failing-tests)
+    - [Continuous Integration](advanced/testing.md#continuous-integration)
+    - [Best Practices](advanced/testing.md#best-practices)
+
+## [Contributing](contributing.md)
+
+- [Table of Contents](contributing.md#table-of-contents)
+- [Getting Started](contributing.md#getting-started)
+    - [Setting Up Your Development Environment](contributing.md#setting-up-your-development-environment)
+- [Development Workflow](contributing.md#development-workflow)
+    - [Creating a Branch](contributing.md#creating-a-branch)
+    - [Making Changes](contributing.md#making-changes)
+    - [Testing Your Changes](contributing.md#testing-your-changes)
+    - [Submitting a Pull Request](contributing.md#submitting-a-pull-request)
+- [Coding Standards](contributing.md#coding-standards)
+    - [Code Style](contributing.md#code-style)
+    - [Documentation](contributing.md#documentation)
+    - [Type Annotations](contributing.md#type-annotations)
+- [Testing](contributing.md#testing)
+    - [Running Tests](contributing.md#running-tests)
+    - [Writing Tests](contributing.md#writing-tests)
+- [Bug Reports and Feature Requests](contributing.md#bug-reports-and-feature-requests)
+    - [Reporting Bugs](contributing.md#reporting-bugs)
+    - [Suggesting Features](contributing.md#suggesting-features)
+- [Release Process](contributing.md#release-process)
+- [Community](contributing.md#community)
