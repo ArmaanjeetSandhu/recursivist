@@ -1350,7 +1350,8 @@ class TestCompareGitStatus:
         self, mocker: MockerFixture, tmp_path: Any
     ) -> None:
         """Exported HTML contains Git badges, a legend block, and a
-        struck-through deleted file."""
+        struck-through deleted file. Comparison badges are intentionally
+        uncolored, so they carry no per-status ``git-<status>`` class."""
         mocker.patch(
             "recursivist.compare.get_git_status",
             side_effect=[{"mod.py": "M", "del.py": "D"}, {}],
@@ -1384,8 +1385,10 @@ class TestCompareGitStatus:
 
         with open(out, encoding="utf-8") as f:
             content = f.read()
-        assert 'class="git-badge git-m"' in content
-        assert 'class="git-badge git-d"' in content
+        assert 'class="git-badge">[M]</span>' in content
+        assert 'class="git-badge">[D]</span>' in content
+        assert "git-badge git-m" not in content
+        assert "git-badge git-d" not in content
         assert 'info-label">Git Status:' in content
         assert "line-through" in content
 

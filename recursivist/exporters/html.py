@@ -24,6 +24,13 @@ from .base import BaseExporter
 
 logger = logging.getLogger(__name__)
 
+_GIT_STATUS_STYLES: dict[str, tuple[str, str]] = {
+    "U": ("#999999", "dim"),
+    "M": ("#d4a017", ""),
+    "A": ("#28a745", ""),
+    "D": ("#dc3545", "line-through"),
+}
+
 
 class HtmlExporter(BaseExporter):
     """Exporter that writes the structure as a standalone HTML page."""
@@ -77,16 +84,10 @@ class HtmlExporter(BaseExporter):
                         if self.show_git_status
                         else ""
                     )
-                    _GIT_HTML_STYLES = {
-                        "U": ("#999999", "dim"),
-                        "M": ("#d4a017", ""),
-                        "A": ("#28a745", ""),
-                        "D": ("#dc3545", "line-through"),
-                    }
                     _file_style = f"color: {color};"
-                    if _git_marker and _git_marker in _GIT_HTML_STYLES:
-                        _badge_color, _file_style_extra = _GIT_HTML_STYLES[_git_marker]
-                        _git_badge = f' <span class="git-badge git-{_git_marker.lower()}" style="color:{_badge_color};font-size:0.8em;font-weight:bold;">[{_git_marker}]</span>'
+                    if _git_marker and _git_marker in _GIT_STATUS_STYLES:
+                        _, _file_style_extra = _GIT_STATUS_STYLES[_git_marker]
+                        _git_badge = f' <span class="git-badge git-{_git_marker.lower()}" style="font-size:0.8em;font-weight:bold;">[{_git_marker}]</span>'
                         _name_style = (
                             ' style="text-decoration: line-through;"'
                             if _file_style_extra == "line-through"
@@ -158,6 +159,10 @@ class HtmlExporter(BaseExporter):
             if self.metrics
             else ""
         )
+        git_color_rules = "\n".join(
+            f"            .git-{marker.lower()} {{ color: {color}; }}"
+            for marker, (color, _decoration) in _GIT_STATUS_STYLES.items()
+        )
         git_styles = (
             """
             .git-badge {
@@ -167,11 +172,9 @@ class HtmlExporter(BaseExporter):
                 margin-left: 4px;
                 vertical-align: middle;
             }
-            .git-u { color: #999999; }
-            .git-m { color: #d4a017; }
-            .git-a { color: #28a745; }
-            .git-d { color: #dc3545; }
-        """
+"""
+            + git_color_rules
+            + "\n        "
             if self.show_git_status
             else ""
         )

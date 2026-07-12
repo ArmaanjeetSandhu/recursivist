@@ -895,7 +895,7 @@ def _export_comparison_to_html(
             git_marker = markers.get(entry.name, "") if show_git_status else ""
             if git_marker and git_marker in _GIT_HTML_MARKERS:
                 git_badge = (
-                    f' <span class="git-badge git-{git_marker.lower()}" '
+                    f' <span class="git-badge" '
                     f'style="font-size:0.8em;font-weight:bold;">'
                     f"[{git_marker}]</span>"
                 )
@@ -1046,10 +1046,10 @@ def _export_comparison_to_html(
         git_status_info = (
             '<div class="info-block"><span class="info-label">Git Status:</span> '
             "Status markers displayed &mdash; "
-            '<span class="git-badge git-u">[U]</span> untracked, '
-            '<span class="git-badge git-m">[M]</span> modified, '
-            '<span class="git-badge git-a">[A]</span> added, '
-            '<span class="git-badge git-d">[D]</span> deleted</div>'
+            '<span class="git-badge">[U]</span> untracked, '
+            '<span class="git-badge">[M]</span> modified, '
+            '<span class="git-badge">[A]</span> added, '
+            '<span class="git-badge">[D]</span> deleted</div>'
         )
     pattern_info_html = ""
     if metadata.get("exclude_patterns") or metadata.get("include_patterns"):
