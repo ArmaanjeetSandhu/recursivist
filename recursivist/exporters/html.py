@@ -134,6 +134,10 @@ class HtmlExporter(BaseExporter):
                         html_content.append(
                             '<ul><li class="max-depth">⋯ (max depth reached)</li></ul>'
                         )
+                    elif content.get("_symlink_loop"):
+                        html_content.append(
+                            '<ul><li class="symlink-loop">↩ (symlink loop)</li></ul>'
+                        )
                     else:
                         html_content.append(_build_html_tree(content, next_path))
                 html_content.append("</li>")
@@ -203,6 +207,10 @@ class HtmlExporter(BaseExporter):
                     color: #34495e;
                 }}
                 .max-depth {{
+                    color: #999;
+                    font-style: italic;
+                }}
+                .symlink-loop {{
                     color: #999;
                     font-style: italic;
                 }}

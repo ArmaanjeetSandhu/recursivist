@@ -105,12 +105,16 @@ class JsonExporter(BaseExporter):
                     elif k == "_max_depth_reached":
                         result[k] = v
 
+            if "_symlink_loop" in structure:
+                result["_symlink_loop"] = structure["_symlink_loop"]
+
             special_keys = {
                 "_files",
                 "_loc",
                 "_size",
                 "_mtime",
                 "_max_depth_reached",
+                "_symlink_loop",
                 "_git_markers",
             }
             for k in sorted(structure.keys()):
@@ -139,7 +143,14 @@ class JsonExporter(BaseExporter):
                 )
                 result["_files"] = [entry.name for entry in sorted_files]
 
-            for k in ("_loc", "_size", "_mtime", "_max_depth_reached", "_git_markers"):
+            for k in (
+                "_loc",
+                "_size",
+                "_mtime",
+                "_max_depth_reached",
+                "_symlink_loop",
+                "_git_markers",
+            ):
                 if k in structure:
                     result[k] = structure[k]
 
@@ -149,6 +160,7 @@ class JsonExporter(BaseExporter):
                 "_size",
                 "_mtime",
                 "_max_depth_reached",
+                "_symlink_loop",
                 "_git_markers",
             }
             for k in sorted(structure.keys()):

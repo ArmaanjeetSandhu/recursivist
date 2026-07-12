@@ -140,6 +140,7 @@ class RstExporter(BaseExporter):
                 if name in (
                     "_files",
                     "_max_depth_reached",
+                    "_symlink_loop",
                     "_loc",
                     "_size",
                     "_mtime",
@@ -160,6 +161,9 @@ class RstExporter(BaseExporter):
                     if content.get("_max_depth_reached"):
                         lines.append("")
                         lines.append(f"{indent}  - ⋯ *(max depth reached)*")
+                    elif content.get("_symlink_loop"):
+                        lines.append("")
+                        lines.append(f"{indent}  - ↩ *(symlink loop)*")
                     else:
                         sublines = _build_rst_tree(content, level + 1, next_path)
                         if sublines:

@@ -366,6 +366,8 @@ def build_comparison_tree(
             subtree = tree.add(folder_label)
         if isinstance(content, dict) and content.get("_max_depth_reached"):
             subtree.add(Text("⋯ (max depth reached)", style="dim"))
+        elif isinstance(content, dict) and content.get("_symlink_loop"):
+            subtree.add(Text("↩ (symlink loop)", style="dim"))
         else:
             build_comparison_tree(
                 content,
@@ -411,6 +413,8 @@ def build_comparison_tree(
                 "_max_depth_reached"
             ):
                 subtree.add(Text("⋯ (max depth reached)", style="dim"))
+            elif isinstance(other_content, dict) and other_content.get("_symlink_loop"):
+                subtree.add(Text("↩ (symlink loop)", style="dim"))
             else:
                 build_comparison_tree(
                     {},
@@ -957,6 +961,10 @@ def _export_comparison_to_html(
                 html_content.append(
                     '<ul><li class="max-depth">⋯ (max depth reached)</li></ul>'
                 )
+            elif isinstance(content, dict) and content.get("_symlink_loop"):
+                html_content.append(
+                    '<ul><li class="symlink-loop">↩ (symlink loop)</li></ul>'
+                )
             else:
                 other_content = other_structure.get(name, {}) if other_structure else {}
                 html_content.append(
@@ -1004,6 +1012,10 @@ def _export_comparison_to_html(
                 if isinstance(content, dict) and content.get("_max_depth_reached"):
                     html_content.append(
                         '<ul><li class="max-depth">⋯ (max depth reached)</li></ul>'
+                    )
+                elif isinstance(content, dict) and content.get("_symlink_loop"):
+                    html_content.append(
+                        '<ul><li class="symlink-loop">↩ (symlink loop)</li></ul>'
                     )
                 else:
                     html_content.append(
@@ -1137,6 +1149,10 @@ def _export_comparison_to_html(
                 background-color: #f8d7da;
             }}
             .max-depth {{
+                color: #999;
+                font-style: italic;
+            }}
+            .symlink-loop {{
                 color: #999;
                 font-style: italic;
             }}

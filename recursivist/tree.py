@@ -107,6 +107,8 @@ def build_tree(
         subtree = tree.add(folder_display)
         if isinstance(content, dict) and content.get("_max_depth_reached"):
             subtree.add(Text("⋯ (max depth reached)", style="dim"))
+        elif isinstance(content, dict) and content.get("_symlink_loop"):
+            subtree.add(Text("↩ (symlink loop)", style="dim"))
         else:
             build_tree(content, subtree, color_map, spec, show_full_path, icon_style)
 

@@ -24,7 +24,15 @@ logger = logging.getLogger(__name__)
 
 
 RESERVED_KEYS: frozenset[str] = frozenset(
-    {"_files", "_loc", "_size", "_mtime", "_max_depth_reached", "_git_markers"}
+    {
+        "_files",
+        "_loc",
+        "_size",
+        "_mtime",
+        "_max_depth_reached",
+        "_symlink_loop",
+        "_git_markers",
+    }
 )
 
 
@@ -45,6 +53,7 @@ def get_directory_structure(
     sort_by_mtime: bool = False,
     show_git_status: bool = False,
     git_status_map: dict[str, str] | None = None,
+    ancestor_ids: frozenset[tuple[int, int]] | None = None,
 ) -> tuple[dict[str, Any], set[str]]:
     """Build a nested dictionary representing a directory structure.
 
@@ -61,6 +70,9 @@ def get_directory_structure(
     - ``"_size"``: total size in bytes (when *sort_by_size* is set).
     - ``"_mtime"``: latest modification time (when *sort_by_mtime* is set).
     - ``"_max_depth_reached"``: present when traversal stopped at *max_depth*.
+    - ``"_symlink_loop"``: present (and ``True``) when a directory was not
+      recursed into because it resolves to one of its own ancestors, i.e. a
+      symlink (or other) cycle back up the tree.
     - ``"_git_markers"``: ``{filename: status_char}`` (when *show_git_status*
       is set).
 
@@ -90,6 +102,9 @@ def get_directory_structure(
         show_git_status: Whether to annotate files with Git status markers.
         git_status_map: Pre-computed ``{rel_path: status_char}`` mapping, as
             returned by :func:`recursivist.git_status.get_git_status`.
+        ancestor_ids: ``(st_dev, st_ino)`` identities of the directories on the
+            path from the scan root to (and including) *root_dir*, used to
+            detect symlink cycles. Set internally across the recursion.
 
     Returns:
         A ``(structure, extensions)`` tuple, where *structure* is the nested
@@ -104,6 +119,8 @@ def get_directory_structure(
         exclude_patterns = []
     if include_patterns is None:
         include_patterns = []
+    if ancestor_ids is None:
+        ancestor_ids = frozenset()
     ignore_stack: list[tuple[str, tuple[str, ...]]] = (
         list(parent_ignore_patterns) if parent_ignore_patterns else []
     )
@@ -188,6 +205,11 @@ def get_directory_structure(
                 )
                 if ext:
                     extensions_set.add(ext.lower())
+    try:
+        st = os.stat(root_dir)
+        child_ancestor_ids = ancestor_ids | {(st.st_dev, st.st_ino)}
+    except OSError:
+        child_ancestor_ids = ancestor_ids
     for item in items:
         item_path = os.path.join(root_dir, item)
         if item in exclude_dirs or should_exclude(
@@ -199,6 +221,17 @@ def get_directory_structure(
         ):
             continue
         if os.path.isdir(item_path):
+            try:
+                item_st = os.stat(item_path)
+                item_id: tuple[int, int] | None = (item_st.st_dev, item_st.st_ino)
+            except OSError:
+                item_id = None
+            if item_id is not None and item_id in child_ancestor_ids:
+                logger.warning(
+                    f"Skipping symlink cycle: {item_path} resolves to an ancestor"
+                )
+                structure[item] = {"_symlink_loop": True}
+                continue
             next_path = os.path.join(current_path, item) if current_path else item
             substructure, sub_extensions = get_directory_structure(
                 item_path,
@@ -217,6 +250,7 @@ def get_directory_structure(
                 sort_by_mtime,
                 show_git_status,
                 git_status_map,
+                child_ancestor_ids,
             )
             if include_patterns and not (
                 substructure.get("_files")

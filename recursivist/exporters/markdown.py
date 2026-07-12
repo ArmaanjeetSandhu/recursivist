@@ -119,6 +119,7 @@ class MarkdownExporter(BaseExporter):
                 if (
                     name == "_files"
                     or name == "_max_depth_reached"
+                    or name == "_symlink_loop"
                     or name == "_loc"
                     or name == "_size"
                     or name == "_mtime"
@@ -138,6 +139,8 @@ class MarkdownExporter(BaseExporter):
                 if isinstance(content, dict):
                     if content.get("_max_depth_reached"):
                         lines.append(f"{indent}    - ⋯ *(max depth reached)*")
+                    elif content.get("_symlink_loop"):
+                        lines.append(f"{indent}    - ↩ *(symlink loop)*")
                     else:
                         lines.extend(_build_md_tree(content, level + 1, next_path))
             return lines

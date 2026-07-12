@@ -448,3 +448,91 @@ def test_get_directory_structure_pathlib(pattern_test_directory: str) -> None:
             assert file_name.endswith(".py"), (
                 f"Non-Python file {file_name} was included"
             )
+
+
+def _supports_symlinks(base: str) -> bool:
+    """Return True if directory symlinks can be created under *base*."""
+    src = os.path.join(base, "__symlink_probe_target__")
+    link = os.path.join(base, "__symlink_probe_link__")
+    try:
+        os.makedirs(src, exist_ok=True)
+        os.symlink(src, link)
+    except (OSError, NotImplementedError, AttributeError):
+        return False
+    finally:
+        for p in (link, src):
+            try:
+                (os.remove if os.path.islink(p) else os.rmdir)(p)
+            except OSError:
+                pass
+    return True
+
+
+class TestSymlinkCycles:
+    """Cyclic symlinks must be cut, not walked until the OS ELOOP limit."""
+
+    def test_symlink_to_ancestor_is_cut(self, temp_dir: str) -> None:
+        """A symlink pointing back to an ancestor is marked, not recursed."""
+        if not _supports_symlinks(temp_dir):
+            pytest.skip("platform does not support directory symlinks")
+        os.makedirs(os.path.join(temp_dir, "a", "b"))
+        with open(os.path.join(temp_dir, "a", "file.txt"), "w") as f:
+            f.write("hi\n")
+        os.symlink(
+            os.path.join(temp_dir, "a"), os.path.join(temp_dir, "a", "b", "loop")
+        )
+
+        structure, _ = get_directory_structure(temp_dir)
+
+        loop = structure["a"]["b"]["loop"]
+        assert loop == {"_symlink_loop": True}
+        assert "a" not in loop
+
+    def test_self_referential_symlink_is_cut(self, temp_dir: str) -> None:
+        """A directory containing a symlink to itself is marked, not recursed."""
+        if not _supports_symlinks(temp_dir):
+            pytest.skip("platform does not support directory symlinks")
+        os.makedirs(os.path.join(temp_dir, "c"))
+        os.symlink(os.path.join(temp_dir, "c"), os.path.join(temp_dir, "c", "self"))
+
+        structure, _ = get_directory_structure(temp_dir)
+
+        assert structure["c"]["self"] == {"_symlink_loop": True}
+
+    def test_non_cyclic_symlink_is_still_followed(self, temp_dir: str) -> None:
+        """A symlink to a non-ancestor directory is traversed as before."""
+        if not _supports_symlinks(temp_dir):
+            pytest.skip("platform does not support directory symlinks")
+        os.makedirs(os.path.join(temp_dir, "target"))
+        with open(os.path.join(temp_dir, "target", "keep.txt"), "w") as f:
+            f.write("x\n")
+        os.makedirs(os.path.join(temp_dir, "src"))
+        os.symlink(
+            os.path.join(temp_dir, "target"), os.path.join(temp_dir, "src", "alias")
+        )
+
+        structure, _ = get_directory_structure(temp_dir)
+
+        alias = structure["src"]["alias"]
+        assert "_symlink_loop" not in alias
+        names = {f.name if not isinstance(f, str) else f for f in alias["_files"]}
+        assert "keep.txt" in names
+
+    def test_cycle_does_not_explode_depth(self, temp_dir: str) -> None:
+        """The scanned tree stays shallow instead of ~40 bogus levels."""
+        if not _supports_symlinks(temp_dir):
+            pytest.skip("platform does not support directory symlinks")
+        os.makedirs(os.path.join(temp_dir, "a", "b"))
+        os.symlink(
+            os.path.join(temp_dir, "a"), os.path.join(temp_dir, "a", "b", "loop")
+        )
+
+        structure, _ = get_directory_structure(temp_dir)
+
+        def max_depth(node: Any, d: int = 0) -> int:
+            if not isinstance(node, dict):
+                return d
+            children = [v for k, v in node.items() if not k.startswith("_")]
+            return max((max_depth(v, d + 1) for v in children), default=d)
+
+        assert max_depth(structure) == 3

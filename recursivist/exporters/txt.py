@@ -56,6 +56,7 @@ class TxtExporter(BaseExporter):
             special_keys = {
                 "_files",
                 "_max_depth_reached",
+                "_symlink_loop",
                 "_loc",
                 "_size",
                 "_mtime",
@@ -122,6 +123,9 @@ class TxtExporter(BaseExporter):
                     if content.get("_max_depth_reached"):
                         next_prefix = prefix + ("    " if is_last_item else "│   ")
                         lines.append(f"{next_prefix}└── ⋯ (max depth reached)")
+                    elif content.get("_symlink_loop"):
+                        next_prefix = prefix + ("    " if is_last_item else "│   ")
+                        lines.append(f"{next_prefix}└── ↩ (symlink loop)")
                     else:
                         next_prefix = prefix + ("    " if is_last_item else "│   ")
                         sublines = _build_txt_tree(content, next_prefix, next_path)
