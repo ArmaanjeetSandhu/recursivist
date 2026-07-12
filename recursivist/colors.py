@@ -74,7 +74,6 @@ def generate_color_for_extension(extension: str) -> str:
     Returns:
         A CSS hex color string (e.g., ``"#FF5733"``).
     """
-    global _EXTENSION_COLORS
     if not extension:
         return "#FFFFFF"
     normalized_ext = extension

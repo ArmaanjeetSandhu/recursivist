@@ -20,7 +20,6 @@ logger = logging.getLogger(__name__)
 class TxtExporter(BaseExporter):
     """Exporter that writes the structure as a plain-text tree."""
 
-    _GIT_MARKER_LABELS = {"U": "[U]", "M": "[M]", "A": "[A]", "D": "[D]"}
     _GIT_TXT_SUFFIX = {"U": " [U]", "M": " [M]", "A": " [A]", "D": " [D]"}
 
     def export(self, output_path: str) -> None:

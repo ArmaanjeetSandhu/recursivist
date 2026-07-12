@@ -1045,19 +1045,20 @@ def test_version_command(runner: CliRunner) -> None:
 
 
 def test_completion_command(
-    runner: CliRunner, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+    runner: CliRunner, caplog: pytest.LogCaptureFixture
 ) -> None:
-    def mock_get_completion(shell: str) -> str:
-        if shell not in ["bash", "zsh", "fish", "powershell"]:
-            raise ValueError(f"Unsupported shell: {shell}")
-        return f"# {shell} completion script"
-
-    monkeypatch.setattr(
-        "typer.completion.get_completion_inspect_parameters", mock_get_completion
-    )
-    for shell in ["bash", "zsh", "fish", "powershell"]:
+    expected_markers = {
+        "bash": "_recursivist_completion",
+        "zsh": "#compdef recursivist",
+        "fish": "complete --command recursivist",
+        "powershell": "Register-ArgumentCompleter",
+    }
+    for shell, marker in expected_markers.items():
         result = runner.invoke(app, ["completion", shell])
         assert result.exit_code == 0
+        assert marker in result.output
+        assert f"complete_{shell}" in result.output
+        assert "_RECURSIVIST_COMPLETE" in result.output
     result = runner.invoke(app, ["completion", "invalid"])
     assert result.exit_code == 1
     assert any("Unsupported shell" in record.message for record in caplog.records)

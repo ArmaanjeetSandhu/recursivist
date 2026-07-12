@@ -33,7 +33,6 @@ All commands share a consistent set of filtering and display options:
 import contextlib
 import logging
 import os
-import sys
 from pathlib import Path
 from re import Pattern
 from typing import Any, cast
@@ -1222,11 +1221,19 @@ def export(
 def completion(
     shell: str = typer.Argument(..., help="Shell type (bash, zsh, fish, powershell)"),
 ) -> None:
-    """Generate a shell completion script for the recursivist CLI.
+    """Print a shell completion script for the recursivist CLI.
 
-    Writes a shell-specific snippet to stdout that can be sourced (or
-    piped into the shell's eval mechanism) to enable tab-completion for
-    all recursivist commands, options, and arguments.
+    Writes the completion script for the requested *shell* to stdout, ready to
+    be redirected to a file or sourced, enabling tab-completion for every
+    recursivist command, option, and argument. This is the same script Typer's
+    built-in ``--show-completion`` produces, generated here for the shell named
+    explicitly rather than the one auto-detected from the environment.
+
+    To install it, redirect the output to the location your shell reads
+    completions from, or let Typer place it automatically with
+    ``recursivist --install-completion``. Only the script is written to stdout;
+    a short usage hint is written to stderr, so redirecting stdout to a file
+    captures the script alone.
 
     Args:
         shell: Target shell for the completion script. Must be one of
@@ -1234,35 +1241,49 @@ def completion(
             (case-insensitive).
 
     Raises:
-        typer.Exit: With exit code ``1`` if *shell* is not a supported
-            value or if an error occurs while generating the script.
+        typer.Exit: With exit code ``1`` if *shell* is not a supported value
+            or if the completion script cannot be generated.
 
     Examples:
-        >>> recursivist completion bash
-        >>> recursivist completion zsh
-        >>> recursivist completion fish
-        >>> recursivist completion powershell
+        >>> # Bash: append to your startup file
+        >>> recursivist completion bash >> ~/.bashrc
+        >>> # Fish: write to the completions directory
+        >>> recursivist completion fish > ~/.config/fish/completions/recursivist.fish
+        >>> # Or let Typer install for the current shell automatically
+        >>> recursivist --install-completion
     """
+    prog_name = "recursivist"
+    valid_shells = ["bash", "zsh", "fish", "powershell"]
+    normalized_shell = shell.lower()
+    if normalized_shell not in valid_shells:
+        logger.error(f"Unsupported shell: {shell}")
+        logger.info(f"Supported shells: {', '.join(valid_shells)}")
+        raise typer.Exit(1)
+
     try:
-        valid_shells = ["bash", "zsh", "fish", "powershell"]
-        if shell.lower() not in valid_shells:
-            logger.error(f"Unsupported shell: {shell}")
-            logger.info(f"Supported shells: {', '.join(valid_shells)}")
-            raise typer.Exit(1)
-        completion_script = ""
-        if shell.lower() == "bash":
-            completion_script = f'eval "$({sys.argv[0]} --completion-script bash)"'
-        elif shell.lower() == "zsh":
-            completion_script = f'eval "$({sys.argv[0]} --completion-script zsh)"'
-        elif shell.lower() == "fish":
-            completion_script = f"{sys.argv[0]} --completion-script fish | source"
-        elif shell.lower() == "powershell":
-            completion_script = f"& {sys.argv[0]} --completion-script powershell | Out-String | Invoke-Expression"
-        typer.echo(completion_script)
-        logger.info(f"Generated completion script for {shell}")
+        from typer._completion_shared import get_completion_script
+
+        complete_var = f"_{prog_name}_COMPLETE".replace("-", "_").upper()
+        script = get_completion_script(
+            prog_name=prog_name,
+            complete_var=complete_var,
+            shell=normalized_shell,
+        )
     except Exception as e:
-        logger.exception(f"Error generating completion script: {e}")
+        logger.exception(
+            f"Could not generate the {normalized_shell} completion script: {e}. "
+            "Run 'recursivist --install-completion' to install completion for your "
+            "current shell instead."
+        )
         raise typer.Exit(1) from None
+
+    typer.echo(script)
+    typer.echo(
+        f"# {normalized_shell} completion for recursivist. Redirect this output to "
+        "the file your shell reads completions from, or run "
+        "'recursivist --install-completion' to install it automatically.",
+        err=True,
+    )
 
 
 @app.command()

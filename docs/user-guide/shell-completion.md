@@ -18,26 +18,38 @@ recursivist --show-completion
 
 ## The `completion` Command
 
-The `completion` command prints a short activation snippet for a named shell that you can add to your shell startup file:
+The `completion` command prints the completion **script** for a named shell to standard output, so you can save it wherever that shell loads completions from. Unlike `--show-completion`, it takes the shell name explicitly rather than detecting the current one, which is useful for generating a script for a shell other than the one you're in:
 
 ```bash
 recursivist completion SHELL
 ```
 
-where `SHELL` is `bash`, `zsh`, `fish`, or `powershell`. For example, `recursivist completion bash` prints a line of the form:
+where `SHELL` is `bash`, `zsh`, `fish`, or `powershell`. Only the script is written to stdout; a short usage hint is written to stderr, so redirecting stdout to a file captures the script by itself.
 
-```bash
-eval "$(recursivist --completion-script bash)"
+Save the printed script to the location your shell reads completions from, then restart your shell (or open a new terminal):
+
+| Shell      | Install the printed script                                                  |
+| ---------- | --------------------------------------------------------------------------- |
+| Bash       | `recursivist completion bash >> ~/.bashrc`                                  |
+| Zsh        | `recursivist completion zsh > ~/.zfunc/_recursivist` (see note below)       |
+| Fish       | `recursivist completion fish > ~/.config/fish/completions/recursivist.fish` |
+| PowerShell | `recursivist completion powershell >> $PROFILE`                             |
+
+For Zsh, the target directory must be on your `fpath` and `compinit` must run. If you don't already have a completions directory set up, add this to `~/.zshrc` before any `compinit` call:
+
+```zsh
+fpath=(~/.zfunc $fpath)
+autoload -U compinit; compinit
 ```
 
-Add the printed line to the relevant startup file so completion loads in every new session:
+then create the directory and write the script:
 
-| Shell      | Startup file                 |
-| ---------- | ---------------------------- |
-| Bash       | `~/.bashrc`                  |
-| Zsh        | `~/.zshrc`                   |
-| Fish       | `~/.config/fish/config.fish` |
-| PowerShell | the file at `$PROFILE`       |
+```zsh
+mkdir -p ~/.zfunc
+recursivist completion zsh > ~/.zfunc/_recursivist
+```
+
+> **Tip:** If you only need completion for your current shell, `recursivist --install-completion` generates the script and places it correctly in one step.
 
 ## Using Completion
 

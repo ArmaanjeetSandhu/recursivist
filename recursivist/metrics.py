@@ -69,14 +69,11 @@ def count_lines_of_code(file_path: str) -> int:
         with open(file_path, encoding="utf-8", errors="strict") as text_file:
             return sum(1 for _ in text_file)
     except UnicodeDecodeError:
-        try:
-            with open(file_path, encoding="utf-16", errors="strict") as text_file:
-                return sum(1 for _ in text_file)
-        except Exception:
-            pass
+        pass
     except Exception as e:
         logger.debug(f"Could not read file as UTF-8: {file_path}: {e}")
         return 0
+
     try:
         with open(file_path, encoding="utf-8", errors="replace") as text_file:
             return sum(1 for _ in text_file)
