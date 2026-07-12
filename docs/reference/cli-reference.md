@@ -15,7 +15,7 @@ A complete reference for every Recursivist command and option.
 
 ## Shared Options
 
-The following options are common to `visualize`, `export`, and `compare`. Repeatable options accept either space-separated values in one flag or several flags.
+The following options are common to `visualize`, `export`, and `compare`. Repeatable options take one value per flag; repeat the flag to supply several values (e.g. `--exclude node_modules --exclude .git`). Because each value is used verbatim, values may contain spaces — quote them, e.g. `--exclude "Application Support"`.
 
 | Option                 | Short | Description                                                                    |
 | ---------------------- | ----- | ------------------------------------------------------------------------------ |
@@ -135,11 +135,11 @@ recursivist visualize [OPTIONS] [DIRECTORY]
 ```bash
 recursivist visualize
 recursivist visualize /path/to/project
-recursivist visualize --exclude "node_modules .git"
-recursivist visualize --exclude-ext ".pyc .log"
-recursivist visualize --exclude-pattern "*.test.js" "*.spec.js"
+recursivist visualize --exclude node_modules --exclude .git
+recursivist visualize --exclude-ext .pyc --exclude-ext .log
+recursivist visualize --exclude-pattern "*.test.js" --exclude-pattern "*.spec.js"
 recursivist visualize --exclude-pattern "^test_.*\.py$" --regex
-recursivist visualize --include-pattern "*.md" "*.py"
+recursivist visualize --include-pattern "*.md" --include-pattern "*.py"
 recursivist visualize --ignore-file .gitignore
 recursivist visualize --depth 3
 recursivist visualize --full-path
@@ -219,7 +219,7 @@ In `compare`, `-f` is shorthand for `--save`, not `--format`. Items unique to `D
 
 ```bash
 recursivist compare dir1 dir2
-recursivist compare dir1 dir2 --exclude "node_modules .git"
+recursivist compare dir1 dir2 --exclude node_modules --exclude .git
 recursivist compare dir1 dir2 --depth 2
 recursivist compare dir1 dir2 --save --output-dir ./reports
 recursivist compare dir1 dir2 --sort-by-loc --size   # sort by LOC, show LOC and size

@@ -35,8 +35,8 @@ Patterns are globs by default. Add `--regex` to interpret them as Python regular
 ### Usage
 
 ```bash
-recursivist visualize --exclude-pattern "*.test.js" "*.spec.js"
-recursivist visualize --include-pattern "*.py" "*.md"
+recursivist visualize --exclude-pattern "*.test.js" --exclude-pattern "*.spec.js"
+recursivist visualize --include-pattern "*.py" --include-pattern "*.md"
 ```
 
 ## Regular Expressions
@@ -74,7 +74,7 @@ Escape special characters with a backslash, e.g. `\.` for a literal dot.
 ### Usage
 
 ```bash
-recursivist visualize --exclude-pattern "^test_.*\.py$" ".*_test\.js$" --regex
+recursivist visualize --exclude-pattern "^test_.*\.py$" --exclude-pattern ".*_test\.js$" --regex
 recursivist visualize --include-pattern ".*\.[jt]sx?$" --regex
 ```
 

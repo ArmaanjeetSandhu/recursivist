@@ -52,10 +52,10 @@ When saving to HTML, the `emoji` icon style is used by default for cross-platfor
 The same filtering, depth, and full-path options as the other commands apply to both directories:
 
 ```bash
-recursivist compare dir1 dir2 --exclude "node_modules .git"
-recursivist compare dir1 dir2 --exclude-ext ".pyc .log"
+recursivist compare dir1 dir2 --exclude node_modules --exclude .git
+recursivist compare dir1 dir2 --exclude-ext .pyc --exclude-ext .log
 recursivist compare dir1 dir2 --exclude-pattern "*.test.js"
-recursivist compare dir1 dir2 --include-pattern "*.py" "*.md"
+recursivist compare dir1 dir2 --include-pattern "*.py" --include-pattern "*.md"
 recursivist compare dir1 dir2 --ignore-file .gitignore
 recursivist compare dir1 dir2 --depth 3
 recursivist compare dir1 dir2 --full-path
@@ -93,7 +93,7 @@ Comparing structures is useful for tracking how a project changes over time:
 
 ```bash
 # Two versions of a project
-recursivist compare project-v1.0 project-v2.0 --exclude "node_modules .git"
+recursivist compare project-v1.0 project-v2.0 --exclude node_modules --exclude .git
 
 # Two Git branches (checked out into separate directories)
 git clone -b main repo main-branch

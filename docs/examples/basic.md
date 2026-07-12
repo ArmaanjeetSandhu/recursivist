@@ -70,13 +70,13 @@ recursivist visualize --git-status
 
 ```bash
 # Exclude directories
-recursivist visualize --exclude "node_modules .git"
+recursivist visualize --exclude node_modules --exclude .git
 
 # Exclude file extensions (leading dot optional)
-recursivist visualize --exclude-ext ".pyc .log"
+recursivist visualize --exclude-ext .pyc --exclude-ext .log
 
 # Combine them
-recursivist visualize --exclude "node_modules .git" --exclude-ext ".pyc .log"
+recursivist visualize --exclude node_modules --exclude .git --exclude-ext .pyc --exclude-ext .log
 ```
 
 ## Exports

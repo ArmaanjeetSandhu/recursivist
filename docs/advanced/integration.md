@@ -56,7 +56,7 @@ Without the framework, a `.git/hooks/pre-commit` script works too:
 
 ```bash
 #!/bin/bash
-recursivist export --format md --exclude "node_modules .git" --prefix STRUCTURE --sort-by-loc
+recursivist export --format md --exclude node_modules --exclude .git --prefix STRUCTURE --sort-by-loc
 git add STRUCTURE.md
 ```
 
@@ -172,7 +172,7 @@ jobs:
       - run: |
           mkdir -p docs
           recursivist export --format md \
-            --exclude "node_modules .git" \
+            --exclude node_modules --exclude .git \
             --output-dir ./docs --prefix structure --sort-by-loc
       - run: |
           git config user.email "action@github.com"
@@ -190,7 +190,7 @@ generate-structure:
   script:
     - pip install recursivist
     - mkdir -p docs
-    - recursivist export --format md --exclude "node_modules .git" --output-dir ./docs --prefix structure --sort-by-loc
+    - recursivist export --format md --exclude node_modules --exclude .git --output-dir ./docs --prefix structure --sort-by-loc
   artifacts:
     paths:
       - docs/structure.md

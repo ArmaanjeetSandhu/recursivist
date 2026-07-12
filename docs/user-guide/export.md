@@ -78,7 +78,7 @@ All filtering options, plus depth limiting and full paths, work exactly as they 
 
 ```bash
 recursivist export --format md \
-  --exclude "node_modules .git" \
+  --exclude node_modules --exclude .git \
   --exclude-ext .pyc \
   --exclude-pattern "*.test.js" \
   --depth 3 \
@@ -246,14 +246,14 @@ Drop the file into a Sphinx project directly, or pull it into an existing page w
 
 ```bash
 # Markdown overview for a README, two levels deep
-recursivist export --format md --depth 2 --exclude "node_modules .git" --prefix project-overview
+recursivist export --format md --depth 2 --exclude node_modules --exclude .git --prefix project-overview
 
 # Detailed JSON of the source tree with full paths and metrics
 recursivist export src --format json --full-path --sort-by-loc --size --prefix source-structure
 
 # A filtered SVG focused on source files
 recursivist export --format svg \
-  --include-pattern "*.py" "*.md" \
+  --include-pattern "*.py" --include-pattern "*.md" \
   --output-dir ./assets \
   --prefix directory-structure \
   --sort-by-loc

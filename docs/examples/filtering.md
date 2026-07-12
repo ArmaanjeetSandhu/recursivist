@@ -9,23 +9,23 @@ Practical recipes for narrowing what Recursivist shows. For the rules behind the
 
 ```bash
 # Directories
-recursivist visualize --exclude "node_modules .git venv"
+recursivist visualize --exclude node_modules --exclude .git --exclude venv
 
 # Extensions (leading dot optional)
-recursivist visualize --exclude-ext ".pyc .log .cache"
+recursivist visualize --exclude-ext .pyc --exclude-ext .log --exclude-ext .cache
 ```
 
 ## Glob Patterns
 
 ```bash
 # Exclude test files anywhere in the tree
-recursivist visualize --exclude-pattern "*.test.js" "*.spec.js"
+recursivist visualize --exclude-pattern "*.test.js" --exclude-pattern "*.spec.js"
 
 # Exclude Python bytecode
 recursivist visualize --exclude-pattern "*.pyc"
 
 # Exclude minified and bundled assets
-recursivist visualize --exclude-pattern "*.min.js" "*.bundle.js"
+recursivist visualize --exclude-pattern "*.min.js" --exclude-pattern "*.bundle.js"
 ```
 
 ## Regular Expressions
@@ -44,7 +44,7 @@ Include patterns restrict the view to files whose names match. A file must match
 
 ```bash
 # Source and docs by extension
-recursivist visualize --include-pattern "*.js" "*.ts" "*.md"
+recursivist visualize --include-pattern "*.js" --include-pattern "*.ts" --include-pattern "*.md"
 
 # Only Python files (regex)
 recursivist visualize --include-pattern ".*\.py$" --regex
@@ -82,10 +82,10 @@ build/
 
 ```bash
 recursivist visualize \
-  --exclude "node_modules .git build" \
-  --exclude-ext ".pyc .log" \
+  --exclude node_modules --exclude .git --exclude build \
+  --exclude-ext .pyc --exclude-ext .log \
   --exclude-pattern "*.test.js" \
-  --include-pattern "*.js" "*.md" \
+  --include-pattern "*.js" --include-pattern "*.md" \
   --ignore-file .gitignore
 ```
 
@@ -97,8 +97,8 @@ This keeps `.js` and `.md` files, drops `.test.js` files and excluded extensions
 
 ```bash
 recursivist visualize \
-  --exclude "__pycache__ .pytest_cache .venv venv" \
-  --exclude-ext ".pyc .pyo" \
+  --exclude __pycache__ --exclude .pytest_cache --exclude .venv --exclude venv \
+  --exclude-ext .pyc --exclude-ext .pyo \
   --exclude-pattern "test_*.py" \
   --ignore-file .gitignore
 ```
@@ -107,9 +107,9 @@ recursivist visualize \
 
 ```bash
 recursivist visualize \
-  --exclude "node_modules dist build coverage" \
-  --exclude-ext ".map .log" \
-  --exclude-pattern "*.test.js" "*.spec.ts" "*.min.js" \
+  --exclude node_modules --exclude dist --exclude build --exclude coverage \
+  --exclude-ext .map --exclude-ext .log \
+  --exclude-pattern "*.test.js" --exclude-pattern "*.spec.ts" --exclude-pattern "*.min.js" \
   --ignore-file .gitignore
 ```
 
@@ -117,8 +117,8 @@ recursivist visualize \
 
 ```bash
 recursivist visualize \
-  --exclude "target .idea" \
-  --exclude-ext ".class .jar" \
+  --exclude target --exclude .idea \
+  --exclude-ext .class --exclude-ext .jar \
   --exclude-pattern "*Test.java" \
   --ignore-file .gitignore
 ```
@@ -129,10 +129,10 @@ Pair filters with a metric sort to surface what matters:
 
 ```bash
 # Largest source files
-recursivist visualize --exclude "node_modules .git" --sort-by-size
+recursivist visualize --exclude node_modules --exclude .git --sort-by-size
 
 # Most recently changed files
-recursivist visualize --exclude "node_modules .git" --sort-by-mtime
+recursivist visualize --exclude node_modules --exclude .git --sort-by-mtime
 ```
 
 ## Filtering in Export and Compare
@@ -141,12 +141,12 @@ Every filtering option works the same way with `export` and `compare`:
 
 ```bash
 recursivist export --format md \
-  --exclude "node_modules .git" \
+  --exclude node_modules --exclude .git \
   --exclude-ext ".log" \
-  --include-pattern "*.py" "*.md"
+  --include-pattern "*.py" --include-pattern "*.md"
 
 recursivist compare dir1 dir2 \
-  --exclude "node_modules .git" \
+  --exclude node_modules --exclude .git \
   --exclude-pattern "*.min.js" \
   --save
 ```

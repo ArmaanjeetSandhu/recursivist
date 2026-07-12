@@ -8,7 +8,7 @@ Export a detailed JSON tree, then mine it with [jq](https://jqlang.org). With a 
 
 ```bash
 recursivist export --format json --full-path \
-  --exclude "node_modules .git" \
+  --exclude node_modules --exclude .git \
   --prefix structure --sort-by-loc --size
 ```
 
@@ -34,7 +34,7 @@ jq -r '.structure | .. | objects | select(has("_files")) | ._files[]
 
 ```bash
 # Recently modified source, excluding noise
-recursivist visualize --exclude "node_modules .git dist" --sort-by-mtime
+recursivist visualize --exclude node_modules --exclude .git --exclude dist --sort-by-mtime
 
 # Group files with similar names together
 recursivist visualize --sort-by-similarity
@@ -83,7 +83,7 @@ Without the framework, a `.git/hooks/pre-commit` script works too:
 
 ```bash
 #!/bin/bash
-recursivist export --format md --exclude "node_modules .git" --prefix STRUCTURE --sort-by-loc
+recursivist export --format md --exclude node_modules --exclude .git --prefix STRUCTURE --sort-by-loc
 git add STRUCTURE.md
 ```
 
@@ -112,7 +112,7 @@ jobs:
       - run: |
           mkdir -p docs
           recursivist export --format md \
-            --exclude "node_modules .git" \
+            --exclude node_modules --exclude .git \
             --output-dir ./docs --prefix structure --sort-by-loc
       - run: |
           git config user.email "action@github.com"

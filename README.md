@@ -35,7 +35,7 @@ To exclude common directories:
 
 ```bash
 recursivist visualize \
---exclude "node_modules .git"
+--exclude node_modules --exclude .git
 ```
 
 To export the structure to markdown:

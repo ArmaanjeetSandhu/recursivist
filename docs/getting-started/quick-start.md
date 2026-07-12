@@ -112,17 +112,17 @@ These options work across `visualize`, `export`, and `compare`:
 
 ```bash
 # Exclude directories
-recursivist visualize --exclude "node_modules .git"
+recursivist visualize --exclude node_modules --exclude .git
 
 # Exclude file extensions (leading dot optional)
-recursivist visualize --exclude-ext ".pyc .log"
+recursivist visualize --exclude-ext .pyc --exclude-ext .log
 
 # Exclude by glob pattern (default) or regex (--regex)
 recursivist visualize --exclude-pattern "*.test.js"
 recursivist visualize --exclude-pattern "^test_.*\.py$" --regex
 
 # Include only matching files
-recursivist visualize --include-pattern "*.py" "*.md"
+recursivist visualize --include-pattern "*.py" --include-pattern "*.md"
 
 # Respect a .gitignore-style file
 recursivist visualize --ignore-file .gitignore

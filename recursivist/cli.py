@@ -79,11 +79,15 @@ console = Console()
 
 USER_CONFIG = load_config()
 
-HELP_EXCLUDE_DIRS = "Directories to exclude (space-separated or multiple flags)"
-HELP_EXCLUDE_EXTS = "File extensions to exclude (space-separated or multiple flags)"
-HELP_EXCLUDE_PATTERNS = "Patterns to exclude (space-separated or multiple flags)"
+HELP_EXCLUDE_DIRS = (
+    "Directory to exclude; repeat the flag for several (values may contain spaces)"
+)
+HELP_EXCLUDE_EXTS = "File extension to exclude; repeat the flag for several"
+HELP_EXCLUDE_PATTERNS = (
+    "Pattern to exclude; repeat the flag for several (values may contain spaces)"
+)
 HELP_INCLUDE_PATTERNS = (
-    "Patterns to include (overrides exclusions, space-separated or multiple flags)"
+    "Pattern to include (overrides exclusions); repeat the flag for several"
 )
 HELP_USE_REGEX = "Treat patterns as regex instead of glob patterns"
 HELP_IGNORE_FILE = "Ignore file to use (e.g., .gitignore)"
@@ -273,30 +277,37 @@ def callback() -> None:
 
 
 def parse_list_option(option_value: list[str] | None) -> list[str]:
-    """Parse a list option that may contain space-separated values.
+    """Normalize the raw values collected for a repeatable list option.
 
-    Handles two common CLI input styles for multi-value options:
+    To supply multiple values, repeat the flag once per value:
+       >>> --exclude "Application Support" --exclude node_modules
 
-    * Multiple flag repetitions: ``--exclude dir1 --exclude dir2``
-    * Space-separated tokens in a single flag: ``--exclude "dir1 dir2"``
+    Each occurrence is preserved verbatim, so values may contain spaces.
+    This is required to name directories or patterns such as
+    ``"Application Support"`` or ``"My Documents"``; those would be
+    impossible to express if values were split on whitespace.
 
-    Each raw value is split on whitespace and empty tokens are dropped,
-    so callers always receive a clean flat list.
+    Each value is stripped of surrounding whitespace, and values that
+    are empty or whitespace-only (e.g. from ``--exclude ""``) are
+    dropped. Interior whitespace is left untouched.
 
     Args:
         option_value: Raw list of strings collected by Typer for a
-            repeatable option. Each element may itself contain
-            multiple space-separated tokens. Pass ``None`` when the
-            option was not provided.
+            repeatable option, one element per flag occurrence. Pass
+            ``None`` when the option was not provided.
 
     Returns:
-        Flat list of non-empty, whitespace-stripped strings. Returns
-        an empty list when *option_value* is ``None`` or contains no
-        non-whitespace tokens.
+        List of non-empty values with surrounding whitespace trimmed
+        and interior spaces preserved. Returns an empty list when
+        *option_value* is ``None`` or holds only empty values.
 
     Examples:
-        >>> parse_list_option(["node_modules .git", "__pycache__"])
+        >>> parse_list_option(["node_modules", ".git", "__pycache__"])
         ['node_modules', '.git', '__pycache__']
+        >>> parse_list_option(["Application Support", "My Documents"])
+        ['Application Support', 'My Documents']
+        >>> parse_list_option(["  spaced  ", "", "   "])
+        ['spaced']
         >>> parse_list_option(None)
         []
     """
@@ -304,7 +315,9 @@ def parse_list_option(option_value: list[str] | None) -> list[str]:
         return []
     result = []
     for item in option_value:
-        result.extend([x.strip() for x in item.split() if x.strip()])
+        stripped = item.strip()
+        if stripped:
+            result.append(stripped)
     return result
 
 
@@ -350,10 +363,10 @@ def _parse_filter_options(
 ) -> tuple[list[str], set[str], list[str], list[str]]:
     """Parse and normalize the shared exclude/include filter options.
 
-    Splits space-separated values, normalizes excluded extensions to a
-    lowercase, dot-prefixed set, and emits the same debug logging used
-    by every command. This is the common preprocessing step shared by
-    the visualize, export, and compare commands.
+    Normalizes each repeated flag value (dropping empties), lowercases and
+    dot-prefixes excluded extensions into a set, and emits the same debug
+    logging used by every command. This is the common preprocessing step
+    shared by the visualize, export, and compare commands.
 
     Args:
         exclude_dirs: Raw directory-exclusion values from Typer.

@@ -56,7 +56,7 @@ recursivist export --format html --output-dir ./docs --prefix tree  # ./docs/tre
 
 ```bash
 # Exclude directories and extensions
-recursivist export --format md --exclude "node_modules .git build" --exclude-ext ".pyc .log"
+recursivist export --format md --exclude node_modules --exclude .git --exclude build --exclude-ext .pyc --exclude-ext .log
 
 # Top-level overview only
 recursivist export --format md --depth 1
@@ -92,7 +92,7 @@ jq -r '.structure | .. | objects | select(has("_files")) | ._files[]
 
 ```bash
 # Generate a Markdown tree and prepend it to a README section
-recursivist export --format md --exclude "node_modules .git" --prefix structure --sort-by-loc
+recursivist export --format md --exclude node_modules --exclude .git --prefix structure --sort-by-loc
 
 {
   echo "# Project Structure"

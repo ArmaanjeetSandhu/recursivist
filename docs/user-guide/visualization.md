@@ -246,11 +246,11 @@ When no ref is pinned, the default branch is used. Set `GITHUB_TOKEN` (or `GH_TO
 All of Recursivist's filtering options apply to `visualize`:
 
 ```bash
-recursivist visualize --exclude "node_modules .git"
-recursivist visualize --exclude-ext ".pyc .log"
-recursivist visualize --exclude-pattern "*.test.js" "*.spec.js"
+recursivist visualize --exclude node_modules --exclude .git
+recursivist visualize --exclude-ext .pyc --exclude-ext .log
+recursivist visualize --exclude-pattern "*.test.js" --exclude-pattern "*.spec.js"
 recursivist visualize --exclude-pattern "^test_.*\.py$" --regex
-recursivist visualize --include-pattern "*.py" "*.md"
+recursivist visualize --include-pattern "*.py" --include-pattern "*.md"
 recursivist visualize --ignore-file .gitignore
 ```
 

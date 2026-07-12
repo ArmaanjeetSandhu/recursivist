@@ -50,7 +50,7 @@ recursivist compare dir1 dir2 --sort-by-loc --size  # sort by LOC, show LOC and 
 
 ```bash
 # Exclude directories and extensions
-recursivist compare dir1 dir2 --exclude "node_modules .git" --exclude-ext ".pyc .log"
+recursivist compare dir1 dir2 --exclude node_modules --exclude .git --exclude-ext .pyc --exclude-ext .log
 
 # Focus on a file type by name
 recursivist compare dir1 dir2 --include-pattern "*.js"
@@ -68,7 +68,7 @@ recursivist compare dir1 dir2 --depth 2
 
 ```bash
 recursivist compare project-v1.0 project-v2.0 \
-  --exclude "node_modules .git" \
+  --exclude node_modules --exclude .git \
   --save --prefix v1-vs-v2 --sort-by-loc
 ```
 
@@ -79,7 +79,7 @@ git clone -b main repo main-branch
 git clone -b feature/new-feature repo feature-branch
 
 recursivist compare main-branch feature-branch \
-  --exclude "node_modules .git" \
+  --exclude node_modules --exclude .git \
   --save --prefix branch-comparison --sort-by-loc
 ```
 
@@ -103,7 +103,7 @@ A GitHub Actions step that compares a pull request against `main` and uploads th
 - name: Compare structures
   run: |
     recursivist compare main-branch pr-branch \
-      --exclude "node_modules .git" \
+      --exclude node_modules --exclude .git \
       --save --prefix structure-diff --sort-by-loc
 
 - uses: actions/upload-artifact@v4

@@ -18,7 +18,7 @@ The distinction in the last column matters: **include and exclude patterns test 
 Exclude directories by name. Matching directories are pruned entirely and never descended into:
 
 ```bash
-recursivist visualize --exclude "node_modules .git venv"
+recursivist visualize --exclude node_modules --exclude .git --exclude venv
 # or with repeated flags:
 recursivist visualize --exclude node_modules --exclude .git
 ```
@@ -28,7 +28,7 @@ recursivist visualize --exclude node_modules --exclude .git
 Exclude files by extension. The leading dot is optional:
 
 ```bash
-recursivist visualize --exclude-ext ".pyc .log .cache"
+recursivist visualize --exclude-ext .pyc --exclude-ext .log --exclude-ext .cache
 ```
 
 ## Include and Exclude Patterns
@@ -37,13 +37,13 @@ These options accept either glob patterns (the default) or regular expressions (
 
 ```bash
 # Exclude every JavaScript test file, anywhere in the tree
-recursivist visualize --exclude-pattern "*.test.js" "*.spec.js"
+recursivist visualize --exclude-pattern "*.test.js" --exclude-pattern "*.spec.js"
 
 # Exclude Python cache files
 recursivist visualize --exclude-pattern "*.pyc"
 
 # Keep only Markdown and Python files
-recursivist visualize --include-pattern "*.md" "*.py"
+recursivist visualize --include-pattern "*.md" --include-pattern "*.py"
 ```
 
 !!! warning "Patterns match file names, not paths"
@@ -105,10 +105,10 @@ The mechanisms compose cleanly:
 
 ```bash
 recursivist visualize \
-  --exclude "node_modules .git build" \
-  --exclude-ext ".pyc .log" \
+  --exclude node_modules --exclude .git --exclude build \
+  --exclude-ext .pyc --exclude-ext .log \
   --exclude-pattern "*.test.js" \
-  --include-pattern "*.js" "*.md" \
+  --include-pattern "*.js" --include-pattern "*.md" \
   --ignore-file .gitignore
 ```
 
@@ -118,17 +118,17 @@ Every filtering option works identically with `visualize`, `export`, and `compar
 
 ```bash
 recursivist export --format md --include-pattern "*.py" --exclude-pattern "test_*.py"
-recursivist compare dir1 dir2 --exclude "node_modules .git" --exclude-ext ".log"
+recursivist compare dir1 dir2 --exclude node_modules --exclude .git --exclude-ext ".log"
 ```
 
 ## Examples
 
 ```bash
 # Documentation files only
-recursivist visualize --include-pattern "*.md" "*.rst" "*.txt"
+recursivist visualize --include-pattern "*.md" --include-pattern "*.rst" --include-pattern "*.txt"
 
 # Exclude generated and minified assets
-recursivist visualize --exclude "dist build" --exclude-ext ".min.js .map"
+recursivist visualize --exclude dist --exclude build --exclude-ext .min.js --exclude-ext .map
 
 # Backend source, excluding tests (regex)
 recursivist visualize --include-pattern ".*\.py$" --exclude-pattern "test_.*\.py$" --regex

@@ -68,7 +68,7 @@ The following options are shared by `visualize`, `export`, and `compare`.
 ### Excluding Directories
 
 ```bash
-recursivist visualize --exclude "node_modules .git"
+recursivist visualize --exclude node_modules --exclude .git
 ```
 
 ### Excluding File Extensions
@@ -76,7 +76,7 @@ recursivist visualize --exclude "node_modules .git"
 Extensions may be given with or without the leading dot:
 
 ```bash
-recursivist visualize --exclude-ext ".pyc .log"
+recursivist visualize --exclude-ext .pyc --exclude-ext .log
 ```
 
 ### Limiting Depth
@@ -146,7 +146,7 @@ Glob patterns (default) and regular expressions (`--regex`) give finer control t
 ```bash
 recursivist visualize --exclude-pattern "*.test.js"
 recursivist visualize --exclude-pattern "^test_.*\.py$" --regex
-recursivist visualize --include-pattern "*.py" "*.md"
+recursivist visualize --include-pattern "*.py" --include-pattern "*.md"
 recursivist visualize --ignore-file .gitignore
 ```
 

@@ -34,9 +34,14 @@ def assert_path_info_in_output(output: str, directory: str) -> None:
     "input_list,expected",
     [
         (["value1"], ["value1"]),
-        (["value1 value2 value3"], ["value1", "value2", "value3"]),
         (["value1", "value2", "value3"], ["value1", "value2", "value3"]),
-        (["value1 value2", "value3 value4"], ["value1", "value2", "value3", "value4"]),
+        (["Application Support"], ["Application Support"]),
+        (
+            ["Application Support", "My Documents"],
+            ["Application Support", "My Documents"],
+        ),
+        (["value1 value2", "value3 value4"], ["value1 value2", "value3 value4"]),
+        (["  spaced  ", "", "   "], ["spaced"]),
         ([], []),
         (None, []),
     ],
@@ -174,6 +179,47 @@ def test_visualize_with_multiple_filtering_options(
             assert "exclude_this.txt" not in result_output
             assert "also_exclude.py" not in result_output
             assert "keep_this.txt" in result_output
+
+
+def test_visualize_exclude_directory_with_spaces(
+    runner: CliRunner, sample_directory: str
+) -> None:
+    """A directory whose name contains spaces can be excluded via one flag."""
+    spaced_dir = os.path.join(sample_directory, "Application Support")
+    os.makedirs(spaced_dir, exist_ok=True)
+    with open(os.path.join(spaced_dir, "prefs.plist"), "w") as f:
+        f.write("should be excluded")
+    kept_dir = os.path.join(sample_directory, "Application")
+    os.makedirs(kept_dir, exist_ok=True)
+    with open(os.path.join(kept_dir, "keep.txt"), "w") as f:
+        f.write("should be kept")
+
+    result = runner.invoke(
+        app, ["visualize", sample_directory, "--exclude", "Application Support"]
+    )
+    assert result.exit_code == 0
+    assert "Application Support" not in result.stdout
+    assert "prefs.plist" not in result.stdout
+    assert "Application" in result.stdout
+    assert "keep.txt" in result.stdout
+
+
+def test_visualize_exclude_pattern_with_spaces(
+    runner: CliRunner, sample_directory: str
+) -> None:
+    """A glob pattern containing a space is matched as a single pattern."""
+    with open(os.path.join(sample_directory, "final report.pdf"), "w") as f:
+        f.write("should be excluded")
+    with open(os.path.join(sample_directory, "notes.pdf"), "w") as f:
+        f.write("should be kept")
+
+    result = runner.invoke(
+        app,
+        ["visualize", sample_directory, "--exclude-pattern", "* report.pdf"],
+    )
+    assert result.exit_code == 0
+    assert "final report.pdf" not in result.stdout
+    assert "notes.pdf" in result.stdout
 
 
 def test_visualize_with_regex_patterns(
