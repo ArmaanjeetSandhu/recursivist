@@ -12,6 +12,7 @@ from typing import Any
 from rich.console import Console
 from rich.tree import Tree
 
+from recursivist._models import FileEntry
 from recursivist.colors import generate_color_for_extension
 from recursivist.icons import get_icon
 from recursivist.metrics import format_dir_metrics
@@ -54,7 +55,7 @@ class SvgExporter(BaseExporter):
             for k, v in struct.items():
                 if k == "_files":
                     for f in v:
-                        name = f[0] if isinstance(f, tuple) else f
+                        name = FileEntry.coerce(f).name
                         exts.add(os.path.splitext(name)[1].lower())
                 elif isinstance(v, dict):
                     exts.update(extract_extensions(v))

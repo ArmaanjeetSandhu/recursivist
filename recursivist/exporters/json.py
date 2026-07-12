@@ -45,20 +45,10 @@ class JsonExporter(BaseExporter):
         ) -> str | dict[str, Any]:
             """Encode a single ``_files`` entry for the detail JSON form.
 
-            Bare-string entries are emitted as plain names, optionally wrapped
-            with their Git status. Every other entry is normalised through
-            :meth:`FileEntry.coerce` and rendered with exactly the keys the
-            active flags call for, with metric fields following the resolved
-            display order.
+            The entry is normalised through :meth:`FileEntry.coerce` and
+            rendered with exactly the keys the active flags call for, with
+            metric fields following the resolved display order.
             """
-            if not isinstance(item, tuple):
-                name = str(item)
-                git_status = (
-                    git_markers_here.get(name, "") if self.show_git_status else ""
-                )
-                if git_status:
-                    return {"name": name, "git_status": git_status}
-                return name
             entry = FileEntry.coerce(item)
             git_status = (
                 git_markers_here.get(entry.name, "") if self.show_git_status else ""

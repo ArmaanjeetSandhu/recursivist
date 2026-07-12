@@ -74,8 +74,6 @@ def get_git_status(directory: str) -> dict[str, str]:
                 status = "D"
             elif x == "A" or x == "R":
                 status = "A"
-            elif x == "M" or y == "M":
-                status = "M"
             else:
                 status = "M"
 

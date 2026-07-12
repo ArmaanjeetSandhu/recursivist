@@ -52,8 +52,8 @@ def sort_files_by_similarity(files: Sequence[Any]) -> list[FileEntry]:
 
     Inputs may be :class:`FileEntry` instances, bare filename strings, or
     positional tuples; every item is normalised to a :class:`FileEntry` via
-    :meth:`FileEntry.from_raw` before ordering. Since only the name is used,
-    no metric flags are needed.
+    :meth:`FileEntry.coerce` before ordering. Since only the name is used, the
+    metric slots do not affect the result.
 
     Args:
         files: List of file items (``FileEntry``, tuple, or ``str``).
@@ -63,7 +63,7 @@ def sort_files_by_similarity(files: Sequence[Any]) -> list[FileEntry]:
     """
     if not files:
         return []
-    entries = [FileEntry.from_raw(f) for f in files]
+    entries = [FileEntry.coerce(f) for f in files]
     if len(entries) < 2:
         return entries
     remaining = sorted(entries, key=lambda e: e.name.lower())

@@ -83,6 +83,7 @@ class HtmlExporter(BaseExporter):
                         "A": ("#28a745", ""),
                         "D": ("#dc3545", "line-through"),
                     }
+                    _file_style = f"color: {color};"
                     if _git_marker and _git_marker in _GIT_HTML_STYLES:
                         _badge_color, _file_style_extra = _GIT_HTML_STYLES[_git_marker]
                         _git_badge = f' <span class="git-badge git-{_git_marker.lower()}" style="color:{_badge_color};font-size:0.8em;font-weight:bold;">[{_git_marker}]</span>'
@@ -93,12 +94,10 @@ class HtmlExporter(BaseExporter):
                         )
                         _name_open = f"<span{_name_style}>"
                         _name_close = "</span>"
-                        _file_style = f"color: {color};"
                     else:
                         _git_badge = ""
                         _name_open = ""
                         _name_close = ""
-                        _file_style = f"color: {color};"
 
                     html_content.append(
                         f'<li class="file" style="{_file_style}">{file_icon} '
@@ -145,34 +144,20 @@ class HtmlExporter(BaseExporter):
         title = f"{root_icon} {html.escape(self.root_name)}" + format_dir_metrics(
             self.structure, self.metrics
         )
-        loc_styles = """
-            .loc-count {
-                color: #666;
-                font-size: 0.9em;
-                font-weight: normal;
-            }
-        """
-        size_styles = """
-            .size-count {
-                color: #666;
-                font-size: 0.9em;
-                font-weight: normal;
-            }
-        """
-        mtime_styles = """
-            .mtime-count {
-                color: #666;
-                font-size: 0.9em;
-                font-weight: normal;
-            }
-        """
-        metric_styles = """
+        metric_styles = (
+            """
+            .loc-count,
+            .size-count,
+            .mtime-count,
             .metric-count {
                 color: #666;
                 font-size: 0.9em;
                 font-weight: normal;
             }
         """
+            if self.metrics
+            else ""
+        )
         git_styles = (
             """
             .git-badge {
@@ -223,9 +208,6 @@ class HtmlExporter(BaseExporter):
                     font-style: italic;
                     color: #666;
                 }}
-                {loc_styles}
-                {size_styles}
-                {mtime_styles}
                 {metric_styles}
                 {git_styles}
             </style>

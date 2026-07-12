@@ -240,15 +240,7 @@ def get_directory_structure(
         structure["_mtime"] = latest_mtime
 
     if show_git_status and git_markers:
-        existing_names: set[str] = set()
-        for f in structure.get("_files", []):
-            if isinstance(f, FileEntry):
-                name = f.name
-            elif isinstance(f, tuple):
-                name = f[0]
-            else:
-                name = f
-            existing_names.add(name)
+        existing_names = {f.name for f in structure.get("_files", [])}
 
         for fname, status in git_markers.items():
             if status == "D" and fname not in existing_names:
