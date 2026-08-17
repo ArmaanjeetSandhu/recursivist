@@ -35,6 +35,8 @@ _GIT_STATUS_STYLES: dict[str, tuple[str, str]] = {
 class HtmlExporter(BaseExporter):
     """Exporter that writes the structure as a standalone HTML page."""
 
+    extension = "html"
+
     def export(self, output_path: str) -> None:
         """Write the structure to *output_path* as an HTML document.
 

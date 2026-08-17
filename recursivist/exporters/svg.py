@@ -26,6 +26,8 @@ logger = logging.getLogger(__name__)
 class SvgExporter(BaseExporter):
     """Exporter that captures the rendered tree as an SVG image."""
 
+    extension = "svg"
+
     def export(self, output_path: str) -> None:
         """Write the structure to *output_path* as an SVG image.
 

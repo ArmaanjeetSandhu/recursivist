@@ -21,6 +21,8 @@ logger = logging.getLogger(__name__)
 class JsonExporter(BaseExporter):
     """Exporter that serializes the structure to JSON."""
 
+    extension = "json"
+
     def export(self, output_path: str) -> None:
         """Write the structure to *output_path* as JSON.
 

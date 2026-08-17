@@ -74,6 +74,8 @@ def _rst_escape(text: str) -> str:
 class RstExporter(BaseExporter):
     """Exporter that writes the structure as a nested reStructuredText list."""
 
+    extension = "rst"
+
     def export(self, output_path: str) -> None:
         """Write the structure to *output_path* as reStructuredText.
 

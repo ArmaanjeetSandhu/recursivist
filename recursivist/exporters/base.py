@@ -18,7 +18,16 @@ class BaseExporter:
     convenience, the individual pieces of the spec are also exposed as plain
     attributes (``metrics``, ``sort_key``, ``show_loc``/``show_size``/
     ``show_mtime``/``show_git_status``) so exporters can read them directly.
+
+    Attributes:
+        extension: Canonical file extension for this format, without a leading
+            dot (e.g. ``"md"``). Set by each concrete subclass and used as the
+            single source of truth for output filenames, so format aliases that
+            share an exporter (such as ``"md"`` and ``"markdown"``) resolve to
+            the same extension.
     """
+
+    extension: str = ""
 
     def __init__(
         self,

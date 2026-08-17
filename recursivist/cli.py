@@ -47,7 +47,11 @@ from recursivist.compare import (
     export_comparison,
 )
 from recursivist.config import load_config, save_config
-from recursivist.exporters import get_exporter
+from recursivist.exporters import (
+    canonical_extension,
+    get_exporter,
+    supported_formats,
+)
 from recursivist.filtering import compile_regex_patterns
 from recursivist.flags import DisplayOptions, resolve_display_options
 from recursivist.git_status import get_git_status
@@ -1189,7 +1193,7 @@ def export(
             parsed_formats = []
             for fmt in formats:
                 parsed_formats.extend([x.strip() for x in fmt.split(" ") if x.strip()])
-            valid_formats = ["txt", "json", "html", "md", "svg", "rst"]
+            valid_formats = supported_formats()
             invalid_formats = [
                 fmt for fmt in parsed_formats if fmt.lower() not in valid_formats
             ]
@@ -1208,7 +1212,7 @@ def export(
             format_word = "format" if num_formats == 1 else "formats"
             logger.info(f"Exporting to {num_formats} {format_word}")
             for fmt in parsed_formats:
-                output_path = output_dir / f"{output_prefix}.{fmt.lower()}"
+                output_path = output_dir / f"{output_prefix}.{canonical_extension(fmt)}"
                 try:
                     exporter = get_exporter(
                         format_type=fmt.lower(),

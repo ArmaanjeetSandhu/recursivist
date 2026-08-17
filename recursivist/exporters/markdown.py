@@ -43,6 +43,8 @@ def _md_escape_text(text: str) -> str:
 class MarkdownExporter(BaseExporter):
     """Exporter that writes the structure as a nested Markdown list."""
 
+    extension = "md"
+
     def export(self, output_path: str) -> None:
         """Write the structure to *output_path* as a Markdown list.
 
