@@ -224,7 +224,7 @@ safe_path = st.text(
     ),
     min_size=1,
     max_size=20,
-)
+).filter(lambda p: p.strip(". ") != "")
 
 
 def test_compare_directory_structures(comparison_directories: tuple[str, str]) -> None:

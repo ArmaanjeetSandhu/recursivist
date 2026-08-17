@@ -746,6 +746,8 @@ def export_comparison(
     Raises:
         ValueError: If *format_type* is not ``"html"``.
     """
+    if format_type != "html":
+        raise ValueError("Only HTML format is supported for comparison export")
     if spec is None:
         spec = DisplayOptions()
     if exclude_dirs is None:
@@ -808,10 +810,7 @@ def export_comparison(
             "identity_git": identity_spec.show_git_status,
         },
     }
-    if format_type == "html":
-        _export_comparison_to_html(comparison_data, output_path, icon_style)
-    else:
-        raise ValueError("Only HTML format is supported for comparison export")
+    _export_comparison_to_html(comparison_data, output_path, icon_style)
 
 
 def _export_comparison_to_html(
