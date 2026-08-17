@@ -177,11 +177,12 @@ class TestCountLinesOfCode:
                 try:
                     with open(file_path, encoding=encoding) as f:
                         expected_lines: int = sum(1 for _ in f)
+                except Exception:
+                    pass
+                else:
                     assert line_count == expected_lines, (
                         f"Line count mismatch for {encoding} content"
                     )
-                except Exception:
-                    pass
         finally:
             os.unlink(file_path)
 
