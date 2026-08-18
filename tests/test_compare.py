@@ -480,7 +480,6 @@ def test_export_comparison_html(
         content = f.read()
     assert "<!DOCTYPE html>" in content
     assert "<html>" in content
-    assert "Directory Comparison" in content
     assert os.path.basename(dir1) in content
     assert os.path.basename(dir2) in content
     assert "dir1_only" in content

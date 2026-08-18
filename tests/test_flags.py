@@ -177,7 +177,9 @@ class TestResolveFlags:
             ]
         )
         assert opts.metrics == (METRIC_MTIME, METRIC_LOC, METRIC_SIZE)
-        assert opts.show_loc and opts.show_size and opts.show_mtime
+        assert opts.show_loc
+        assert opts.show_size
+        assert opts.show_mtime
 
     def test_duplicate_display_only_deduplicated(self) -> None:
         opts = resolve_flags(

@@ -1050,8 +1050,6 @@ def _export_comparison_to_html(
 
     dir1_name = html.escape(comparison_data["dir1"]["name"])
     dir2_name = html.escape(comparison_data["dir2"]["name"])
-    dir1_path = html.escape(comparison_data["dir1"]["path"])
-    dir2_path = html.escape(comparison_data["dir2"]["path"])
     dir1_structure = comparison_data["dir1"]["structure"]
     dir2_structure = comparison_data["dir2"]["structure"]
 
@@ -1135,7 +1133,7 @@ def _export_comparison_to_html(
     <html>
     <head>
         <meta charset="utf-8">
-        <title>Directory Comparison - {dir1_name} vs {dir2_name}</title>
+        <title>{dir1_name} vs {dir2_name}</title>
         <style>
             body {{
                 font-family: Arial, sans-serif;
@@ -1155,7 +1153,7 @@ def _export_comparison_to_html(
             .directory-tree:last-child {{
                 border-right: none;
             }}
-            h1, h2 {{
+            h2 {{
                 text-align: center;
             }}
             h3 {{
@@ -1242,7 +1240,6 @@ def _export_comparison_to_html(
         </style>
     </head>
     <body>
-        <h1>Directory Comparison</h1>
         {max_depth_info}
         {path_info}
         {loc_info}
@@ -1263,12 +1260,10 @@ def _export_comparison_to_html(
         <div class="comparison-container">
             <div class="directory-tree">
                 <h3>{root_icon1} {dir1_title}</h3>
-                <p><em>Path: {dir1_path}</em></p>
                 {_build_html_tree(dir1_structure, dir2_structure, dir1_is_remote, dir2_is_remote)}
             </div>
             <div class="directory-tree">
                 <h3>{root_icon2} {dir2_title}</h3>
-                <p><em>Path: {dir2_path}</em></p>
                 {_build_html_tree(dir2_structure, dir1_structure, dir2_is_remote, dir1_is_remote)}
             </div>
         </div>

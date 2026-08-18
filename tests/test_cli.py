@@ -932,7 +932,6 @@ def test_compare_export_to_html(
         content = f.read()
     assert "<!DOCTYPE html>" in content
     assert "<html>" in content
-    assert "Directory Comparison" in content
     assert "file1.txt" in content
     assert "dir1_only.txt" in content
     assert "dir2_only.txt" in content
@@ -1242,7 +1241,6 @@ def test_compare_export_with_depth_limit(
     assert os.path.exists(export_file)
     with open(export_file, encoding="utf-8") as f:
         content: str = f.read()
-    assert "Directory Comparison" in content
     assert "level1" in content
     assert "level2" in content
     assert "level1_file.txt" in content

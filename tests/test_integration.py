@@ -177,7 +177,6 @@ def test_comparison_with_complex_directories(
     assert os.path.exists(output_path)
     with open(output_path, encoding="utf-8") as f:
         content = f.read()
-    assert "Directory Comparison" in content
     assert os.path.basename(complex_directory) in content
     assert os.path.basename(complex_directory_clone) in content
     assert "CHANGELOG.md" in content

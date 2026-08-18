@@ -238,8 +238,9 @@ def test_resolve_default_branch_not_found(monkeypatch: pytest.MonkeyPatch) -> No
     monkeypatch.setattr(
         "recursivist.github.urllib.request.urlopen", _fake_urlopen(refs_fail=404)
     )
+    target = GitHubTarget("o", "missing")
     with pytest.raises(GitHubError, match="was not found"):
-        resolve_default_branch(GitHubTarget("o", "missing"))
+        resolve_default_branch(target)
 
 
 def test_resolve_default_branch_network_error(
@@ -249,8 +250,9 @@ def test_resolve_default_branch_network_error(
         "recursivist.github.urllib.request.urlopen",
         _fake_urlopen(refs_error=URLError("boom")),
     )
+    target = GitHubTarget("o", "r")
     with pytest.raises(GitHubError, match="Could not reach GitHub"):
-        resolve_default_branch(GitHubTarget("o", "r"))
+        resolve_default_branch(target)
 
 
 def test_resolve_default_branch_missing_symref(
@@ -260,8 +262,9 @@ def test_resolve_default_branch_missing_symref(
         return io.BytesIO(b"no symref here")
 
     monkeypatch.setattr("recursivist.github.urllib.request.urlopen", fake)
+    target = GitHubTarget("o", "r")
     with pytest.raises(GitHubError, match="default branch"):
-        resolve_default_branch(GitHubTarget("o", "r"))
+        resolve_default_branch(target)
 
 
 def _pkt(line: bytes) -> bytes:
@@ -352,8 +355,9 @@ def test_resolve_commit_shas_network_error(monkeypatch: pytest.MonkeyPatch) -> N
         "recursivist.github.urllib.request.urlopen",
         _fake_urlopen(refs_error=URLError("boom")),
     )
+    target = GitHubTarget("o", "r")
     with pytest.raises(GitHubError, match="Could not reach GitHub"):
-        resolve_commit_shas(GitHubTarget("o", "r"), [None])
+        resolve_commit_shas(target, [None])
 
 
 def test_commit_shas_equal() -> None:
