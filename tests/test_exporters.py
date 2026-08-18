@@ -247,14 +247,12 @@ def test_export_structure_with_options(
         assert data[option_flag] is True
 
 
-def test_get_exporter_invalid_format(temp_dir: str, output_dir: str) -> None:
-    """Test exporting with an invalid format."""
+def test_get_exporter_invalid_format(temp_dir: str) -> None:
+    """Test getting an exporter with an invalid format."""
     structure = {"_files": ["file1.txt"]}
-    output_path = os.path.join(output_dir, "test_export.invalid")
+    root_name = os.path.basename(temp_dir)
     with pytest.raises(ValueError) as excinfo:
-        get_exporter(
-            "invalid", structure=structure, root_name=os.path.basename(temp_dir)
-        ).export(output_path)
+        get_exporter("invalid", structure=structure, root_name=root_name)
     assert "Unsupported export format" in str(excinfo.value)
 
 
@@ -654,17 +652,17 @@ def test_export_nested_structure(sample_directory: str, output_dir: str) -> None
     assert "deep_file.txt" in data["structure"]["nested"]["deep"]["_files"]
 
 
-def test_export_invalid_format(temp_dir: str, output_dir: str) -> None:
+def test_export_invalid_format(temp_dir: str) -> None:
     """Test exporting with invalid format."""
     structure = {"_files": ["file1.txt"]}
-    output_path = os.path.join(output_dir, "test_export.invalid")
+    root_name = os.path.basename(temp_dir)
 
     with pytest.raises(ValueError) as excinfo:
         get_exporter(
             "invalid",
             structure=structure,
-            root_name=os.path.basename(temp_dir),
-        ).export(output_path)
+            root_name=root_name,
+        )
     assert "Unsupported export format" in str(excinfo.value)
 
 
@@ -676,14 +674,15 @@ def test_export_error_handling(
     """Test error handling during export."""
     structure, _ = get_directory_structure(sample_directory)
     output_path = os.path.join(output_dir, "structure.txt")
+    exporter = get_exporter(
+        "txt",
+        structure=structure,
+        root_name=os.path.basename(sample_directory),
+    )
 
     mocker.patch("builtins.open", side_effect=PermissionError("Permission denied"))
     with pytest.raises(PermissionError):
-        get_exporter(
-            "txt",
-            structure=structure,
-            root_name=os.path.basename(sample_directory),
-        ).export(output_path)
+        exporter.export(output_path)
 
 
 def test_export_with_max_depth_indicator(temp_dir: str, output_dir: str) -> None:
@@ -854,15 +853,16 @@ def test_export_structure_error_types(
         error = OSError(28, error_msg)
     else:
         error = error_type(error_msg)
+    exporter = get_exporter(
+        "txt",
+        structure=structure,
+        root_name=os.path.basename(sample_directory),
+    )
 
     with patch("recursivist.exporters.txt.TxtExporter.export", side_effect=error):
         with pytest.raises(error_type) as excinfo:
-            get_exporter(
-                "txt",
-                structure=structure,
-                root_name=os.path.basename(sample_directory),
-            ).export(output_path)
-        assert error_msg in str(excinfo.value)
+            exporter.export(output_path)
+    assert error_msg in str(excinfo.value)
 
 
 def test_export_with_excessive_loc(temp_dir: str, output_dir: str) -> None:
