@@ -180,6 +180,8 @@ Size and mtime entries also include human-readable variants (`size_formatted`, `
 
 A self-contained HTML document with an embedded stylesheet: a nested list with extension-colored files, bold directory names, and any enabled metric or Git-status annotations. It opens in any browser and needs no external assets — well suited to sharing or embedding in documentation.
 
+The document pins a white background, and every extension color is darkened as needed so that all text meets the WCAG 2.1 level AAA contrast ratio (7:1) for normal-sized text. Hues are preserved, so extensions stay visually distinct.
+
 ### Markdown (`.md`)
 
 A nested bullet list that renders cleanly on GitHub and other Markdown viewers — directories in bold, files as inline code:

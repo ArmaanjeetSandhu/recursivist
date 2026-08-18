@@ -17,6 +17,7 @@ from hypothesis import strategies as st
 from pytest_mock import MockerFixture
 
 from recursivist._models import FileEntry
+from recursivist.colors import contrast_ratio, hex_to_rgb
 from recursivist.exporters import get_exporter
 from recursivist.exporters.rst import (
     _rst_display_width,
@@ -1556,3 +1557,120 @@ class TestJsonGitAndMetrics:
         data = self._export(structure, DisplayOptions(), tmp_path)
         assert data["structure"]["_files"] == ["b.txt"]
         assert data["show_git_status"] is False
+
+
+class TestHtmlContrast:
+    """The HTML export renders on a white page, so its text must meet WCAG AAA.
+
+    Extension colors are generated for a dark terminal, so they have to be
+    adapted before being used as inline styles here.
+    """
+
+    BACKGROUND = "#ffffff"
+    AAA_NORMAL_TEXT = 7.0
+
+    EXTENSIONS = [
+        "py",
+        "js",
+        "ts",
+        "md",
+        "json",
+        "yaml",
+        "css",
+        "html",
+        "rs",
+        "go",
+        "c",
+        "sh",
+        "toml",
+        "txt",
+        "cfg",
+        "ini",
+        "svg",
+        "png",
+        "rb",
+        "java",
+    ]
+
+    def _export(self, tmp_path: Path, spec: DisplayOptions | None = None) -> str:
+        structure: dict[str, Any] = {
+            "_files": [f"file.{ext}" for ext in self.EXTENSIONS]
+            + ["README", "Makefile"],
+            "subdir": {"_files": ["nested.py", "nested.md"]},
+        }
+        if spec is not None and spec.show_git_status:
+            structure["_git_markers"] = {
+                "file.py": "M",
+                "file.js": "A",
+                "file.ts": "D",
+                "file.md": "U",
+            }
+        output_path = os.path.join(tmp_path, "contrast.html")
+        get_exporter(
+            "html", structure=structure, root_name="test_root", spec=spec
+        ).export(output_path)
+        with open(output_path, encoding="utf-8") as f:
+            return f.read()
+
+    def _text_colors(self, content: str) -> list[str]:
+        """Return every foreground color declared in the document."""
+        colors = re.findall(r"(?<!background-)color:\s*(#[0-9a-fA-F]{3,6})", content)
+        assert colors, "no colors found in export"
+        return colors
+
+    @staticmethod
+    def _expand(hex_color: str) -> str:
+        if len(hex_color) == 4:
+            return "#" + "".join(char * 2 for char in hex_color[1:])
+        return hex_color
+
+    def _assert_all_compliant(self, content: str) -> None:
+        background = hex_to_rgb(self.BACKGROUND)
+        failures = []
+        for color in set(self._text_colors(content)):
+            ratio = contrast_ratio(hex_to_rgb(self._expand(color)), background)
+            if ratio < self.AAA_NORMAL_TEXT:
+                failures.append((color, round(ratio, 2)))
+        assert not failures, f"colors below WCAG AAA on {self.BACKGROUND}: {failures}"
+
+    def test_file_colors_meet_aaa(self, tmp_path: Path) -> None:
+        self._assert_all_compliant(self._export(tmp_path))
+
+    def test_colors_meet_aaa_with_metrics(self, tmp_path: Path) -> None:
+        self._assert_all_compliant(self._export(tmp_path, _ALL_METRICS_SPEC))
+
+    def test_colors_meet_aaa_with_git_status(self, tmp_path: Path) -> None:
+        content = self._export(tmp_path, DisplayOptions(show_git_status=True))
+        self._assert_all_compliant(content)
+
+    def test_extensionless_files_are_not_white_on_white(self, tmp_path: Path) -> None:
+        """An empty extension maps to white, which would be invisible on the page."""
+        content = self._export(tmp_path)
+        assert "color: #ffffff" not in content.lower().replace("background-color", "")
+
+    @pytest.mark.parametrize(
+        "spec",
+        [None, _ALL_METRICS_SPEC, DisplayOptions(show_git_status=True)],
+        ids=["plain", "metrics", "git_status"],
+    )
+    def test_no_unresolved_style_placeholders(
+        self, tmp_path: Path, spec: DisplayOptions | None
+    ) -> None:
+        """Conditional style blocks are separate strings; a missing f-prefix
+        would emit a literal placeholder instead of an accessible color."""
+        content = self._export(tmp_path, spec)
+        style = content.split("<style>")[1].split("</style>")[0]
+        unresolved = re.findall(r"\{_?[A-Za-z][A-Za-z0-9_]*\}", style)
+        assert not unresolved, f"unresolved placeholders in CSS: {unresolved}"
+
+    def test_background_is_explicit(self, tmp_path: Path) -> None:
+        """Contrast is only guaranteed if the page pins the background it assumes."""
+        assert f"background-color: {self.BACKGROUND}" in self._export(tmp_path)
+
+    def test_files_still_have_distinct_colors(self, tmp_path: Path) -> None:
+        """Meeting contrast must not collapse extensions onto one color."""
+        content = self._export(tmp_path)
+        file_colors = re.findall(
+            r'<li class="file" style="color: (#[0-9a-f]{6});', content
+        )
+        assert len(set(file_colors)) >= len(self.EXTENSIONS) - 2

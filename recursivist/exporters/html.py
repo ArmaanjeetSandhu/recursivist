@@ -10,7 +10,11 @@ import logging
 import os
 from typing import Any
 
-from recursivist.colors import generate_color_for_extension
+from recursivist.colors import (
+    WCAG_AAA_NORMAL_TEXT,
+    ensure_contrast,
+    generate_color_for_extension,
+)
 from recursivist.icons import get_icon
 from recursivist.metrics import (
     format_dir_metrics,
@@ -23,6 +27,15 @@ from recursivist.sorting import sort_files_by_type
 from .base import BaseExporter
 
 logger = logging.getLogger(__name__)
+
+_BACKGROUND = "#ffffff"
+"""Page background the exported document sets, and the basis for all contrast checks."""
+
+_MIN_CONTRAST = WCAG_AAA_NORMAL_TEXT
+"""Contrast ratio every color in the document is held to, against ``_BACKGROUND``."""
+
+_MUTED = "#595959"
+"""Lowest-contrast grey that still meets WCAG AAA (7.01:1) on ``_BACKGROUND``."""
 
 _GIT_STATUS_STYLES: dict[str, tuple[str, str]] = {
     "U": ("#999999", "dim"),
@@ -76,7 +89,9 @@ class HtmlExporter(BaseExporter):
                     display_path = entry.path
 
                     ext = os.path.splitext(file_name)[1].lower()
-                    color = generate_color_for_extension(ext)
+                    color = ensure_contrast(
+                        generate_color_for_extension(ext), _BACKGROUND, _MIN_CONTRAST
+                    )
 
                     file_icon = get_icon(file_name, is_dir=False, style=self.icon_style)
 
@@ -152,21 +167,21 @@ class HtmlExporter(BaseExporter):
             self.structure, self.metrics
         )
         metric_styles = (
-            """
+            f"""
             .loc-count,
             .size-count,
             .mtime-count,
-            .metric-count {
-                color: #666;
+            .metric-count {{
+                color: {_MUTED};
                 font-size: 0.9em;
                 font-weight: normal;
-            }
+            }}
         """
             if self.metrics
             else ""
         )
         git_color_rules = "\n".join(
-            f"            .git-{marker.lower()} {{ color: {color}; }}"
+            f"            .git-{marker.lower()} {{ color: {ensure_contrast(color, _BACKGROUND, _MIN_CONTRAST)}; }}"
             for marker, (color, _decoration) in _GIT_STATUS_STYLES.items()
         )
         git_styles = (
@@ -194,6 +209,8 @@ class HtmlExporter(BaseExporter):
                 body {{
                     font-family: Arial, sans-serif;
                     margin: 20px;
+                    background-color: {_BACKGROUND};
+                    color: #1a1a1a;
                 }}
                 ul {{
                     list-style-type: none;
@@ -209,17 +226,17 @@ class HtmlExporter(BaseExporter):
                     color: #34495e;
                 }}
                 .max-depth {{
-                    color: #999;
+                    color: {_MUTED};
                     font-style: italic;
                 }}
                 .symlink-loop {{
-                    color: #999;
+                    color: {_MUTED};
                     font-style: italic;
                 }}
                 .path-info {{
                     margin-bottom: 20px;
                     font-style: italic;
-                    color: #666;
+                    color: {_MUTED};
                 }}
                 {metric_styles}
                 {git_styles}

@@ -189,6 +189,8 @@ EXTENSION_COLORS = {
 }
 ```
 
+These colors are tuned for a dark terminal background. Renderers that draw onto a known background pass them through `ensure_contrast` in `colors.py` first, which darkens or lightens a color (preserving its hue) until it meets a WCAG contrast ratio. The HTML exporter holds every color it emits to `WCAG_AAA_NORMAL_TEXT` (7:1), so a custom palette stays accessible without needing to be hand-checked.
+
 ## Debugging
 
 Run any command with `--verbose` for DEBUG-level logging:
