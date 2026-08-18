@@ -52,28 +52,32 @@ _WEB_HOST = "https://github.com"
 
 _HTTP_RE = re.compile(
     r"""
-    ^\s*
+    \A
     (?:https?://)?
     (?:www\.)?
     github\.com/
     (?P<owner>[^/\s]+)/
-    (?P<repo>[^/\s#?]+?)
-    (?:\.git)?
+    (?P<repo>[^/\s#?]+)
     (?:/
         (?:tree|blob)/
         (?P<ref>[^/\s#?]+)
-        (?:/(?P<subpath>[^\s#?]+?))?
+        (?:/(?P<subpath>[^\s#?]*))?
     )?
     /?
     (?:[#?].*)?
-    \s*$
+    \Z
     """,
     re.VERBOSE,
 )
 
-_SSH_RE = re.compile(
-    r"^\s*git@github\.com:(?P<owner>[^/\s]+)/(?P<repo>[^/\s#?]+?)(?:\.git)?/?\s*$"
-)
+_SSH_RE = re.compile(r"\Agit@github\.com:(?P<owner>[^/\s]+)/(?P<repo>[^/\s#?]+)/?\Z")
+
+
+def _strip_git_suffix(repo: str) -> str:
+    """Return *repo* without a trailing ``.git``, unless that is the whole name."""
+    if repo.endswith(".git") and len(repo) > 4:
+        return repo[:-4]
+    return repo
 
 
 class GitHubError(Exception):
@@ -208,16 +212,19 @@ def parse_github_url(text: str) -> GitHubTarget | None:
     """
     if not text or "github.com" not in text:
         return None
+    text = text.strip()
     ssh = _SSH_RE.match(text)
     if ssh:
-        return GitHubTarget(owner=ssh.group("owner"), repo=ssh.group("repo"))
+        return GitHubTarget(
+            owner=ssh.group("owner"), repo=_strip_git_suffix(ssh.group("repo"))
+        )
     match = _HTTP_RE.match(text)
     if not match:
         return None
     subpath = (match.group("subpath") or "").strip("/")
     return GitHubTarget(
         owner=match.group("owner"),
-        repo=match.group("repo"),
+        repo=_strip_git_suffix(match.group("repo")),
         ref=match.group("ref"),
         subpath=subpath,
     )
