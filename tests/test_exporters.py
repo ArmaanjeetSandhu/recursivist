@@ -121,7 +121,7 @@ def random_string(length: int) -> str:
     [
         ("json", "json", ["root", "structure"]),
         ("txt", "txt", ["file1.txt", "file2.py", "subdir"]),
-        ("md", "md", ["# 📁", "file1.txt", "file2.py", "**subdir**"]),
+        ("md", "md", ["# 📂", "file1.txt", "file2.py", "**subdir**"]),
         (
             "html",
             "html",
@@ -130,7 +130,7 @@ def random_string(length: int) -> str:
         (
             "rst",
             "rst",
-            ["📄 ``file1.txt``", "📄 ``file2.py``", "📁 **subdir**"],
+            ["📄 ``file1.txt``", "📄 ``file2.py``", "📂 **subdir**"],
         ),
     ],
 )
@@ -260,14 +260,14 @@ class TestExporterFileOutput:
     @pytest.mark.parametrize(
         "format_name,expected_content",
         [
-            ("txt", ["📁 test_root", "file1.txt", "file2.py", "file3.md"]),
-            ("md", ["# 📁 test_root", "`file1.txt`"]),
+            ("txt", ["📂 test_root", "file1.txt", "file2.py", "file3.md"]),
+            ("md", ["# 📂 test_root", "`file1.txt`"]),
             (
                 "html",
                 ["<!DOCTYPE html>", "<html>", 'class="file"'],
             ),
             ("json", ["root", "structure", "_files"]),
-            ("rst", ["📁 test_root", "``file1.txt``", "``file2.py``"]),
+            ("rst", ["📂 test_root", "``file1.txt``", "``file2.py``"]),
         ],
     )
     def test_export_formats(
@@ -393,30 +393,22 @@ class TestExporterFileOutput:
     def test_export_with_max_depth(
         self, max_depth_structure: dict[str, Any], tmp_path: Path
     ) -> None:
-        """Test exporting with max depth indicators."""
-        txt_path = os.path.join(tmp_path, "max_depth.txt")
-        get_exporter(
-            "txt", structure=max_depth_structure, root_name="max_depth_root"
-        ).export(txt_path)
-        with open(txt_path, encoding="utf-8") as f:
-            content = f.read()
-        assert "⋯ (max depth reached)" in content
-
-        md_path = os.path.join(tmp_path, "max_depth.md")
-        get_exporter(
-            "md", structure=max_depth_structure, root_name="max_depth_root"
-        ).export(md_path)
-        with open(md_path, encoding="utf-8") as f:
-            content = f.read()
-        assert "⋯ *(max depth reached)*" in content
-
-        html_path = os.path.join(tmp_path, "max_depth.html")
-        get_exporter(
-            "html", structure=max_depth_structure, root_name="max_depth_root"
-        ).export(html_path)
-        with open(html_path, encoding="utf-8") as f:
-            content = f.read()
-        assert "max-depth" in content
+        """Truncated directories carry no marker, only an open folder icon."""
+        for fmt, truncated, empty in [
+            ("txt", "📂 subdir", "📁 empty_subdir"),
+            ("md", "📂 **subdir**", "📁 **empty_subdir**"),
+            ("html", "📂 <span", "📁 <span"),
+        ]:
+            path = os.path.join(tmp_path, f"max_depth.{fmt}")
+            get_exporter(
+                fmt, structure=max_depth_structure, root_name="max_depth_root"
+            ).export(path)
+            with open(path, encoding="utf-8") as f:
+                content = f.read()
+            assert "max depth reached" not in content
+            assert "max-depth" not in content
+            assert truncated in content
+            assert empty in content
 
 
 class TestExporters:
@@ -495,9 +487,9 @@ class TestExporters:
             "md",
             "md",
             [
-                lambda c: "# 📁" in c,
+                lambda c: "# 📂" in c,
                 lambda c: "- 📄 `file1.txt`" in c,
-                lambda c: "- 📁 **subdir**" in c,
+                lambda c: "- 📂 **subdir**" in c,
             ],
         ),
         (
@@ -516,7 +508,7 @@ class TestExporters:
             "rst",
             [
                 lambda c: "- 📄 ``file1.txt``" in c,
-                lambda c: "- 📁 **subdir**" in c,
+                lambda c: "- 📂 **subdir**" in c,
                 lambda c: any(line and set(line) == {"="} for line in c.splitlines()),
             ],
         ),
@@ -696,10 +688,10 @@ def test_export_with_max_depth_indicator(temp_dir: str, output_dir: str) -> None
 
     structure, _ = get_directory_structure(temp_dir, max_depth=2)
     format_indicators = {
-        "txt": "⋯ (max depth reached)",
+        "txt": "📂 level2",
         "json": "_max_depth_reached",
-        "html": "max-depth",
-        "md": "*(max depth reached)*",
+        "html": "📂 <span",
+        "md": "📂 **level2**",
     }
 
     for fmt, indicator in format_indicators.items():
@@ -773,7 +765,7 @@ def test_large_structure_export(output_dir: str) -> None:
         with open(output_path, encoding="utf-8") as f:
             content = f.read()
         if fmt == "txt":
-            assert "📁 large_root" in content
+            assert "📂 large_root" in content
             assert "file_1_0.txt" in content
         elif fmt == "json":
             assert '"root": "large_root"' in content
@@ -783,7 +775,7 @@ def test_large_structure_export(output_dir: str) -> None:
             assert "<!DOCTYPE html>" in content
             assert "large_root" in content
         elif fmt == "md":
-            assert "# 📁 large_root" in content
+            assert "# 📂 large_root" in content
 
 
 def test_unicode_file_names(output_dir: str) -> None:
@@ -1031,14 +1023,9 @@ def test_combined_export_options(output_dir: str) -> None:
             pattern for pattern in timestamp_patterns if pattern in content
         ]
         assert len(timestamp_matches) > 0, f"No timestamp format found in {fmt} export"
-        if fmt == "txt":
-            assert "⋯ (max depth reached)" in content
-        elif fmt == "json":
+        assert "max depth reached" not in content
+        if fmt == "json":
             assert "_max_depth_reached" in content
-        elif fmt == "html":
-            assert "max-depth" in content
-        elif fmt == "md":
-            assert "*(max depth reached)*" in content
 
 
 class TestSvgExporter:
@@ -1170,11 +1157,11 @@ class TestRstExporter:
             content = f.read()
         lines = _rst_lines(content)
 
-        assert lines[0] == "📁 test_root"
+        assert lines[0] == "📂 test_root"
         assert set(lines[1]) == {"="}
         assert "- 📄 ``root_file1.txt``" in content
-        assert "- 📁 **subdir1**" in content
-        assert "- 📁 **subdir2**" in content
+        assert "- 📂 **subdir1**" in content
+        assert "- 📂 **subdir2**" in content
         assert "  - 📄 ``subdir1_file2.js``" in content
         assert "    - 📄 ``nested_file1.json``" in content
 
@@ -1195,7 +1182,7 @@ class TestRstExporter:
             lines = _rst_lines(f.read())
 
         title, underline = lines[0], lines[1]
-        assert title == "📁 proj"
+        assert title == "📂 proj"
         assert set(underline) == {"="}
         assert len(underline) == _rst_display_width(title)
         assert len(underline) == len(title) + 1
@@ -1212,7 +1199,7 @@ class TestRstExporter:
         with open(output_path, encoding="utf-8") as f:
             lines = _rst_lines(f.read())
 
-        dir_idx = lines.index("- 📁 **outer**")
+        dir_idx = lines.index("- 📂 **outer**")
         assert lines[dir_idx + 1] == ""
         assert lines[dir_idx + 2] == "  - 📄 ``inner.py``"
 
@@ -1270,10 +1257,10 @@ class TestRstExporter:
 
         assert "[M]" not in content
 
-    def test_max_depth_indicator(
+    def test_max_depth_folder_icons(
         self, max_depth_structure: dict[str, Any], tmp_path: Path
     ) -> None:
-        """Depth-limited directories show an emphasized max-depth marker."""
+        """Depth-limited directories carry no marker, just an open folder icon."""
         output_path = os.path.join(tmp_path, "structure.rst")
         get_exporter("rst", structure=max_depth_structure, root_name="root").export(
             output_path
@@ -1281,9 +1268,9 @@ class TestRstExporter:
         with open(output_path, encoding="utf-8") as f:
             lines = _rst_lines(f.read())
 
-        marker = "  - ⋯ *(max depth reached)*"
-        assert marker in lines
-        assert lines[lines.index(marker) - 1] == ""
+        assert not any("max depth reached" in line for line in lines)
+        assert "- 📂 **subdir**" in lines
+        assert "- 📁 **empty\\_subdir**" in lines
 
     def test_metrics_suffix_loc(
         self, structure_with_stats: dict[str, Any], tmp_path: Path
@@ -1330,6 +1317,7 @@ class TestRstExporter:
 
         assert "📄" not in content
         assert "📁" not in content
+        assert "📂" not in content
         assert "\ue73c" in content
 
     def test_special_characters_are_escaped(self, tmp_path: Path) -> None:

@@ -31,15 +31,15 @@ recursivist export --format txt --sort-by-loc --size --mtime     # sort by LOC, 
 A Markdown export with `--sort-by-loc`:
 
 ```markdown
-# 📁 my-project (1262 lines)
+# 📂 my-project (1262 lines)
 
 - 📄 `README.md` (124 lines)
 - 📄 `setup.py` (65 lines)
 - 📄 `requirements.txt` (18 lines)
-- 📁 **src** (1055 lines)
+- 📂 **src** (1055 lines)
   - 📄 `main.py` (245 lines)
   - 📄 `utils.py` (157 lines)
-  - 📁 **tests** (653 lines)
+  - 📂 **tests** (653 lines)
     - 📄 `test_main.py` (412 lines)
     - 📄 `test_utils.py` (241 lines)
 ```

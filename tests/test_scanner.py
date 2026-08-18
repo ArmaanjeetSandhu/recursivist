@@ -6,8 +6,9 @@ from pathlib import Path
 from typing import Any, cast
 
 import pytest
+from pytest_mock import MockerFixture
 
-from recursivist.scanner import get_directory_structure
+from recursivist.scanner import get_directory_structure, has_contents
 
 
 def _materialize_tree(root: str, files: dict[str, str]) -> None:
@@ -536,3 +537,68 @@ class TestSymlinkCycles:
             return max((max_depth(v, d + 1) for v in children), default=d)
 
         assert max_depth(structure) == 3
+
+
+class TestHiddenContentsAtDepthLimit:
+    """The ``_hidden_contents`` flag and the :func:`has_contents` predicate."""
+
+    def test_flag_set_only_when_something_was_cut_off(self, temp_dir: str) -> None:
+        """A truncated directory records whether it still held anything."""
+        _materialize_tree(temp_dir, {"full/deep/file.txt": "x"})
+        os.makedirs(os.path.join(temp_dir, "bare", "empty"), exist_ok=True)
+
+        structure, _ = get_directory_structure(temp_dir, max_depth=2)
+
+        assert structure["full"]["deep"] == {
+            "_max_depth_reached": True,
+            "_hidden_contents": True,
+        }
+        assert structure["bare"]["empty"] == {"_max_depth_reached": True}
+
+    def test_excluded_children_do_not_count_as_contents(self, temp_dir: str) -> None:
+        """A directory holding only excluded files is truncated as empty."""
+        _materialize_tree(temp_dir, {"outer/inner/skipped.log": "x"})
+
+        structure, _ = get_directory_structure(
+            temp_dir, max_depth=2, exclude_extensions={".log"}
+        )
+
+        assert structure["outer"]["inner"] == {"_max_depth_reached": True}
+
+    @pytest.mark.parametrize(
+        "error", [PermissionError("Permission denied"), OSError("boom")]
+    )
+    def test_unreadable_directory_is_treated_as_empty(
+        self, temp_dir: str, mocker: MockerFixture, error: Exception
+    ) -> None:
+        """A directory we cannot list is truncated as empty rather than raising."""
+        os.makedirs(os.path.join(temp_dir, "outer", "locked"), exist_ok=True)
+        real_listdir = os.listdir
+
+        def fake_listdir(path: str) -> list[str]:
+            if os.path.basename(path) == "locked":
+                raise error
+            return real_listdir(path)
+
+        mocker.patch("recursivist.scanner.os.listdir", side_effect=fake_listdir)
+        structure, _ = get_directory_structure(temp_dir, max_depth=2)
+
+        assert structure["outer"]["locked"] == {"_max_depth_reached": True}
+
+    @pytest.mark.parametrize(
+        "structure,expected",
+        [
+            ({}, False),
+            ({"_files": []}, False),
+            ({"_loc": 0, "_size": 0}, False),
+            ({"_files": ["a.txt"]}, True),
+            ({"subdir": {}}, True),
+            ({"_max_depth_reached": True}, False),
+            ({"_max_depth_reached": True, "_hidden_contents": True}, True),
+            ({"_symlink_loop": True}, True),
+            ("not-a-dict", False),
+        ],
+    )
+    def test_has_contents(self, structure: Any, expected: bool) -> None:
+        """Only entries with something to show are reported as non-empty."""
+        assert has_contents(structure) is expected

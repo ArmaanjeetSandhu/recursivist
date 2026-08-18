@@ -12,6 +12,7 @@ from typing import Any
 
 from recursivist.icons import get_icon
 from recursivist.metrics import format_dir_metrics, format_metrics_suffix
+from recursivist.scanner import has_contents
 from recursivist.sorting import sort_files_by_type
 
 from .base import BaseExporter
@@ -142,6 +143,7 @@ class RstExporter(BaseExporter):
                 if name in (
                     "_files",
                     "_max_depth_reached",
+                    "_hidden_contents",
                     "_symlink_loop",
                     "_loc",
                     "_size",
@@ -150,7 +152,12 @@ class RstExporter(BaseExporter):
                 ):
                     continue
 
-                folder_icon = get_icon(name, is_dir=True, style=self.icon_style)
+                folder_icon = get_icon(
+                    name,
+                    is_dir=True,
+                    style=self.icon_style,
+                    is_empty=not has_contents(content),
+                )
 
                 metrics = ""
                 if isinstance(content, dict):
@@ -160,20 +167,22 @@ class RstExporter(BaseExporter):
                 )
                 next_path = os.path.join(path_prefix, name) if path_prefix else name
                 if isinstance(content, dict):
-                    if content.get("_max_depth_reached"):
-                        lines.append("")
-                        lines.append(f"{indent}  - ⋯ *(max depth reached)*")
-                    elif content.get("_symlink_loop"):
+                    if content.get("_symlink_loop"):
                         lines.append("")
                         lines.append(f"{indent}  - ↩ *(symlink loop)*")
-                    else:
+                    elif not content.get("_max_depth_reached"):
                         sublines = _build_rst_tree(content, level + 1, next_path)
                         if sublines:
                             lines.append("")
                             lines.extend(sublines)
             return lines
 
-        root_icon = get_icon(self.root_name, is_dir=True, style=self.icon_style)
+        root_icon = get_icon(
+            self.root_name,
+            is_dir=True,
+            style=self.icon_style,
+            is_empty=not has_contents(self.structure),
+        )
         root_title = f"{root_icon} {self.root_name}" + format_dir_metrics(
             self.structure, self.metrics
         )

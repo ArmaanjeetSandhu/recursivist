@@ -30,10 +30,89 @@ RESERVED_KEYS: frozenset[str] = frozenset(
         "_size",
         "_mtime",
         "_max_depth_reached",
+        "_hidden_contents",
         "_symlink_loop",
         "_git_markers",
     }
 )
+
+
+def _has_visible_entries(
+    root_dir: str,
+    exclude_dirs: Sequence[str],
+    ignore_context: dict[str, Any],
+    exclude_extensions: set[str],
+    exclude_patterns: Sequence[str | Pattern[str]],
+    include_patterns: Sequence[str | Pattern[str]],
+) -> bool:
+    """Return whether *root_dir* holds at least one non-excluded entry.
+
+    Used at the depth limit, where the directory is not traversed but its
+    renderers still need to know whether anything was left behind, so a
+    truncated directory is not drawn as if it were empty. Only the immediate
+    children are inspected, since that is enough to distinguish "nothing here" from
+    "more below", without paying for a full recursive walk.
+
+    Args:
+        root_dir: Directory to peek into.
+        exclude_dirs: Directory names to skip entirely.
+        ignore_context: Ignore-file context for :func:`should_exclude`.
+        exclude_extensions: Lowercase, dot-prefixed extensions to exclude.
+        exclude_patterns: Glob or compiled-regex patterns to exclude.
+        include_patterns: Glob or compiled-regex patterns to include.
+
+    Returns:
+        ``True`` if any child survives the exclusion rules.
+    """
+    try:
+        items = os.listdir(root_dir)
+    except PermissionError:
+        logger.warning(f"Permission denied: {root_dir}")
+        return False
+    except Exception as e:
+        logger.exception(f"Error reading directory {root_dir}: {e}")
+        return False
+    for item in items:
+        item_path = os.path.join(root_dir, item)
+        if item in exclude_dirs or should_exclude(
+            item_path,
+            ignore_context,
+            exclude_extensions,
+            exclude_patterns,
+            include_patterns,
+        ):
+            continue
+        if not os.path.isdir(item_path):
+            _, ext = os.path.splitext(item)
+            if ext.lower() in exclude_extensions:
+                continue
+        return True
+    return False
+
+
+def has_contents(structure: Any) -> bool:
+    """Return whether a directory-structure entry holds anything to display.
+
+    A directory counts as non-empty when it has files, has subdirectories, or
+    was cut short by the depth limit with contents left unexplored. Renderers
+    use this to pick between the open and closed folder icons.
+
+    Args:
+        structure: A subtree of a structure dict as produced by
+            :func:`get_directory_structure`.
+
+    Returns:
+        ``True`` if the entry has visible contents.
+    """
+    if not isinstance(structure, dict):
+        return False
+    if structure.get("_max_depth_reached"):
+        return bool(structure.get("_hidden_contents"))
+    if structure.get("_symlink_loop"):
+        return True
+    if structure.get("_files"):
+        return True
+    return any(True for _ in iter_subdirectories(structure))
 
 
 def get_directory_structure(
@@ -70,6 +149,9 @@ def get_directory_structure(
     - ``"_size"``: total size in bytes (when *sort_by_size* is set).
     - ``"_mtime"``: latest modification time (when *sort_by_mtime* is set).
     - ``"_max_depth_reached"``: present when traversal stopped at *max_depth*.
+    - ``"_hidden_contents"``: present (and ``True``) alongside
+      ``"_max_depth_reached"`` when the untraversed directory is not empty, so
+      renderers can still tell it apart from one that holds nothing.
     - ``"_symlink_loop"``: present (and ``True``) when a directory was not
       recursed into because it resolves to one of its own ancestors, i.e. a
       symlink (or other) cycle back up the tree.
@@ -154,7 +236,17 @@ def get_directory_structure(
             if file_dir == current_prefix:
                 git_markers[fname] = status
     if max_depth > 0 and current_depth >= max_depth:
-        return {"_max_depth_reached": True}, extensions_set
+        truncated: dict[str, Any] = {"_max_depth_reached": True}
+        if _has_visible_entries(
+            root_dir,
+            exclude_dirs,
+            ignore_context,
+            exclude_extensions,
+            exclude_patterns,
+            include_patterns,
+        ):
+            truncated["_hidden_contents"] = True
+        return truncated, extensions_set
     try:
         items = os.listdir(root_dir)
     except PermissionError:

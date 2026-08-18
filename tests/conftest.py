@@ -386,10 +386,18 @@ def structure_with_stats() -> DirStructure:
 
 @pytest.fixture
 def max_depth_structure() -> DirStructure:
-    """Create a structure with max depth indicator."""
+    """Create a structure truncated at the depth limit.
+
+    ``subdir`` was cut short with contents left unexplored, while
+    ``empty_subdir`` was cut short but holds nothing.
+    """
     return {
         "_files": ["root_file.txt"],
         "subdir": {
+            "_max_depth_reached": True,
+            "_hidden_contents": True,
+        },
+        "empty_subdir": {
             "_max_depth_reached": True,
         },
     }

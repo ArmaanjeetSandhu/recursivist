@@ -11,6 +11,7 @@ from typing import Any
 
 from recursivist.icons import get_icon
 from recursivist.metrics import format_dir_metrics, format_metrics_suffix
+from recursivist.scanner import has_contents
 from recursivist.sorting import sort_files_by_type
 
 from .base import BaseExporter
@@ -121,6 +122,7 @@ class MarkdownExporter(BaseExporter):
                 if (
                     name == "_files"
                     or name == "_max_depth_reached"
+                    or name == "_hidden_contents"
                     or name == "_symlink_loop"
                     or name == "_loc"
                     or name == "_size"
@@ -129,7 +131,12 @@ class MarkdownExporter(BaseExporter):
                 ):
                     continue
 
-                folder_icon = get_icon(name, is_dir=True, style=self.icon_style)
+                folder_icon = get_icon(
+                    name,
+                    is_dir=True,
+                    style=self.icon_style,
+                    is_empty=not has_contents(content),
+                )
 
                 metrics = ""
                 if isinstance(content, dict):
@@ -139,15 +146,18 @@ class MarkdownExporter(BaseExporter):
                 )
                 next_path = os.path.join(path_prefix, name) if path_prefix else name
                 if isinstance(content, dict):
-                    if content.get("_max_depth_reached"):
-                        lines.append(f"{indent}    - ⋯ *(max depth reached)*")
-                    elif content.get("_symlink_loop"):
+                    if content.get("_symlink_loop"):
                         lines.append(f"{indent}    - ↩ *(symlink loop)*")
-                    else:
+                    elif not content.get("_max_depth_reached"):
                         lines.extend(_build_md_tree(content, level + 1, next_path))
             return lines
 
-        root_icon = get_icon(self.root_name, is_dir=True, style=self.icon_style)
+        root_icon = get_icon(
+            self.root_name,
+            is_dir=True,
+            style=self.icon_style,
+            is_empty=not has_contents(self.structure),
+        )
 
         md_content = [
             f"# {root_icon} {_md_escape_text(self.root_name)}"

@@ -32,14 +32,14 @@ Outputs are written to the current directory with the prefix `structure` unless 
 A plain ASCII tree with `├──` and `└──` connectors:
 
 ```
-📁 my-project
+📂 my-project
 ├── 📄 README.md
 ├── 📄 setup.py
 ├── 📄 requirements.txt
-└── 📁 src
+└── 📂 src
     ├── 📄 main.py
     ├── 📄 utils.py
-    └── 📁 tests
+    └── 📂 tests
         ├── 📄 test_main.py
         └── 📄 test_utils.py
 ```
@@ -47,14 +47,14 @@ A plain ASCII tree with `├──` and `└──` connectors:
 With statistics, each entry gains a parenthetical suffix:
 
 ```
-📁 my-project (1262 lines)
+📂 my-project (1262 lines)
 ├── 📄 README.md (124 lines)
 ├── 📄 setup.py (65 lines)
 ├── 📄 requirements.txt (18 lines)
-└── 📁 src (1055 lines)
+└── 📂 src (1055 lines)
     ├── 📄 main.py (245 lines)
     ├── 📄 utils.py (157 lines)
-    └── 📁 tests (653 lines)
+    └── 📂 tests (653 lines)
         ├── 📄 test_main.py (412 lines)
         └── 📄 test_utils.py (241 lines)
 ```
@@ -134,15 +134,15 @@ Open it in any browser, or embed it in documentation. The output is a static pag
 A nested bullet list that renders cleanly on GitHub and other Markdown viewers, with directories in bold and files as inline code:
 
 ```markdown
-# 📁 my-project
+# 📂 my-project
 
 - 📄 `README.md`
 - 📄 `setup.py`
 - 📄 `requirements.txt`
-- 📁 **src**
+- 📂 **src**
   - 📄 `main.py`
   - 📄 `utils.py`
-  - 📁 **tests**
+  - 📂 **tests**
     - 📄 `test_main.py`
     - 📄 `test_utils.py`
 ```
@@ -150,15 +150,15 @@ A nested bullet list that renders cleanly on GitHub and other Markdown viewers, 
 With statistics:
 
 ```markdown
-# 📁 my-project (1262 lines)
+# 📂 my-project (1262 lines)
 
 - 📄 `README.md` (124 lines)
 - 📄 `setup.py` (65 lines)
 - 📄 `requirements.txt` (18 lines)
-- 📁 **src** (1055 lines)
+- 📂 **src** (1055 lines)
   - 📄 `main.py` (245 lines)
   - 📄 `utils.py` (157 lines)
-  - 📁 **tests** (653 lines)
+  - 📂 **tests** (653 lines)
     - 📄 `test_main.py` (412 lines)
     - 📄 `test_utils.py` (241 lines)
 ```
@@ -168,17 +168,17 @@ With statistics:
 A nested bullet list that renders cleanly with [docutils](https://docutils.sourceforge.io/) and [Sphinx](https://www.sphinx-doc.org/), the reStructuredText counterpart to the Markdown export. The root becomes a section title, directories are shown in bold, and files as inline literals:
 
 ```rst
-📁 my-project
+📂 my-project
 =============
 
 - 📄 ``README.md``
 - 📄 ``setup.py``
 - 📄 ``requirements.txt``
-- 📁 **src**
+- 📂 **src**
 
   - 📄 ``main.py``
   - 📄 ``utils.py``
-  - 📁 **tests**
+  - 📂 **tests**
 
     - 📄 ``test_main.py``
     - 📄 ``test_utils.py``
@@ -187,17 +187,17 @@ A nested bullet list that renders cleanly with [docutils](https://docutils.sourc
 With statistics:
 
 ```rst
-📁 my-project (1262 lines)
+📂 my-project (1262 lines)
 ==========================
 
 - 📄 ``README.md`` (124 lines)
 - 📄 ``setup.py`` (65 lines)
 - 📄 ``requirements.txt`` (18 lines)
-- 📁 **src** (1055 lines)
+- 📂 **src** (1055 lines)
 
   - 📄 ``main.py`` (245 lines)
   - 📄 ``utils.py`` (157 lines)
-  - 📁 **tests** (653 lines)
+  - 📂 **tests** (653 lines)
 
     - 📄 ``test_main.py`` (412 lines)
     - 📄 ``test_utils.py`` (241 lines)

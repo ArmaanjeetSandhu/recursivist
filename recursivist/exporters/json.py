@@ -93,7 +93,13 @@ class JsonExporter(BaseExporter):
                     file_to_json(item, git_markers_here) for item in sorted_files
                 ]
 
-            for k in ("_loc", "_size", "_mtime", "_max_depth_reached"):
+            for k in (
+                "_loc",
+                "_size",
+                "_mtime",
+                "_max_depth_reached",
+                "_hidden_contents",
+            ):
                 if k in structure:
                     v = structure[k]
                     if k == "_loc" and self.show_loc:
@@ -104,7 +110,7 @@ class JsonExporter(BaseExporter):
                     elif k == "_mtime" and self.show_mtime:
                         result[k] = v
                         result["_mtime_formatted"] = format_timestamp(v)
-                    elif k == "_max_depth_reached":
+                    elif k in ("_max_depth_reached", "_hidden_contents"):
                         result[k] = v
 
             if "_symlink_loop" in structure:
@@ -116,6 +122,7 @@ class JsonExporter(BaseExporter):
                 "_size",
                 "_mtime",
                 "_max_depth_reached",
+                "_hidden_contents",
                 "_symlink_loop",
                 "_git_markers",
             }
@@ -150,6 +157,7 @@ class JsonExporter(BaseExporter):
                 "_size",
                 "_mtime",
                 "_max_depth_reached",
+                "_hidden_contents",
                 "_symlink_loop",
                 "_git_markers",
             ):
@@ -162,6 +170,7 @@ class JsonExporter(BaseExporter):
                 "_size",
                 "_mtime",
                 "_max_depth_reached",
+                "_hidden_contents",
                 "_symlink_loop",
                 "_git_markers",
             }

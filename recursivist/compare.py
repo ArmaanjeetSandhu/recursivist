@@ -36,7 +36,11 @@ from recursivist.metrics import (
     format_metrics,
     format_metrics_suffix,
 )
-from recursivist.scanner import get_directory_structure, iter_subdirectories
+from recursivist.scanner import (
+    get_directory_structure,
+    has_contents,
+    iter_subdirectories,
+)
 from recursivist.sorting import sort_files_by_type
 
 logger = logging.getLogger(__name__)
@@ -355,20 +359,23 @@ def build_comparison_tree(
             highlight = "on green" if identity not in other_identities else ""
             _add_file_node(entry, git_markers_dict, highlight, this_metrics)
     for folder, content in iter_subdirectories(structure):
-        folder_icon = get_icon(folder, is_dir=True, style=icon_style)
-
         other_content = other_structure.get(folder, {}) if other_structure else {}
+        folder_icon = get_icon(
+            folder,
+            is_dir=True,
+            style=icon_style,
+            is_empty=not (has_contents(content) or has_contents(other_content)),
+        )
+
         metrics_suffix = format_dir_metrics(content, this_metrics)
         folder_label = f"{folder_icon} {folder}{metrics_suffix}"
         if folder not in (other_structure or {}):
             subtree = tree.add(Text(folder_label, style="green"))
         else:
             subtree = tree.add(folder_label)
-        if isinstance(content, dict) and content.get("_max_depth_reached"):
-            subtree.add(Text("⋯ (max depth reached)", style="dim"))
-        elif isinstance(content, dict) and content.get("_symlink_loop"):
+        if isinstance(content, dict) and content.get("_symlink_loop"):
             subtree.add(Text("↩ (symlink loop)", style="dim"))
-        else:
+        elif not (isinstance(content, dict) and content.get("_max_depth_reached")):
             build_comparison_tree(
                 content,
                 other_content,
@@ -403,19 +410,23 @@ def build_comparison_tree(
         for folder, other_content in iter_subdirectories(other_structure):
             if folder in structure:
                 continue
-            folder_icon = get_icon(folder, is_dir=True, style=icon_style)
+            folder_icon = get_icon(
+                folder,
+                is_dir=True,
+                style=icon_style,
+                is_empty=not has_contents(other_content),
+            )
 
             metrics_suffix = format_dir_metrics(other_content, other_metrics)
             subtree = tree.add(
                 Text(f"{folder_icon} {folder}{metrics_suffix}", style="red")
             )
-            if isinstance(other_content, dict) and other_content.get(
-                "_max_depth_reached"
-            ):
-                subtree.add(Text("⋯ (max depth reached)", style="dim"))
-            elif isinstance(other_content, dict) and other_content.get("_symlink_loop"):
+            if isinstance(other_content, dict) and other_content.get("_symlink_loop"):
                 subtree.add(Text("↩ (symlink loop)", style="dim"))
-            else:
+            elif not (
+                isinstance(other_content, dict)
+                and other_content.get("_max_depth_reached")
+            ):
                 build_comparison_tree(
                     {},
                     other_content,
@@ -587,8 +598,18 @@ def display_comparison(
 
     root_base1 = _side_display_name(dir1)
     root_base2 = _side_display_name(dir2)
-    root_icon1 = get_icon(root_base1, is_dir=True, style=icon_style)
-    root_icon2 = get_icon(root_base2, is_dir=True, style=icon_style)
+    root_icon1 = get_icon(
+        root_base1,
+        is_dir=True,
+        style=icon_style,
+        is_empty=not has_contents(structure1),
+    )
+    root_icon2 = get_icon(
+        root_base2,
+        is_dir=True,
+        style=icon_style,
+        is_empty=not has_contents(structure2),
+    )
 
     tree1 = Tree(
         Text(
@@ -659,8 +680,7 @@ def display_comparison(
     if max_depth > 0:
         level_word = "level" if max_depth == 1 else "levels"
         legend_text.append("\n")
-        legend_text.append("⋯ (max depth reached) ", style="dim")
-        legend_text.append(f"= Directory tree is limited to {max_depth} {level_word}")
+        legend_text.append(f"Directory tree is limited to {max_depth} {level_word}")
     if show_full_path:
         legend_text.append("\n")
         legend_text.append("Full file paths are shown instead of just filenames")
@@ -949,23 +969,24 @@ def _export_comparison_to_html(
             else:
                 dir_class = ""
 
-            folder_icon = get_icon(name, is_dir=True, style=icon_style)
+            other_content = other_structure.get(name, {}) if other_structure else {}
+            folder_icon = get_icon(
+                name,
+                is_dir=True,
+                style=icon_style,
+                is_empty=not (has_contents(content) or has_contents(other_content)),
+            )
 
             metrics_suffix = format_dir_metrics(content, this_metrics)
             html_content.append(
                 f'<li{dir_class}><span class="directory">{folder_icon} '
                 f"{html.escape(name)}{metrics_suffix}</span>"
             )
-            if isinstance(content, dict) and content.get("_max_depth_reached"):
-                html_content.append(
-                    '<ul><li class="max-depth">⋯ (max depth reached)</li></ul>'
-                )
-            elif isinstance(content, dict) and content.get("_symlink_loop"):
+            if isinstance(content, dict) and content.get("_symlink_loop"):
                 html_content.append(
                     '<ul><li class="symlink-loop">↩ (symlink loop)</li></ul>'
                 )
-            else:
-                other_content = other_structure.get(name, {}) if other_structure else {}
+            elif not (isinstance(content, dict) and content.get("_max_depth_reached")):
                 html_content.append(
                     _build_html_tree(
                         content, other_content, this_is_remote, other_is_remote
@@ -1001,22 +1022,25 @@ def _export_comparison_to_html(
                     continue
                 dir_class = ' class="directory-unique-right"'
 
-                folder_icon = get_icon(name, is_dir=True, style=icon_style)
+                folder_icon = get_icon(
+                    name,
+                    is_dir=True,
+                    style=icon_style,
+                    is_empty=not has_contents(content),
+                )
 
                 metrics_suffix = format_dir_metrics(content, other_metrics)
                 html_content.append(
                     f'<li{dir_class}><span class="directory">{folder_icon} '
                     f"{html.escape(name)}{metrics_suffix}</span>"
                 )
-                if isinstance(content, dict) and content.get("_max_depth_reached"):
-                    html_content.append(
-                        '<ul><li class="max-depth">⋯ (max depth reached)</li></ul>'
-                    )
-                elif isinstance(content, dict) and content.get("_symlink_loop"):
+                if isinstance(content, dict) and content.get("_symlink_loop"):
                     html_content.append(
                         '<ul><li class="symlink-loop">↩ (symlink loop)</li></ul>'
                     )
-                else:
+                elif not (
+                    isinstance(content, dict) and content.get("_max_depth_reached")
+                ):
                     html_content.append(
                         _build_html_tree({}, content, this_is_remote, other_is_remote)
                     )
@@ -1093,8 +1117,18 @@ def _export_comparison_to_html(
     dir1_title = dir1_name + format_dir_metrics(dir1_structure, dir1_metrics)
     dir2_title = dir2_name + format_dir_metrics(dir2_structure, dir2_metrics)
 
-    root_icon1 = get_icon(dir1_name, is_dir=True, style=icon_style)
-    root_icon2 = get_icon(dir2_name, is_dir=True, style=icon_style)
+    root_icon1 = get_icon(
+        dir1_name,
+        is_dir=True,
+        style=icon_style,
+        is_empty=not has_contents(dir1_structure),
+    )
+    root_icon2 = get_icon(
+        dir2_name,
+        is_dir=True,
+        style=icon_style,
+        is_empty=not has_contents(dir2_structure),
+    )
 
     html_template = f"""
     <!DOCTYPE html>
@@ -1146,10 +1180,6 @@ def _export_comparison_to_html(
             }}
             .file-unique-right, .directory-unique-right {{
                 background-color: #f8d7da;
-            }}
-            .max-depth {{
-                color: #999;
-                font-style: italic;
             }}
             .symlink-loop {{
                 color: #999;

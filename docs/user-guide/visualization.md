@@ -12,14 +12,14 @@ recursivist visualize /path/to/project # a specific directory
 A progress indicator is shown while the directory is scanned, then the tree is printed:
 
 ```
-📁 my-project
+📂 my-project
 ├── 📄 README.md
 ├── 📄 setup.py
 ├── 📄 requirements.txt
-└── 📁 src
+└── 📂 src
     ├── 📄 main.py
     ├── 📄 utils.py
-    └── 📁 tests
+    └── 📂 tests
         ├── 📄 test_main.py
         └── 📄 test_utils.py
 ```
@@ -59,14 +59,14 @@ recursivist visualize --sort-by-loc
 ```
 
 ```
-📁 my-project (1262 lines)
+📂 my-project (1262 lines)
 ├── 📄 README.md (124 lines)
 ├── 📄 setup.py (65 lines)
 ├── 📄 requirements.txt (18 lines)
-└── 📁 src (1055 lines)
+└── 📂 src (1055 lines)
     ├── 📄 main.py (245 lines)
     ├── 📄 utils.py (157 lines)
-    └── 📁 tests (653 lines)
+    └── 📂 tests (653 lines)
         ├── 📄 test_main.py (412 lines)
         └── 📄 test_utils.py (241 lines)
 ```
@@ -80,14 +80,14 @@ recursivist visualize --sort-by-size
 ```
 
 ```
-📁 my-project (57.1 KB)
+📂 my-project (57.1 KB)
 ├── 📄 README.md (4.2 KB)
 ├── 📄 setup.py (3.8 KB)
 ├── 📄 requirements.txt (512 B)
-└── 📁 src (48.6 KB)
+└── 📂 src (48.6 KB)
     ├── 📄 main.py (12.4 KB)
     ├── 📄 utils.py (8.2 KB)
-    └── 📁 tests (28.0 KB)
+    └── 📂 tests (28.0 KB)
         ├── 📄 test_main.py (18.6 KB)
         └── 📄 test_utils.py (9.4 KB)
 ```
@@ -101,14 +101,14 @@ recursivist visualize --sort-by-mtime
 ```
 
 ```
-📁 my-project (Today 14:30)
+📂 my-project (Today 14:30)
 ├── 📄 README.md (Today 10:15)
 ├── 📄 setup.py (Today 09:00)
 ├── 📄 requirements.txt (Yesterday 16:00)
-└── 📁 src (Today 14:30)
+└── 📂 src (Today 14:30)
     ├── 📄 main.py (Today 14:30)
     ├── 📄 utils.py (Today 09:15)
-    └── 📁 tests (Today 14:25)
+    └── 📂 tests (Today 14:25)
         ├── 📄 test_main.py (Today 14:25)
         └── 📄 test_utils.py (Yesterday 18:10)
 ```
@@ -133,14 +133,14 @@ recursivist visualize --sort-by-loc --size --mtime
 ```
 
 ```
-📁 my-project (1262 lines, 57.1 KB, Today 14:30)
+📂 my-project (1262 lines, 57.1 KB, Today 14:30)
 ├── 📄 README.md (124 lines, 4.2 KB, Today 10:15)
 ├── 📄 setup.py (65 lines, 3.8 KB, Today 09:00)
 ├── 📄 requirements.txt (18 lines, 512 B, Yesterday 16:00)
-└── 📁 src (1055 lines, 48.6 KB, Today 14:30)
+└── 📂 src (1055 lines, 48.6 KB, Today 14:30)
     ├── 📄 main.py (245 lines, 12.4 KB, Today 14:30)
     ├── 📄 utils.py (157 lines, 8.2 KB, Today 09:15)
-    └── 📁 tests (653 lines, 28.0 KB, Today 14:25)
+    └── 📂 tests (653 lines, 28.0 KB, Today 14:25)
         ├── 📄 test_main.py (412 lines, 18.6 KB, Today 14:25)
         └── 📄 test_utils.py (241 lines, 9.4 KB, Yesterday 18:10)
 ```
@@ -171,10 +171,10 @@ recursivist visualize --git-status
 ```
 
 ```
-📁 my-project
+📂 my-project
 ├── 📄 README.md
 ├── 📄 newfile.txt [U]
-└── 📁 src
+└── 📂 src
     ├── 📄 main.py
     └── 📄 utils.py [M]
 ```
@@ -198,14 +198,15 @@ recursivist visualize --depth 2
 ```
 
 ```
-📁 my-project
+📂 my-project
 ├── 📄 README.md
-└── 📁 src
+└── 📂 src
     ├── 📄 main.py
     ├── 📄 utils.py
-    └── 📁 tests
-        ⋯ (max depth reached)
+    └── 📂 tests
 ```
+
+`tests` keeps its open folder icon, so you can tell it was cut off rather than empty.
 
 ## Full Path Display
 
@@ -216,9 +217,9 @@ recursivist visualize --full-path
 ```
 
 ```
-📁 my-project
+📂 my-project
 ├── 📄 /home/user/my-project/README.md
-└── 📁 src
+└── 📂 src
     └── 📄 /home/user/my-project/src/main.py
 ```
 

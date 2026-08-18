@@ -21,7 +21,7 @@ from recursivist.metrics import (
     format_metrics,
     format_metrics_suffix,
 )
-from recursivist.scanner import iter_subdirectories
+from recursivist.scanner import has_contents, iter_subdirectories
 from recursivist.sorting import sort_files_by_type
 
 from .base import BaseExporter
@@ -126,7 +126,12 @@ class HtmlExporter(BaseExporter):
                         + f"{_git_badge}</li>"
                     )
             for name, content in iter_subdirectories(structure):
-                folder_icon = get_icon(name, is_dir=True, style=self.icon_style)
+                folder_icon = get_icon(
+                    name,
+                    is_dir=True,
+                    style=self.icon_style,
+                    is_empty=not has_contents(content),
+                )
 
                 enabled = []
                 if isinstance(content, dict):
@@ -147,21 +152,22 @@ class HtmlExporter(BaseExporter):
                 )
                 next_path = os.path.join(path_prefix, name) if path_prefix else name
                 if isinstance(content, dict):
-                    if content.get("_max_depth_reached"):
-                        html_content.append(
-                            '<ul><li class="max-depth">⋯ (max depth reached)</li></ul>'
-                        )
-                    elif content.get("_symlink_loop"):
+                    if content.get("_symlink_loop"):
                         html_content.append(
                             '<ul><li class="symlink-loop">↩ (symlink loop)</li></ul>'
                         )
-                    else:
+                    elif not content.get("_max_depth_reached"):
                         html_content.append(_build_html_tree(content, next_path))
                 html_content.append("</li>")
             html_content.append("</ul>")
             return "\n".join(html_content)
 
-        root_icon = get_icon(self.root_name, is_dir=True, style=self.icon_style)
+        root_icon = get_icon(
+            self.root_name,
+            is_dir=True,
+            style=self.icon_style,
+            is_empty=not has_contents(self.structure),
+        )
 
         title = f"{root_icon} {html.escape(self.root_name)}" + format_dir_metrics(
             self.structure, self.metrics
@@ -224,10 +230,6 @@ class HtmlExporter(BaseExporter):
                 }}
                 .file {{
                     color: #34495e;
-                }}
-                .max-depth {{
-                    color: {_MUTED};
-                    font-style: italic;
                 }}
                 .symlink-loop {{
                     color: {_MUTED};

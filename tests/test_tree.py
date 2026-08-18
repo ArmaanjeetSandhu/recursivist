@@ -128,18 +128,33 @@ class TestBuildTree:
                 f"Expected indicator '{expected_indicator}' not found"
             )
 
-    def test_max_depth_indicator(
+    def test_max_depth_is_not_expanded(
         self,
         mocker: MockerFixture,
         max_depth_structure: dict[str, Any],
         color_map: dict[str, str],
     ) -> None:
+        """A truncated directory gets no placeholder child."""
         mock_tree = MagicMock(spec=Tree)
         mock_subtree = MagicMock(spec=Tree)
         mock_tree.add.return_value = mock_subtree
         build_tree(max_depth_structure, mock_tree, color_map, DisplayOptions())
-        mock_subtree.add.assert_called_once()
-        assert "(max depth reached)" in str(mock_subtree.add.call_args[0][0])
+        mock_subtree.add.assert_not_called()
+
+    def test_max_depth_folder_icons(
+        self,
+        mocker: MockerFixture,
+        max_depth_structure: dict[str, Any],
+        color_map: dict[str, str],
+    ) -> None:
+        """Truncated directories still signal whether anything was cut off."""
+        mock_tree = MagicMock(spec=Tree)
+        mock_subtree = MagicMock(spec=Tree)
+        mock_tree.add.return_value = mock_subtree
+        build_tree(max_depth_structure, mock_tree, color_map, DisplayOptions())
+        labels = [str(call.args[0]) for call in mock_tree.add.call_args_list]
+        assert "📂 subdir" in labels
+        assert "📁 empty_subdir" in labels
 
 
 class TestBuildTreeGitStatus:
@@ -390,8 +405,8 @@ class TestBuildTreeStructures:
             if not isinstance(call.args[0], Text)
         ]
         dir_names = [call.args[0] for call in dir_calls]
-        assert "📁 subdir1" in dir_names
-        assert "📁 subdir2" in dir_names
+        assert "📂 subdir1" in dir_names
+        assert "📂 subdir2" in dir_names
 
     def test_with_full_path(
         self, mock_tree: MagicMock, color_map: dict[str, str]
@@ -450,18 +465,20 @@ class TestBuildTreeStructures:
                 f"Expected indicator '{expected_indicator}' not found"
             )
 
-    def test_max_depth_indicator(
+    def test_max_depth_is_not_expanded(
         self,
         mock_tree: MagicMock,
         mock_subtree: MagicMock,
         color_map: dict[str, str],
         max_depth_structure: dict[str, Any],
     ) -> None:
-        """Test displaying max depth indicator in tree."""
+        """Test that a truncated directory is left unexpanded."""
         mock_tree.add.return_value = mock_subtree
         build_tree(max_depth_structure, mock_tree, color_map, DisplayOptions())
-        mock_subtree.add.assert_called_once()
-        assert "(max depth reached)" in str(mock_subtree.add.call_args[0][0])
+        mock_subtree.add.assert_not_called()
+        labels = [str(call.args[0]) for call in mock_tree.add.call_args_list]
+        assert "📂 subdir" in labels
+        assert "📁 empty_subdir" in labels
 
     def test_with_various_file_formats(
         self, mock_tree: MagicMock, color_map: dict[str, str]

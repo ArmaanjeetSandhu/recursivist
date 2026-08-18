@@ -43,7 +43,7 @@ recursivist visualize --sort-by-similarity
 Name-similarity grouping places `main.py` next to `main.js`, and `test_api.py` next to `test_api.js`:
 
 ```
-📁 project
+📂 project
 ├── 📄 main.js
 ├── 📄 main.py
 ├── 📄 test_api.py

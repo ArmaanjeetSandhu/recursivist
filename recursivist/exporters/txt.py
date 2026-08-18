@@ -10,6 +10,7 @@ from typing import Any
 
 from recursivist.icons import get_icon
 from recursivist.metrics import format_dir_metrics, format_metrics_suffix
+from recursivist.scanner import has_contents
 from recursivist.sorting import sort_files_by_type
 
 from .base import BaseExporter
@@ -58,6 +59,7 @@ class TxtExporter(BaseExporter):
             special_keys = {
                 "_files",
                 "_max_depth_reached",
+                "_hidden_contents",
                 "_symlink_loop",
                 "_loc",
                 "_size",
@@ -116,19 +118,21 @@ class TxtExporter(BaseExporter):
                 is_last_item = i == len(dir_items) - 1
                 item_prefix = prefix + ("└── " if is_last_item else "├── ")
                 next_path = os.path.join(path_prefix, name) if path_prefix else name
-                folder_icon = get_icon(name, is_dir=True, style=self.icon_style)
+                folder_icon = get_icon(
+                    name,
+                    is_dir=True,
+                    style=self.icon_style,
+                    is_empty=not has_contents(content),
+                )
                 if isinstance(content, dict):
                     lines.append(
                         f"{item_prefix}{folder_icon} {name}"
                         + format_dir_metrics(content, self.metrics)
                     )
-                    if content.get("_max_depth_reached"):
-                        next_prefix = prefix + ("    " if is_last_item else "│   ")
-                        lines.append(f"{next_prefix}└── ⋯ (max depth reached)")
-                    elif content.get("_symlink_loop"):
+                    if content.get("_symlink_loop"):
                         next_prefix = prefix + ("    " if is_last_item else "│   ")
                         lines.append(f"{next_prefix}└── ↩ (symlink loop)")
-                    else:
+                    elif not content.get("_max_depth_reached"):
                         next_prefix = prefix + ("    " if is_last_item else "│   ")
                         sublines = _build_txt_tree(content, next_prefix, next_path)
                         lines.extend(sublines)
@@ -136,7 +140,12 @@ class TxtExporter(BaseExporter):
                     lines.append(f"{item_prefix}{folder_icon} {name}")
             return lines
 
-        root_icon = get_icon(self.root_name, is_dir=True, style=self.icon_style)
+        root_icon = get_icon(
+            self.root_name,
+            is_dir=True,
+            style=self.icon_style,
+            is_empty=not has_contents(self.structure),
+        )
         root_label = f"{root_icon} {self.root_name}" + format_dir_metrics(
             self.structure, self.metrics
         )

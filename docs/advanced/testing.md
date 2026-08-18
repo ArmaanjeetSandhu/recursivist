@@ -119,7 +119,7 @@ def test_export_to_markdown(tmp_path):
     get_exporter("md", structure=structure, root_name=tmp_path.name).export(str(output_path))
 
     content = output_path.read_text()
-    assert "# 📁" in content
+    assert "# 📂" in content
     assert "test_file.txt" in content
 ```
 

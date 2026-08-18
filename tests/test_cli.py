@@ -262,12 +262,12 @@ def test_visualize_with_depth_limit(
     result = runner.invoke(app, ["visualize", deeply_nested_directory, "--depth", "1"])
     assert result.exit_code == 0
     assert "level1" in result.stdout
-    assert "(max depth reached)" in result.stdout
+    assert "(max depth reached)" not in result.stdout
     result = runner.invoke(app, ["visualize", deeply_nested_directory, "--depth", "2"])
     assert result.exit_code == 0
     assert "level1" in result.stdout
     assert "level2" in result.stdout
-    assert "(max depth reached)" in result.stdout
+    assert "(max depth reached)" not in result.stdout
 
 
 def test_visualize_invalid_directory(
@@ -737,7 +737,7 @@ def test_compare_with_depth_limit(runner: CliRunner, temp_dir: str) -> None:
     result = runner.invoke(app, ["compare", dir1, dir2, "--depth", "1"])
     assert result.exit_code == 0
     assert "level1" in result.stdout
-    assert "(max depth reached)" in result.stdout
+    assert "(max depth reached)" not in result.stdout
     assert "file2.txt" not in result.stdout
     assert "different.txt" not in result.stdout
 
@@ -1125,13 +1125,13 @@ def test_visualize_command_with_depth_limit(
     result = runner.invoke(app, ["visualize", deeply_nested_directory, "--depth", "1"])
     assert result.exit_code == 0
     assert "level1" in result.stdout
-    assert "(max depth reached)" in result.stdout
+    assert "(max depth reached)" not in result.stdout
     assert "level2" not in result.stdout
     result = runner.invoke(app, ["visualize", deeply_nested_directory, "--depth", "2"])
     assert result.exit_code == 0
     assert "level1" in result.stdout
     assert "level2" in result.stdout
-    assert "(max depth reached)" in result.stdout
+    assert "(max depth reached)" not in result.stdout
     assert "level3" not in result.stdout
 
 
@@ -1197,7 +1197,7 @@ def test_compare_command_with_depth_limit(
     assert "different_root.txt" in result.stdout
     assert "level3" not in result.stdout
     assert "level3_file.txt" not in result.stdout
-    assert "(max depth reached)" in result.stdout
+    assert "(max depth reached)" not in result.stdout
 
 
 def test_compare_export_with_depth_limit(
@@ -1247,10 +1247,9 @@ def test_compare_export_with_depth_limit(
     assert "level2" in content
     assert "level1_file.txt" in content
     assert "different_root.txt" in content
-    assert "level3" not in content or (
-        "level3" in content and "max depth reached" in content
-    )
-    assert "(max depth reached)" in content
+    assert "level3" not in content
+    assert "(max depth reached)" not in content
+    assert 'directory">📂 level2' in content
 
 
 def test_depth_combined_with_filters(
@@ -1281,7 +1280,7 @@ def test_depth_combined_with_filters(
     assert "level2" in result.stdout
     assert "excluded" not in result.stdout
     assert "excluded_root.txt" not in result.stdout
-    assert "(max depth reached)" in result.stdout
+    assert "(max depth reached)" not in result.stdout
 
 
 @pytest.mark.parametrize("depth", [1, 2, 3, 4])

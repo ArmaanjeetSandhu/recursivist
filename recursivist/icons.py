@@ -13,9 +13,11 @@ import os
 
 DEFAULT_EMOJI_FILE = "📄"
 DEFAULT_EMOJI_FOLDER = "📁"
+DEFAULT_EMOJI_FOLDER_OPEN = "📂"
 
 DEFAULT_NERD_FILE = "\uf15b"  # 📄 nf-fa-file
 DEFAULT_NERD_FOLDER = "\uf07b"  # 📁 nf-fa-folder
+DEFAULT_NERD_FOLDER_OPEN = "\uf07c"  # 📂 nf-fa-folder_open
 
 EXACT_MATCH_ICONS = {
     # Git
@@ -144,12 +146,17 @@ FOLDER_ICONS = {
 }
 
 
-def get_icon(filename: str, is_dir: bool = False, style: str = "emoji") -> str:
+def get_icon(
+    filename: str,
+    is_dir: bool = False,
+    style: str = "emoji",
+    is_empty: bool = False,
+) -> str:
     """Return the icon for a file or directory in the requested style.
 
-    With the ``"emoji"`` style, a single generic file or folder emoji is
-    returned. With the ``"nerd"`` style, a Nerd Font glyph is resolved in
-    priority order.
+    With the ``"emoji"`` style, a single generic file emoji is returned for
+    files and an open or closed folder emoji for directories. With the
+    ``"nerd"`` style, a Nerd Font glyph is resolved in priority order.
 
     For files:
 
@@ -157,8 +164,10 @@ def get_icon(filename: str, is_dir: bool = False, style: str = "emoji") -> str:
     2. File-extension match in ``EXTENSION_ICONS``.
     3. The ``DEFAULT_NERD_FILE`` fallback.
 
-    For directories, ``FOLDER_ICONS`` is consulted first, falling back to
-    ``DEFAULT_NERD_FOLDER`` when no entry matches.
+    For directories, ``FOLDER_ICONS`` is consulted first (so well-known
+    folders keep their distinctive glyph regardless of their contents),
+    falling back to the open or closed generic folder glyph depending on
+    *is_empty*.
 
     Args:
         filename: Name of the file or directory (basename only, not a full
@@ -166,17 +175,23 @@ def get_icon(filename: str, is_dir: bool = False, style: str = "emoji") -> str:
         is_dir: When ``True``, treat *filename* as a directory name and look
             up folder icons instead of file icons.
         style: Icon style to use, either ``"emoji"`` or ``"nerd"``.
+        is_empty: Only meaningful when *is_dir* is set. When ``True``, the
+            directory holds nothing that is being displayed and the closed
+            folder icon is used; otherwise the open folder icon is used.
 
     Returns:
         A single Unicode character containing the matching glyph.
     """
     if style == "emoji":
-        return DEFAULT_EMOJI_FOLDER if is_dir else DEFAULT_EMOJI_FILE
+        if is_dir:
+            return DEFAULT_EMOJI_FOLDER if is_empty else DEFAULT_EMOJI_FOLDER_OPEN
+        return DEFAULT_EMOJI_FILE
 
     filename_lower = filename.lower()
 
     if is_dir:
-        return FOLDER_ICONS.get(filename_lower, DEFAULT_NERD_FOLDER)
+        default_folder = DEFAULT_NERD_FOLDER if is_empty else DEFAULT_NERD_FOLDER_OPEN
+        return FOLDER_ICONS.get(filename_lower, default_folder)
 
     if filename_lower in EXACT_MATCH_ICONS:
         return EXACT_MATCH_ICONS[filename_lower]

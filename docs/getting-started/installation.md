@@ -43,7 +43,7 @@ This prints the installed version, e.g. `Recursivist version: 2.1.0`.
 
 ## Nerd Font Icons (Optional)
 
-By default Recursivist labels files and directories with two generic emoji (📄 and 📁), which render everywhere. It can also use file-type-specific [Nerd Font](https://www.nerdfonts.com/) glyphs, which require a patched font installed and selected in your terminal. To switch styles:
+By default Recursivist labels files and directories with generic emoji (📄 for files, 📂 for directories with contents, 📁 for empty ones), which render everywhere. It can also use file-type-specific [Nerd Font](https://www.nerdfonts.com/) glyphs, which require a patched font installed and selected in your terminal. To switch styles:
 
 ```bash
 recursivist config set icon-style nerd

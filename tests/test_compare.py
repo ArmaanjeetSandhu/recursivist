@@ -1086,7 +1086,7 @@ class TestBuildComparisonTreeStructures:
         dir_texts_styles = [
             (call.args[0].plain, str(call.args[0].style))
             for call in dir_calls
-            if "📁" in call.args[0].plain
+            if "📂" in call.args[0].plain
         ]
         assert any(
             "dir1" in text and "green" in style for text, style in dir_texts_styles
@@ -1188,7 +1188,7 @@ class TestBuildComparisonTreeStructures:
     def test_with_max_depth(
         self, mock_tree: MagicMock, mock_subtree: MagicMock
     ) -> None:
-        """Test comparison tree with max depth indicators."""
+        """Test that a truncated directory is left unexpanded."""
         structure1 = {
             "_files": ["file1.txt"],
             "subdir": {
@@ -1203,7 +1203,23 @@ class TestBuildComparisonTreeStructures:
             for call in mock_subtree.add.call_args_list
             if isinstance(call.args[0], Text)
         ]
-        assert any("max depth reached" in text.plain for text in subtree_calls)
+        assert not any("max depth reached" in text.plain for text in subtree_calls)
+        labels = [str(call.args[0]) for call in mock_tree.add.call_args_list]
+        assert any("📂 subdir" in label for label in labels)
+
+    def test_max_depth_folder_icon_reflects_contents(
+        self, mock_tree: MagicMock, mock_subtree: MagicMock
+    ) -> None:
+        """Truncated directories still signal whether anything was cut off."""
+        structure1 = {
+            "full": {"_max_depth_reached": True, "_hidden_contents": True},
+            "bare": {"_max_depth_reached": True},
+        }
+        mock_tree.add.return_value = mock_subtree
+        build_comparison_tree(structure1, {}, mock_tree, DisplayOptions())
+        labels = [str(call.args[0]) for call in mock_tree.add.call_args_list]
+        assert any("📂 full" in label for label in labels)
+        assert any("📁 bare" in label for label in labels)
 
 
 _GIT_SPEC_DISPLAY = DisplayOptions(show_git_status=True)

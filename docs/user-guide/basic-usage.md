@@ -37,13 +37,13 @@ By default, `visualize` and `export`:
 - Show bare filenames rather than full paths.
 - Color files by extension (colors are derived deterministically, so a given extension always maps to the same color).
 - List files before subdirectories, ordering files by extension and then name.
-- Label entries with generic emoji icons (📄 for files, 📁 for directories).
+- Label entries with generic emoji icons (📄 for files, 📂 for directories that have contents, and 📁 for empty ones).
 
 ## Icon Styles
 
 Recursivist ships with two icon styles:
 
-- **`emoji`** (default): the generic 📄 and 📁 glyphs, which render in virtually any terminal.
+- **`emoji`** (default): the generic 📄, 📂, and 📁 glyphs, which render in virtually any terminal.
 - **`nerd`**: file-type-specific [Nerd Font](https://www.nerdfonts.com/) glyphs (a distinct icon for Python, JavaScript, folders like `.git` or `node_modules`, and so on). This requires a Nerd Font installed and selected in your terminal.
 
 Set the default style persistently with the `config` command:
@@ -85,7 +85,7 @@ recursivist visualize --exclude-ext .pyc --exclude-ext .log
 recursivist visualize --depth 2
 ```
 
-Subtrees cut off by the limit are marked `⋯ (max depth reached)`.
+Subtrees cut off by the limit are left unexpanded. Their folder icon still distinguishes the two cases: 📂 means contents were hidden by the limit, while 📁 means the directory is genuinely empty.
 
 ### Showing Full Paths
 

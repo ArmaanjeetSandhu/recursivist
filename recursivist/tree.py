@@ -20,7 +20,11 @@ from recursivist.flags import METRIC_GIT, DisplayOptions
 from recursivist.git_status import get_git_status
 from recursivist.icons import get_icon
 from recursivist.metrics import format_dir_metrics, format_metrics_suffix
-from recursivist.scanner import get_directory_structure, iter_subdirectories
+from recursivist.scanner import (
+    get_directory_structure,
+    has_contents,
+    iter_subdirectories,
+)
 from recursivist.sorting import sort_files_by_type
 
 logger = logging.getLogger(__name__)
@@ -38,8 +42,9 @@ def build_tree(
 
     Recursively adds each file and subdirectory of *structure* to *tree*, with
     filenames colored by extension. Files are ordered by ``spec.sort_key`` via
-    :func:`recursivist.sorting.sort_files_by_type`, and a subtree that hit the
-    depth limit is shown as a single "max depth reached" placeholder.
+    :func:`recursivist.sorting.sort_files_by_type`. A subtree that hit the
+    depth limit is simply left unexpanded; its folder icon still shows whether
+    anything was cut off.
 
     The resolved *spec* controls the annotations appended to each entry:
 
@@ -101,15 +106,18 @@ def build_tree(
 
             tree.add(colored_text)
     for folder, content in iter_subdirectories(structure):
-        folder_icon = get_icon(folder, is_dir=True, style=icon_style)
+        folder_icon = get_icon(
+            folder,
+            is_dir=True,
+            style=icon_style,
+            is_empty=not has_contents(content),
+        )
         metrics = format_dir_metrics(content, spec.metrics)
         folder_display = f"{folder_icon} {folder}{metrics}"
         subtree = tree.add(folder_display)
-        if isinstance(content, dict) and content.get("_max_depth_reached"):
-            subtree.add(Text("⋯ (max depth reached)", style="dim"))
-        elif isinstance(content, dict) and content.get("_symlink_loop"):
+        if isinstance(content, dict) and content.get("_symlink_loop"):
             subtree.add(Text("↩ (symlink loop)", style="dim"))
-        else:
+        elif not (isinstance(content, dict) and content.get("_max_depth_reached")):
             build_tree(content, subtree, color_map, spec, show_full_path, icon_style)
 
 
@@ -208,7 +216,12 @@ def display_tree(
     console = Console()
 
     root_base = root_name if root_name is not None else os.path.basename(root_dir)
-    root_icon = get_icon(root_base, is_dir=True, style=icon_style)
+    root_icon = get_icon(
+        root_base,
+        is_dir=True,
+        style=icon_style,
+        is_empty=not has_contents(structure),
+    )
     root_label = f"{root_icon} {root_base}" + format_dir_metrics(
         structure, spec.metrics
     )

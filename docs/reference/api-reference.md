@@ -27,6 +27,7 @@ Most of the API revolves around the nested dictionary produced by `get_directory
 - `_files`: a list of [`FileEntry`](#fileentry) objects for the directory's files
 - `_loc`, `_size`, `_mtime`: aggregate totals, present only when the matching metric is requested
 - `_max_depth_reached`: present when traversal stopped at the depth limit
+- `_hidden_contents`: present alongside `_max_depth_reached` when the untraversed directory is not empty, so renderers can tell it apart from one that holds nothing
 - `_git_markers`: a `{filename: status}` map, present only with Git status enabled
 
 ### DisplayOptions

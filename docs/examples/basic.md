@@ -21,16 +21,15 @@ recursivist visualize --full-path
 recursivist visualize --icon-style nerd
 ```
 
-A depth-limited tree marks where it was cut off:
+A depth-limited tree simply stops; the open folder icon on `tests` shows there is more below:
 
 ```
-📁 my-project
+📂 my-project
 ├── 📄 README.md
-└── 📁 src
+└── 📂 src
     ├── 📄 main.py
     ├── 📄 utils.py
-    └── 📁 tests
-        ⋯ (max depth reached)
+    └── 📂 tests
 ```
 
 ## File Statistics
@@ -46,14 +45,14 @@ recursivist visualize --sort-by-loc --size   # sort by LOC, show LOC and size
 With `--sort-by-loc`:
 
 ```
-📁 my-project (1262 lines)
+📂 my-project (1262 lines)
 ├── 📄 README.md (124 lines)
 ├── 📄 setup.py (65 lines)
 ├── 📄 requirements.txt (18 lines)
-└── 📁 src (1055 lines)
+└── 📂 src (1055 lines)
     ├── 📄 main.py (245 lines)
     ├── 📄 utils.py (157 lines)
-    └── 📁 tests (653 lines)
+    └── 📂 tests (653 lines)
         ├── 📄 test_main.py (412 lines)
         └── 📄 test_utils.py (241 lines)
 ```

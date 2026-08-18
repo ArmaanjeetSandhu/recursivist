@@ -16,6 +16,7 @@ from recursivist._models import FileEntry
 from recursivist.colors import generate_color_for_extension
 from recursivist.icons import get_icon
 from recursivist.metrics import format_dir_metrics
+from recursivist.scanner import has_contents
 from recursivist.tree import build_tree
 
 from .base import BaseExporter
@@ -66,7 +67,12 @@ class SvgExporter(BaseExporter):
         extensions = extract_extensions(self.structure)
         color_map = {ext: generate_color_for_extension(ext) for ext in extensions}
 
-        root_icon = get_icon(self.root_name, is_dir=True, style=self.icon_style)
+        root_icon = get_icon(
+            self.root_name,
+            is_dir=True,
+            style=self.icon_style,
+            is_empty=not has_contents(self.structure),
+        )
         root_label = f"{root_icon} {self.root_name}" + format_dir_metrics(
             self.structure, self.metrics
         )
