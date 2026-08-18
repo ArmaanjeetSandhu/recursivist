@@ -1522,9 +1522,9 @@ def compare(
     spec = resolve_display_options(
         sort_loc=sort_by_loc,
         sort_size=sort_by_size,
-        sort_mtime=sort_by_mtime and not both_remote,
+        sort_mtime=sort_by_mtime and not any_remote,
         sort_similarity=sort_by_similarity,
-        sort_git=sort_by_git_status and not both_remote,
+        sort_git=sort_by_git_status and not any_remote,
         disp_loc=loc,
         disp_size=size,
         disp_mtime=mtime and not both_remote,
@@ -1536,14 +1536,18 @@ def compare(
             ignore_file, sort_by_git_status, show_git_status, sort_by_mtime, mtime
         )
         ignore_file = None
-    elif any_remote and (
-        ignore_file or sort_by_git_status or show_git_status or sort_by_mtime or mtime
-    ):
-        logger.info(
-            "Ignoring --ignore-file, --git-status, --sort-by-git-status, --mtime and "
-            "--sort-by-mtime for the GitHub repository; they still apply to the local "
-            "directory"
-        )
+    elif any_remote:
+        if ignore_file or show_git_status or mtime:
+            logger.info(
+                "Ignoring --ignore-file, --git-status and --mtime for the GitHub "
+                "repository; they still apply to the local directory"
+            )
+        if sort_by_git_status or sort_by_mtime:
+            logger.info(
+                "Ignoring --sort-by-git-status and --sort-by-mtime entirely: both "
+                "sides of a comparison share one ordering, and a GitHub repository "
+                "has no per-file Git status or modification time to sort on"
+            )
 
     _log_display_options(max_depth, show_full_path, spec)
 
