@@ -31,7 +31,7 @@ import logging
 import os
 from pathlib import Path
 from re import Pattern
-from typing import Any, cast
+from typing import Annotated, Any, cast
 
 import typer
 from rich.console import Console
@@ -128,95 +128,64 @@ MSG_DISPLAY_METRIC = {
 }
 
 
-def _exclude_dirs_option() -> Any:
-    return typer.Option(None, "--exclude", "-e", help=HELP_EXCLUDE_DIRS)
-
-
-def _exclude_extensions_option() -> Any:
-    return typer.Option(None, "--exclude-ext", "-x", help=HELP_EXCLUDE_EXTS)
-
-
-def _exclude_patterns_option() -> Any:
-    return typer.Option(None, "--exclude-pattern", "-p", help=HELP_EXCLUDE_PATTERNS)
-
-
-def _include_patterns_option() -> Any:
-    return typer.Option(None, "--include-pattern", "-i", help=HELP_INCLUDE_PATTERNS)
-
-
-def _use_regex_option() -> Any:
-    return typer.Option(False, "--regex", "-r", help=HELP_USE_REGEX)
-
-
-def _ignore_file_option() -> Any:
-    return typer.Option(None, "--ignore-file", "-g", help=HELP_IGNORE_FILE)
-
-
-def _max_depth_option(help_text: str) -> Any:
-    return typer.Option(0, "--depth", "-d", help=help_text)
-
-
-def _show_full_path_option() -> Any:
-    return typer.Option(False, "--full-path", "-l", help=HELP_SHOW_FULL_PATH)
-
-
-def _sort_by_loc_option() -> Any:
-    return typer.Option(False, "--sort-by-loc", "-s", help=HELP_SORT_BY_LOC)
-
-
-def _sort_by_size_option() -> Any:
-    return typer.Option(False, "--sort-by-size", "-z", help=HELP_SORT_BY_SIZE)
-
-
-def _sort_by_mtime_option() -> Any:
-    return typer.Option(False, "--sort-by-mtime", "-m", help=HELP_SORT_BY_MTIME)
-
-
-def _sort_by_similarity_option() -> Any:
-    return typer.Option(
-        False, "--sort-by-similarity", "-S", help=HELP_SORT_BY_SIMILARITY
-    )
-
-
-def _sort_by_git_status_option() -> Any:
-    return typer.Option(False, "--sort-by-git-status", help=HELP_SORT_BY_GIT_STATUS)
-
-
-def _loc_option() -> Any:
-    return typer.Option(False, "--loc", help=HELP_LOC)
-
-
-def _size_option() -> Any:
-    return typer.Option(False, "--size", help=HELP_SIZE)
-
-
-def _mtime_option() -> Any:
-    return typer.Option(False, "--mtime", help=HELP_MTIME)
-
-
-def _show_git_status_option() -> Any:
-    return typer.Option(False, "--git-status", "-G", help=HELP_GIT_STATUS)
-
-
-def _output_dir_option() -> Any:
-    return typer.Option(
-        None,
+ExcludeDirsOption = Annotated[
+    list[str] | None, typer.Option("--exclude", "-e", help=HELP_EXCLUDE_DIRS)
+]
+ExcludeExtensionsOption = Annotated[
+    list[str] | None, typer.Option("--exclude-ext", "-x", help=HELP_EXCLUDE_EXTS)
+]
+ExcludePatternsOption = Annotated[
+    list[str] | None,
+    typer.Option("--exclude-pattern", "-p", help=HELP_EXCLUDE_PATTERNS),
+]
+IncludePatternsOption = Annotated[
+    list[str] | None,
+    typer.Option("--include-pattern", "-i", help=HELP_INCLUDE_PATTERNS),
+]
+UseRegexOption = Annotated[bool, typer.Option("--regex", "-r", help=HELP_USE_REGEX)]
+IgnoreFileOption = Annotated[
+    str | None, typer.Option("--ignore-file", "-g", help=HELP_IGNORE_FILE)
+]
+MaxDepthDisplayOption = Annotated[
+    int,
+    typer.Option("--depth", "-d", help="Maximum depth to display (0 for unlimited)"),
+]
+ShowFullPathOption = Annotated[
+    bool, typer.Option("--full-path", "-l", help=HELP_SHOW_FULL_PATH)
+]
+SortByLocOption = Annotated[
+    bool, typer.Option("--sort-by-loc", "-s", help=HELP_SORT_BY_LOC)
+]
+SortBySizeOption = Annotated[
+    bool, typer.Option("--sort-by-size", "-z", help=HELP_SORT_BY_SIZE)
+]
+SortByMtimeOption = Annotated[
+    bool, typer.Option("--sort-by-mtime", "-m", help=HELP_SORT_BY_MTIME)
+]
+SortBySimilarityOption = Annotated[
+    bool, typer.Option("--sort-by-similarity", "-S", help=HELP_SORT_BY_SIMILARITY)
+]
+SortByGitStatusOption = Annotated[
+    bool, typer.Option("--sort-by-git-status", help=HELP_SORT_BY_GIT_STATUS)
+]
+LocOption = Annotated[bool, typer.Option("--loc", help=HELP_LOC)]
+SizeOption = Annotated[bool, typer.Option("--size", help=HELP_SIZE)]
+MtimeOption = Annotated[bool, typer.Option("--mtime", help=HELP_MTIME)]
+ShowGitStatusOption = Annotated[
+    bool, typer.Option("--git-status", "-G", help=HELP_GIT_STATUS)
+]
+OutputDirOption = Annotated[
+    Path | None,
+    typer.Option(
         "--output-dir",
         "-o",
         help="Output directory for exports (defaults to current directory)",
-    )
-
-
-def _output_prefix_option(default: str) -> Any:
-    return typer.Option(default, "--prefix", "-n", help="Prefix for exported filenames")
-
-
-def _icon_style_option(help_text: str) -> Any:
-    return typer.Option(None, "--icon-style", help=help_text)
-
-
-def _verbose_option() -> Any:
-    return typer.Option(False, "--verbose", "-v", help=HELP_VERBOSE)
+    ),
+]
+OutputPrefixOption = Annotated[
+    str | None, typer.Option("--prefix", "-n", help="Prefix for exported filenames")
+]
+VerboseOption = Annotated[bool, typer.Option("--verbose", "-v", help=HELP_VERBOSE)]
 
 
 config_app = typer.Typer(help="Manage recursivist user configuration")
@@ -225,8 +194,10 @@ app.add_typer(config_app, name="config")
 
 @config_app.command("set")
 def config_set(
-    key: str = typer.Argument(..., help="Configuration key (e.g., icon-style)"),
-    value: str = typer.Argument(..., help="Configuration value (e.g., nerd or emoji)"),
+    key: Annotated[str, typer.Argument(help="Configuration key (e.g., icon-style)")],
+    value: Annotated[
+        str, typer.Argument(help="Configuration value (e.g., nerd or emoji)")
+    ],
 ) -> None:
     """Set a persistent configuration value.
 
@@ -730,34 +701,40 @@ def _compare_inputs_are_same(
 
 @app.command()
 def visualize(
-    directory: str = typer.Argument(
-        ".",
-        help=(
-            "Directory path or GitHub repository URL to visualize "
-            "(defaults to current directory)"
+    directory: Annotated[
+        str,
+        typer.Argument(
+            help=(
+                "Directory path or GitHub repository URL to visualize "
+                "(defaults to current directory)"
+            ),
         ),
-    ),
-    exclude_dirs: list[str] | None = _exclude_dirs_option(),
-    exclude_extensions: list[str] | None = _exclude_extensions_option(),
-    exclude_patterns: list[str] | None = _exclude_patterns_option(),
-    include_patterns: list[str] | None = _include_patterns_option(),
-    use_regex: bool = _use_regex_option(),
-    ignore_file: str | None = _ignore_file_option(),
-    max_depth: int = _max_depth_option("Maximum depth to display (0 for unlimited)"),
-    show_full_path: bool = _show_full_path_option(),
-    sort_by_loc: bool = _sort_by_loc_option(),
-    sort_by_size: bool = _sort_by_size_option(),
-    sort_by_mtime: bool = _sort_by_mtime_option(),
-    sort_by_git_status: bool = _sort_by_git_status_option(),
-    sort_by_similarity: bool = _sort_by_similarity_option(),
-    loc: bool = _loc_option(),
-    size: bool = _size_option(),
-    mtime: bool = _mtime_option(),
-    show_git_status: bool = _show_git_status_option(),
-    icon_style: str | None = _icon_style_option(
-        "Override icon style ('emoji' or 'nerd'). Defaults to user config."
-    ),
-    verbose: bool = _verbose_option(),
+    ] = ".",
+    exclude_dirs: ExcludeDirsOption = None,
+    exclude_extensions: ExcludeExtensionsOption = None,
+    exclude_patterns: ExcludePatternsOption = None,
+    include_patterns: IncludePatternsOption = None,
+    use_regex: UseRegexOption = False,
+    ignore_file: IgnoreFileOption = None,
+    max_depth: MaxDepthDisplayOption = 0,
+    show_full_path: ShowFullPathOption = False,
+    sort_by_loc: SortByLocOption = False,
+    sort_by_size: SortBySizeOption = False,
+    sort_by_mtime: SortByMtimeOption = False,
+    sort_by_git_status: SortByGitStatusOption = False,
+    sort_by_similarity: SortBySimilarityOption = False,
+    loc: LocOption = False,
+    size: SizeOption = False,
+    mtime: MtimeOption = False,
+    show_git_status: ShowGitStatusOption = False,
+    icon_style: Annotated[
+        str | None,
+        typer.Option(
+            "--icon-style",
+            help="Override icon style ('emoji' or 'nerd'). Defaults to user config.",
+        ),
+    ] = None,
+    verbose: VerboseOption = False,
 ) -> None:
     """Visualize a directory structure as a tree in the terminal.
 
@@ -948,42 +925,54 @@ def visualize(
 
 @app.command()
 def export(
-    directory: str = typer.Argument(
-        ".",
-        help=(
-            "Directory path or GitHub repository URL to export "
-            "(defaults to current directory)"
+    directory: Annotated[
+        str,
+        typer.Argument(
+            help=(
+                "Directory path or GitHub repository URL to export "
+                "(defaults to current directory)"
+            ),
         ),
-    ),
-    formats: list[str] = typer.Option(
-        ["md"],
-        "--format",
-        "-f",
-        help="Export formats: txt, json, html, md, svg, rst",
-    ),
-    output_dir: Path | None = _output_dir_option(),
-    output_prefix: str | None = _output_prefix_option("structure"),
-    exclude_dirs: list[str] | None = _exclude_dirs_option(),
-    exclude_extensions: list[str] | None = _exclude_extensions_option(),
-    exclude_patterns: list[str] | None = _exclude_patterns_option(),
-    include_patterns: list[str] | None = _include_patterns_option(),
-    use_regex: bool = _use_regex_option(),
-    ignore_file: str | None = _ignore_file_option(),
-    max_depth: int = _max_depth_option("Maximum depth to export (0 for unlimited)"),
-    show_full_path: bool = _show_full_path_option(),
-    sort_by_loc: bool = _sort_by_loc_option(),
-    sort_by_size: bool = _sort_by_size_option(),
-    sort_by_mtime: bool = _sort_by_mtime_option(),
-    sort_by_git_status: bool = _sort_by_git_status_option(),
-    sort_by_similarity: bool = _sort_by_similarity_option(),
-    loc: bool = _loc_option(),
-    size: bool = _size_option(),
-    mtime: bool = _mtime_option(),
-    show_git_status: bool = _show_git_status_option(),
-    icon_style: str | None = _icon_style_option(
-        "Override icon style. Defaults to 'emoji' for safe file exports."
-    ),
-    verbose: bool = _verbose_option(),
+    ] = ".",
+    formats: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--format",
+            "-f",
+            show_default="md",
+            help="Export formats: txt, json, html, md, svg, rst",
+        ),
+    ] = None,
+    output_dir: OutputDirOption = None,
+    output_prefix: OutputPrefixOption = "structure",
+    exclude_dirs: ExcludeDirsOption = None,
+    exclude_extensions: ExcludeExtensionsOption = None,
+    exclude_patterns: ExcludePatternsOption = None,
+    include_patterns: IncludePatternsOption = None,
+    use_regex: UseRegexOption = False,
+    ignore_file: IgnoreFileOption = None,
+    max_depth: Annotated[
+        int,
+        typer.Option("--depth", "-d", help="Maximum depth to export (0 for unlimited)"),
+    ] = 0,
+    show_full_path: ShowFullPathOption = False,
+    sort_by_loc: SortByLocOption = False,
+    sort_by_size: SortBySizeOption = False,
+    sort_by_mtime: SortByMtimeOption = False,
+    sort_by_git_status: SortByGitStatusOption = False,
+    sort_by_similarity: SortBySimilarityOption = False,
+    loc: LocOption = False,
+    size: SizeOption = False,
+    mtime: MtimeOption = False,
+    show_git_status: ShowGitStatusOption = False,
+    icon_style: Annotated[
+        str | None,
+        typer.Option(
+            "--icon-style",
+            help="Override icon style. Defaults to 'emoji' for safe file exports.",
+        ),
+    ] = None,
+    verbose: VerboseOption = False,
 ) -> None:
     """Export a directory structure to one or more file formats.
 
@@ -1148,7 +1137,7 @@ def export(
             if checkout is not None and show_full_path:
                 apply_github_urls(structure, checkout)
             parsed_formats = []
-            for fmt in formats:
+            for fmt in formats or ["md"]:
                 parsed_formats.extend([x.strip() for x in fmt.split(" ") if x.strip()])
             valid_formats = supported_formats()
             invalid_formats = [
@@ -1193,7 +1182,9 @@ def export(
 
 @app.command()
 def completion(
-    shell: str = typer.Argument(..., help="Shell type (bash, zsh, fish, powershell)"),
+    shell: Annotated[
+        str, typer.Argument(help="Shell type (bash, zsh, fish, powershell)")
+    ],
 ) -> None:
     """Print a shell completion script for the recursivist CLI.
 
@@ -1272,43 +1263,54 @@ def version() -> None:
 
 @app.command()
 def compare(
-    dir1: str = typer.Argument(
-        ...,
-        help="First directory path or GitHub repository URL to compare",
-    ),
-    dir2: str = typer.Argument(
-        ...,
-        help="Second directory path or GitHub repository URL to compare",
-    ),
-    exclude_dirs: list[str] | None = _exclude_dirs_option(),
-    exclude_extensions: list[str] | None = _exclude_extensions_option(),
-    exclude_patterns: list[str] | None = _exclude_patterns_option(),
-    include_patterns: list[str] | None = _include_patterns_option(),
-    use_regex: bool = _use_regex_option(),
-    ignore_file: str | None = _ignore_file_option(),
-    max_depth: int = _max_depth_option("Maximum depth to display (0 for unlimited)"),
-    save_as_html: bool = typer.Option(
-        False,
-        "--save",
-        "-f",
-        help="Save comparison as HTML file instead of displaying in terminal",
-    ),
-    output_dir: Path | None = _output_dir_option(),
-    output_prefix: str | None = _output_prefix_option("comparison"),
-    show_full_path: bool = _show_full_path_option(),
-    sort_by_loc: bool = _sort_by_loc_option(),
-    sort_by_size: bool = _sort_by_size_option(),
-    sort_by_mtime: bool = _sort_by_mtime_option(),
-    sort_by_git_status: bool = _sort_by_git_status_option(),
-    sort_by_similarity: bool = _sort_by_similarity_option(),
-    loc: bool = _loc_option(),
-    size: bool = _size_option(),
-    mtime: bool = _mtime_option(),
-    show_git_status: bool = _show_git_status_option(),
-    icon_style: str | None = _icon_style_option(
-        "Override icon style. Defaults to 'emoji' if saving to HTML, else user config."
-    ),
-    verbose: bool = _verbose_option(),
+    dir1: Annotated[
+        str,
+        typer.Argument(help="First directory path or GitHub repository URL to compare"),
+    ],
+    dir2: Annotated[
+        str,
+        typer.Argument(
+            help="Second directory path or GitHub repository URL to compare"
+        ),
+    ],
+    exclude_dirs: ExcludeDirsOption = None,
+    exclude_extensions: ExcludeExtensionsOption = None,
+    exclude_patterns: ExcludePatternsOption = None,
+    include_patterns: IncludePatternsOption = None,
+    use_regex: UseRegexOption = False,
+    ignore_file: IgnoreFileOption = None,
+    max_depth: MaxDepthDisplayOption = 0,
+    save_as_html: Annotated[
+        bool,
+        typer.Option(
+            "--save",
+            "-f",
+            help="Save comparison as HTML file instead of displaying in terminal",
+        ),
+    ] = False,
+    output_dir: OutputDirOption = None,
+    output_prefix: OutputPrefixOption = "comparison",
+    show_full_path: ShowFullPathOption = False,
+    sort_by_loc: SortByLocOption = False,
+    sort_by_size: SortBySizeOption = False,
+    sort_by_mtime: SortByMtimeOption = False,
+    sort_by_git_status: SortByGitStatusOption = False,
+    sort_by_similarity: SortBySimilarityOption = False,
+    loc: LocOption = False,
+    size: SizeOption = False,
+    mtime: MtimeOption = False,
+    show_git_status: ShowGitStatusOption = False,
+    icon_style: Annotated[
+        str | None,
+        typer.Option(
+            "--icon-style",
+            help=(
+                "Override icon style. Defaults to 'emoji' if saving to HTML, "
+                "else user config."
+            ),
+        ),
+    ] = None,
+    verbose: VerboseOption = False,
 ) -> None:
     """Compare two directory structures side by side.
 
