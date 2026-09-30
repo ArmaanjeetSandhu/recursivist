@@ -45,8 +45,8 @@ nav = [
 ]
 
 [project.theme]
-logo = "assets/images/logo.svg"
-favicon = "assets/images/logo.svg"
+logo = "assets/images/logo-black.svg"
+favicon = "assets/images/logo-white.svg"
 features = [
   "navigation.sections",
   "search.highlight",

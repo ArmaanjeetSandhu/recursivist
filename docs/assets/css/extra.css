@@ -166,3 +166,7 @@
 .feature-link svg {
   vertical-align: middle;
 }
+
+[data-md-color-scheme="slate"] .md-logo img {
+  content: url("../images/logo-white.svg");
+}
