@@ -1,14 +1,14 @@
-"""Generate ``docs/sitemap.md`` from the MkDocs navigation.
+"""Generate ``docs/sitemap.md`` from the Zensical navigation.
 
 The sitemap mirrors the documentation website's structure: it walks the ``nav`` defined
-in ``mkdocs.yml`` and, for every page, extracts the ``H1``-``H4`` headers to recover
+in ``zensical.toml`` and, for every page, extracts the ``H1``-``H4`` headers to recover
 each page's sections and subsections. The result is written as a Markdown in which every
 page, section, and subsection is hyperlinked to its exact location on the documentation
 website.
 
-Anchors are computed with the very same slugifier MkDocs uses (the ``toc`` extension of
-Python-Markdown), including its duplicate-heading disambiguation, so the generated links
-resolve correctly.
+Anchors are computed with the very same slugifier Zensical uses (the ``toc`` extension
+of Python-Markdown), including its duplicate-heading disambiguation, so the generated
+links resolve correctly.
 """
 
 import os
@@ -16,9 +16,9 @@ import re
 import unicodedata
 from typing import Any
 
-import yaml
+import tomllib
 
-MKDOCS_FILE = "mkdocs.yml"
+CONFIG_FILE = "zensical.toml"
 SITEMAP_FILE = "docs/sitemap.md"
 DOCS_DIR = "docs"
 
@@ -30,11 +30,11 @@ _IDCOUNT_RE = re.compile(r"^(.*)_(\d+)$")
 
 
 def _slugify(value: str) -> str:
-    """Slugify a header exactly as MkDocs' ``toc`` extension does by default.
+    """Slugify a header exactly as the ``toc`` extension does by default.
 
     Mirrors ``markdown.extensions.toc.slugify`` (separator ``-``) so the generated
-    anchors match the ids MkDocs renders. Reproduced here rather than imported to keep
-    the script's only third-party dependency ``PyYAML``.
+    anchors match the ids Zensical renders. Reproduced here rather than imported so the
+    script runs on the standard library alone.
     """
     value = unicodedata.normalize("NFKD", value)
     value = value.encode("ascii", "ignore").decode("ascii")
@@ -43,10 +43,10 @@ def _slugify(value: str) -> str:
 
 
 def _anchor(title: str, used_ids: set[str]) -> str:
-    """Return the unique MkDocs anchor slug for a header on a single page.
+    """Return the unique anchor slug for a header on a single page.
 
     Mirrors ``markdown.extensions.toc.unique`` so repeated headers on one page are
-    disambiguated the same way MkDocs does (``slug``, ``slug_1``, ...).
+    disambiguated the same way Zensical does (``slug``, ``slug_1``, ...).
     """
     slug = _slugify(title)
     while slug in used_ids or not slug:
@@ -122,7 +122,7 @@ def _page_sections(filepath: str, page_url: str) -> list[dict[str, Any]]:
 
 
 def process_nav(nav_item: object) -> dict[str, Any] | None:
-    """Turn one ``mkdocs.yml`` ``nav`` entry into a sitemap node.
+    """Turn one ``zensical.toml`` ``nav`` entry into a sitemap node.
 
     A node has a ``label``, an optional ``url`` (``None`` for grouping entries that are
     not pages themselves), and ``children`` (subsections for pages, or nested pages for
@@ -185,23 +185,11 @@ def render_sitemap(tree: list[dict[str, Any]]) -> str:
     return "\n".join(out).rstrip() + "\n"
 
 
-def _ignore_python_tags(
-    _loader: yaml.SafeLoader, _suffix: str, _node: yaml.Node
-) -> None:
-    return None
-
-
 def main() -> None:
-    yaml.add_multi_constructor(
-        "tag:yaml.org,2002:python/name:",
-        _ignore_python_tags,
-        Loader=yaml.SafeLoader,
-    )
+    with open(CONFIG_FILE, "rb") as f:
+        config = tomllib.load(f)
 
-    with open(MKDOCS_FILE, encoding="utf-8") as f:
-        mkdocs_config = yaml.safe_load(f)
-
-    nav_list = mkdocs_config.get("nav", [])
+    nav_list = config.get("project", {}).get("nav", [])
     tree = [node for item in nav_list if item and (node := process_nav(item))]
 
     with open(SITEMAP_FILE, "w", encoding="utf-8") as f:

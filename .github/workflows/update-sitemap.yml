@@ -6,7 +6,7 @@ on:
       - main
     paths:
       - "docs/**"
-      - "mkdocs.yml"
+      - "zensical.toml"
 
 permissions:
   contents: write
@@ -28,7 +28,7 @@ jobs:
           python-version: "3.13"
 
       - name: Generate Sitemap
-        run: uv run --with pyyaml python scripts/generate_sitemap.py
+        run: uv run python scripts/generate_sitemap.py
 
       - name: Commit and push changes
         uses: stefanzweifel/git-auto-commit-action@v5

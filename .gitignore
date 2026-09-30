@@ -12,6 +12,8 @@ build/
 .coverage
 coverage.xml
 .hypothesis/
+site/
+.cache/
 .nox/
 .vscode/
 htmlcov/

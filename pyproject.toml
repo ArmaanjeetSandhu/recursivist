@@ -65,8 +65,7 @@ dev = [
     "nox-uv",
 ]
 docs = [
-    "mkdocs",
-    "mkdocs-material",
+    "zensical",
     "mkdocstrings",
     "mkdocstrings-python",
     "pymdown-extensions",
