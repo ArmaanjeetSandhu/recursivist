@@ -162,7 +162,7 @@ class RstExporter(BaseExporter):
             style=self.icon_style,
             is_empty=not has_contents(self.structure),
         )
-        root_title = f"{root_icon} {self.root_name}" + format_dir_metrics(
+        root_title = f"{root_icon} {_rst_escape(self.root_name)}" + format_dir_metrics(
             self.structure, self.metrics
         )
 

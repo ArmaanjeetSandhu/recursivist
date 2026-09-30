@@ -261,13 +261,13 @@ class TestExporterFileOutput:
         "format_name,expected_content",
         [
             ("txt", ["📂 test_root", "file1.txt", "file2.py", "file3.md"]),
-            ("md", ["# 📂 test_root", "`file1.txt`"]),
+            ("md", ["# 📂 test\\_root", "`file1.txt`"]),
             (
                 "html",
                 ["<!DOCTYPE html>", "<html>", 'class="file"'],
             ),
             ("json", ["root", "structure", "_files"]),
-            ("rst", ["📂 test_root", "``file1.txt``", "``file2.py``"]),
+            ("rst", ["📂 test\\_root", "``file1.txt``", "``file2.py``"]),
         ],
     )
     def test_export_formats(
@@ -396,7 +396,7 @@ class TestExporterFileOutput:
         """Truncated directories carry no marker, only an open folder icon."""
         for fmt, truncated, empty in [
             ("txt", "📂 subdir", "📁 empty_subdir"),
-            ("md", "📂 **subdir**", "📁 **empty_subdir**"),
+            ("md", "📂 **subdir**", "📁 **empty\\_subdir**"),
             ("html", "📂 <span", "📁 <span"),
         ]:
             path = os.path.join(tmp_path, f"max_depth.{fmt}")
@@ -535,7 +535,10 @@ def test_export_formats(
     assert os.path.exists(output_path)
     with open(output_path, encoding="utf-8") as f:
         content = f.read()
-    assert os.path.basename(sample_directory) in content
+    root_name = os.path.basename(sample_directory)
+    if format_name in ("md", "rst"):
+        root_name = root_name.replace("_", "\\_")
+    assert root_name in content
     for check in content_checks:
         assert check(content), "Content check failed"
     if format_name == "json":
@@ -775,7 +778,7 @@ def test_large_structure_export(output_dir: str) -> None:
             assert "<!DOCTYPE html>" in content
             assert "large_root" in content
         elif fmt == "md":
-            assert "# 📂 large_root" in content
+            assert "# 📂 large\\_root" in content
 
 
 def test_unicode_file_names(output_dir: str) -> None:
@@ -1157,7 +1160,7 @@ class TestRstExporter:
             content = f.read()
         lines = _rst_lines(content)
 
-        assert lines[0] == "📂 test_root"
+        assert lines[0] == "📂 test\\_root"
         assert set(lines[1]) == {"="}
         assert "- 📄 ``root_file1.txt``" in content
         assert "- 📂 **subdir1**" in content
@@ -1337,7 +1340,7 @@ class TestRstExporter:
         with open(output_path, encoding="utf-8") as f:
             lines = _rst_lines(f.read())
 
-        assert lines[0] == "📁 empty_root"
+        assert lines[0] == "📁 empty\\_root"
         assert set(lines[1]) == {"="}
 
     def test_trailing_newline(self, tmp_path: Path) -> None:

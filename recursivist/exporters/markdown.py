@@ -32,8 +32,13 @@ def _md_inline_code(text: str) -> str:
 
 
 def _md_escape_text(text: str) -> str:
-    """Escape text used in non-code Markdown contexts (bold dir names, headings)."""
-    for ch in ("\\", "`", "*", "[", "]"):
+    """Escape text used in non-code Markdown contexts (bold dir names, headings).
+
+    Backslash-escapes the characters that can open or close inline markup, including
+    ``_`` (emphasis, e.g. ``__pycache__``) and ``~`` (GFM strikethrough). The backslash
+    itself is escaped first to avoid double-processing.
+    """
+    for ch in ("\\", "`", "*", "_", "~", "[", "]"):
         text = text.replace(ch, "\\" + ch)
     return html.escape(text, quote=False)
 
