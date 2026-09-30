@@ -6,19 +6,16 @@ bold, files as inline literals) under a section title for the root, and writes i
 and Sphinx.
 """
 
-import logging
 import os
 import unicodedata
 from typing import Any
 
 from recursivist.icons import get_icon
 from recursivist.metrics import format_dir_metrics, format_metrics_suffix
-from recursivist.scanner import has_contents
+from recursivist.scanner import has_contents, iter_subdirectories
 from recursivist.sorting import sort_files_by_type
 
 from .base import BaseExporter
-
-logger = logging.getLogger(__name__)
 
 _EAST_ASIAN_WIDTHS = {"W": 2, "F": 2, "Na": 1, "H": 1, "N": 1, "A": 1}
 
@@ -86,10 +83,6 @@ class RstExporter(BaseExporter):
 
         Args:
             output_path: Path the ``.rst`` file is written to.
-
-        Raises:
-            Exception: Re-raised if writing the output file fails (after the error is
-                logged).
         """
 
         def _build_rst_tree(
@@ -137,19 +130,7 @@ class RstExporter(BaseExporter):
                         )
                         + _git_suffix
                     )
-            for name, content in sorted(structure.items()):
-                if name in (
-                    "_files",
-                    "_max_depth_reached",
-                    "_hidden_contents",
-                    "_symlink_loop",
-                    "_loc",
-                    "_size",
-                    "_mtime",
-                    "_git_markers",
-                ):
-                    continue
-
+            for name, content in iter_subdirectories(structure):
                 folder_icon = get_icon(
                     name,
                     is_dir=True,
@@ -196,9 +177,5 @@ class RstExporter(BaseExporter):
                 self.structure, 0, self.root_name if self.show_full_path else ""
             )
         )
-        try:
-            with open(output_path, "w", encoding="utf-8") as f:
-                f.write("\n".join(rst_content) + "\n")
-        except Exception as e:
-            logger.exception(f"Error exporting to reStructuredText: {e}")
-            raise
+        with open(output_path, "w", encoding="utf-8") as f:
+            f.write("\n".join(rst_content) + "\n")

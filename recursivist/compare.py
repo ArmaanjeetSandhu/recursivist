@@ -38,6 +38,7 @@ from recursivist.metrics import (
 )
 from recursivist.scanner import (
     get_directory_structure,
+    get_subdirectory,
     has_contents,
     iter_subdirectories,
 )
@@ -369,7 +370,10 @@ def build_comparison_tree(
             highlight = "on green" if identity not in other_identities else ""
             _add_file_node(entry, git_markers_dict, highlight, this_metrics)
     for folder, content in iter_subdirectories(structure):
-        other_content = other_structure.get(folder, {}) if other_structure else {}
+        other_match = (
+            get_subdirectory(other_structure, folder) if other_structure else None
+        )
+        other_content = other_match if other_match is not None else {}
         folder_icon = get_icon(
             folder,
             is_dir=True,
@@ -379,7 +383,7 @@ def build_comparison_tree(
 
         metrics_suffix = format_dir_metrics(content, this_metrics)
         folder_label = f"{folder_icon} {folder}{metrics_suffix}"
-        if folder not in (other_structure or {}):
+        if other_match is None:
             subtree = tree.add(Text(folder_label, style="green"))
         else:
             subtree = tree.add(folder_label)
@@ -418,7 +422,7 @@ def build_comparison_tree(
                 _add_file_node(entry, other_git_markers, "on red", other_metrics)
     if other_structure:
         for folder, other_content in iter_subdirectories(other_structure):
-            if folder in structure:
+            if get_subdirectory(structure, folder) is not None:
                 continue
             folder_icon = get_icon(
                 folder,
@@ -972,12 +976,15 @@ def _export_comparison_to_html(
                     _file_li(entry, git_markers, file_class, this_metrics)
                 )
         for name, content in iter_subdirectories(structure):
-            if name not in other_structure:
+            other_match = (
+                get_subdirectory(other_structure, name) if other_structure else None
+            )
+            if other_match is None:
                 dir_class = ' class="directory-unique-left"'
             else:
                 dir_class = ""
 
-            other_content = other_structure.get(name, {}) if other_structure else {}
+            other_content = other_match if other_match is not None else {}
             folder_icon = get_icon(
                 name,
                 is_dir=True,
@@ -1026,7 +1033,7 @@ def _export_comparison_to_html(
                     )
         if other_structure:
             for name, content in iter_subdirectories(other_structure):
-                if name in structure:
+                if get_subdirectory(structure, name) is not None:
                     continue
                 dir_class = ' class="directory-unique-right"'
 

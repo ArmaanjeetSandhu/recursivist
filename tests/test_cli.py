@@ -514,11 +514,49 @@ def test_export_with_depth_limit(
 def test_export_invalid_format(
     runner: CliRunner, sample_directory: str, caplog: pytest.LogCaptureFixture
 ) -> None:
-    result = runner.invoke(app, ["export", sample_directory, "--format", "invalid"])
+    with mock.patch("recursivist.cli.get_directory_structure") as scan:
+        result = runner.invoke(app, ["export", sample_directory, "--format", "invalid"])
     assert result.exit_code == 1
     assert any(
         "Unsupported export format" in record.message for record in caplog.records
     )
+    scan.assert_not_called()
+    assert not any(record.message == "Error: 1" for record in caplog.records)
+
+
+def test_export_failure_exits_nonzero_without_traceback(
+    runner: CliRunner,
+    sample_directory: str,
+    temp_dir: str,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    out = os.path.join(temp_dir, "out")
+    os.makedirs(os.path.join(out, "structure.txt"))
+    result = runner.invoke(
+        app,
+        ["export", sample_directory, "-f", "txt", "-f", "json", "-o", out],
+    )
+    assert result.exit_code == 1
+    failures = [r for r in caplog.records if r.message.startswith("Failed to export")]
+    assert len(failures) == 1
+    assert not failures[0].exc_info
+    assert os.path.isfile(os.path.join(out, "structure.json"))
+
+
+def test_github_error_is_reported_without_traceback(
+    runner: CliRunner, caplog: pytest.LogCaptureFixture
+) -> None:
+    from recursivist.github import GitHubError
+
+    with mock.patch(
+        "recursivist.cli.checkout_repository",
+        side_effect=GitHubError("Repository 'o/r' was not found."),
+    ):
+        result = runner.invoke(app, ["visualize", "https://github.com/o/r"])
+    assert result.exit_code == 1
+    errors = [r for r in caplog.records if r.levelno == logging.ERROR]
+    assert [r.message for r in errors] == ["Error: Repository 'o/r' was not found."]
+    assert not errors[0].exc_info
 
 
 def test_export_with_sort_options(
@@ -594,10 +632,9 @@ def test_export_display_only_flags_show_without_sorting(
 ) -> None:
     """Display-only flags annotate their metrics without setting a sort key.
 
-    (The precise left-to-right ordering of display-only flags derives from
-    ``sys.argv`` and is covered directly in the flag-resolution unit tests;
-    here the invocation goes through CliRunner, so only order-independent
-    behaviour is asserted.)
+    (The precise left-to-right ordering of display-only flags derives from ``sys.argv``
+    and is covered directly in the flag-resolution unit tests; here the invocation goes
+    through CliRunner, so only order-independent behavior is asserted.)
     """
     result = runner.invoke(
         app,

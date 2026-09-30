@@ -42,6 +42,7 @@ from dataclasses import dataclass
 from typing import Any, cast
 
 from recursivist._models import FileEntry
+from recursivist.scanner import iter_subdirectories
 
 logger = logging.getLogger(__name__)
 
@@ -604,8 +605,8 @@ def apply_github_urls(
                 url = target.blob_url(checkout.ref, rel_file)
                 rewritten.append(entry._replace(path=url))
             node["_files"] = rewritten
-        for name, content in node.items():
-            if name.startswith("_") or not isinstance(content, dict):
+        for name, content in iter_subdirectories(node):
+            if not isinstance(content, dict):
                 continue
             next_dir = f"{rel_dir}/{name}" if rel_dir else name
             _walk(content, next_dir)

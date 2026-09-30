@@ -1662,3 +1662,26 @@ class TestHtmlContrast:
             r'<li class="file" style="color: (#[0-9a-f]{6});', content
         )
         assert len(set(file_colors)) >= len(self.EXTENSIONS) - 2
+
+
+@pytest.mark.parametrize("fmt", ["txt", "json", "html", "md", "rst", "svg"])
+def test_export_directory_named_like_reserved_key(temp_dir: str, fmt: str) -> None:
+    """A folder called ``_files`` is exported as a folder, and its sibling survives."""
+    root = os.path.join(temp_dir, "root")
+    os.makedirs(os.path.join(root, "_files"))
+    with open(os.path.join(root, "_files", "inner.txt"), "w") as f:
+        f.write("x")
+    with open(os.path.join(root, "top.txt"), "w") as f:
+        f.write("x")
+    structure, _ = get_directory_structure(root)
+    output_path = os.path.join(temp_dir, f"out.{fmt}")
+    get_exporter(fmt, structure=structure, root_name="root").export(output_path)
+    with open(output_path, encoding="utf-8") as f:
+        content = f.read()
+    if fmt == "json":
+        exported = json.loads(content)["structure"]
+        assert exported["_files"] == ["top.txt"]
+        assert exported["/_files"] == {"_files": ["inner.txt"]}
+    else:
+        for name in ("top", "inner"):
+            assert name in content

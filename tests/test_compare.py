@@ -1766,3 +1766,20 @@ def test_compare_reports_filters_unmatched_on_both_sides(
     assert messages == [
         "No files or directories matched --exclude-ext '.xyz' in either directory"
     ]
+
+
+def test_reserved_name_directory_is_shared_across_sides(temp_dir: str) -> None:
+    """A folder called ``_files`` on both sides is matched, not flagged as unique."""
+    for side in ("left", "right"):
+        os.makedirs(os.path.join(temp_dir, side, "_files"))
+        with open(os.path.join(temp_dir, side, "_files", "x.txt"), "w") as f:
+            f.write("x")
+    dir1, dir2 = (os.path.join(temp_dir, s) for s in ("left", "right"))
+    output_path = os.path.join(temp_dir, "cmp.html")
+    export_comparison(dir1, dir2, "html", output_path)
+    with open(output_path, encoding="utf-8") as f:
+        content = f.read()
+    assert '<span class="directory">📂 _files</span>' in content
+    assert "x.txt" in content
+    assert 'class="directory-unique' not in content
+    assert 'class="file-unique' not in content

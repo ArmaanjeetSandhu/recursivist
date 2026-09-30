@@ -4,18 +4,15 @@ Renders the scanned structure as an indented ASCII tree (``├──``/``└─�
 writes it to a ``.txt`` file.
 """
 
-import logging
 import os
 from typing import Any
 
 from recursivist.icons import get_icon
 from recursivist.metrics import format_dir_metrics, format_metrics_suffix
-from recursivist.scanner import has_contents
+from recursivist.scanner import has_contents, iter_subdirectories
 from recursivist.sorting import sort_files_by_type
 
 from .base import BaseExporter
-
-logger = logging.getLogger(__name__)
 
 
 class TxtExporter(BaseExporter):
@@ -33,10 +30,6 @@ class TxtExporter(BaseExporter):
 
         Args:
             output_path: Path the ``.txt`` file is written to.
-
-        Raises:
-            Exception: Re-raised if writing the output file fails (after the error is
-                logged).
         """
 
         def _build_txt_tree(
@@ -55,21 +48,7 @@ class TxtExporter(BaseExporter):
                 The rendered lines for this subtree, in display order.
             """
             lines = []
-            special_keys = {
-                "_files",
-                "_max_depth_reached",
-                "_hidden_contents",
-                "_symlink_loop",
-                "_loc",
-                "_size",
-                "_mtime",
-                "_git_markers",
-            }
-            dir_items = sorted(
-                (name, content)
-                for name, content in structure.items()
-                if name not in special_keys
-            )
+            dir_items = list(iter_subdirectories(structure))
             has_dirs = bool(dir_items)
             if "_files" in structure:
                 file_items = sort_files_by_type(
@@ -155,9 +134,5 @@ class TxtExporter(BaseExporter):
                 self.structure, "", self.root_name if self.show_full_path else ""
             )
         )
-        try:
-            with open(output_path, "w", encoding="utf-8") as f:
-                f.write("\n".join(tree_lines))
-        except Exception as e:
-            logger.exception(f"Error exporting to TXT: {e}")
-            raise
+        with open(output_path, "w", encoding="utf-8") as f:
+            f.write("\n".join(tree_lines))

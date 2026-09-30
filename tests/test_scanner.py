@@ -12,7 +12,13 @@ from typing import Any, cast
 import pytest
 from pytest_mock import MockerFixture
 
-from recursivist.scanner import get_directory_structure, has_contents
+from recursivist.scanner import (
+    get_directory_structure,
+    get_subdirectory,
+    has_contents,
+    iter_subdirectories,
+    subdirectory_key,
+)
 
 
 def _materialize_tree(root: str, files: dict[str, str]) -> None:
@@ -694,3 +700,45 @@ class TestUnmatchedFilterReporting:
         caplog.set_level(logging.INFO, logger="recursivist")
         get_directory_structure(tree, exclude_extensions={".xyz"})
         assert len(self._messages(caplog)) == 1
+
+
+class TestReservedNameDirectories:
+    """Directories whose names clash with the structure's bookkeeping keys."""
+
+    @pytest.fixture
+    def tree(self, temp_dir: str) -> str:
+        for rel in ("_files/inner.txt", "_loc/deep.py", "top.txt"):
+            path = os.path.join(temp_dir, rel)
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, "w") as f:
+                f.write("x\n")
+        return temp_dir
+
+    def test_reserved_name_does_not_clobber_bookkeeping(self, tree: str) -> None:
+        structure, _ = get_directory_structure(tree, sort_by_loc=True)
+        assert [entry.name for entry in structure["_files"]] == ["top.txt"]
+        assert structure["_loc"] == 3
+        subdirs = dict(iter_subdirectories(structure))
+        assert sorted(subdirs) == ["_files", "_loc"]
+        assert [e.name for e in subdirs["_files"]["_files"]] == ["inner.txt"]
+        assert get_subdirectory(structure, "_loc") is subdirs["_loc"]
+
+    def test_subdirectory_key_round_trips(self) -> None:
+        assert subdirectory_key("src") == "src"
+        assert subdirectory_key("_private") == "_private"
+        structure: dict[str, Any] = {subdirectory_key("_files"): {}, "_files": []}
+        assert [name for name, _ in iter_subdirectories(structure)] == ["_files"]
+        assert get_subdirectory(structure, "_files") == {}
+        assert get_subdirectory(structure, "missing") is None
+
+
+def test_include_patterns_keep_directories_with_underscore_children(
+    temp_dir: str,
+) -> None:
+    nested = os.path.join(temp_dir, "pkg", "_internal")
+    os.makedirs(nested)
+    with open(os.path.join(nested, "module.py"), "w") as f:
+        f.write("x = 1\n")
+    structure, _ = get_directory_structure(temp_dir, include_patterns=["*.py"])
+    internal = structure["pkg"]["_internal"]
+    assert [entry.name for entry in internal["_files"]] == ["module.py"]

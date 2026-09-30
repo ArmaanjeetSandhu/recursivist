@@ -5,18 +5,15 @@ files as inline code — and writes it to a ``.md`` file.
 """
 
 import html
-import logging
 import os
 from typing import Any
 
 from recursivist.icons import get_icon
 from recursivist.metrics import format_dir_metrics, format_metrics_suffix
-from recursivist.scanner import has_contents
+from recursivist.scanner import has_contents, iter_subdirectories
 from recursivist.sorting import sort_files_by_type
 
 from .base import BaseExporter
-
-logger = logging.getLogger(__name__)
 
 
 def _md_inline_code(text: str) -> str:
@@ -54,10 +51,6 @@ class MarkdownExporter(BaseExporter):
 
         Args:
             output_path: Path the ``.md`` file is written to.
-
-        Raises:
-            Exception: Re-raised if writing the output file fails (after the error is
-                logged).
         """
 
         def _build_md_tree(
@@ -117,19 +110,7 @@ class MarkdownExporter(BaseExporter):
                         )
                         + _md_git_suffix
                     )
-            for name, content in sorted(structure.items()):
-                if (
-                    name == "_files"
-                    or name == "_max_depth_reached"
-                    or name == "_hidden_contents"
-                    or name == "_symlink_loop"
-                    or name == "_loc"
-                    or name == "_size"
-                    or name == "_mtime"
-                    or name == "_git_markers"
-                ):
-                    continue
-
+            for name, content in iter_subdirectories(structure):
                 folder_icon = get_icon(
                     name,
                     is_dir=True,
@@ -169,9 +150,5 @@ class MarkdownExporter(BaseExporter):
                 self.structure, 0, self.root_name if self.show_full_path else ""
             )
         )
-        try:
-            with open(output_path, "w", encoding="utf-8") as f:
-                f.write("\n".join(md_content))
-        except Exception as e:
-            logger.exception(f"Error exporting to Markdown: {e}")
-            raise
+        with open(output_path, "w", encoding="utf-8") as f:
+            f.write("\n".join(md_content))

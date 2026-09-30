@@ -1,9 +1,9 @@
 """Tests for remote GitHub repository support.
 
-Network access is always mocked: :func:`urllib.request.urlopen` is patched to
-serve a symref advertisement (for default-branch resolution) and an in-memory
-``tar.gz`` archive (for the source download), so the real download → extract →
-scan → render pipeline runs end to end without touching the network.
+Network access is always mocked: :func:`urllib.request.urlopen` is patched to serve a
+symref advertisement (for default-branch resolution) and an in-memory ``tar.gz`` archive
+(for the source download), so the real download → extract → scan → render pipeline runs
+end to end without touching the network.
 """
 
 from __future__ import annotations
@@ -275,8 +275,8 @@ def _pkt(line: bytes) -> bytes:
 def _full_refs_payload() -> bytes:
     """A properly pkt-framed advertisement with branches and an annotated tag.
 
-    ``HEAD`` and ``main`` share a commit; ``dev`` has its own commit; the
-    annotated tag ``v1.0`` peels to the ``dev`` commit.
+    ``HEAD`` and ``main`` share a commit; ``dev`` has its own commit; the annotated tag
+    ``v1.0`` peels to the ``dev`` commit.
     """
     head = b"1" * 40
     dev = b"2" * 40
@@ -691,3 +691,25 @@ def test_cli_visualize_github_network_error(
     )
     result = runner.invoke(app, ["visualize", "https://github.com/o/r"])
     assert result.exit_code == 1
+
+
+def test_apply_github_urls_rewrites_underscore_directories() -> None:
+    structure: dict[str, Any] = {
+        "__tests__": {"_files": [FileEntry(name="a.js", path="/tmp/x/a.js")]},
+        "/_files": {"_files": [FileEntry(name="b.js", path="/tmp/x/b.js")]},
+    }
+    checkout = github.RepoCheckout(
+        target=GitHubTarget("o", "r"),
+        local_root="/tmp/whatever",
+        ref="main",
+        root_name="r",
+    )
+    apply_github_urls(structure, checkout)
+    assert (
+        structure["__tests__"]["_files"][0].path
+        == "https://github.com/o/r/blob/main/__tests__/a.js"
+    )
+    assert (
+        structure["/_files"]["_files"][0].path
+        == "https://github.com/o/r/blob/main/_files/b.js"
+    )

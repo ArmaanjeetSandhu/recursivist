@@ -915,9 +915,6 @@ def visualize(
                 extensions=extensions,
                 root_name=root_name,
             )
-    except GitHubError as e:
-        logger.exception(f"Error: {e}")
-        raise typer.Exit(1) from None
     except Exception as e:
         logger.error(f"Error: {e}", exc_info=verbose)
         raise typer.Exit(1) from None
@@ -1063,6 +1060,18 @@ def export(
     """
     _enable_verbose_if_requested(verbose)
 
+    parsed_formats: list[str] = []
+    for fmt in formats or ["md"]:
+        parsed_formats.extend([x.strip() for x in fmt.split(" ") if x.strip()])
+    valid_formats = supported_formats()
+    invalid_formats = [
+        fmt for fmt in parsed_formats if fmt.lower() not in valid_formats
+    ]
+    if invalid_formats:
+        logger.error(f"Unsupported export format(s): {', '.join(invalid_formats)}")
+        logger.info(f"Supported formats: {', '.join(valid_formats)}")
+        raise typer.Exit(1)
+
     resolved_style = icon_style or "emoji"
     target = parse_github_url(directory)
     is_remote = target is not None
@@ -1102,6 +1111,7 @@ def export(
         include_patterns,
         use_regex,
     )
+    failed_formats: list[str] = []
     try:
         with contextlib.ExitStack() as stack:
             if target is not None:
@@ -1136,19 +1146,6 @@ def export(
             )
             if checkout is not None and show_full_path:
                 apply_github_urls(structure, checkout)
-            parsed_formats = []
-            for fmt in formats or ["md"]:
-                parsed_formats.extend([x.strip() for x in fmt.split(" ") if x.strip()])
-            valid_formats = supported_formats()
-            invalid_formats = [
-                fmt for fmt in parsed_formats if fmt.lower() not in valid_formats
-            ]
-            if invalid_formats:
-                logger.error(
-                    f"Unsupported export format(s): {', '.join(invalid_formats)}"
-                )
-                logger.info(f"Supported formats: {', '.join(valid_formats)}")
-                raise typer.Exit(1)
             if output_dir:
                 output_dir.mkdir(parents=True, exist_ok=True)
             else:
@@ -1171,13 +1168,13 @@ def export(
                     exporter.export(str(output_path))
                     logger.info(f"Successfully exported to {output_path}")
                 except Exception as e:
-                    logger.exception(f"Failed to export to {fmt}: {e}")
-    except GitHubError as e:
-        logger.exception(f"Error: {e}")
-        raise typer.Exit(1) from None
+                    logger.error(f"Failed to export to {fmt}: {e}", exc_info=verbose)
+                    failed_formats.append(fmt)
     except Exception as e:
         logger.error(f"Error: {e}", exc_info=verbose)
         raise typer.Exit(1) from None
+    if failed_formats:
+        raise typer.Exit(1)
 
 
 @app.command()
@@ -1526,26 +1523,23 @@ def compare(
             else:
                 output_dir = Path(".")
             output_path = output_dir / f"{output_prefix}.html"
-            try:
-                export_comparison(
-                    dir1,
-                    dir2,
-                    "html",
-                    str(output_path),
-                    parsed_exclude_dirs,
-                    actual_ignore_file,
-                    exclude_exts_set,
-                    exclude_patterns=parsed_exclude_patterns,
-                    include_patterns=parsed_include_patterns,
-                    use_regex=use_regex,
-                    max_depth=max_depth,
-                    show_full_path=show_full_path,
-                    spec=spec,
-                    icon_style=resolved_style,
-                )
-                logger.info(f"Successfully exported to {output_path}")
-            except Exception as e:
-                logger.exception(f"Failed to export to HTML: {e}")
+            export_comparison(
+                dir1,
+                dir2,
+                "html",
+                str(output_path),
+                parsed_exclude_dirs,
+                actual_ignore_file,
+                exclude_exts_set,
+                exclude_patterns=parsed_exclude_patterns,
+                include_patterns=parsed_include_patterns,
+                use_regex=use_regex,
+                max_depth=max_depth,
+                show_full_path=show_full_path,
+                spec=spec,
+                icon_style=resolved_style,
+            )
+            logger.info(f"Successfully exported to {output_path}")
         else:
             display_comparison(
                 dir1,
@@ -1561,9 +1555,6 @@ def compare(
                 spec=spec,
                 icon_style=resolved_style,
             )
-    except GitHubError as e:
-        logger.exception(f"Error: {e}")
-        raise typer.Exit(1) from None
     except Exception as e:
         logger.error(f"Error: {e}", exc_info=verbose)
         raise typer.Exit(1) from None

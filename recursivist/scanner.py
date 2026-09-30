@@ -40,6 +40,57 @@ RESERVED_KEYS: frozenset[str] = frozenset(
     }
 )
 
+_ESCAPE_PREFIX = "/"
+"""Prefix marking a subdirectory key whose real name would clash with a reserved key.
+
+A path separator can never occur in a file or directory name, so a key that starts with
+``"/"`` is unambiguously an escaped subdirectory name and never a real one.
+"""
+
+
+def subdirectory_key(name: str) -> str:
+    """Return the key a subdirectory called *name* is stored under in a structure dict.
+
+    Subdirectories and the reserved bookkeeping keys share one mapping, so a directory
+    whose name is itself a reserved key (e.g. a folder literally called ``_files``) is
+    stored under an escaped key instead of overwriting that bookkeeping entry. Every
+    other name is stored as-is. Read subdirectories back by their real names with
+    [`iter_subdirectories`][recursivist.scanner.iter_subdirectories] and
+    [`get_subdirectory`][recursivist.scanner.get_subdirectory].
+
+    Args:
+        name: The directory's real name.
+
+    Returns:
+        The key to store the directory under.
+    """
+    if name in RESERVED_KEYS or name.startswith(_ESCAPE_PREFIX):
+        return _ESCAPE_PREFIX + name
+    return name
+
+
+def _subdirectory_name(key: str) -> str:
+    """Invert [`subdirectory_key`][recursivist.scanner.subdirectory_key]."""
+    return key[len(_ESCAPE_PREFIX) :] if key.startswith(_ESCAPE_PREFIX) else key
+
+
+def get_subdirectory(structure: dict[str, Any], name: str) -> Any | None:
+    """Return the content of the subdirectory called *name*, or ``None`` if absent.
+
+    Looks the directory up by its real name, so it never mistakes a reserved bookkeeping
+    entry (such as the ``_files`` list) for a subdirectory of the same name.
+
+    Args:
+        structure: A directory-structure dict as produced by
+            [`get_directory_structure`][recursivist.scanner.get_directory_structure].
+        name: The subdirectory's real name.
+
+    Returns:
+        The subdirectory's structure, or ``None`` when *structure* has no such
+        subdirectory.
+    """
+    return structure.get(subdirectory_key(name))
+
 
 def _has_visible_entries(
     root_dir: str,
@@ -144,8 +195,12 @@ def get_directory_structure(
 
     Recursively traverses *root_dir*, applying the exclusion rules and optionally
     collecting per-file metrics, and returns the nested mapping consumed by the
-    renderers and exporters. Each subdirectory becomes a nested dict under its own name;
-    a directory's files and aggregate metrics are stored under reserved keys.
+    renderers and exporters. Each subdirectory becomes a nested dict under its own name
+    (escaped via [`subdirectory_key`][recursivist.scanner.subdirectory_key] if that name
+    is itself a reserved key); a directory's files and aggregate metrics are stored
+    under reserved keys. Read subdirectories back with
+    [`iter_subdirectories`][recursivist.scanner.iter_subdirectories] or
+    [`get_subdirectory`][recursivist.scanner.get_subdirectory] rather than by raw key.
 
     Reserved keys in the returned structure:
 
@@ -389,7 +444,7 @@ def _scan_level(
                 logger.warning(
                     f"Skipping symlink cycle: {item_path} resolves to an ancestor"
                 )
-                structure[item] = {"_symlink_loop": True}
+                structure[subdirectory_key(item)] = {"_symlink_loop": True}
                 continue
             next_path = os.path.join(current_path, item) if current_path else item
             substructure, sub_extensions = get_directory_structure(
@@ -415,10 +470,10 @@ def _scan_level(
             if include_patterns and not (
                 substructure.get("_files")
                 or substructure.get("_max_depth_reached")
-                or any(not k.startswith("_") for k in substructure)
+                or any(True for _ in iter_subdirectories(substructure))
             ):
                 continue
-            structure[item] = substructure
+            structure[subdirectory_key(item)] = substructure
             extensions_set.update(sub_extensions)
             if sort_by_loc and "_loc" in substructure:
                 total_loc += substructure["_loc"]
@@ -457,8 +512,9 @@ def _scan_level(
 def iter_subdirectories(structure: dict[str, Any]) -> Iterator[tuple[str, Any]]:
     """Yield ``(name, content)`` for each real subdirectory in *structure*.
 
-    Reserved bookkeeping keys (see `RESERVED_KEYS`) are skipped, and entries are yielded
-    in case-sensitive name order.
+    Reserved bookkeeping keys (see `RESERVED_KEYS`) are skipped, escaped keys (see
+    [`subdirectory_key`][recursivist.scanner.subdirectory_key]) are yielded under their
+    real names, and entries are yielded in case-sensitive name order.
 
     Args:
         structure: A directory-structure dict as produced by
@@ -467,5 +523,9 @@ def iter_subdirectories(structure: dict[str, Any]) -> Iterator[tuple[str, Any]]:
     Yields:
         ``(subdirectory_name, subdirectory_content)`` pairs.
     """
-    for name in sorted(k for k in structure if k not in RESERVED_KEYS):
-        yield name, structure[name]
+    entries = (
+        (_subdirectory_name(key), content)
+        for key, content in structure.items()
+        if key not in RESERVED_KEYS
+    )
+    yield from sorted(entries, key=lambda entry: entry[0])

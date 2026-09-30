@@ -3,19 +3,22 @@
 Serializes the scanned structure to JSON. Without any detail flags, files collapse to
 bare names; with LOC, size, mtime, or Git status enabled, each file becomes an object
 carrying the requested fields.
+
+Subdirectories are written as nested objects keyed by name. A subdirectory whose name is
+itself one of the reserved keys (e.g. a folder called ``_files``) is written under that
+name prefixed with ``/`` (a character no real file name can contain) so it never
+overwrites the metadata key it shares a name with.
 """
 
 import json
-import logging
 from typing import Any
 
 from recursivist._models import FileEntry
 from recursivist.metrics import format_size, format_timestamp
+from recursivist.scanner import iter_subdirectories, subdirectory_key
 from recursivist.sorting import sort_files_by_type
 
 from .base import BaseExporter
-
-logger = logging.getLogger(__name__)
 
 
 class JsonExporter(BaseExporter):
@@ -34,10 +37,6 @@ class JsonExporter(BaseExporter):
 
         Args:
             output_path: Path the ``.json`` file is written to.
-
-        Raises:
-            Exception: Re-raised if writing the output file fails (after the error is
-                logged).
         """
         has_detail = self.show_full_path or bool(self.metrics) or self.show_git_status
 
@@ -116,23 +115,12 @@ class JsonExporter(BaseExporter):
             if "_symlink_loop" in structure:
                 result["_symlink_loop"] = structure["_symlink_loop"]
 
-            special_keys = {
-                "_files",
-                "_loc",
-                "_size",
-                "_mtime",
-                "_max_depth_reached",
-                "_hidden_contents",
-                "_symlink_loop",
-                "_git_markers",
-            }
-            for k in sorted(structure.keys()):
-                if k not in special_keys:
-                    v = structure[k]
-                    if isinstance(v, dict):
-                        result[k] = convert_structure_for_json(v)
-                    else:
-                        result[k] = v
+            for name, content in iter_subdirectories(structure):
+                result[subdirectory_key(name)] = (
+                    convert_structure_for_json(content)
+                    if isinstance(content, dict)
+                    else content
+                )
 
             return result
 
@@ -163,23 +151,10 @@ class JsonExporter(BaseExporter):
                 if k in structure:
                     result[k] = structure[k]
 
-            special_keys = {
-                "_files",
-                "_loc",
-                "_size",
-                "_mtime",
-                "_max_depth_reached",
-                "_hidden_contents",
-                "_symlink_loop",
-                "_git_markers",
-            }
-            for k in sorted(structure.keys()):
-                if k not in special_keys:
-                    v = structure[k]
-                    if isinstance(v, dict):
-                        result[k] = names_only(v)
-                    else:
-                        result[k] = v
+            for name, content in iter_subdirectories(structure):
+                result[subdirectory_key(name)] = (
+                    names_only(content) if isinstance(content, dict) else content
+                )
 
             return result
 
@@ -188,22 +163,18 @@ class JsonExporter(BaseExporter):
         else:
             export_structure = names_only(self.structure)
 
-        try:
-            with open(output_path, "w", encoding="utf-8") as f:
-                json.dump(
-                    {
-                        "root": self.root_name,
-                        "structure": export_structure,
-                        "sort_key": self.sort_key,
-                        "metric_order": list(self.metrics),
-                        "show_loc": self.show_loc,
-                        "show_size": self.show_size,
-                        "show_mtime": self.show_mtime,
-                        "show_git_status": self.show_git_status,
-                    },
-                    f,
-                    indent=2,
-                )
-        except Exception as e:
-            logger.exception(f"Error exporting to JSON: {e}")
-            raise
+        with open(output_path, "w", encoding="utf-8") as f:
+            json.dump(
+                {
+                    "root": self.root_name,
+                    "structure": export_structure,
+                    "sort_key": self.sort_key,
+                    "metric_order": list(self.metrics),
+                    "show_loc": self.show_loc,
+                    "show_size": self.show_size,
+                    "show_mtime": self.show_mtime,
+                    "show_git_status": self.show_git_status,
+                },
+                f,
+                indent=2,
+            )

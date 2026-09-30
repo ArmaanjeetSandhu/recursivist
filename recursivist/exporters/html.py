@@ -6,7 +6,6 @@ it to an ``.html`` file.
 """
 
 import html
-import logging
 import os
 from typing import Any
 
@@ -25,8 +24,6 @@ from recursivist.scanner import has_contents, iter_subdirectories
 from recursivist.sorting import sort_files_by_type
 
 from .base import BaseExporter
-
-logger = logging.getLogger(__name__)
 
 _BACKGROUND = "#ffffff"
 """Page background the exported document sets, and the basis for all contrast checks."""
@@ -59,10 +56,6 @@ class HtmlExporter(BaseExporter):
 
         Args:
             output_path: Path the ``.html`` file is written to.
-
-        Raises:
-            Exception: Re-raised if writing the output file fails (after the error is
-                logged).
         """
 
         def _build_html_tree(
@@ -259,9 +252,5 @@ class HtmlExporter(BaseExporter):
         </html>
         """
 
-        try:
-            with open(output_path, "w", encoding="utf-8") as f:
-                f.write(html_template)
-        except Exception as e:
-            logger.exception(f"Error exporting to HTML: {e}")
-            raise
+        with open(output_path, "w", encoding="utf-8") as f:
+            f.write(html_template)
