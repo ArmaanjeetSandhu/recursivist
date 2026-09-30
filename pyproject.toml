@@ -70,8 +70,6 @@ docs = [
     "mkdocstrings",
     "mkdocstrings-python",
     "pymdown-extensions",
-    "mkdocs-minify-plugin",
-    "mkdocs-glightbox",
 ]
 
 [tool.hatch.build.targets.wheel]

@@ -8,89 +8,31 @@ theme:
   name: material
   logo: assets/images/logo.svg
   favicon: assets/images/logo.svg
-  icon:
-    repo: fontawesome/brands/github
   features:
-    - navigation.tabs
     - navigation.sections
-    - navigation.path
-    - navigation.tracking
-    - navigation.indexes
-    - search.suggest
     - search.highlight
-    - search.share
     - content.code.copy
-    - content.code.annotate
-    - content.tabs.link
-    - content.tooltips
-    - header.autohide
-    - announce.dismiss
   palette:
     - media: "(prefers-color-scheme: light)"
       scheme: default
-      primary: indigo
-      accent: pink
       toggle:
         icon: material/weather-night
         name: Switch to dark mode
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
-      primary: indigo
-      accent: pink
       toggle:
         icon: material/weather-sunny
         name: Switch to light mode
 
-extra:
-  social:
-    - icon: fontawesome/brands/github
-      link: https://github.com/ArmaanjeetSandhu
-    - icon: fontawesome/brands/linkedin
-      link: https://linkedin.com/in/armaanjeetsandhu
-  version:
-    provider: mike
-
 markdown_extensions:
-  - abbr
   - admonition
   - attr_list
-  - def_list
-  - footnotes
   - md_in_html
   - toc:
       permalink: true
-
-  - pymdownx.arithmatex:
-      generic: true
-  - pymdownx.betterem:
-      smart_enable: all
-  - pymdownx.caret
-  - pymdownx.details
-  - pymdownx.emoji:
-      emoji_index: !!python/name:material.extensions.emoji.twemoji
-      emoji_generator: !!python/name:material.extensions.emoji.to_svg
-  - pymdownx.highlight:
-      anchor_linenums: true
-      line_spans: __span
-      pygments_lang_class: true
+  - pymdownx.highlight
   - pymdownx.inlinehilite
-  - pymdownx.keys
-  - pymdownx.magiclink:
-      repo_url_shorthand: true
-      user: ArmaanjeetSandhu
-      repo: recursivist
-  - pymdownx.mark
-  - pymdownx.smartsymbols
-  - pymdownx.superfences:
-      custom_fences:
-        - name: mermaid
-          class: mermaid
-          format: !!python/name:pymdownx.superfences.fence_code_format
-  - pymdownx.tabbed:
-      alternate_style: true
-  - pymdownx.tasklist:
-      custom_checkbox: true
-  - pymdownx.tilde
+  - pymdownx.superfences
 
 plugins:
   - search
@@ -101,10 +43,6 @@ plugins:
           options:
             show_source: true
             show_root_heading: true
-  - minify:
-      minify_html: true
-  - glightbox
-  - tags
 
 extra_css:
   - assets/css/extra.css
