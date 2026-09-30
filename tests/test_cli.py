@@ -1,6 +1,7 @@
 """CLI command tests (recursivist.cli): visualize, export, compare, completion."""
 
 import json
+import logging
 import os
 import re
 import shutil
@@ -1508,3 +1509,27 @@ def test_regex_nested_directory_patterns(pattern_test_directory: str) -> None:
     if "_files" in structure:
         files = [f if isinstance(f, str) else f[0] for f in structure["_files"]]
         assert "unique_test_pattern.py" in files, "Unique test file should be included"
+
+
+def test_visualize_reports_unmatched_filters(
+    runner: CliRunner, sample_directory: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.set_level(logging.INFO, logger="recursivist")
+    result = runner.invoke(
+        app,
+        [
+            "visualize",
+            sample_directory,
+            "--exclude",
+            "does_not_exist",
+            "--exclude-ext",
+            "xyz",
+            "--exclude-ext",
+            "txt",
+        ],
+    )
+    assert result.exit_code == 0
+    messages = [r.message for r in caplog.records if r.levelno == logging.WARNING]
+    assert "No files or directories matched --exclude 'does_not_exist'" in messages
+    assert "No files or directories matched --exclude-ext '.xyz'" in messages
+    assert not any("'.txt'" in m for m in messages)

@@ -3,6 +3,7 @@
 Covers traversal, depth limits, filtering integration, and pathlib support.
 """
 
+import logging
 import os
 import re
 from pathlib import Path
@@ -605,3 +606,91 @@ class TestHiddenContentsAtDepthLimit:
     def test_has_contents(self, structure: Any, expected: bool) -> None:
         """Only entries with something to show are reported as non-empty."""
         assert has_contents(structure) is expected
+
+
+class TestUnmatchedFilterReporting:
+    """Filters that match no scanned entry are reported as warnings."""
+
+    @pytest.fixture
+    def tree(self, temp_dir: str) -> str:
+        _materialize_tree(
+            temp_dir,
+            {
+                "app.py": "print(1)\n",
+                "notes.txt": "hi\n",
+                "build/out.o": "",
+                "src/deep/module.py": "x = 1\n",
+            },
+        )
+        return temp_dir
+
+    @staticmethod
+    def _messages(caplog: pytest.LogCaptureFixture) -> list[str]:
+        return [
+            r.getMessage()
+            for r in caplog.records
+            if r.name == "recursivist.filtering" and r.levelno == logging.WARNING
+        ]
+
+    def test_reports_each_unmatched_filter(
+        self, tree: str, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        caplog.set_level(logging.INFO, logger="recursivist")
+        get_directory_structure(
+            tree,
+            exclude_dirs=["build", "node_modules"],
+            exclude_extensions={".txt", ".xyz"},
+            exclude_patterns=["*.py", "*.test.js"],
+            include_patterns=["*.nope"],
+        )
+        assert self._messages(caplog) == [
+            "No files or directories matched --exclude 'node_modules'",
+            "No files or directories matched --exclude-ext '.xyz'",
+            "No files or directories matched --exclude-pattern '*.test.js'",
+            "No files or directories matched --include-pattern '*.nope'",
+        ]
+
+    def test_silent_when_every_filter_matches(
+        self, tree: str, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        caplog.set_level(logging.INFO, logger="recursivist")
+        get_directory_structure(
+            tree,
+            exclude_dirs=["build"],
+            exclude_extensions={".txt"},
+            exclude_patterns=[re.compile(r"^module\.py$")],
+        )
+        assert self._messages(caplog) == []
+
+    def test_filter_counts_even_if_an_earlier_rule_removed_the_entry(
+        self, tree: str, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        caplog.set_level(logging.INFO, logger="recursivist")
+        get_directory_structure(tree, exclude_dirs=["build"], exclude_patterns=["bui*"])
+        assert self._messages(caplog) == []
+
+    def test_regex_pattern_reported_by_its_source(
+        self, tree: str, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        caplog.set_level(logging.INFO, logger="recursivist")
+        get_directory_structure(tree, exclude_patterns=[re.compile(r"\.rs$")])
+        assert self._messages(caplog) == [
+            r"No files or directories matched --exclude-pattern '\.rs$'"
+        ]
+
+    def test_depth_limit_is_mentioned(
+        self, tree: str, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        caplog.set_level(logging.INFO, logger="recursivist")
+        get_directory_structure(tree, exclude_patterns=["module.py"], max_depth=1)
+        assert self._messages(caplog) == [
+            "No files or directories matched --exclude-pattern 'module.py' "
+            "within the scanned depth"
+        ]
+
+    def test_reported_once_per_scan(
+        self, tree: str, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        caplog.set_level(logging.INFO, logger="recursivist")
+        get_directory_structure(tree, exclude_extensions={".xyz"})
+        assert len(self._messages(caplog)) == 1

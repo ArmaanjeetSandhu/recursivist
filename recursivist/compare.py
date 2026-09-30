@@ -21,7 +21,7 @@ from rich.text import Text
 from rich.tree import Tree
 
 from recursivist._models import FileEntry
-from recursivist.filtering import compile_regex_patterns
+from recursivist.filtering import PatternMatchTracker, compile_regex_patterns
 from recursivist.flags import METRIC_GIT, DisplayOptions
 from recursivist.git_status import get_git_status
 from recursivist.github import (
@@ -56,6 +56,7 @@ def _scan_one_side(
     max_depth: int,
     show_full_path: bool,
     spec: DisplayOptions,
+    pattern_tracker: PatternMatchTracker | None = None,
 ) -> dict[str, Any]:
     """Scan a single already-resolved directory for one side of a comparison.
 
@@ -76,6 +77,8 @@ def _scan_one_side(
         max_depth: Maximum depth to scan, or ``0`` for unlimited.
         show_full_path: Whether to store absolute paths instead of bare names.
         spec: Resolved sorting and annotation directives for this side.
+        pattern_tracker: Shared record of which filters matched, so a comparison can
+            report filters that matched nothing on either side.
 
     Returns:
         The scanned structure for this side.
@@ -98,6 +101,7 @@ def _scan_one_side(
         sort_by_mtime=spec.show_mtime,
         show_git_status=need_git,
         git_status_map=git_status_map,
+        pattern_tracker=pattern_tracker,
     )
     return structure
 
@@ -149,6 +153,9 @@ def compare_directory_structures(
 
     Returns:
         A ``(structure1, structure2)`` tuple holding each input's structure.
+
+    Any exclude/include filter that matched no entry on *either* side is logged as a
+    warning once both scans finish.
     """
     if spec is None:
         spec = DisplayOptions()
@@ -156,6 +163,9 @@ def compare_directory_structures(
 
     target1 = parse_github_url(dir1)
     target2 = parse_github_url(dir2)
+    tracker = PatternMatchTracker(
+        exclude_dirs, exclude_extensions, exclude_patterns, include_patterns
+    )
 
     def _side(
         stack: contextlib.ExitStack,
@@ -173,6 +183,7 @@ def compare_directory_structures(
                 max_depth,
                 show_full_path,
                 spec,
+                tracker,
             )
         checkout = stack.enter_context(checkout_repository(target))
         structure = _scan_one_side(
@@ -185,6 +196,7 @@ def compare_directory_structures(
             max_depth,
             show_full_path,
             remote_spec,
+            tracker,
         )
         if show_full_path:
             apply_github_urls(structure, checkout)
@@ -193,7 +205,8 @@ def compare_directory_structures(
     with contextlib.ExitStack() as stack:
         structure1 = _side(stack, dir1, target1)
         structure2 = _side(stack, dir2, target2)
-        return structure1, structure2
+    tracker.report("in either directory")
+    return structure1, structure2
 
 
 def _comparison_identity(

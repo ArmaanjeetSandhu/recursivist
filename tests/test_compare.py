@@ -5,6 +5,7 @@ comparison.
 """
 
 import html
+import logging
 import os
 import re
 import time
@@ -693,6 +694,7 @@ class TestCompareDirectoryStructures:
                 sort_by_mtime=False,
                 show_git_status=False,
                 git_status_map=None,
+                pattern_tracker=ANY,
             )
             mock_get_structure.assert_any_call(
                 dir2,
@@ -708,6 +710,14 @@ class TestCompareDirectoryStructures:
                 sort_by_mtime=False,
                 show_git_status=False,
                 git_status_map=None,
+                pattern_tracker=ANY,
+            )
+            trackers = [
+                c.kwargs["pattern_tracker"] for c in mock_get_structure.call_args_list
+            ]
+            assert trackers[0] is trackers[1], (
+                "Both sides should share one tracker so unmatched filters are "
+                "reported once for the whole comparison"
             )
 
     @given(dir1=safe_path, dir2=safe_path)
@@ -750,6 +760,7 @@ class TestCompareDirectoryStructures:
                 sort_by_mtime=True,
                 show_git_status=False,
                 git_status_map=None,
+                pattern_tracker=ANY,
             )
 
 
@@ -1733,3 +1744,25 @@ class TestCompareRemoteIdentity:
             content = f.read()
         assert 'class="file-unique-left"' in content
         assert 'class="file-unique-right"' in content
+
+
+def test_compare_reports_filters_unmatched_on_both_sides(
+    temp_dir: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A filter used on only one side is not reported; one used on neither is."""
+    left = os.path.join(temp_dir, "left")
+    right = os.path.join(temp_dir, "right")
+    os.makedirs(left)
+    os.makedirs(right)
+    open(os.path.join(left, "a.log"), "w").close()
+    open(os.path.join(right, "b.txt"), "w").close()
+    caplog.set_level(logging.INFO, logger="recursivist")
+    compare_directory_structures(left, right, exclude_extensions={".log", ".xyz"})
+    messages = [
+        r.getMessage()
+        for r in caplog.records
+        if r.name == "recursivist.filtering" and r.levelno == logging.WARNING
+    ]
+    assert messages == [
+        "No files or directories matched --exclude-ext '.xyz' in either directory"
+    ]

@@ -13,7 +13,11 @@ from re import Pattern
 from typing import Any
 
 from recursivist._models import FileEntry
-from recursivist.filtering import parse_ignore_file, should_exclude
+from recursivist.filtering import (
+    PatternMatchTracker,
+    parse_ignore_file,
+    should_exclude,
+)
 from recursivist.metrics import (
     count_lines_of_code,
     get_file_mtime,
@@ -134,6 +138,7 @@ def get_directory_structure(
     show_git_status: bool = False,
     git_status_map: dict[str, str] | None = None,
     ancestor_ids: frozenset[tuple[int, int]] | None = None,
+    pattern_tracker: PatternMatchTracker | None = None,
 ) -> tuple[dict[str, Any], set[str]]:
     """Build a nested dictionary representing a directory structure.
 
@@ -185,6 +190,11 @@ def get_directory_structure(
         ancestor_ids: ``(st_dev, st_ino)`` identities of the directories on the path
             from the scan root to (and including) *root_dir*, used to detect symlink
             cycles. Set internally across the recursion.
+        pattern_tracker: Records which of the exclude/include filters matched a
+            scanned entry. When omitted on the top-level call, one is created and each
+            filter that matched nothing is logged as a warning once the scan finishes.
+            Pass one explicitly to aggregate several scans (as a comparison does) and
+            report it yourself.
 
     Returns:
         A ``(structure, extensions)`` tuple, where *structure* is the nested directory
@@ -200,6 +210,63 @@ def get_directory_structure(
         include_patterns = []
     if ancestor_ids is None:
         ancestor_ids = frozenset()
+    owns_tracker = pattern_tracker is None and current_depth == 0
+    if pattern_tracker is None:
+        pattern_tracker = PatternMatchTracker(
+            exclude_dirs, exclude_extensions, exclude_patterns, include_patterns
+        )
+    structure, extensions_set = _scan_level(
+        root_dir,
+        exclude_dirs,
+        ignore_file,
+        exclude_extensions,
+        parent_ignore_patterns,
+        exclude_patterns,
+        include_patterns,
+        max_depth,
+        current_depth,
+        current_path,
+        show_full_path,
+        sort_by_loc,
+        sort_by_size,
+        sort_by_mtime,
+        show_git_status,
+        git_status_map,
+        ancestor_ids,
+        pattern_tracker,
+    )
+    if owns_tracker:
+        pattern_tracker.report()
+    return structure, extensions_set
+
+
+def _scan_level(
+    root_dir: str,
+    exclude_dirs: Sequence[str],
+    ignore_file: str | None,
+    exclude_extensions: set[str],
+    parent_ignore_patterns: Sequence[tuple[str, tuple[str, ...]]] | None,
+    exclude_patterns: Sequence[str | Pattern[str]],
+    include_patterns: Sequence[str | Pattern[str]],
+    max_depth: int,
+    current_depth: int,
+    current_path: str,
+    show_full_path: bool,
+    sort_by_loc: bool,
+    sort_by_size: bool,
+    sort_by_mtime: bool,
+    show_git_status: bool,
+    git_status_map: dict[str, str] | None,
+    ancestor_ids: frozenset[tuple[int, int]],
+    pattern_tracker: PatternMatchTracker,
+) -> tuple[dict[str, Any], set[str]]:
+    """Scan one directory level for
+    [`get_directory_structure`][recursivist.scanner.get_directory_structure].
+
+    Takes the same arguments with their defaults already filled in, and recurses into
+    subdirectories through `get_directory_structure` so the shared *pattern_tracker* is
+    threaded through the whole walk.
+    """
     ignore_stack: list[tuple[str, tuple[str, ...]]] = (
         list(parent_ignore_patterns) if parent_ignore_patterns else []
     )
@@ -233,6 +300,7 @@ def get_directory_structure(
             if file_dir == current_prefix:
                 git_markers[fname] = status
     if max_depth > 0 and current_depth >= max_depth:
+        pattern_tracker.depth_limited = True
         truncated: dict[str, Any] = {"_max_depth_reached": True}
         if _has_visible_entries(
             root_dir,
@@ -254,6 +322,8 @@ def get_directory_structure(
         return structure, extensions_set
     for item in items:
         item_path = os.path.join(root_dir, item)
+        if pattern_tracker.pending:
+            pattern_tracker.observe(item_path, os.path.isdir(item_path))
         if item in exclude_dirs or should_exclude(
             item_path,
             ignore_context,
@@ -340,6 +410,7 @@ def get_directory_structure(
                 show_git_status,
                 git_status_map,
                 child_ancestor_ids,
+                pattern_tracker,
             )
             if include_patterns and not (
                 substructure.get("_files")

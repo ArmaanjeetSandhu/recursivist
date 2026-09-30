@@ -23,7 +23,7 @@ import fnmatch
 import logging
 import os
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from functools import cache
 from re import Pattern
 from typing import Any, cast
@@ -152,7 +152,7 @@ def _is_ignored_by_stack(
     directory (levels whose base does not contain *target* are skipped), and the last
     level that expresses an opinion wins. A level's opinion is tri-state via
     `check_file`: matched by an ignore pattern, re-included by a ``!`` negation, or
-    silent -- so a deeper file that says nothing leaves a shallower verdict intact,
+    silent, so a deeper file that says nothing leaves a shallower verdict intact,
     exactly as Git resolves precedence between nested ``.gitignore`` files.
     """
     decision: bool | None = None
@@ -173,6 +173,118 @@ def _is_ignored_by_stack(
         if verdict is not None:
             decision = verdict
     return decision is True
+
+
+def _pattern_matches(pattern: str | Pattern[str], rel_path: str, basename: str) -> bool:
+    """Return whether a single ``--exclude-pattern``/``--include-pattern`` matches.
+
+    A compiled regex matches when it is found anywhere in *rel_path* or *basename*; a
+    glob matches when `fnmatch` accepts either of them. This is the single definition of
+    pattern matching shared by
+    [`should_exclude`][recursivist.filtering.should_exclude] and
+    [`PatternMatchTracker`][recursivist.filtering.PatternMatchTracker], so the two can
+    never disagree about what a pattern matches.
+    """
+    if isinstance(pattern, Pattern):
+        return bool(pattern.search(rel_path) or pattern.search(basename))
+    return fnmatch.fnmatch(rel_path, pattern) or fnmatch.fnmatch(basename, pattern)
+
+
+def _describe_pattern(pattern: str | Pattern[str]) -> str:
+    """Return the text the user typed for *pattern*, whether compiled or not."""
+    return pattern.pattern if isinstance(pattern, Pattern) else pattern
+
+
+class PatternMatchTracker:
+    """Record which user-supplied filters matched at least one scanned entry.
+
+    The scanner reports every directory entry it lists to
+    [`observe`][recursivist.filtering.PatternMatchTracker.observe] *before* applying the
+    exclusion rules, so a filter counts as matched even when an earlier rule already
+    removed the entry. Once a filter has matched it is dropped from the pending set, and
+    once nothing is pending observation is a no-op, so the bookkeeping costs nothing on
+    a scan where every filter is used.
+
+    Matching mirrors the scanner exactly: ``--exclude`` names are compared with the
+    entry name, ``--exclude-ext`` applies to files only, ``--exclude-pattern`` applies
+    to files and directories, and ``--include-pattern`` applies to files only.
+
+    Entries the scanner never lists — the contents of excluded or ignored directories,
+    and anything below ``--depth`` — are not observed, so a filter reported as
+    unmatched matched nothing *among the scanned entries*.
+
+    Args:
+        exclude_dirs: Names given to ``--exclude``.
+        exclude_extensions: Normalized extensions given to ``--exclude-ext``.
+        exclude_patterns: Patterns given to ``--exclude-pattern``.
+        include_patterns: Patterns given to ``--include-pattern``.
+    """
+
+    def __init__(
+        self,
+        exclude_dirs: Sequence[str] | None = None,
+        exclude_extensions: Iterable[str] | None = None,
+        exclude_patterns: Sequence[str | Pattern[str]] | None = None,
+        include_patterns: Sequence[str | Pattern[str]] | None = None,
+    ) -> None:
+        self._dirs: dict[str, None] = dict.fromkeys(exclude_dirs or ())
+        self._exts: dict[str, None] = dict.fromkeys(exclude_extensions or ())
+        self._exclude: list[str | Pattern[str]] = list(
+            dict.fromkeys(exclude_patterns or ())
+        )
+        self._include: list[str | Pattern[str]] = list(
+            dict.fromkeys(include_patterns or ())
+        )
+        self.depth_limited = False
+
+    @property
+    def pending(self) -> bool:
+        """Whether any filter has not matched an entry yet."""
+        return bool(self._dirs or self._exts or self._exclude or self._include)
+
+    def observe(self, path: str, is_dir: bool) -> None:
+        """Mark every pending filter that matches the entry at *path* as used.
+
+        Args:
+            path: Filesystem path of a directory entry the scanner listed.
+            is_dir: Whether *path* is a directory.
+        """
+        if not self.pending:
+            return
+        name = os.path.basename(path)
+        self._dirs.pop(name, None)
+        if not is_dir and self._exts:
+            self._exts.pop(os.path.splitext(name)[1].lower(), None)
+        if self._exclude:
+            self._exclude = [
+                p for p in self._exclude if not _pattern_matches(p, name, name)
+            ]
+        if not is_dir and self._include:
+            self._include = [
+                p for p in self._include if not _pattern_matches(p, name, name)
+            ]
+
+    def unmatched(self) -> list[tuple[str, str]]:
+        """Return ``(flag, value)`` pairs for every filter that matched nothing."""
+        return [
+            *(("--exclude", d) for d in self._dirs),
+            *(("--exclude-ext", e) for e in self._exts),
+            *(("--exclude-pattern", _describe_pattern(p)) for p in self._exclude),
+            *(("--include-pattern", _describe_pattern(p)) for p in self._include),
+        ]
+
+    def report(self, where: str = "") -> None:
+        """Log a warning for each filter that matched nothing.
+
+        Args:
+            where: Optional phrase naming what was scanned (e.g. ``"in either
+                directory"``), appended to each message.
+        """
+        suffix = f" {where}" if where else ""
+        if self.depth_limited:
+            suffix += " within the scanned depth"
+        for flag, value in self.unmatched():
+            logger.warning(f"No files or directories matched {flag} '{value}'{suffix}")
 
 
 def should_exclude(
@@ -222,35 +334,25 @@ def should_exclude(
     if os.name == "nt":
         rel_path = rel_path.replace("\\", "/")
     basename = os.path.basename(path)
-    if include_patterns and not os.path.isdir(path):
-        included = False
-        for pattern in include_patterns:
-            if isinstance(pattern, Pattern):
-                if pattern.search(rel_path) or pattern.search(basename):
-                    included = True
-                    break
-            else:
-                if fnmatch.fnmatch(rel_path, pattern) or fnmatch.fnmatch(
-                    basename, pattern
-                ):
-                    included = True
-                    break
-        if not included:
-            return True
-    if exclude_patterns:
-        for pattern in exclude_patterns:
-            if isinstance(pattern, Pattern):
-                if pattern.search(rel_path) or pattern.search(basename):
-                    return True
-            else:
-                if fnmatch.fnmatch(rel_path, pattern) or fnmatch.fnmatch(
-                    basename, pattern
-                ):
-                    return True
-    if exclude_extensions and os.path.isfile(path):
-        _, ext = os.path.splitext(path)
-        if ext.lower() in exclude_extensions:
-            return True
+    if (
+        include_patterns
+        and not os.path.isdir(path)
+        and not any(
+            _pattern_matches(pattern, rel_path, basename)
+            for pattern in include_patterns
+        )
+    ):
+        return True
+    if exclude_patterns and any(
+        _pattern_matches(pattern, rel_path, basename) for pattern in exclude_patterns
+    ):
+        return True
+    if (
+        exclude_extensions
+        and os.path.isfile(path)
+        and os.path.splitext(path)[1].lower() in exclude_extensions
+    ):
+        return True
     if include_patterns:
         return False
     levels = _resolve_ignore_levels(ignore_context)
