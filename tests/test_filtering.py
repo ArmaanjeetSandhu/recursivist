@@ -1,4 +1,7 @@
-"""Tests for recursivist.filtering: should_exclude, compile_regex_patterns, parse_ignore_file."""
+"""Tests for recursivist.filtering.
+
+Covers should_exclude, compile_regex_patterns, and parse_ignore_file.
+"""
 
 import os
 import re
@@ -264,7 +267,8 @@ def test_compile_regex_patterns(
         ),
         ("", []),
         (
-            "# Logs\n*.log\nlogs/\n!important.log\n# Directories\nnode_modules/\ndist/\n",
+            "# Logs\n*.log\nlogs/\n!important.log\n"
+            "# Directories\nnode_modules/\ndist/\n",
             [
                 "# Logs",
                 "*.log",
@@ -322,7 +326,7 @@ class TestShouldExcludeProperties:
         pass
 
     def test_should_exclude_extensions_basic(self) -> None:
-        """Test that should_exclude correctly applies extension exclusions with basic cases."""
+        """Test that should_exclude applies extension exclusions in basic cases."""
         exclude_extensions = {".txt", ".md", ".py"}
         with patch("os.path.isfile", return_value=True):
             for ext in exclude_extensions:

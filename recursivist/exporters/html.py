@@ -104,7 +104,11 @@ class HtmlExporter(BaseExporter):
                     _file_style = f"color: {color};"
                     if _git_marker and _git_marker in _GIT_STATUS_STYLES:
                         _, _file_style_extra = _GIT_STATUS_STYLES[_git_marker]
-                        _git_badge = f' <span class="git-badge git-{_git_marker.lower()}" style="font-size:0.8em;font-weight:bold;">[{_git_marker}]</span>'
+                        _git_badge = (
+                            f' <span class="git-badge git-{_git_marker.lower()}"'
+                            ' style="font-size:0.8em;font-weight:bold;">'
+                            f"[{_git_marker}]</span>"
+                        )
                         _name_style = (
                             ' style="text-decoration: line-through;"'
                             if _file_style_extra == "line-through"
@@ -187,7 +191,8 @@ class HtmlExporter(BaseExporter):
             else ""
         )
         git_color_rules = "\n".join(
-            f"            .git-{marker.lower()} {{ color: {ensure_contrast(color, _BACKGROUND, _MIN_CONTRAST)}; }}"
+            f"            .git-{marker.lower()} {{ color: "
+            f"{ensure_contrast(color, _BACKGROUND, _MIN_CONTRAST)}; }}"
             for marker, (color, _decoration) in _GIT_STATUS_STYLES.items()
         )
         git_styles = (
@@ -204,6 +209,9 @@ class HtmlExporter(BaseExporter):
             + "\n        "
             if self.show_git_status
             else ""
+        )
+        tree_html = _build_html_tree(
+            self.structure, self.root_name if self.show_full_path else ""
         )
         html_template = f"""
         <!DOCTYPE html>
@@ -246,7 +254,7 @@ class HtmlExporter(BaseExporter):
         </head>
         <body>
             <h1>{title}</h1>
-            {_build_html_tree(self.structure, self.root_name if self.show_full_path else "")}
+            {tree_html}
         </body>
         </html>
         """

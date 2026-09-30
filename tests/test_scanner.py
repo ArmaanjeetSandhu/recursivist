@@ -1,4 +1,7 @@
-"""Tests for recursivist.scanner.get_directory_structure: traversal, depth limits, filtering integration, pathlib."""
+"""Tests for recursivist.scanner.get_directory_structure.
+
+Covers traversal, depth limits, filtering integration, and pathlib support.
+"""
 
 import os
 import re

@@ -212,7 +212,8 @@ def complex_directory(temp_dir: str) -> str:
         f.write("# Test Project\nThis is a test project for integration testing.\n")
     with open(os.path.join(temp_dir, "setup.py"), "w") as f:
         f.write(
-            "from setuptools import setup\nsetup(name='test-project', version='1.0.0')\n"
+            "from setuptools import setup\n"
+            "setup(name='test-project', version='1.0.0')\n"
         )
     with open(os.path.join(temp_dir, "requirements.txt"), "w") as f:
         f.write("pytest>=7.0.0\ntyper>=0.4.0\nrich>=12.0.0\n")
@@ -236,7 +237,8 @@ def complex_directory(temp_dir: str) -> str:
         f.write("# This file is intentionally left empty\n")
     with open(os.path.join(src_dir, "main.py"), "w") as f:
         f.write(
-            "def main():\n    print('Hello, world!')\n\nif __name__ == '__main__':\n    main()\n"
+            "def main():\n    print('Hello, world!')\n\n"
+            "if __name__ == '__main__':\n    main()\n"
         )
     with open(os.path.join(src_dir, "utils.py"), "w") as f:
         f.write("def utility_function():\n    return 'Utility function called'\n")
@@ -301,7 +303,8 @@ def complex_directory_clone(complex_directory: str, temp_dir: str) -> str:
         f.write("# This file is intentionally left empty\n")
     with open(os.path.join(src_dir, "main.py"), "w") as f:
         f.write(
-            "def main():\n    print('Hello, world - changed!')\n\nif __name__ == '__main__':\n    main()\n"
+            "def main():\n    print('Hello, world - changed!')\n\n"
+            "if __name__ == '__main__':\n    main()\n"
         )
     with open(os.path.join(src_dir, "new_module.py"), "w") as f:
         f.write("def new_function():\n    return 'New function called'\n")

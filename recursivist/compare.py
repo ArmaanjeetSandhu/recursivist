@@ -684,12 +684,14 @@ def display_comparison(
         if exclude_patterns:
             pattern_type = "Regex" if use_regex else "Glob"
             pattern_info.append(
-                f"{pattern_type} exclusion patterns: {', '.join(str(p) for p in exclude_patterns)}"
+                f"{pattern_type} exclusion patterns: "
+                f"{', '.join(str(p) for p in exclude_patterns)}"
             )
         if include_patterns:
             pattern_type = "Regex" if use_regex else "Glob"
             pattern_info.append(
-                f"{pattern_type} inclusion patterns: {', '.join(str(p) for p in include_patterns)}"
+                f"{pattern_type} inclusion patterns: "
+                f"{', '.join(str(p) for p in include_patterns)}"
             )
         if pattern_info:
             pattern_panel = Panel(
@@ -1054,19 +1056,35 @@ def _export_comparison_to_html(
     max_depth_val = metadata.get("max_depth", 0)
     if max_depth_val > 0:
         level_word = "level" if max_depth_val == 1 else "levels"
-        max_depth_info = f'<div class="info-block"><span class="info-label">Max Depth:</span> {max_depth_val} {level_word}</div>'
+        max_depth_info = (
+            '<div class="info-block"><span class="info-label">Max Depth:</span> '
+            f"{max_depth_val} {level_word}</div>"
+        )
     path_info = ""
     if metadata.get("show_full_path"):
-        path_info = '<div class="info-block"><span class="info-label">Path Display:</span> Full paths shown</div>'
+        path_info = (
+            '<div class="info-block"><span class="info-label">Path Display:</span>'
+            " Full paths shown</div>"
+        )
     loc_info = ""
     if metadata.get("show_loc"):
-        loc_info = '<div class="info-block"><span class="info-label">Lines of Code:</span> LOC counts displayed</div>'
+        loc_info = (
+            '<div class="info-block"><span class="info-label">Lines of Code:</span>'
+            " LOC counts displayed</div>"
+        )
     size_info = ""
     if metadata.get("show_size"):
-        size_info = '<div class="info-block"><span class="info-label">File Sizes:</span> File sizes displayed</div>'
+        size_info = (
+            '<div class="info-block"><span class="info-label">File Sizes:</span>'
+            " File sizes displayed</div>"
+        )
     mtime_info = ""
     if metadata.get("show_mtime"):
-        mtime_info = '<div class="info-block"><span class="info-label">Modification Times:</span> Timestamps displayed</div>'
+        mtime_info = (
+            '<div class="info-block">'
+            '<span class="info-label">Modification Times:</span>'
+            " Timestamps displayed</div>"
+        )
     git_status_info = ""
     if metadata.get("show_git_status"):
         git_status_info = (
@@ -1084,12 +1102,14 @@ def _export_comparison_to_html(
         if metadata.get("exclude_patterns"):
             patterns = [html.escape(p) for p in metadata.get("exclude_patterns", [])]
             pattern_items.append(
-                f"<dt>Exclude {pattern_type} Patterns:</dt><dd>{', '.join(patterns)}</dd>"
+                f"<dt>Exclude {pattern_type} Patterns:</dt>"
+                f"<dd>{', '.join(patterns)}</dd>"
             )
         if metadata.get("include_patterns"):
             patterns = [html.escape(p) for p in metadata.get("include_patterns", [])]
             pattern_items.append(
-                f"<dt>Include {pattern_type} Patterns:</dt><dd>{', '.join(patterns)}</dd>"
+                f"<dt>Include {pattern_type} Patterns:</dt>"
+                f"<dd>{', '.join(patterns)}</dd>"
             )
         if pattern_items:
             pattern_info_html = f"""
@@ -1119,6 +1139,12 @@ def _export_comparison_to_html(
         is_dir=True,
         style=icon_style,
         is_empty=not has_contents(dir2_structure),
+    )
+    dir1_tree_html = _build_html_tree(
+        dir1_structure, dir2_structure, dir1_is_remote, dir2_is_remote
+    )
+    dir2_tree_html = _build_html_tree(
+        dir2_structure, dir1_structure, dir2_is_remote, dir1_is_remote
     )
 
     html_template = f"""
@@ -1253,11 +1279,11 @@ def _export_comparison_to_html(
         <div class="comparison-container">
             <div class="directory-tree">
                 <h3>{root_icon1} {dir1_title}</h3>
-                {_build_html_tree(dir1_structure, dir2_structure, dir1_is_remote, dir2_is_remote)}
+                {dir1_tree_html}
             </div>
             <div class="directory-tree">
                 <h3>{root_icon2} {dir2_title}</h3>
-                {_build_html_tree(dir2_structure, dir1_structure, dir2_is_remote, dir1_is_remote)}
+                {dir2_tree_html}
             </div>
         </div>
     </body>

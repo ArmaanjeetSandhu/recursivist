@@ -98,7 +98,6 @@ select = [
     "B",   # flake8-bugbear
     "UP",  # pyupgrade
 ]
-ignore = ["E203", "E501"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["recursivist"]

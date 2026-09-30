@@ -1,4 +1,8 @@
-"""Tests for recursivist.compare: compare_directory_structures, build_comparison_tree, display/export comparison."""
+"""Tests for recursivist.compare.
+
+Covers compare_directory_structures, build_comparison_tree, and display/export
+comparison.
+"""
 
 import html
 import os
@@ -1015,7 +1019,8 @@ class TestBuildComparisonTreeProperties:
         build_comparison_tree(structure1, structure2, mock_tree, DisplayOptions())
         if expected_calls > 0:
             assert mock_tree.add.call_count > 0, (
-                "build_comparison_tree should make at least one call to tree.add when there are files or folders"
+                "build_comparison_tree should make at least one call to tree.add "
+                "when there are files or folders"
             )
         else:
             pass

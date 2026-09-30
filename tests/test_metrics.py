@@ -1,4 +1,7 @@
-"""Tests for recursivist.metrics: file size/mtime, count_lines_of_code, format_size, format_timestamp."""
+"""Tests for recursivist.metrics.
+
+Covers file size/mtime, count_lines_of_code, format_size, and format_timestamp.
+"""
 
 import os
 import random
@@ -127,7 +130,8 @@ class TestCountLinesOfCode:
                 expected_lines: int = sum(1 for _ in f)
             line_count: int = count_lines_of_code(file_path)
             assert line_count == expected_lines, (
-                f"Expected {expected_lines} lines, got {line_count} for content: {repr(content)}"
+                f"Expected {expected_lines} lines, got {line_count} "
+                f"for content: {repr(content)}"
             )
         finally:
             os.unlink(file_path)
@@ -496,7 +500,8 @@ class TestCountLinesOfCodeProperties:
                 if has_carriage_returns:
                     max_lines = content.count("\n") + content.count("\r") + 1
                     assert 0 <= line_count <= max_lines, (
-                        f"Line count {line_count} outside expected range [0, {max_lines}]"
+                        f"Line count {line_count} outside "
+                        f"expected range [0, {max_lines}]"
                     )
                 else:
                     assert abs(line_count - expected_lines) <= 1, (
@@ -566,7 +571,9 @@ class TestFormatFunctions:
         result = format_timestamp(timestamp)
         assert isinstance(result, str)
         assert re.search(
-            r"Today \d{2}:\d{2}|Yesterday \d{2}:\d{2}|[A-Z][a-z]{2} \d{2}:\d{2}|[A-Z][a-z]{2} \d{1,2}|\d{4}-\d{2}-\d{2}|^-$",
+            r"Today \d{2}:\d{2}|Yesterday \d{2}:\d{2}|"
+            r"[A-Z][a-z]{2} \d{2}:\d{2}|[A-Z][a-z]{2} \d{1,2}|"
+            r"\d{4}-\d{2}-\d{2}|^-$",
             result,
         ), f"Invalid timestamp format: {result}"
 

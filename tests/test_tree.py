@@ -368,7 +368,8 @@ class TestBuildTreeProperties:
         build_tree(structure, mock_tree, color_map, DisplayOptions())
         if expected_calls > 0:
             assert mock_tree.add.call_count > 0, (
-                "build_tree should make at least one call to tree.add when there are files or folders"
+                "build_tree should make at least one call to tree.add "
+                "when there are files or folders"
             )
 
 

@@ -191,7 +191,8 @@ def display_tree(
             if not git_status_map:
                 logger.debug(
                     "Git status requested but no data returned — "
-                    "directory may not be inside a Git repository, or there are no changes."
+                    "directory may not be inside a Git repository, "
+                    "or there are no changes."
                 )
 
         structure, extensions = get_directory_structure(
