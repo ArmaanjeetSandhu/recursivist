@@ -24,7 +24,7 @@ DOCS_DIR = "docs"
 
 SITEMAP_REL = os.path.relpath(SITEMAP_FILE, DOCS_DIR).replace(os.sep, "/")
 
-_MD_LINK_RE = re.compile(r"\[(.*?)\]\(.*?\)")
+_MD_LINK_RE = re.compile(r"\[([^\[\]]*)\]\([^()]*\)")
 _HEADER_RE = re.compile(r"^(#{1,4})\s+(.*)")
 _IDCOUNT_RE = re.compile(r"^(.*)_(\d+)$")
 

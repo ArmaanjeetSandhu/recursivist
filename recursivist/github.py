@@ -266,7 +266,7 @@ def _fetch_refs_advertisement(target: GitHubTarget, token: str | None) -> bytes:
         if exc.code in (401, 404):
             raise GitHubError(
                 f"Repository '{target.slug}' was not found. It may not exist, "
-                "or it may be private (set GITHUB_TOKEN to access private repositories)."
+                "or it may be private (set GITHUB_TOKEN to access private repositories)"
             ) from exc
         raise GitHubError(
             f"Could not reach GitHub for '{target.slug}' (HTTP {exc.code})."
@@ -437,9 +437,11 @@ def _download_archive(
     """Download the ``tar.gz`` source archive for *ref* to the file *dest*."""
     url = f"{_ARCHIVE_HOST}/{target.owner}/{target.repo}/tar.gz/{ref}"
     try:
-        with urllib.request.urlopen(_request(url, token), timeout=120) as response:
-            with open(dest, "wb") as fh:
-                shutil.copyfileobj(response, fh)
+        with (
+            urllib.request.urlopen(_request(url, token), timeout=120) as response,
+            open(dest, "wb") as fh,
+        ):
+            shutil.copyfileobj(response, fh)
     except urllib.error.HTTPError as exc:
         if exc.code in (401, 404):
             raise GitHubError(
@@ -501,7 +503,8 @@ def _locate_root(extract_dir: str, target: GitHubTarget) -> str:
     """Return the directory to scan within a freshly extracted archive.
 
     GitHub archives contain a single top-level directory (``<repo>-<ref>``); this
-    returns that directory, descending into `GitHubTarget.subpath` when one was requested.
+    returns that directory, descending into `GitHubTarget.subpath` when one was
+    requested.
 
     Raises:
         GitHubError: If the archive layout is unexpected or the requested subpath does

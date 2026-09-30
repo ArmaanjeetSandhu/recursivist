@@ -8,7 +8,9 @@ be used as a plain tuple — ``entry[0]`` is the name and ``isinstance(entry, tu
 ``True`` — as well as through attribute access (``entry.name``, ``entry.loc``).
 """
 
-from typing import Any, NamedTuple, Union
+from __future__ import annotations
+
+from typing import Any, NamedTuple
 
 
 class FileEntry(NamedTuple):
@@ -34,7 +36,7 @@ class FileEntry(NamedTuple):
     mtime: float = 0.0
 
     @classmethod
-    def coerce(cls, item: Union["FileEntry", tuple[Any, ...], str]) -> "FileEntry":
+    def coerce(cls, item: FileEntry | tuple[Any, ...] | str) -> FileEntry:
         """Normalize any raw ``_files`` entry to a
         [`FileEntry`][recursivist._models.FileEntry] by position.
 
