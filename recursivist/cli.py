@@ -37,6 +37,7 @@ import typer
 from rich.console import Console
 from rich.logging import RichHandler
 from rich.progress import Progress
+from typer.core import TyperCommand
 
 from recursivist.compare import (
     display_comparison,
@@ -78,6 +79,49 @@ app = typer.Typer(
 console = Console()
 
 USER_CONFIG = load_config()
+
+_RAW_ARGS_KEY = "recursivist.raw_args"
+
+
+class _ArgsRecordingCommand(TyperCommand):
+    """A command that records the raw arguments of its own invocation.
+
+    Flag order matters for sorting and annotation, but the parser only reports *which*
+    flags were given. The arguments are stashed on the context so the order can be
+    recovered from what this command actually received, whether it was launched from a
+    shell or called from code, rather than from the host process's ``sys.argv``.
+    """
+
+    def parse_args(self, ctx: Any, args: list[str]) -> list[str]:
+        ctx.meta[_RAW_ARGS_KEY] = list(args)
+        return super().parse_args(ctx, args)
+
+
+def _flag_order_inputs(ctx: typer.Context) -> tuple[list[str], set[str]]:
+    """Return the invocation's raw arguments and its value-taking option strings.
+
+    Args:
+        ctx: The context of the running command.
+
+    Returns:
+        The raw arguments this command was invoked with, and every option string (e.g.
+        ``"-x"``, ``"--exclude-ext"``) that consumes a value on this command. The latter
+        comes from the command's own parameter definitions, since the same short option
+        can mean different things on different commands (``-f`` takes a value on
+        ``export`` but is a flag on ``compare``).
+    """
+    value_options: set[str] = set()
+    for param in ctx.command.params:
+        if getattr(param, "param_type_name", None) != "option":
+            continue
+        if getattr(param, "is_flag", False) or getattr(param, "count", False):
+            continue
+        if param.nargs == 0:
+            continue
+        value_options.update(param.opts)
+        value_options.update(param.secondary_opts)
+    return list(ctx.meta.get(_RAW_ARGS_KEY, [])), value_options
+
 
 HELP_EXCLUDE_DIRS = (
     "Directory to exclude; repeat the flag for several (values may contain spaces)"
@@ -699,8 +743,9 @@ def _compare_inputs_are_same(
     return False
 
 
-@app.command()
+@app.command(cls=_ArgsRecordingCommand)
 def visualize(
+    ctx: typer.Context,
     directory: Annotated[
         str,
         typer.Argument(
@@ -835,6 +880,7 @@ def visualize(
     target = parse_github_url(directory)
     is_remote = target is not None
 
+    tokens, value_options = _flag_order_inputs(ctx)
     spec = resolve_display_options(
         sort_loc=sort_by_loc,
         sort_size=sort_by_size,
@@ -845,6 +891,8 @@ def visualize(
         disp_size=size,
         disp_mtime=mtime and not is_remote,
         disp_git=show_git_status and not is_remote,
+        tokens=tokens,
+        value_options=value_options,
     )
 
     validated: Path = Path(directory)
@@ -920,8 +968,9 @@ def visualize(
         raise typer.Exit(1) from None
 
 
-@app.command()
+@app.command(cls=_ArgsRecordingCommand)
 def export(
+    ctx: typer.Context,
     directory: Annotated[
         str,
         typer.Argument(
@@ -1076,6 +1125,7 @@ def export(
     target = parse_github_url(directory)
     is_remote = target is not None
 
+    tokens, value_options = _flag_order_inputs(ctx)
     spec = resolve_display_options(
         sort_loc=sort_by_loc,
         sort_size=sort_by_size,
@@ -1086,6 +1136,8 @@ def export(
         disp_size=size,
         disp_mtime=mtime and not is_remote,
         disp_git=show_git_status and not is_remote,
+        tokens=tokens,
+        value_options=value_options,
     )
 
     validated: Path = Path(directory)
@@ -1258,8 +1310,9 @@ def version() -> None:
     typer.echo(f"Recursivist version: {__version__}")
 
 
-@app.command()
+@app.command(cls=_ArgsRecordingCommand)
 def compare(
+    ctx: typer.Context,
     dir1: Annotated[
         str,
         typer.Argument(help="First directory path or GitHub repository URL to compare"),
@@ -1457,6 +1510,7 @@ def compare(
     local_paths = [Path(raw) for raw in local_inputs]
     ignore_file = _resolve_ignore_file(local_paths, ignore_file)
 
+    tokens, value_options = _flag_order_inputs(ctx)
     spec = resolve_display_options(
         sort_loc=sort_by_loc,
         sort_size=sort_by_size,
@@ -1467,6 +1521,8 @@ def compare(
         disp_size=size,
         disp_mtime=mtime and not both_remote,
         disp_git=show_git_status and not both_remote,
+        tokens=tokens,
+        value_options=value_options,
     )
 
     if both_remote:

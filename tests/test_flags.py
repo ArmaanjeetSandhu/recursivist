@@ -253,6 +253,39 @@ class TestCliOrderKey:
         assert _cli_order_key(_spec("disp_size"), ["-sz"]) is None
         assert _cli_order_key(_spec("disp_size"), ["--size"]) == (0, 0)
 
+    def test_attached_short_value_is_not_scanned_for_flags(self) -> None:
+        """``-xmd`` is ``-x md``: the ``m`` is part of -x's value, not ``-m``."""
+        tokens = ["-xmd", "--sort-by-size", "-m"]
+        value_options = {"-x", "--exclude-ext"}
+        assert _cli_order_key(_spec("sort_mtime"), tokens, value_options) == (2, 0)
+        assert _cli_order_key(_spec("sort_size"), tokens, value_options) == (1, 0)
+
+    def test_flags_before_value_option_in_bundle_are_found(self) -> None:
+        tokens = ["-sxmd", "-m"]
+        assert _cli_order_key(_spec("sort_loc"), tokens, {"-x"}) == (0, 0)
+        assert _cli_order_key(_spec("sort_mtime"), tokens, {"-x"}) == (1, 0)
+
+    def test_detached_short_value_is_skipped_even_if_dashed(self) -> None:
+        tokens = ["-p", "-m", "--sort-by-size", "-m"]
+        assert _cli_order_key(_spec("sort_mtime"), tokens, {"-p"}) == (3, 0)
+
+    def test_value_option_ending_bundle_consumes_next_token(self) -> None:
+        tokens = ["-sx", "-m", "-m"]
+        assert _cli_order_key(_spec("sort_mtime"), tokens, {"-x"}) == (2, 0)
+
+    def test_long_value_option_consumes_next_token(self) -> None:
+        tokens = ["--exclude-pattern", "--sort-by-loc", "--sort-by-loc"]
+        value_options = {"--exclude-pattern"}
+        assert _cli_order_key(_spec("sort_loc"), tokens, value_options) == (2, 0)
+
+    def test_long_value_option_with_equals_does_not_consume(self) -> None:
+        tokens = ["--exclude-pattern=x", "--sort-by-loc"]
+        value_options = {"--exclude-pattern"}
+        assert _cli_order_key(_spec("sort_loc"), tokens, value_options) == (1, 0)
+
+    def test_without_value_options_bundles_scan_as_flags(self) -> None:
+        assert _cli_order_key(_spec("sort_mtime"), ["-xmd"]) == (0, 1)
+
 
 class TestResolveDisplayOptions:
     def test_no_flags(self) -> None:
@@ -310,10 +343,21 @@ class TestResolveDisplayOptions:
         )
         assert opts.metrics == (METRIC_SIZE, METRIC_LOC)
 
-    def test_defaults_to_sys_argv(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_ignores_sys_argv(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """The host process's argv is unrelated to the call and must not be read."""
         monkeypatch.setattr("sys.argv", ["recursivist", "--size", "--loc"])
         opts = resolve_display_options(disp_loc=True, disp_size=True)
-        assert opts.metrics == (METRIC_SIZE, METRIC_LOC)
+        assert opts.metrics == (METRIC_LOC, METRIC_SIZE)
+
+    def test_attached_value_does_not_reorder_sorts(self) -> None:
+        opts = resolve_display_options(
+            sort_size=True,
+            sort_mtime=True,
+            tokens=["-xmd", "--sort-by-size", "-m"],
+            value_options={"-x"},
+        )
+        assert opts.sort_key == METRIC_SIZE
+        assert opts.metrics == (METRIC_SIZE,)
 
     def test_full_mix_resolves_by_order(self) -> None:
         """A realistic mix: git sort wins, display-only trio annotates in order."""

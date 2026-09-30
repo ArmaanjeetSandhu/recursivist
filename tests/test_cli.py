@@ -12,7 +12,10 @@ from unittest import mock
 import pytest
 from typer.testing import CliRunner
 
+from recursivist import cli as cli_module
 from recursivist.cli import app, parse_list_option
+from recursivist.exporters.markdown import _md_escape_text
+from recursivist.exporters.rst import _rst_escape
 from recursivist.scanner import get_directory_structure
 
 
@@ -356,7 +359,12 @@ def test_export_command(
         assert os.path.exists(export_file), f"File {export_file} does not exist"
         with open(export_file, encoding="utf-8") as f:
             content = f.read()
-            assert os.path.basename(sample_directory) in content
+            root_name = os.path.basename(sample_directory)
+            if fmt == "md":
+                root_name = _md_escape_text(root_name)
+            elif fmt == "rst":
+                root_name = _rst_escape(root_name)
+            assert root_name in content
 
 
 def test_export_with_multiple_format_flags(
@@ -630,12 +638,8 @@ def test_export_multiple_sort_flags_collapse_to_one(
 def test_export_display_only_flags_show_without_sorting(
     runner: CliRunner, sample_directory: str, output_dir: str
 ) -> None:
-    """Display-only flags annotate their metrics without setting a sort key.
-
-    (The precise left-to-right ordering of display-only flags derives from ``sys.argv``
-    and is covered directly in the flag-resolution unit tests; here the invocation goes
-    through CliRunner, so only order-independent behavior is asserted.)
-    """
+    """Display-only flags annotate their metrics, in command-line order, without
+    setting a sort key."""
     result = runner.invoke(
         app,
         [
@@ -655,7 +659,7 @@ def test_export_display_only_flags_show_without_sorting(
     with open(os.path.join(output_dir, "order_export.json"), encoding="utf-8") as f:
         data: dict[str, Any] = json.load(f)
     assert data["sort_key"] is None
-    assert sorted(data["metric_order"]) == ["loc", "size"]
+    assert data["metric_order"] == ["size", "loc"]
     assert data["show_loc"] is True
     assert data["show_size"] is True
 
@@ -1570,3 +1574,90 @@ def test_visualize_reports_unmatched_filters(
     assert "No files or directories matched --exclude 'does_not_exist'" in messages
     assert "No files or directories matched --exclude-ext '.xyz'" in messages
     assert not any("'.txt'" in m for m in messages)
+
+
+def test_export_attached_short_value_does_not_count_as_flag(
+    runner: CliRunner, sample_directory: str, output_dir: str
+) -> None:
+    """In ``-xsd`` the ``s`` is part of -x's value, so it is not ``--sort-by-loc``."""
+    result = runner.invoke(
+        app,
+        [
+            "export",
+            sample_directory,
+            "--format",
+            "json",
+            "--output-dir",
+            output_dir,
+            "--prefix",
+            "attached",
+            "-xsd",
+            "--sort-by-size",
+            "-s",
+        ],
+    )
+    assert result.exit_code == 0
+    with open(os.path.join(output_dir, "attached.json"), encoding="utf-8") as f:
+        data: dict[str, Any] = json.load(f)
+    assert data["sort_key"] == "size"
+    assert data["metric_order"] == ["size"]
+
+
+def test_flag_order_comes_from_invocation_not_process_argv(
+    runner: CliRunner,
+    sample_directory: str,
+    output_dir: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Called from code, the CLI orders flags by its own arguments, not sys.argv."""
+    monkeypatch.setattr("sys.argv", ["host-program", "--sort-by-loc"])
+    result = runner.invoke(
+        app,
+        [
+            "export",
+            sample_directory,
+            "--format",
+            "json",
+            "--output-dir",
+            output_dir,
+            "--prefix",
+            "from_code",
+            "--sort-by-size",
+            "--sort-by-loc",
+        ],
+    )
+    assert result.exit_code == 0
+    with open(os.path.join(output_dir, "from_code.json"), encoding="utf-8") as f:
+        data: dict[str, Any] = json.load(f)
+    assert data["sort_key"] == "size"
+
+
+def test_visualize_short_value_consumes_next_token(
+    runner: CliRunner, sample_directory: str, mocker: Any
+) -> None:
+    """A detached value that looks like a flag (``-p -s``) is not scanned as one."""
+    spy = mocker.spy(cli_module, "resolve_display_options")
+    result = runner.invoke(
+        app, ["visualize", sample_directory, "-p", "-s", "--sort-by-size", "-s"]
+    )
+    assert result.exit_code == 0
+    assert spy.spy_return.sort_key == "size"
+
+
+def test_short_option_value_arity_is_per_command(
+    runner: CliRunner, temp_dir: str, mocker: Any
+) -> None:
+    """``-f`` is a flag on ``compare`` (unlike ``export``), so ``-fm`` includes -m."""
+    dir1 = os.path.join(temp_dir, "one")
+    dir2 = os.path.join(temp_dir, "two")
+    for path in (dir1, dir2):
+        os.makedirs(path)
+        with open(os.path.join(path, "a.txt"), "w", encoding="utf-8") as f:
+            f.write("a")
+    spy = mocker.spy(cli_module, "resolve_display_options")
+    result = runner.invoke(
+        app,
+        ["compare", dir1, dir2, "-o", temp_dir, "-fm", "--sort-by-size"],
+    )
+    assert result.exit_code == 0
+    assert spy.spy_return.sort_key == "mtime"

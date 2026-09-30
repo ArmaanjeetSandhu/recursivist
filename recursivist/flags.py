@@ -28,8 +28,7 @@ the single value the renderers and exporters consult to decide how to sort and w
 annotate.
 """
 
-import sys
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
 from dataclasses import dataclass
 
 MODE_SORT_ONLY = "sort_only"
@@ -200,7 +199,11 @@ def resolve_flags(events: Sequence[tuple[str, str]]) -> DisplayOptions:
     )
 
 
-def _cli_order_key(spec: FlagSpec, tokens: Sequence[str]) -> tuple[int, int] | None:
+def _cli_order_key(
+    spec: FlagSpec,
+    tokens: Sequence[str],
+    value_options: Collection[str] = (),
+) -> tuple[int, int] | None:
     """Return the earliest ``(token_index, char_index)`` position of *spec*.
 
     Long options match a whole token (ignoring any ``=value`` suffix). Short options are
@@ -208,29 +211,42 @@ def _cli_order_key(spec: FlagSpec, tokens: Sequence[str]) -> tuple[int, int] | N
     inside the bundle preserves the user's ordering. Returns ``None`` when the flag does
     not appear in *tokens*.
 
+    Option values are never mistaken for flags. Every option string in *value_options*
+    (e.g. ``"-x"`` or ``"--exclude-ext"``) consumes a value: inside a short bundle the
+    rest of the bundle is that value (``-xmd`` is ``-x md``, not ``-x -m -d``), and when
+    nothing follows the option in its own token the next token is the value, even if it
+    starts with a dash.
+
     Args:
         spec: The flag to locate.
         tokens: The raw command-line tokens to search.
+        value_options: Option strings, with their dashes, that take a value.
 
     Returns:
         The earliest position as a sortable tuple, or ``None`` if not found.
     """
-    best: tuple[int, int] | None = None
+    skip_next = False
     for index, token in enumerate(tokens):
+        if skip_next:
+            skip_next = False
+            continue
         if token == "--":
             break
-        candidate: tuple[int, int] | None = None
         if token.startswith("--"):
-            if token.split("=", 1)[0] == spec.long:
-                candidate = (index, 0)
-        elif spec.short and len(token) >= 2 and token[0] == "-":
-            body = token[1:].split("=", 1)[0]
-            char_index = body.find(spec.short)
-            if char_index != -1:
-                candidate = (index, char_index)
-        if candidate is not None and (best is None or candidate < best):
-            best = candidate
-    return best
+            name = token.split("=", 1)[0]
+            if name == spec.long:
+                return (index, 0)
+            if name in value_options and "=" not in token:
+                skip_next = True
+        elif len(token) >= 2 and token[0] == "-":
+            body = token[1:]
+            for char_index, char in enumerate(body):
+                if char == spec.short:
+                    return (index, char_index)
+                if f"-{char}" in value_options:
+                    skip_next = char_index == len(body) - 1
+                    break
+    return None
 
 
 def resolve_display_options(
@@ -245,6 +261,7 @@ def resolve_display_options(
     disp_mtime: bool = False,
     disp_git: bool = False,
     tokens: Sequence[str] | None = None,
+    value_options: Collection[str] = (),
 ) -> DisplayOptions:
     """Resolve the raw per-flag booleans into
     [`DisplayOptions`][recursivist.flags.DisplayOptions].
@@ -266,14 +283,20 @@ def resolve_display_options(
         disp_size: Whether ``--size`` was given.
         disp_mtime: Whether ``--mtime`` was given.
         disp_git: Whether ``--git-status`` was given.
-        tokens: The raw command-line tokens used to order the active flags. Defaults to
-            ``sys.argv[1:]``.
+        tokens: The raw command-line tokens used to order the active flags. The caller
+            must supply the arguments of the invocation being resolved; ``sys.argv`` is
+            deliberately never consulted, because it belongs to the host process and is
+            unrelated to the arguments when the CLI is invoked from code. When omitted,
+            every active flag falls back to its registry position.
+        value_options: Option strings, with their dashes (e.g. ``"-x"``,
+            ``"--exclude-ext"``), that take a value on the command being resolved, so
+            their values are skipped rather than scanned for flags.
 
     Returns:
         The resolved [`DisplayOptions`][recursivist.flags.DisplayOptions].
     """
     if tokens is None:
-        tokens = sys.argv[1:]
+        tokens = ()
 
     active = {
         "sort_similarity": sort_similarity,
@@ -289,7 +312,7 @@ def resolve_display_options(
     active_specs = [_SPEC_BY_ID[flag_id] for flag_id, on in active.items() if on]
 
     def sort_key(spec: FlagSpec) -> tuple[int, int]:
-        position = _cli_order_key(spec, tokens)
+        position = _cli_order_key(spec, tokens, value_options)
         if position is None:
             return (len(tokens) + 1, _REGISTRY_INDEX[spec.id])
         return position
