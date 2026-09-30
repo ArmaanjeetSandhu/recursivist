@@ -1,10 +1,10 @@
 """Shared data model for directory-structure entries.
 
-This module defines :class:`FileEntry`, the fixed-shape representation of a
-file stored under ``structure["_files"]``.
+This module defines [`FileEntry`][recursivist._models.FileEntry], the fixed-shape
+representation of a file stored under ``structure["_files"]``.
 
-:class:`FileEntry` is a :class:`typing.NamedTuple`, so an entry can be used as
-a plain tuple — ``entry[0]`` is the name and ``isinstance(entry, tuple)`` is
+[`FileEntry`][recursivist._models.FileEntry] is a `typing.NamedTuple`, so an entry can
+be used as a plain tuple — ``entry[0]`` is the name and ``isinstance(entry, tuple)`` is
 ``True`` — as well as through attribute access (``entry.name``, ``entry.loc``).
 """
 
@@ -15,16 +15,16 @@ class FileEntry(NamedTuple):
     """A single file within a scanned directory structure.
 
     Attributes:
-        name: Bare filename (e.g. ``"main.py"``). Used for icon lookup,
-            extension detection and Git-status lookup.
-        path: The string to display for this file — an absolute, forward-slash
-            path when full-path display is enabled, otherwise just ``name``.
-        loc: Lines of code. Populated only when LOC counting is enabled during
-            scanning; ``0`` otherwise.
-        size: File size in bytes. Populated only when size tracking is enabled;
+        name: Bare filename (e.g. ``"main.py"``). Used for icon lookup, extension
+            detection and Git-status lookup.
+        path: The string to display for this file — an absolute, forward-slash path when
+            full-path display is enabled, otherwise just ``name``.
+        loc: Lines of code. Populated only when LOC counting is enabled during scanning;
             ``0`` otherwise.
-        mtime: Modification time (seconds since epoch). Populated only when
-            mtime tracking is enabled; ``0.0`` otherwise.
+        size: File size in bytes. Populated only when size tracking is enabled; ``0``
+            otherwise.
+        mtime: Modification time (seconds since epoch). Populated only when mtime
+            tracking is enabled; ``0.0`` otherwise.
     """
 
     name: str
@@ -35,22 +35,23 @@ class FileEntry(NamedTuple):
 
     @classmethod
     def coerce(cls, item: Union["FileEntry", tuple[Any, ...], str]) -> "FileEntry":
-        """Normalize any raw ``_files`` entry to a :class:`FileEntry` by position.
+        """Normalize any raw ``_files`` entry to a
+        [`FileEntry`][recursivist._models.FileEntry] by position.
 
-        A :class:`FileEntry` is returned unchanged; a bare string becomes a
-        name-only entry; and a tuple is read by its canonical
-        ``(name, path, loc, size, mtime)`` slots by index, defaulting any
-        missing trailing field. This matches how the scanner always emits
-        entries (as full :class:`FileEntry` values), and is the single
-        normalization boundary the sorting layer routes file lists through
-        before the metric values are read.
+        A [`FileEntry`][recursivist._models.FileEntry] is returned unchanged; a bare
+        string becomes a name-only entry; and a tuple is read by its canonical
+        ``(name, path, loc, size, mtime)`` slots by index, defaulting any missing
+        trailing field. This matches how the scanner always emits entries (as full
+        [`FileEntry`][recursivist._models.FileEntry] values), and is the single
+        normalization boundary the sorting layer routes file lists through before the
+        metric values are read.
 
         Args:
-            item: A :class:`FileEntry`, a positional tuple, or a bare filename
-                string.
+            item: A [`FileEntry`][recursivist._models.FileEntry], a positional tuple, or
+                a bare filename string.
 
         Returns:
-            The equivalent :class:`FileEntry`.
+            The equivalent [`FileEntry`][recursivist._models.FileEntry].
         """
         if isinstance(item, cls):
             return item

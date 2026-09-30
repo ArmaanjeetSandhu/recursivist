@@ -1,7 +1,7 @@
 """SVG tree exporter.
 
-Renders the scanned structure with the terminal tree builder into a recording
-``rich`` console and saves the captured output as an ``.svg`` file.
+Renders the scanned structure with the terminal tree builder into a recording ``rich``
+console and saves the captured output as an ``.svg`` file.
 """
 
 import io
@@ -33,15 +33,15 @@ class SvgExporter(BaseExporter):
         """Write the structure to *output_path* as an SVG image.
 
         Builds the same colored tree used for terminal output via
-        :func:`recursivist.tree.build_tree`, renders it to a recording
-        ``rich`` console, and saves that console's output as SVG.
+        [`recursivist.tree.build_tree`][recursivist.tree.build_tree], renders it to a
+        recording ``rich`` console, and saves that console's output as SVG.
 
         Args:
             output_path: Path the ``.svg`` file is written to.
 
         Raises:
-            Exception: Re-raised if writing the output file fails (after the
-                error is logged).
+            Exception: Re-raised if writing the output file fails (after the error is
+                logged).
         """
 
         def extract_extensions(struct: dict[str, Any]) -> set[str]:

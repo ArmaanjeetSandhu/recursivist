@@ -1,7 +1,7 @@
 """Markdown tree exporter.
 
-Renders the scanned structure as a nested Markdown bullet list — directories in
-bold, files as inline code — and writes it to a ``.md`` file.
+Renders the scanned structure as a nested Markdown bullet list — directories in bold,
+files as inline code — and writes it to a ``.md`` file.
 """
 
 import html
@@ -49,16 +49,15 @@ class MarkdownExporter(BaseExporter):
     def export(self, output_path: str) -> None:
         """Write the structure to *output_path* as a Markdown list.
 
-        Directory names are rendered in bold and filenames as inline code,
-        with any enabled metric or Git-status suffixes; deleted files are
-        struck through.
+        Directory names are rendered in bold and filenames as inline code, with any
+        enabled metric or Git-status suffixes; deleted files are struck through.
 
         Args:
             output_path: Path the ``.md`` file is written to.
 
         Raises:
-            Exception: Re-raised if writing the output file fails (after the
-                error is logged).
+            Exception: Re-raised if writing the output file fails (after the error is
+                logged).
         """
 
         def _build_md_tree(

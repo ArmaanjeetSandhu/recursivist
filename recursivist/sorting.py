@@ -1,7 +1,7 @@
 """File ordering.
 
-Sorts a directory's files by extension/name, by a numeric metric (LOC, size,
-mtime), or groups them by name similarity. Operates on :class:`FileEntry`.
+Sorts a directory's files by extension/name, by a numeric metric (LOC, size, mtime), or
+groups them by name similarity. Operates on [`FileEntry`][recursivist._models.FileEntry]
 """
 
 import os
@@ -25,41 +25,40 @@ _GIT_SORT_CLEAN = 4
 def sort_files_by_similarity(files: Sequence[Any]) -> list[FileEntry]:
     """Order files so that similarly named files sit next to each other.
 
-    Unlike the LOC/size/mtime metrics, name similarity is *relational*: it
-    depends on how a file's name compares to the others rather than on any
-    single measured value, so it cannot be expressed as a ``sorted`` key.
-    Instead this builds a greedy nearest-neighbour chain:
+    Unlike the LOC/size/mtime metrics, name similarity is *relational*: it depends on
+    how a file's name compares to the others rather than on any single measured value,
+    so it cannot be expressed as a ``sorted`` key. Instead this builds a greedy
+    nearest-neighbour chain:
 
-    1. Entries are seeded in case-insensitive name order and the
-       alphabetically-first name becomes the start of the chain. Using a
-       fixed, name-derived anchor makes the result deterministic and stable
-       across runs (the same directory always yields the same order).
-    2. Repeatedly, the not-yet-placed entry whose name is most similar to the
-       most recently placed name is appended. Similarity is the
-       :class:`difflib.SequenceMatcher` ratio computed case-insensitively on
-       the full filename (extension included), so ``main.py``/``main.js`` and
-       ``test_api.py``/``test_api.js`` naturally cluster.
-    3. Ratio ties are broken by case-insensitive name order: because the
-       candidates are kept alphabetically sorted and the best match is only
-       replaced on a strictly greater ratio, the alphabetically-first of any
-       tied group wins.
+    1. Entries are seeded in case-insensitive name order and the alphabetically-first
+       name becomes the start of the chain. Using a fixed, name-derived anchor makes the
+       result deterministic and stable across runs (the same directory always yields the
+       same order).
+    2. Repeatedly, the not-yet-placed entry whose name is most similar to the most
+       recently placed name is appended. Similarity is the `difflib.SequenceMatcher`
+       ratio computed case-insensitively on the full filename (extension included), so
+       ``main.py``/``main.js`` and ``test_api.py``/``test_api.js`` naturally cluster.
+    3. Ratio ties are broken by case-insensitive name order: because the candidates are
+       kept alphabetically sorted and the best match is only replaced on a strictly
+       greater ratio, the alphabetically-first of any tied group wins.
 
-    This is a heuristic (locally greedy) ordering rather than a globally
-    optimal grouping, which is the appropriate trade-off for a directory
-    listing: each directory holds relatively few files, so the ``O(n^2)``
-    pairwise comparisons are cheap, and the result reliably places obvious
-    name-siblings adjacent to one another.
+    This is a heuristic (locally greedy) ordering rather than a globally optimal
+    grouping, which is the appropriate trade-off for a directory listing: each directory
+    holds relatively few files, so the ``O(n^2)`` pairwise comparisons are cheap, and
+    the result reliably places obvious name-siblings adjacent to one another.
 
-    Inputs may be :class:`FileEntry` instances, bare filename strings, or
-    positional tuples; every item is normalised to a :class:`FileEntry` via
-    :meth:`FileEntry.coerce` before ordering. Since only the name is used, the
-    metric slots do not affect the result.
+    Inputs may be [`FileEntry`][recursivist._models.FileEntry] instances, bare filename
+    strings, or positional tuples; every item is normalised to a
+    [`FileEntry`][recursivist._models.FileEntry] via
+    [`FileEntry.coerce`][recursivist._models.FileEntry.coerce] before ordering. Since
+    only the name is used, the metric slots do not affect the result.
 
     Args:
         files: List of file items (``FileEntry``, tuple, or ``str``).
 
     Returns:
-        Reordered list of :class:`FileEntry` with name-similar files adjacent.
+        Reordered list of [`FileEntry`][recursivist._models.FileEntry] with name-similar
+        files adjacent.
     """
     if not files:
         return []
@@ -93,30 +92,30 @@ def sort_files_by_type(
     Exactly one ordering is applied, chosen by *sort_key*:
 
     - ``None``: the default — by extension, then case-insensitive name.
-    - ``"loc"`` / ``"size"`` / ``"mtime"``: by that metric, largest/newest
-      first (a stable sort keeps the pre-existing order for equal values).
-    - ``"git_status"``: grouped by Git status (modified, added, deleted,
-      untracked, then clean), and by case-insensitive name within each group.
-      Requires *git_markers*.
+    - ``"loc"`` / ``"size"`` / ``"mtime"``: by that metric, largest/newest first (a
+      stable sort keeps the pre-existing order for equal values).
+    - ``"git_status"``: grouped by Git status (modified, added, deleted, untracked, then
+      clean), and by case-insensitive name within each group. Requires *git_markers*.
     - ``"similarity"``: by name similarity, via
-      :func:`sort_files_by_similarity`.
+      [`sort_files_by_similarity`][recursivist.sorting.sort_files_by_similarity].
 
-    This mirrors the resolution in :mod:`recursivist.flags`, where only the
-    first sorting flag on the command line takes effect, so there is never more
-    than one active metric to combine.
+    This mirrors the resolution in [`recursivist.flags`][recursivist.flags], where only
+    the first sorting flag on the command line takes effect, so there is never more than
+    one active metric to combine.
 
-    Inputs may be :class:`FileEntry` instances, bare filename strings, or
-    positional tuples; every item is normalised to a :class:`FileEntry` via
-    :meth:`FileEntry.coerce` before sorting.
+    Inputs may be [`FileEntry`][recursivist._models.FileEntry] instances, bare filename
+    strings, or positional tuples; every item is normalised to a
+    [`FileEntry`][recursivist._models.FileEntry] via
+    [`FileEntry.coerce`][recursivist._models.FileEntry.coerce] before sorting.
 
     Args:
         files: List of file items (``FileEntry``, tuple, or ``str``).
         sort_key: The single metric to order by, or ``None`` for the default.
-        git_markers: ``{filename: status_char}`` mapping, required when
-            *sort_key* is ``"git_status"``.
+        git_markers: ``{filename: status_char}`` mapping, required when *sort_key* is
+            ``"git_status"``.
 
     Returns:
-        Sorted list of :class:`FileEntry`.
+        Sorted list of [`FileEntry`][recursivist._models.FileEntry].
     """
     if not files:
         return []

@@ -1,8 +1,8 @@
 """JSON tree exporter.
 
-Serializes the scanned structure to JSON. Without any detail flags, files
-collapse to bare names; with LOC, size, mtime, or Git status enabled, each file
-becomes an object carrying the requested fields.
+Serializes the scanned structure to JSON. Without any detail flags, files collapse to
+bare names; with LOC, size, mtime, or Git status enabled, each file becomes an object
+carrying the requested fields.
 """
 
 import json
@@ -26,19 +26,18 @@ class JsonExporter(BaseExporter):
     def export(self, output_path: str) -> None:
         """Write the structure to *output_path* as JSON.
 
-        The payload records the root name, the (possibly detailed) structure,
-        the resolved sort key, and which detail flags were active. File entries
-        are emitted as bare names unless a detail flag (full path, LOC, size,
-        mtime, or Git status) requires the richer object form. When present, the
-        per-file metric fields are emitted in the resolved display order, with
-        the Git status always last.
+        The payload records the root name, the (possibly detailed) structure, the
+        resolved sort key, and which detail flags were active. File entries are emitted
+        as bare names unless a detail flag (full path, LOC, size, mtime, or Git status)
+        requires the richer object form. When present, the per-file metric fields are
+        emitted in the resolved display order, with the Git status always last.
 
         Args:
             output_path: Path the ``.json`` file is written to.
 
         Raises:
-            Exception: Re-raised if writing the output file fails (after the
-                error is logged).
+            Exception: Re-raised if writing the output file fails (after the error is
+                logged).
         """
         has_detail = self.show_full_path or bool(self.metrics) or self.show_git_status
 
@@ -47,9 +46,10 @@ class JsonExporter(BaseExporter):
         ) -> str | dict[str, Any]:
             """Encode a single ``_files`` entry for the detail JSON form.
 
-            The entry is normalised through :meth:`FileEntry.coerce` and
-            rendered with exactly the keys the active flags call for, with
-            metric fields following the resolved display order.
+            The entry is normalised through
+            [`FileEntry.coerce`][recursivist._models.FileEntry.coerce] and rendered with
+            exactly the keys the active flags call for, with metric fields following the
+            resolved display order.
             """
             entry = FileEntry.coerce(item)
             git_status = (
@@ -72,9 +72,9 @@ class JsonExporter(BaseExporter):
         def convert_structure_for_json(structure: dict[str, Any]) -> dict[str, Any]:
             """Recursively convert *structure* to its detailed JSON form.
 
-            Encodes each file via :func:`file_to_json` and carries through the
-            enabled aggregate metrics (adding their formatted variants), while
-            dropping the internal ``_git_markers`` bookkeeping key.
+            Encodes each file via `file_to_json` and carries through the enabled
+            aggregate metrics (adding their formatted variants), while dropping the
+            internal ``_git_markers`` bookkeeping key.
 
             Args:
                 structure: Directory-structure dict to convert.
@@ -139,9 +139,8 @@ class JsonExporter(BaseExporter):
         def names_only(structure: dict[str, Any]) -> dict[str, Any]:
             """Copy ``structure``, collapsing ``_files`` to bare names.
 
-            Used when no detail flags are active: each file is reduced to its
-            name while every other key (including ``_git_markers``) is left
-            intact.
+            Used when no detail flags are active: each file is reduced to its name while
+            every other key (including ``_git_markers``) is left intact.
             """
             result: dict[str, Any] = {}
             git_markers_here = structure.get("_git_markers", {})

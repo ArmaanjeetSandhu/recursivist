@@ -1,9 +1,9 @@
 """Side-by-side directory comparison.
 
-Builds the structures for two directories with identical filtering and renders
-them next to each other, highlighting entries unique to either side. Supports
-the same filtering and metric options as the single-tree renderer, with
-terminal output for interactive use and HTML export for sharing.
+Builds the structures for two directories with identical filtering and renders them next
+to each other, highlighting entries unique to either side. Supports the same filtering
+and metric options as the single-tree renderer, with terminal output for interactive use
+and HTML export for sharing.
 """
 
 import contextlib
@@ -59,15 +59,15 @@ def _scan_one_side(
 ) -> dict[str, Any]:
     """Scan a single already-resolved directory for one side of a comparison.
 
-    Git status is looked up (and files annotated) only when *spec* requests it.
-    Callers pass a spec with Git status and modification time already removed
-    for GitHub sides (see
-    :meth:`~recursivist.flags.DisplayOptions.without_remote_unsupported`), so a
-    hosted repository is never given Git markers or per-file timestamps.
+    Git status is looked up (and files annotated) only when *spec* requests it. Callers
+    pass a spec with Git status and modification time already removed for GitHub sides
+    (see
+    [`without_remote_unsupported`][recursivist.flags.DisplayOptions.without_remote_unsupported]),
+    so a hosted repository is never given Git markers or per-file timestamps.
 
     Args:
-        scan_dir: The local directory to scan (a real directory, or the
-            temporary checkout of a GitHub repository).
+        scan_dir: The local directory to scan (a real directory, or the temporary
+            checkout of a GitHub repository).
         exclude_dirs: Directory names to skip entirely.
         ignore_file: Ignore filename to honor, or ``None``.
         exclude_extensions: Lowercase, dot-prefixed extensions to exclude.
@@ -116,19 +116,19 @@ def compare_directory_structures(
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     """Scan two inputs for comparison, each a local directory or GitHub URL.
 
-    Each side is scanned with the same filtering and metric settings. A side
-    may be a local directory or a GitHub repository URL; a GitHub side is
-    downloaded and extracted to a temporary directory (removed before this
-    function returns), scanned there, and — when *show_full_path* is set — has
-    its file paths rewritten to GitHub blob URLs.
+    Each side is scanned with the same filtering and metric settings. A side may be a
+    local directory or a GitHub repository URL; a GitHub side is downloaded and
+    extracted to a temporary directory (removed before this function returns), scanned
+    there, and — when *show_full_path* is set — has its file paths rewritten to GitHub
+    blob URLs.
 
     The ``--ignore-file`` option, Git-status annotations, and modification-time
-    annotations only apply to local directories, so they are skipped for any
-    GitHub side (its spec is adjusted via
-    :meth:`~recursivist.flags.DisplayOptions.without_remote_unsupported`) while
-    still being honored for a local side. When *both* sides are GitHub
-    repositories the caller is expected to have already cleared these from
-    *spec* as well.
+    annotations only apply to local directories, so they are skipped for any GitHub side
+    (its spec is adjusted via
+    [`without_remote_unsupported`][recursivist.flags.DisplayOptions.without_remote_unsupported])
+    while still being honored for a local side. When *both* sides are GitHub
+    repositories the caller is expected to have already cleared these from *spec* as
+    well.
 
     Args:
         dir1: First input — a local directory path or a GitHub repository URL.
@@ -138,14 +138,14 @@ def compare_directory_structures(
             ``.gitignore``); ignored for GitHub sides.
         exclude_extensions: Lowercase, dot-prefixed extensions to exclude.
         exclude_patterns: Glob or compiled-regex patterns to exclude.
-        include_patterns: Glob or compiled-regex patterns to include, which
-            override the exclusions.
+        include_patterns: Glob or compiled-regex patterns to include, which override the
+            exclusions.
         max_depth: Maximum depth to scan, or ``0`` for unlimited.
         show_full_path: Whether to store absolute paths (local sides) or GitHub
             blob URLs (GitHub sides) instead of bare filenames.
-        spec: Resolved sorting and annotation directives. When Git status is
-            requested it is looked up independently for each *local* side.
-            Defaults to a plain :class:`DisplayOptions`.
+        spec: Resolved sorting and annotation directives. When Git status is requested
+            it is looked up independently for each *local* side. Defaults to a plain
+            [`DisplayOptions`][recursivist.flags.DisplayOptions].
 
     Returns:
         A ``(structure1, structure2)`` tuple holding each input's structure.
@@ -204,22 +204,20 @@ def _comparison_identity(
 ) -> tuple[str, str, str]:
     """Return the key that decides whether a file matches one across the sides.
 
-    Comparison highlighting used to key on the filename alone, so two
-    identically named files were always treated as the same entry — even when
-    an active annotating option gave them different values. This folds the
-    *displayed* annotations into the identity so that a file counts as shared
-    only when it also presents identically:
+    Comparison highlighting used to key on the filename alone, so two identically named
+    files were always treated as the same entry — even when an active annotating option
+    gave them different values. This folds the *displayed* annotations into the identity
+    so that a file counts as shared only when it also presents identically:
 
-    * the numeric metrics named in *metrics* (LOC, size, mtime), rendered in
-      the same order they are shown, and
+    * the numeric metrics named in *metrics* (LOC, size, mtime), rendered in the same
+      order they are shown, and
     * the Git-status badge, when *show_git_status* is set.
 
-    Because the identity mirrors the rendered annotation rather than the raw
-    values, a difference in the key always corresponds to a visible difference
-    in the tree (e.g. ``shared.py (3 lines)`` vs ``shared.py (1 line)``, or a
-    ``[M]`` badge on only one side). Only the bare *name* is used for the
-    filename component, never the full path, so full-path display does not by
-    itself make every file look unique.
+    Because the identity mirrors the rendered annotation rather than the raw values, a
+    difference in the key always corresponds to a visible difference in the tree (e.g.
+    ``shared.py (3 lines)`` vs ``shared.py (1 line)``, or a ``[M]`` badge on only one
+    side). Only the bare *name* is used for the filename component, never the full path,
+    so full-path display does not by itself make every file look unique.
 
     Args:
         entry: The file whose identity is wanted.
@@ -252,43 +250,42 @@ def build_comparison_tree(
 ) -> None:
     """Populate a ``rich`` tree, highlighting differences against another tree.
 
-    Recursively adds the entries of *structure* to *tree*, comparing each
-    against *other_structure*: items present in both are shown normally, items
-    unique to *structure* are highlighted in green, and items unique to
-    *other_structure* are highlighted in red. File names are rendered without
-    file-type-specific colors so the green/red difference highlighting stands
-    out. Files are ordered by ``spec.sort_key`` and metric annotations are
-    appended in ``spec.metrics`` order.
+    Recursively adds the entries of *structure* to *tree*, comparing each against
+    *other_structure*: items present in both are shown normally, items unique to
+    *structure* are highlighted in green, and items unique to *other_structure* are
+    highlighted in red. File names are rendered without file-type-specific colors so the
+    green/red difference highlighting stands out. Files are ordered by ``spec.sort_key``
+    and metric annotations are appended in ``spec.metrics`` order.
 
-    When ``spec.show_git_status`` is set, each file is followed by a plain
-    Git-status badge — ``[U]`` untracked, ``[M]`` modified, ``[A]`` added,
-    ``[D]`` deleted — read from the ``_git_markers`` stored on *structure* (and
-    on *other_structure* for entries unique to it). The badge is not
-    color-coded; it trails the metric parenthetical, and deleted files are
-    struck through.
+    When ``spec.show_git_status`` is set, each file is followed by a plain Git-status
+    badge — ``[U]`` untracked, ``[M]`` modified, ``[A]`` added, ``[D]`` deleted — read
+    from the ``_git_markers`` stored on *structure* (and on *other_structure* for
+    entries unique to it). The badge is not color-coded; it trails the metric
+    parenthetical, and deleted files are struck through.
 
-    Two identically named files count as the same entry only when their
-    *displayed* annotations also match (see :func:`_comparison_identity`), so a
-    differing metric or Git status marks them as unique to their side.
-    *identity_spec* controls which annotations that match considers: it
-    defaults to *spec*, but a caller comparing a local directory against a
-    hosted repository passes ``spec.without_remote_unsupported()`` so that
-    annotations a remote side cannot provide (modification time, Git status)
-    are excluded from the identity — those are still *displayed* per *spec*,
-    they just no longer split otherwise-matching files across the two sides.
+    Two identically named files count as the same entry only when their *displayed*
+    annotations also match (see `_comparison_identity`), so a differing metric or Git
+    status marks them as unique to their side. *identity_spec* controls which
+    annotations that match considers: it defaults to *spec*, but a caller comparing a
+    local directory against a hosted repository passes
+    ``spec.without_remote_unsupported()`` so that annotations a remote side cannot
+    provide (modification time, Git status) are excluded from the identity — those are
+    still *displayed* per *spec*, they just no longer split otherwise-matching files
+    across the two sides.
 
     Args:
         structure: Structure of the directory being rendered.
         other_structure: Structure of the directory being compared against.
         tree: ``rich`` tree to add nodes to. Modified in place.
         spec: Resolved sorting and annotation directives.
-        show_full_path: Whether to display absolute paths instead of bare
-            filenames.
+        show_full_path: Whether to display absolute paths instead of bare filenames.
         icon_style: Icon style to use, either ``"emoji"`` or ``"nerd"``.
-        identity_spec: Directives governing which annotations contribute to
-            cross-side file identity. Defaults to *spec*.
-        this_is_remote: Whether the primary structure originates from a hosted repository.
-        other_is_remote: Whether the compared structure originates from a hosted repository.
+        identity_spec: Directives governing which annotations contribute to cross-side
+            file identity. Defaults to *spec*.
+        this_is_remote: Whether the primary structure originates from a hosted
+            repository.
+        other_is_remote: Whether the compared structure originates from a hosted
+            repository.
     """
     id_spec = identity_spec if identity_spec is not None else spec
     need_git = spec.show_git_status or spec.sort_key == METRIC_GIT
@@ -315,14 +312,14 @@ def build_comparison_tree(
     ) -> None:
         """Add a single file entry to *tree* with metrics and Git badge.
 
-        The Git badge (``[U]``/``[M]``/``[A]``/``[D]``) is rendered without any
-        color of its own; deleted files are struck through.
+        The Git badge (``[U]``/``[M]``/``[A]``/``[D]``) is rendered without any color of
+        its own; deleted files are struck through.
 
         Args:
-            entry: The :class:`FileEntry` to render.
+            entry: The [`FileEntry`][recursivist._models.FileEntry] to render.
             markers: The ``{filename: status_char}`` map for this file's side.
-            highlight: The background highlight style (``"on green"``,
-                ``"on red"``, or ``""``) marking difference state.
+            highlight: The background highlight style (``"on green"``, ``"on red"``, or
+                ``""``) marking difference state.
             metrics: Displayed metrics for the file.
         """
         file_icon = get_icon(entry.name, is_dir=False, style=icon_style)
@@ -443,8 +440,8 @@ def build_comparison_tree(
 def _side_display_name(raw: str) -> str:
     """Return the label for one comparison side, local path or GitHub URL.
 
-    For a GitHub URL this is the repository name (or the subpath's last
-    segment); for a local path it is the directory's own name.
+    For a GitHub URL this is the repository name (or the subpath's last segment); for a
+    local path it is the directory's own name.
 
     Args:
         raw: The raw input for one side of the comparison.
@@ -461,13 +458,13 @@ def _side_display_name(raw: str) -> str:
 def _identity_spec_for(dir1: str, dir2: str, spec: DisplayOptions) -> DisplayOptions:
     """Return the spec governing cross-side file identity for two inputs.
 
-    When both inputs are local directories the full *spec* is used, so every
-    displayed annotation contributes to whether two identically named files are
-    treated as the same entry. When either input is a GitHub repository, the
-    annotations a hosted side cannot provide — modification time and Git
-    status — are dropped from the identity via
-    :meth:`~recursivist.flags.DisplayOptions.without_remote_unsupported`, so
-    they no longer split otherwise-matching files across the two sides. Those
+    When both inputs are local directories the full *spec* is used, so every displayed
+    annotation contributes to whether two identically named files are treated as the
+    same entry. When either input is a GitHub repository, the annotations a hosted side
+    cannot provide — modification time and Git status — are dropped from the identity
+    via
+    [`without_remote_unsupported`][recursivist.flags.DisplayOptions.without_remote_unsupported],
+    so they no longer split otherwise-matching files across the two sides. Those
     annotations are still *displayed* according to *spec*; only their effect on
     difference highlighting changes.
 
@@ -477,8 +474,8 @@ def _identity_spec_for(dir1: str, dir2: str, spec: DisplayOptions) -> DisplayOpt
         spec: The resolved display directives for the run.
 
     Returns:
-        *spec* unchanged for a local-vs-local comparison, or its
-        remote-adjusted form when either side is a GitHub repository.
+        *spec* unchanged for a local-vs-local comparison, or its remote-adjusted form
+        when either side is a GitHub repository.
     """
     involves_remote = (
         parse_github_url(dir1) is not None or parse_github_url(dir2) is not None
@@ -489,12 +486,11 @@ def _identity_spec_for(dir1: str, dir2: str, spec: DisplayOptions) -> DisplayOpt
 def _render_side_by_side(console: Console, left: Panel, right: Panel) -> Table:
     """Lay two comparison panels out side by side at a fixed half-width each.
 
-    Each pane is pinned to half the available terminal width, with a
-    single-column gap between them, so the two panels always render side by
-    side. Because the panes cannot grow to fit their content, the wrapped trees
-    inside them break long entries — long names, several annotation flags, or
-    ``--full-path`` — across lines via the ``"fold"`` overflow, keeping the two
-    panes aligned at any width.
+    Each pane is pinned to half the available terminal width, with a single-column gap
+    between them, so the two panels always render side by side. Because the panes cannot
+    grow to fit their content, the wrapped trees inside them break long entries — long
+    names, several annotation flags, or ``--full-path`` — across lines via the
+    ``"fold"`` overflow, keeping the two panes aligned at any width.
 
     Args:
         console: Console the grid will be printed to; its width sets the split.
@@ -530,28 +526,27 @@ def display_comparison(
 ) -> None:
     """Render two directory trees side by side in the terminal.
 
-    Scans both directories with identical options and prints them as two
-    labeled, color-highlighted panels: entries unique to *dir1* and *dir2* are
-    highlighted in contrasting colors, shared entries are shown normally, and a
-    legend explains the scheme.
+    Scans both directories with identical options and prints them as two labeled,
+    color-highlighted panels: entries unique to *dir1* and *dir2* are highlighted in
+    contrasting colors, shared entries are shown normally, and a legend explains the
+    scheme.
 
     Args:
         dir1: Path to the first directory.
         dir2: Path to the second directory.
         exclude_dirs: Directory names to skip entirely.
         ignore_file: Name of an ignore file to honor (e.g. ``.gitignore``).
-        exclude_extensions: File extensions to exclude. Normalized to a
-            lowercase, dot-prefixed form before scanning.
+        exclude_extensions: File extensions to exclude. Normalized to a lowercase,
+            dot-prefixed form before scanning.
         exclude_patterns: Glob or regex patterns to exclude.
-        include_patterns: Glob or regex patterns to include, which override
-            the exclusions.
-        use_regex: Whether to treat the patterns as regular expressions
-            instead of glob patterns.
+        include_patterns: Glob or regex patterns to include, which override the
+            exclusions.
+        use_regex: Whether to treat the patterns as regular expressions instead of glob
+            patterns.
         max_depth: Maximum depth to display, or ``0`` for unlimited.
-        show_full_path: Whether to display absolute paths instead of bare
-            filenames.
+        show_full_path: Whether to display absolute paths instead of bare filenames.
         spec: Resolved sorting and annotation directives. Defaults to a plain
-            :class:`DisplayOptions`.
+            [`DisplayOptions`][recursivist.flags.DisplayOptions].
         icon_style: Icon style to use, either ``"emoji"`` or ``"nerd"``.
     """
     if spec is None:
@@ -738,9 +733,9 @@ def export_comparison(
 ) -> None:
     """Export a side-by-side directory comparison to an HTML file.
 
-    Scans both directories with identical options and writes a standalone,
-    responsive HTML document containing the highlighted comparison, a legend,
-    and a summary of the settings used. Only HTML output is supported.
+    Scans both directories with identical options and writes a standalone, responsive
+    HTML document containing the highlighted comparison, a legend, and a summary of the
+    settings used. Only HTML output is supported.
 
     Args:
         dir1: Path to the first directory.
@@ -749,18 +744,17 @@ def export_comparison(
         output_path: Path the HTML file is written to.
         exclude_dirs: Directory names to skip entirely.
         ignore_file: Name of an ignore file to honor (e.g. ``.gitignore``).
-        exclude_extensions: File extensions to exclude. Normalized to a
-            lowercase, dot-prefixed form before scanning.
+        exclude_extensions: File extensions to exclude. Normalized to a lowercase,
+            dot-prefixed form before scanning.
         exclude_patterns: Glob or regex patterns to exclude.
-        include_patterns: Glob or regex patterns to include, which override
-            the exclusions.
-        use_regex: Whether to treat the patterns as regular expressions
-            instead of glob patterns.
+        include_patterns: Glob or regex patterns to include, which override the
+            exclusions.
+        use_regex: Whether to treat the patterns as regular expressions instead of glob
+            patterns.
         max_depth: Maximum depth to include, or ``0`` for unlimited.
-        show_full_path: Whether to write absolute paths instead of bare
-            filenames.
+        show_full_path: Whether to write absolute paths instead of bare filenames.
         spec: Resolved sorting and annotation directives. Defaults to a plain
-            :class:`DisplayOptions`.
+            [`DisplayOptions`][recursivist.flags.DisplayOptions].
         icon_style: Icon style to use, either ``"emoji"`` or ``"nerd"``.
 
     Raises:
@@ -838,14 +832,13 @@ def _export_comparison_to_html(
 ) -> None:
     """Write the comparison HTML document from prepared comparison data.
 
-    Generates a responsive, styled HTML page with the two directory trees side
-    by side and their differences highlighted, including any LOC, size,
-    modification-time, or Git-status annotations enabled in the metadata.
+    Generates a responsive, styled HTML page with the two directory trees side by side
+    and their differences highlighted, including any LOC, size, modification-time, or
+    Git-status annotations enabled in the metadata.
 
     Args:
-        comparison_data: Prepared comparison payload holding each directory's
-            structure under ``"dir1"``/``"dir2"`` and the render settings under
-            ``"metadata"``.
+        comparison_data: Prepared comparison payload holding each directory's structure
+            under ``"dir1"``/``"dir2"`` and the render settings under ``"metadata"``.
         output_path: Path the HTML file is written to.
         icon_style: Icon style to use, either ``"emoji"`` or ``"nerd"``.
     """
@@ -858,9 +851,9 @@ def _export_comparison_to_html(
     ) -> str:
         """Build the nested ``<ul>`` markup for one side of the comparison.
 
-        Walks *structure*, emitting list items for its files and
-        subdirectories and tagging any entry absent from *other_structure* so
-        it can be highlighted as unique.
+        Walks *structure*, emitting list items for its files and subdirectories and
+        tagging any entry absent from *other_structure* so it can be highlighted as
+        unique.
 
         Args:
             structure: Structure of the directory being rendered.
@@ -904,10 +897,10 @@ def _export_comparison_to_html(
             The badge is not color-coded; deleted files are struck through.
 
             Args:
-                entry: The :class:`FileEntry` to render.
+                entry: The [`FileEntry`][recursivist._models.FileEntry] to render.
                 markers: The ``{filename: status_char}`` map for this side.
-                file_class: The ``class="..."`` attribute (including a leading
-                    space) marking difference state, or ``""``.
+                file_class: The ``class="..."`` attribute (including a leading space)
+                    marking difference state, or ``""``.
                 file_metrics: Specific metrics for this file.
 
             Returns:

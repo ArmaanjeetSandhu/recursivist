@@ -1,8 +1,8 @@
 """Standalone HTML tree exporter.
 
-Renders the scanned structure as a self-contained HTML document — a nested,
-styled list with extension-colored files and optional metric and Git-status
-annotations — and writes it to an ``.html`` file.
+Renders the scanned structure as a self-contained HTML document — a nested, styled list
+with extension-colored files and optional metric and Git-status annotations — and writes
+it to an ``.html`` file.
 """
 
 import html
@@ -53,16 +53,16 @@ class HtmlExporter(BaseExporter):
     def export(self, output_path: str) -> None:
         """Write the structure to *output_path* as an HTML document.
 
-        Produces a self-contained page with an embedded stylesheet: a nested
-        list of extension-colored files and bold directory names, plus any
-        enabled metric or Git-status annotations. All names are HTML-escaped.
+        Produces a self-contained page with an embedded stylesheet: a nested list of
+        extension-colored files and bold directory names, plus any enabled metric or
+        Git-status annotations. All names are HTML-escaped.
 
         Args:
             output_path: Path the ``.html`` file is written to.
 
         Raises:
-            Exception: Re-raised if writing the output file fails (after the
-                error is logged).
+            Exception: Re-raised if writing the output file fails (after the error is
+                logged).
         """
 
         def _build_html_tree(

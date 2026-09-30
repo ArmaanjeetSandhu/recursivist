@@ -2,30 +2,30 @@
 
 Recursivist exposes three families of file-annotation flags:
 
-* **Sorting-only** — ``--sort-by-similarity`` groups similarly named files
-  together but adds no annotation of its own.
+* **Sorting-only** — ``--sort-by-similarity`` groups similarly named files together but
+  adds no annotation of its own.
 * **Combined** — ``--sort-by-loc``, ``--sort-by-size``, ``--sort-by-mtime`` and
-  ``--sort-by-git-status`` each sort files by a metric *and* annotate every file
-  with that metric.
-* **Display-only** — ``--loc``, ``--size``, ``--mtime`` and ``--git-status``
-  annotate files with a metric without influencing the ordering.
+  ``--sort-by-git-status`` each sort files by a metric *and* annotate every file with
+  that metric.
+* **Display-only** — ``--loc``, ``--size``, ``--mtime`` and ``--git-status`` annotate
+  files with a metric without influencing the ordering.
 
 When several of these flags are combined, they are resolved strictly by their
-left-to-right order on the command line rather than by any fixed internal
-precedence. The rules, implemented by :func:`resolve_flags`, are:
+left-to-right order on the command line rather than by any fixed internal precedence.
+The rules, implemented by [`resolve_flags`][recursivist.flags.resolve_flags], are:
 
-* Only the *first* sorting flag (sorting-only or combined) is honored; every
-  later sorting flag is discarded completely — it contributes neither ordering
-  nor annotation.
-* Display-only flags always annotate. Their annotations appear in the exact
-  order the flags were given.
-* When the winning sort is a *combined* numeric metric (LOC, size or mtime),
-  that metric's annotation is shown first, ahead of any display-only ones.
-* When the winning sort is a *combined* Git-status flag, its badge trails at the
-  very end, after every display-only annotation.
+* Only the *first* sorting flag (sorting-only or combined) is honored; every later
+  sorting flag is discarded completely — it contributes neither ordering nor annotation.
+* Display-only flags always annotate. Their annotations appear in the exact order the
+  flags were given.
+* When the winning sort is a *combined* numeric metric (LOC, size or mtime), that
+  metric's annotation is shown first, ahead of any display-only ones.
+* When the winning sort is a *combined* Git-status flag, its badge trails at the very
+  end, after every display-only annotation.
 
-The resolution is expressed as a :class:`DisplayOptions`, the single value the
-renderers and exporters consult to decide how to sort and what to annotate.
+The resolution is expressed as a [`DisplayOptions`][recursivist.flags.DisplayOptions],
+the single value the renderers and exporters consult to decide how to sort and what to
+annotate.
 """
 
 import sys
@@ -51,12 +51,11 @@ class FlagSpec:
 
     Attributes:
         id: Stable identifier used as a dictionary key by the CLI layer.
-        mode: One of :data:`MODE_SORT_ONLY`, :data:`MODE_COMBINED`, or
-            :data:`MODE_DISPLAY_ONLY`.
-        metric: The metric the flag relates to (e.g. :data:`METRIC_LOC`).
+        mode: One of `MODE_SORT_ONLY`, `MODE_COMBINED`, or `MODE_DISPLAY_ONLY`.
+        metric: The metric the flag relates to (e.g. `METRIC_LOC`).
         long: The long option string, including the leading dashes.
-        short: The single-letter short option (without the dash), or ``None``
-            when the flag has no short form.
+        short: The single-letter short option (without the dash), or ``None`` when the
+            flag has no short form.
     """
 
     id: str
@@ -91,20 +90,19 @@ _REGISTRY_INDEX: dict[str, int] = {spec.id: i for i, spec in enumerate(FLAG_SPEC
 class DisplayOptions:
     """Resolved sorting and annotation directives for a single run.
 
-    This is the value produced by :func:`resolve_flags` and threaded through the
-    renderers and exporters. It cleanly separates the two concerns the flags
-    used to conflate: *how files are ordered* (:attr:`sort_key`) and *what is
-    annotated, and in what order* (:attr:`metrics` plus :attr:`show_git_status`).
+    This is the value produced by [`resolve_flags`][recursivist.flags.resolve_flags] and
+    threaded through the renderers and exporters. It cleanly separates the two concerns
+    the flags used to conflate: *how files are ordered* (`sort_key`) and *what is
+    annotated, and in what order* (`metrics` plus `show_git_status`).
 
     Attributes:
-        sort_key: The single metric files are ordered by — one of
-            :data:`METRIC_LOC`, :data:`METRIC_SIZE`, :data:`METRIC_MTIME`,
-            :data:`METRIC_GIT`, :data:`METRIC_SIMILARITY`, or ``None`` to keep
-            the default extension/name ordering.
-        metrics: The numeric metrics (subset of :data:`NUMERIC_METRICS`) to
-            annotate files with, in the exact order they should be displayed.
-        show_git_status: Whether to append the Git-status badge to each file.
-            The badge always trails the numeric-metric parenthetical.
+        sort_key: The single metric files are ordered by — one of `METRIC_LOC`,
+            `METRIC_SIZE`, `METRIC_MTIME`, `METRIC_GIT`, `METRIC_SIMILARITY`, or
+            ``None`` to keep the default extension/name ordering.
+        metrics: The numeric metrics (subset of `NUMERIC_METRICS`) to annotate files
+            with, in the exact order they should be displayed.
+        show_git_status: Whether to append the Git-status badge to each file. The badge
+            always trails the numeric-metric parenthetical.
     """
 
     sort_key: str | None = None
@@ -134,16 +132,15 @@ class DisplayOptions:
     def without_remote_unsupported(self) -> "DisplayOptions":
         """Return a copy with annotations that don't apply to a hosted repo.
 
-        A GitHub checkout has no meaningful per-file Git status or modification
-        time — every file effectively shares the tip commit's status and
-        timestamp — so the Git-status badge and the modification-time metric are
-        dropped, and a sort keyed on either falls back to the default ordering.
-        The lines-of-code and size metrics are retained, since those are
-        computed from the file contents themselves.
+        A GitHub checkout has no meaningful per-file Git status or modification time —
+        every file effectively shares the tip commit's status and timestamp — so the
+        Git-status badge and the modification-time metric are dropped, and a sort keyed
+        on either falls back to the default ordering. The lines-of-code and size metrics
+        are retained, since those are computed from the file contents themselves.
 
         Returns:
-            A :class:`DisplayOptions` with Git status and modification time
-            removed from both the sort key and the annotation set.
+            A [`DisplayOptions`][recursivist.flags.DisplayOptions] with Git status and
+            modification time removed from both the sort key and the annotation set.
         """
         sort_key = self.sort_key
         if sort_key in (METRIC_GIT, METRIC_MTIME):
@@ -157,17 +154,18 @@ class DisplayOptions:
 
 
 def resolve_flags(events: Sequence[tuple[str, str]]) -> DisplayOptions:
-    """Resolve an ordered sequence of flag events into :class:`DisplayOptions`.
+    """Resolve an ordered sequence of flag events into
+    [`DisplayOptions`][recursivist.flags.DisplayOptions].
 
     Each event is a ``(mode, metric)`` pair drawn from the registry, in the
-    left-to-right order the flags appeared on the command line. The resolution
-    rules are described in the module docstring.
+    left-to-right order the flags appeared on the command line. The resolution rules are
+    described in the module docstring.
 
     Args:
         events: The flag events, ordered by command-line position.
 
     Returns:
-        The resolved :class:`DisplayOptions`.
+        The resolved [`DisplayOptions`][recursivist.flags.DisplayOptions].
     """
     sort_key: str | None = None
     sort_locked = False
@@ -205,10 +203,10 @@ def resolve_flags(events: Sequence[tuple[str, str]]) -> DisplayOptions:
 def _cli_order_key(spec: FlagSpec, tokens: Sequence[str]) -> tuple[int, int] | None:
     """Return the earliest ``(token_index, char_index)`` position of *spec*.
 
-    Long options match a whole token (ignoring any ``=value`` suffix). Short
-    options are searched for within short-option bundles such as ``-sz``, so the
-    character position inside the bundle preserves the user's ordering. Returns
-    ``None`` when the flag does not appear in *tokens*.
+    Long options match a whole token (ignoring any ``=value`` suffix). Short options are
+    searched for within short-option bundles such as ``-sz``, so the character position
+    inside the bundle preserves the user's ordering. Returns ``None`` when the flag does
+    not appear in *tokens*.
 
     Args:
         spec: The flag to locate.
@@ -248,14 +246,15 @@ def resolve_display_options(
     disp_git: bool = False,
     tokens: Sequence[str] | None = None,
 ) -> DisplayOptions:
-    """Resolve the raw per-flag booleans into :class:`DisplayOptions`.
+    """Resolve the raw per-flag booleans into
+    [`DisplayOptions`][recursivist.flags.DisplayOptions].
 
-    The set of active flags comes from the boolean arguments (which the CLI
-    parser has already validated), while their relative order is recovered from
-    *tokens* — the raw command-line arguments. This split keeps resolution
-    robust: the parser is the source of truth for *which* flags are present, and
-    the token scan only orders that known set. A flag that cannot be located in
-    *tokens* falls back to its registry position so ordering stays deterministic.
+    The set of active flags comes from the boolean arguments (which the CLI parser has
+    already validated), while their relative order is recovered from *tokens* — the raw
+    command-line arguments. This split keeps resolution robust: the parser is the source
+    of truth for *which* flags are present, and the token scan only orders that known
+    set. A flag that cannot be located in *tokens* falls back to its registry position
+    so ordering stays deterministic.
 
     Args:
         sort_loc: Whether ``--sort-by-loc`` was given.
@@ -267,11 +266,11 @@ def resolve_display_options(
         disp_size: Whether ``--size`` was given.
         disp_mtime: Whether ``--mtime`` was given.
         disp_git: Whether ``--git-status`` was given.
-        tokens: The raw command-line tokens used to order the active flags.
-            Defaults to ``sys.argv[1:]``.
+        tokens: The raw command-line tokens used to order the active flags. Defaults to
+            ``sys.argv[1:]``.
 
     Returns:
-        The resolved :class:`DisplayOptions`.
+        The resolved [`DisplayOptions`][recursivist.flags.DisplayOptions].
     """
     if tokens is None:
         tokens = sys.argv[1:]

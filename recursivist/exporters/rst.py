@@ -1,8 +1,9 @@
 """reStructuredText tree exporter.
 
-Renders the scanned structure as a nested reStructuredText bullet list (directories in bold, files as inline literals) under a section title for the
-root, and writes it to a ``.rst`` file. The output is valid reStructuredText
-that renders cleanly with docutils and Sphinx.
+Renders the scanned structure as a nested reStructuredText bullet list (directories in
+bold, files as inline literals) under a section title for the root, and writes it to a
+``.rst`` file. The output is valid reStructuredText that renders cleanly with docutils
+and Sphinx.
 """
 
 import logging
@@ -32,10 +33,9 @@ _GIT_RST_BADGE = {
 def _rst_display_width(text: str) -> int:
     """Return the display column width of *text*.
 
-    Replicates :func:`docutils.utils.column_width`: East Asian wide and
-    fullwidth characters count as two columns, combining characters as zero,
-    and everything else as one. Used to size section-title underlines so they
-    are never reported as too short.
+    Replicates `docutils.utils.column_width`: East Asian wide and fullwidth characters
+    count as two columns, combining characters as zero, and everything else as one. Used
+    to size section-title underlines so they are never reported as too short.
     """
     width = sum(_EAST_ASIAN_WIDTHS[unicodedata.east_asian_width(c)] for c in text)
     width -= sum(1 for c in text if unicodedata.combining(c))
@@ -45,13 +45,12 @@ def _rst_display_width(text: str) -> int:
 def _rst_inline_literal(text: str) -> str:
     """Render *text* as a reStructuredText inline literal (``text``).
 
-    Inline literals display their content verbatim, which suits file paths.
-    They cannot, however, contain a double back-tick (their end-string), and
-    the parser only recognises them when the opening back-ticks are not
-    followed by whitespace and the closing back-ticks are not preceded by
-    whitespace. When *text* would violate any of these rules (it is empty,
-    contains a double back-tick, or starts or ends with whitespace) the
-    exporter falls back to escaped plain text so the output stays valid
+    Inline literals display their content verbatim, which suits file paths. They cannot,
+    however, contain a double back-tick (their end-string), and the parser only
+    recognizes them when the opening back-ticks are not followed by whitespace and the
+    closing back-ticks are not preceded by whitespace. When *text* would violate any of
+    these rules (it is empty, contains a double back-tick, or starts or ends with
+    whitespace) the exporter falls back to escaped plain text so the output stays valid
     reStructuredText.
     """
     if text and "``" not in text and not text[0].isspace() and not text[-1].isspace():
@@ -62,10 +61,9 @@ def _rst_inline_literal(text: str) -> str:
 def _rst_escape(text: str) -> str:
     """Escape reStructuredText inline-markup characters in *text*.
 
-    Backslash-escapes the characters that can start or end inline markup so the
-    text renders literally in interpreted contexts such as bold directory names
-    and the section title. The backslash itself is escaped first to avoid
-    double-processing.
+    Backslash-escapes the characters that can start or end inline markup so the text
+    renders literally in interpreted contexts such as bold directory names and the
+    section title. The backslash itself is escaped first to avoid double-processing.
     """
     for ch in ("\\", "`", "*", "_", "|"):
         text = text.replace(ch, "\\" + ch)
@@ -80,18 +78,18 @@ class RstExporter(BaseExporter):
     def export(self, output_path: str) -> None:
         """Write the structure to *output_path* as reStructuredText.
 
-        The root is rendered as a section title (underlined so its length
-        matches the title's display width) followed by a nested bullet list.
-        Directory names are shown in bold and filenames as inline literals,
-        with any enabled metric or Git-status suffixes. A blank line is
-        inserted before each nested list, as reStructuredText requires.
+        The root is rendered as a section title (underlined so its length matches the
+        title's display width) followed by a nested bullet list. Directory names are
+        shown in bold and filenames as inline literals, with any enabled metric or
+        Git-status suffixes. A blank line is inserted before each nested list, as
+        reStructuredText requires.
 
         Args:
             output_path: Path the ``.rst`` file is written to.
 
         Raises:
-            Exception: Re-raised if writing the output file fails (after the
-                error is logged).
+            Exception: Re-raised if writing the output file fails (after the error is
+                logged).
         """
 
         def _build_rst_tree(

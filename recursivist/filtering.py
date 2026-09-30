@@ -1,21 +1,20 @@
-"""File and directory filtering: ignore files, glob/regex patterns, and
-gitignore-style exclusion rules.
+"""File and directory filtering: ignore files, glob/regex patterns, and gitignore-style
+exclusion rules.
 
-Provides the predicate :func:`should_exclude` used by the scanner. Git-style
-ignore matching is delegated to :mod:`pathspec` (its gitignore matcher),
-which implements the full gitignore specification: anchoring, ``**`` wildcards,
-directory-only (trailing ``/``) patterns, ``!`` negation with last-match-wins,
-character classes, backslash escapes, and trailing-whitespace handling. The glob
-and regex matching used by ``--exclude-pattern``/``--include-pattern`` is
+Provides the predicate [`should_exclude`][recursivist.filtering.should_exclude] used by
+the scanner. Git-style ignore matching is delegated to `pathspec` (its gitignore
+matcher), which implements the full gitignore specification: anchoring, ``**``
+wildcards, directory-only (trailing ``/``) patterns, ``!`` negation with
+last-match-wins, character classes, backslash escapes, and trailing-whitespace handling.
+The glob and regex matching used by ``--exclude-pattern``/``--include-pattern`` is
 unrelated and remains pure standard library.
 
-Like Git, each ignore file is evaluated *relative to the directory that
-contains it* rather than relative to the scan root. The active ignore files are
-kept as a stack (shallowest first); a path is tested against every level with
-its own anchoring, and a deeper file's verdict overrides a shallower one, so an
-anchored pattern such as ``/build`` in a nested ``.gitignore`` matches only
-within that subdirectory and does not leak up to the scan root or down past the
-anchor.
+Like Git, each ignore file is evaluated *relative to the directory that contains it*
+rather than relative to the scan root. The active ignore files are kept as a stack
+(shallowest first); a path is tested against every level with its own anchoring, and a
+deeper file's verdict overrides a shallower one, so an anchored pattern such as
+``/build`` in a nested ``.gitignore`` matches only within that subdirectory and does not
+leak up to the scan root or down past the anchor.
 """
 
 from __future__ import annotations
@@ -44,18 +43,17 @@ except LookupError:
 def parse_ignore_file(ignore_file_path: str) -> list[str]:
     """Read an ignore file and return its lines as gitignore patterns.
 
-    Lines are returned verbatim with only their terminators removed, preserving
-    order and every character that is significant to the gitignore grammar
-    (comments, blank lines, backslash escapes, and escaped trailing
-    whitespace). Interpretation is left entirely to the gitignore matcher, so
-    callers must not strip or filter the returned lines.
+    Lines are returned verbatim with only their terminators removed, preserving order
+    and every character that is significant to the gitignore grammar (comments, blank
+    lines, backslash escapes, and escaped trailing whitespace). Interpretation is left
+    entirely to the gitignore matcher, so callers must not strip or filter the returned
+    lines.
 
     Args:
         ignore_file_path: Path to the ignore file (e.g. ``.gitignore``).
 
     Returns:
-        The list of pattern lines, or an empty list when the file does not
-        exist.
+        The list of pattern lines, or an empty list when the file does not exist.
     """
     if not os.path.exists(ignore_file_path):
         return []
@@ -68,19 +66,18 @@ def compile_regex_patterns(
 ) -> list[str | Pattern[str]]:
     """Compile patterns to regex objects when regex matching is requested.
 
-    When *is_regex* is ``False`` the patterns are returned unchanged for glob
-    matching. When ``True`` each pattern is compiled to a
-    :class:`re.Pattern`; any pattern that fails to compile is kept as a string
-    and a warning is logged.
+    When *is_regex* is ``False`` the patterns are returned unchanged for glob matching.
+    When ``True`` each pattern is compiled to a `re.Pattern`; any pattern that fails to
+    compile is kept as a string and a warning is logged.
 
     Args:
         patterns: Patterns to process.
-        is_regex: Whether to treat the patterns as regular expressions
-            (``True``) or glob patterns (``False``).
+        is_regex: Whether to treat the patterns as regular expressions (``True``) or
+            glob patterns (``False``).
 
     Returns:
-        A list whose items are plain strings for glob patterns or compiled
-        :class:`re.Pattern` objects for successfully compiled regexes.
+        A list whose items are plain strings for glob patterns or compiled `re.Pattern`
+        objects for successfully compiled regexes.
     """
     if not is_regex:
         return cast(list[str | Pattern[str]], patterns)
@@ -96,20 +93,19 @@ def compile_regex_patterns(
 
 @cache
 def _build_ignore_spec(patterns: tuple[str, ...]) -> PathSpec[IgnorePattern]:
-    """Compile gitignore pattern lines into a :class:`~pathspec.PathSpec`.
+    """Compile gitignore pattern lines into a `PathSpec`.
 
-    Uses pathspec's gitignore implementation, which follows the gitignore
-    specification. The resulting spec is matched (by :func:`should_exclude`)
-    against a path expressed relative to the directory of the ignore file the
-    patterns came from, using forward slashes;
-    :meth:`~pathspec.PathSpec.check_file` resolves ``!`` negation with
-    last-match-wins within the file and reports whether any pattern matched.
+    Uses pathspec's gitignore implementation, which follows the gitignore specification.
+    The resulting spec is matched (by
+    [`should_exclude`][recursivist.filtering.should_exclude]) against a path expressed
+    relative to the directory of the ignore file the patterns came from, using forward
+    slashes; `check_file` resolves ``!`` negation with last-match-wins within the file
+    and reports whether any pattern matched.
 
-    Patterns are compiled one at a time so a single malformed line (which
-    pathspec rejects with a :class:`ValueError`) is skipped with a warning
-    rather than aborting the whole scan. Blank lines and comments compile to
-    inert patterns and are harmless. Cached so each unique tuple of patterns is
-    compiled only once per run.
+    Patterns are compiled one at a time so a single malformed line (which pathspec
+    rejects with a `ValueError`) is skipped with a warning rather than aborting the
+    whole scan. Blank lines and comments compile to inert patterns and are harmless.
+    Cached so each unique tuple of patterns is compiled only once per run.
     """
     compiled: list[IgnorePattern] = []
     for line in patterns:
@@ -127,14 +123,14 @@ def _resolve_ignore_levels(
 ) -> tuple[tuple[str, tuple[str, ...]], ...]:
     """Return the active ignore levels as ``(base, patterns)`` pairs.
 
-    Each pair is one ignore file: *base* is the file's directory relative to the
-    scan root (``""`` for the root ignore file) and *patterns* are its verbatim
-    pattern lines. Levels are ordered shallowest-first so a caller can let a
-    deeper file's verdict override a shallower one, matching Git's precedence.
+    Each pair is one ignore file: *base* is the file's directory relative to the scan
+    root (``""`` for the root ignore file) and *patterns* are its verbatim pattern
+    lines. Levels are ordered shallowest-first so a caller can let a deeper file's
+    verdict override a shallower one, matching Git's precedence.
 
-    The explicit ``"pattern_stack"`` produced by the scanner is preferred. When
-    it is absent the legacy flat ``"patterns"`` list is used and treated as a
-    single ignore file rooted at the scan root.
+    The explicit ``"pattern_stack"`` produced by the scanner is preferred. When it is
+    absent the legacy flat ``"patterns"`` list is used and treated as a single ignore
+    file rooted at the scan root.
     """
     stack = ignore_context.get("pattern_stack")
     if stack is not None:
@@ -151,14 +147,13 @@ def _is_ignored_by_stack(
 ) -> bool:
     """Apply a shallow-to-deep stack of ignore files to a single path.
 
-    *target* is the path relative to the scan root, forward-slashed and with a
-    trailing ``/`` when it is a directory. Each level is matched relative to its
-    own *base* directory (levels whose base does not contain *target* are
-    skipped), and the last level that expresses an opinion wins. A level's
-    opinion is tri-state via :meth:`~pathspec.PathSpec.check_file`: matched by an
-    ignore pattern, re-included by a ``!`` negation, or silent -- so a deeper
-    file that says nothing leaves a shallower verdict intact, exactly as Git
-    resolves precedence between nested ``.gitignore`` files.
+    *target* is the path relative to the scan root, forward-slashed and with a trailing
+    ``/`` when it is a directory. Each level is matched relative to its own *base*
+    directory (levels whose base does not contain *target* are skipped), and the last
+    level that expresses an opinion wins. A level's opinion is tri-state via
+    `check_file`: matched by an ignore pattern, re-included by a ``!`` negation, or
+    silent -- so a deeper file that says nothing leaves a shallower verdict intact,
+    exactly as Git resolves precedence between nested ``.gitignore`` files.
     """
     decision: bool | None = None
     for base, patterns in levels:
@@ -192,32 +187,32 @@ def should_exclude(
     The filtering rules are applied in priority order:
 
     1. If *include_patterns* are given and none match a file, exclude it.
-    2. If any *exclude_patterns* match, exclude the path (this overrides
-       include patterns).
+    2. If any *exclude_patterns* match, exclude the path (this overrides include
+       patterns).
     3. If the file's extension is in *exclude_extensions*, exclude it.
     4. If an include pattern matched, include the path (this overrides the
        gitignore-style patterns below).
-    5. Otherwise apply the gitignore-style rules from *ignore_context* via
-       :mod:`pathspec`, honoring anchoring, ``**`` wildcards, directory-only
-       (trailing ``/``) patterns, ``!`` negation, character classes and escapes
-       per the gitignore specification. Each ignore file in the stack is matched
-       relative to its own directory and deeper files override shallower ones,
-       so a nested file's anchored patterns stay scoped to its subtree.
+    5. Otherwise apply the gitignore-style rules from *ignore_context* via `pathspec`,
+       honoring anchoring, ``**`` wildcards, directory-only (trailing ``/``) patterns,
+       ``!`` negation, character classes and escapes per the gitignore specification.
+       Each ignore file in the stack is matched relative to its own directory and deeper
+       files override shallower ones, so a nested file's anchored patterns stay scoped
+       to its subtree.
 
     Args:
         path: Filesystem path to test.
-        ignore_context: Mapping describing the active ignore rules. Recognized
-            keys are ``"pattern_stack"`` (a shallowest-first sequence of
-            ``(base_dir_relative_to_root, patterns)`` pairs, one per ignore
-            file), ``"patterns"`` (a legacy flat pattern list, treated as a
-            single ignore file at the scan root when ``"pattern_stack"`` is
-            absent), ``"current_dir"`` (directory used to anchor the
-            ``--exclude-pattern``/``--include-pattern`` globs), and ``"rel_dir"``
-            (the current directory's path relative to the scan root).
+        ignore_context: Mapping describing the active ignore rules. Recognized keys are
+            ``"pattern_stack"`` (a shallowest-first sequence of
+            ``(base_dir_relative_to_root, patterns)`` pairs, one per ignore file),
+            ``"patterns"`` (a legacy flat pattern list, treated as a single ignore file
+            at the scan root when ``"pattern_stack"`` is absent), ``"current_dir"``
+            (directory used to anchor the ``--exclude-pattern``/``--include-pattern``
+            globs), and ``"rel_dir"`` (the current directory's path relative to the scan
+            root).
         exclude_extensions: Lowercase, dot-prefixed extensions to exclude.
         exclude_patterns: Glob or compiled-regex patterns to exclude.
-        include_patterns: Glob or compiled-regex patterns to include, which
-            override the gitignore-style exclusions.
+        include_patterns: Glob or compiled-regex patterns to include, which override the
+            gitignore-style exclusions.
 
     Returns:
         ``True`` if the path should be excluded, ``False`` otherwise.

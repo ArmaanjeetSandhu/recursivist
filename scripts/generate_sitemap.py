@@ -1,14 +1,14 @@
 """Generate ``docs/sitemap.md`` from the MkDocs navigation.
 
-The sitemap mirrors the documentation website's structure: it walks the ``nav``
-defined in ``mkdocs.yml`` and, for every page, extracts the ``H1``-``H4``
-headers to recover each page's sections and subsections. The result is written
-as a Markdown in which every page, section, and subsection is hyperlinked to its
-exact location on the documentation website.
+The sitemap mirrors the documentation website's structure: it walks the ``nav`` defined
+in ``mkdocs.yml`` and, for every page, extracts the ``H1``-``H4`` headers to recover
+each page's sections and subsections. The result is written as a Markdown in which every
+page, section, and subsection is hyperlinked to its exact location on the documentation
+website.
 
-Anchors are computed with the very same slugifier MkDocs uses (the ``toc``
-extension of Python-Markdown), including its duplicate-heading disambiguation,
-so the generated links resolve correctly.
+Anchors are computed with the very same slugifier MkDocs uses (the ``toc`` extension of
+Python-Markdown), including its duplicate-heading disambiguation, so the generated links
+resolve correctly.
 """
 
 import os
@@ -32,9 +32,9 @@ _IDCOUNT_RE = re.compile(r"^(.*)_(\d+)$")
 def _slugify(value: str) -> str:
     """Slugify a header exactly as MkDocs' ``toc`` extension does by default.
 
-    Mirrors ``markdown.extensions.toc.slugify`` (separator ``-``) so the
-    generated anchors match the ids MkDocs renders. Reproduced here rather than
-    imported to keep the script's only third-party dependency ``PyYAML``.
+    Mirrors ``markdown.extensions.toc.slugify`` (separator ``-``) so the generated
+    anchors match the ids MkDocs renders. Reproduced here rather than imported to keep
+    the script's only third-party dependency ``PyYAML``.
     """
     value = unicodedata.normalize("NFKD", value)
     value = value.encode("ascii", "ignore").decode("ascii")
@@ -45,8 +45,8 @@ def _slugify(value: str) -> str:
 def _anchor(title: str, used_ids: set[str]) -> str:
     """Return the unique MkDocs anchor slug for a header on a single page.
 
-    Mirrors ``markdown.extensions.toc.unique`` so repeated headers on one page
-    are disambiguated the same way MkDocs does (``slug``, ``slug_1``, ...).
+    Mirrors ``markdown.extensions.toc.unique`` so repeated headers on one page are
+    disambiguated the same way MkDocs does (``slug``, ``slug_1``, ...).
     """
     slug = _slugify(title)
     while slug in used_ids or not slug:
@@ -59,8 +59,8 @@ def _anchor(title: str, used_ids: set[str]) -> str:
 def parse_markdown_headers(filepath: str, page_url: str) -> list[dict[str, Any]]:
     """Parse a page and return its ``H1``-``H4`` headers as a nested tree.
 
-    Each node carries the link ``url`` (the page URL plus the header's anchor)
-    so the sitemap can hyperlink straight to that section.
+    Each node carries the link ``url`` (the page URL plus the header's anchor) so the
+    sitemap can hyperlink straight to that section.
     """
     if not os.path.exists(filepath):
         return []
@@ -110,9 +110,9 @@ def parse_markdown_headers(filepath: str, page_url: str) -> list[dict[str, Any]]
 def _page_sections(filepath: str, page_url: str) -> list[dict[str, Any]]:
     """Return the sections to list under a page.
 
-    A page conventionally has a single ``H1`` that repeats its title; when that
-    is the case the redundant ``H1`` is unwrapped so its subsections attach
-    directly to the page entry.
+    A page conventionally has a single ``H1`` that repeats its title; when that is the
+    case the redundant ``H1`` is unwrapped so its subsections attach directly to the
+    page entry.
     """
     headers = parse_markdown_headers(filepath, page_url)
     if len(headers) == 1:
@@ -124,9 +124,9 @@ def _page_sections(filepath: str, page_url: str) -> list[dict[str, Any]]:
 def process_nav(nav_item: object) -> dict[str, Any] | None:
     """Turn one ``mkdocs.yml`` ``nav`` entry into a sitemap node.
 
-    A node has a ``label``, an optional ``url`` (``None`` for grouping entries
-    that are not pages themselves), and ``children`` (subsections for pages,
-    or nested pages for groups).
+    A node has a ``label``, an optional ``url`` (``None`` for grouping entries that are
+    not pages themselves), and ``children`` (subsections for pages, or nested pages for
+    groups).
     """
     if isinstance(nav_item, str):
         label = os.path.basename(nav_item).replace(".md", "").replace("-", " ").title()
@@ -149,8 +149,8 @@ def process_nav(nav_item: object) -> dict[str, Any] | None:
 def _page_node(label: str, rel_path: str) -> dict[str, Any] | None:
     """Build a page node, hyperlinked to the page and carrying its sections.
 
-    The sitemap page itself is omitted: it should not list itself, and skipping
-    it keeps regeneration idempotent.
+    The sitemap page itself is omitted: it should not list itself, and skipping it keeps
+    regeneration idempotent.
     """
     rel_path = rel_path.replace(os.sep, "/")
     if rel_path == SITEMAP_REL:

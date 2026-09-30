@@ -1,9 +1,9 @@
 """Directory traversal.
 
 Recursively walks a directory, applies the exclusion rules from
-:mod:`recursivist.filtering`, collects optional per-file metrics from
-:mod:`recursivist.metrics`, and returns the nested structure dict consumed by
-the renderers and exporters.
+[`recursivist.filtering`][recursivist.filtering], collects optional per-file metrics
+from [`recursivist.metrics`][recursivist.metrics], and returns the nested structure dict
+consumed by the renderers and exporters.
 """
 
 import logging
@@ -47,16 +47,17 @@ def _has_visible_entries(
 ) -> bool:
     """Return whether *root_dir* holds at least one non-excluded entry.
 
-    Used at the depth limit, where the directory is not traversed but its
-    renderers still need to know whether anything was left behind, so a
-    truncated directory is not drawn as if it were empty. Only the immediate
-    children are inspected, since that is enough to distinguish "nothing here" from
-    "more below", without paying for a full recursive walk.
+    Used at the depth limit, where the directory is not traversed but its renderers
+    still need to know whether anything was left behind, so a truncated directory is not
+    drawn as if it were empty. Only the immediate children are inspected, since that is
+    enough to distinguish "nothing here" from "more below", without paying for a full
+    recursive walk.
 
     Args:
         root_dir: Directory to peek into.
         exclude_dirs: Directory names to skip entirely.
-        ignore_context: Ignore-file context for :func:`should_exclude`.
+        ignore_context: Ignore-file context for
+            [`should_exclude`][recursivist.filtering.should_exclude].
         exclude_extensions: Lowercase, dot-prefixed extensions to exclude.
         exclude_patterns: Glob or compiled-regex patterns to exclude.
         include_patterns: Glob or compiled-regex patterns to include.
@@ -93,13 +94,13 @@ def _has_visible_entries(
 def has_contents(structure: Any) -> bool:
     """Return whether a directory-structure entry holds anything to display.
 
-    A directory counts as non-empty when it has files, has subdirectories, or
-    was cut short by the depth limit with contents left unexplored. Renderers
-    use this to pick between the open and closed folder icons.
+    A directory counts as non-empty when it has files, has subdirectories, or was cut
+    short by the depth limit with contents left unexplored. Renderers use this to pick
+    between the open and closed folder icons.
 
     Args:
         structure: A subtree of a structure dict as produced by
-            :func:`get_directory_structure`.
+            [`get_directory_structure`][recursivist.scanner.get_directory_structure].
 
     Returns:
         ``True`` if the entry has visible contents.
@@ -136,62 +137,58 @@ def get_directory_structure(
 ) -> tuple[dict[str, Any], set[str]]:
     """Build a nested dictionary representing a directory structure.
 
-    Recursively traverses *root_dir*, applying the exclusion rules and
-    optionally collecting per-file metrics, and returns the nested mapping
-    consumed by the renderers and exporters. Each subdirectory becomes a
-    nested dict under its own name; a directory's files and aggregate metrics
-    are stored under reserved keys.
+    Recursively traverses *root_dir*, applying the exclusion rules and optionally
+    collecting per-file metrics, and returns the nested mapping consumed by the
+    renderers and exporters. Each subdirectory becomes a nested dict under its own name;
+    a directory's files and aggregate metrics are stored under reserved keys.
 
     Reserved keys in the returned structure:
 
-    - ``"_files"``: list of :class:`FileEntry` for the directory's files.
+    - ``"_files"``: list of [`FileEntry`][recursivist._models.FileEntry] for the
+      directory's files.
     - ``"_loc"``: total lines of code (when *sort_by_loc* is set).
     - ``"_size"``: total size in bytes (when *sort_by_size* is set).
     - ``"_mtime"``: latest modification time (when *sort_by_mtime* is set).
     - ``"_max_depth_reached"``: present when traversal stopped at *max_depth*.
-    - ``"_hidden_contents"``: present (and ``True``) alongside
-      ``"_max_depth_reached"`` when the untraversed directory is not empty, so
-      renderers can still tell it apart from one that holds nothing.
-    - ``"_symlink_loop"``: present (and ``True``) when a directory was not
-      recursed into because it resolves to one of its own ancestors, i.e. a
-      symlink (or other) cycle back up the tree.
-    - ``"_git_markers"``: ``{filename: status_char}`` (when *show_git_status*
-      is set).
+    - ``"_hidden_contents"``: present (and ``True``) alongside ``"_max_depth_reached"``
+      when the untraversed directory is not empty, so renderers can still tell it apart
+      from one that holds nothing.
+    - ``"_symlink_loop"``: present (and ``True``) when a directory was not recursed into
+      because it resolves to one of its own ancestors, i.e. a symlink (or other) cycle
+      back up the tree.
+    - ``"_git_markers"``: ``{filename: status_char}`` (when *show_git_status* is set).
 
     Args:
         root_dir: Directory to scan.
         exclude_dirs: Directory names to skip entirely.
-        ignore_file: Name of an ignore file to honor within each directory
-            (e.g. ``.gitignore``).
+        ignore_file: Name of an ignore file to honor within each directory (e.g.
+            ``.gitignore``).
         exclude_extensions: Lowercase, dot-prefixed extensions to exclude.
-        parent_ignore_patterns: Ignore files inherited from parent directories
-            as a shallowest-first stack of ``(base_dir_relative_to_root,
-            patterns)`` pairs. Each ignore file keeps its own anchoring so its
-            patterns stay scoped to its subtree, matching Git. Set internally
-            across the recursion.
+        parent_ignore_patterns: Ignore files inherited from parent directories as a
+            shallowest-first stack of ``(base_dir_relative_to_root, patterns)`` pairs.
+            Each ignore file keeps its own anchoring so its patterns stay scoped to its
+            subtree, matching Git. Set internally across the recursion.
         exclude_patterns: Glob or compiled-regex patterns to exclude.
-        include_patterns: Glob or compiled-regex patterns to include, which
-            override the exclusions.
+        include_patterns: Glob or compiled-regex patterns to include, which override the
+            exclusions.
         max_depth: Maximum depth to traverse, or ``0`` for unlimited.
         current_depth: Current recursion depth. Set internally.
-        current_path: Path of the current directory relative to the scan
-            root. Set internally.
-        show_full_path: Whether to store absolute paths instead of bare
-            filenames.
+        current_path: Path of the current directory relative to the scan root. Set
+            internally.
+        show_full_path: Whether to store absolute paths instead of bare filenames.
         sort_by_loc: Whether to count and total lines of code.
         sort_by_size: Whether to measure and total file sizes.
         sort_by_mtime: Whether to record file modification times.
         show_git_status: Whether to annotate files with Git status markers.
-        git_status_map: Pre-computed ``{rel_path: status_char}`` mapping, as
-            returned by :func:`recursivist.git_status.get_git_status`.
-        ancestor_ids: ``(st_dev, st_ino)`` identities of the directories on the
-            path from the scan root to (and including) *root_dir*, used to
-            detect symlink cycles. Set internally across the recursion.
+        git_status_map: Pre-computed ``{rel_path: status_char}`` mapping, as returned by
+            [`recursivist.git_status.get_git_status`][recursivist.git_status.get_git_status].
+        ancestor_ids: ``(st_dev, st_ino)`` identities of the directories on the path
+            from the scan root to (and including) *root_dir*, used to detect symlink
+            cycles. Set internally across the recursion.
 
     Returns:
-        A ``(structure, extensions)`` tuple, where *structure* is the nested
-        directory mapping and *extensions* is the set of lowercase file
-        extensions encountered.
+        A ``(structure, extensions)`` tuple, where *structure* is the nested directory
+        mapping and *extensions* is the set of lowercase file extensions encountered.
     """
     if exclude_dirs is None:
         exclude_dirs = []
@@ -389,12 +386,12 @@ def get_directory_structure(
 def iter_subdirectories(structure: dict[str, Any]) -> Iterator[tuple[str, Any]]:
     """Yield ``(name, content)`` for each real subdirectory in *structure*.
 
-    Reserved bookkeeping keys (see :data:`RESERVED_KEYS`) are skipped, and
-    entries are yielded in case-sensitive name order.
+    Reserved bookkeeping keys (see `RESERVED_KEYS`) are skipped, and entries are yielded
+    in case-sensitive name order.
 
     Args:
         structure: A directory-structure dict as produced by
-            :func:`get_directory_structure`.
+            [`get_directory_structure`][recursivist.scanner.get_directory_structure].
 
     Yields:
         ``(subdirectory_name, subdirectory_content)`` pairs.

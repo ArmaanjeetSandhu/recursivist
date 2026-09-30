@@ -1,7 +1,7 @@
 """Plain-text tree exporter.
 
-Renders the scanned structure as an indented ASCII tree (``├──``/``└──``
-connectors) and writes it to a ``.txt`` file.
+Renders the scanned structure as an indented ASCII tree (``├──``/``└──`` connectors) and
+writes it to a ``.txt`` file.
 """
 
 import logging
@@ -28,15 +28,15 @@ class TxtExporter(BaseExporter):
     def export(self, output_path: str) -> None:
         """Write the structure to *output_path* as a plain-text tree.
 
-        Each entry is drawn with ``├──``/``└──`` branch connectors plus any
-        enabled metric or Git-status suffixes.
+        Each entry is drawn with ``├──``/``└──`` branch connectors plus any enabled
+        metric or Git-status suffixes.
 
         Args:
             output_path: Path the ``.txt`` file is written to.
 
         Raises:
-            Exception: Re-raised if writing the output file fails (after the
-                error is logged).
+            Exception: Re-raised if writing the output file fails (after the error is
+                logged).
         """
 
         def _build_txt_tree(
@@ -48,8 +48,7 @@ class TxtExporter(BaseExporter):
 
             Args:
                 structure: Directory-structure dict to render.
-                prefix: Branch-connector prefix carried down from parent
-                    levels.
+                prefix: Branch-connector prefix carried down from parent levels.
                 path_prefix: Accumulated path used when full paths are shown.
 
             Returns:

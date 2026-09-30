@@ -1,8 +1,8 @@
 """File statistics and metric formatting.
 
-Lines-of-code counting, file size and modification-time retrieval, and the
-helpers that format those metrics into the annotation suffixes shown next to
-files and directories. Pure standard library.
+Lines-of-code counting, file size and modification-time retrieval, and the helpers that
+format those metrics into the annotation suffixes shown next to files and directories.
+Pure standard library.
 """
 
 import datetime
@@ -19,17 +19,16 @@ def count_lines_of_code(file_path: str) -> int:
     """Count the number of lines in a text file.
 
     Detects the encoding well enough to count lines reliably: UTF-16 files are
-    recognized by their byte-order mark or by a regular pattern of null bytes,
-    while files containing null bytes that are not UTF-16 are treated as binary
-    and skipped. Decoding falls back from strict UTF-8 to UTF-16 and finally to
-    UTF-8 with replacement so that text is never rejected over a stray byte.
+    recognized by their byte-order mark or by a regular pattern of null bytes, while
+    files containing null bytes that are not UTF-16 are treated as binary and skipped.
+    Decoding falls back from strict UTF-8 to UTF-16 and finally to UTF-8 with
+    replacement so that text is never rejected over a stray byte.
 
     Args:
         file_path: Path to the file.
 
     Returns:
-        The number of lines, or ``0`` if the file is empty, binary, or cannot
-        be read.
+        The number of lines, or ``0`` if the file is empty, binary, or cannot be read.
     """
     try:
         with open(file_path, "rb") as binary_file:
@@ -89,8 +88,8 @@ def get_file_size(file_path: str) -> int:
         file_path: Path to the file whose size should be retrieved.
 
     Returns:
-        Size of the file in bytes, or ``0`` when the file cannot be
-        accessed (e.g., permission error or the path no longer exists).
+        Size of the file in bytes, or ``0`` when the file cannot be accessed (e.g.,
+        permission error or the path no longer exists).
     """
     try:
         return os.path.getsize(file_path)
@@ -102,8 +101,8 @@ def get_file_size(file_path: str) -> int:
 def format_size(size_in_bytes: int) -> str:
     """Format a byte count as a human-readable size string.
 
-    Scales the value to bytes, KB, MB, or GB and formats it with one decimal
-    place for every unit above bytes.
+    Scales the value to bytes, KB, MB, or GB and formats it with one decimal place for
+    every unit above bytes.
 
     Args:
         size_in_bytes: Size in bytes.
@@ -128,8 +127,7 @@ def get_file_mtime(file_path: str) -> float:
         file_path: Path to the file.
 
     Returns:
-        The modification time as a float, or ``0.0`` if the file cannot be
-        accessed.
+        The modification time as a float, or ``0.0`` if the file cannot be accessed.
     """
     try:
         return os.path.getmtime(file_path)
@@ -153,8 +151,8 @@ def format_timestamp(timestamp: float) -> str:
         timestamp: Seconds since the epoch.
 
     Returns:
-        The formatted date/time string, or ``"-"`` when *timestamp* is zero or
-        falls outside the representable range.
+        The formatted date/time string, or ``"-"`` when *timestamp* is zero or falls
+        outside the representable range.
     """
     if not timestamp:
         return "-"
@@ -185,9 +183,9 @@ def format_metrics(
     """Build the parenthetical metrics annotation for a file or directory.
 
     Includes exactly the metrics named in *metrics*, in that order — e.g.
-    ``metrics=("size", "loc")`` yields ``"(4.2 KB, 120 lines)"``. The metric
-    names are those defined in :mod:`recursivist.flags`: ``"loc"``, ``"size"``
-    and ``"mtime"``.
+    ``metrics=("size", "loc")`` yields ``"(4.2 KB, 120 lines)"``. The metric names are
+    those defined in [`recursivist.flags`][recursivist.flags]: ``"loc"``, ``"size"`` and
+    ``"mtime"``.
 
     Args:
         loc: Lines-of-code count.
@@ -196,8 +194,8 @@ def format_metrics(
         metrics: The metrics to include, in display order.
 
     Returns:
-        The annotation string including the surrounding parentheses, or an
-        empty string when *metrics* is empty.
+        The annotation string including the surrounding parentheses, or an empty string
+        when *metrics* is empty.
     """
     renderers = {
         "loc": lambda: f"{loc} line" if loc == 1 else f"{loc} lines",
@@ -214,10 +212,11 @@ def format_metrics_suffix(
     mtime: float = 0.0,
     metrics: Sequence[str] = (),
 ) -> str:
-    """Like :func:`format_metrics` but prefixed with a single space.
+    """Like [`format_metrics`][recursivist.metrics.format_metrics] but prefixed with a
+    single space.
 
-    Convenient for appending directly after a file or directory name. Returns
-    an empty string (no leading space) when *metrics* is empty.
+    Convenient for appending directly after a file or directory name. Returns an empty
+    string (no leading space) when *metrics* is empty.
     """
     annotation = format_metrics(loc, size, mtime, metrics)
     return f" {annotation}" if annotation else ""
@@ -226,14 +225,14 @@ def format_metrics_suffix(
 def format_dir_metrics(content: Any, metrics: Sequence[str] = ()) -> str:
     """Return the space-prefixed metrics suffix for a directory node.
 
-    Wraps :func:`format_metrics_suffix`, reading the totals from a directory's
-    structure dict and keeping only the requested metrics that are actually
-    present on that directory — while preserving the requested display order.
-    Returns ``""`` for a non-dict node.
+    Wraps [`format_metrics_suffix`][recursivist.metrics.format_metrics_suffix], reading
+    the totals from a directory's structure dict and keeping only the requested metrics
+    that are actually present on that directory — while preserving the requested display
+    order. Returns ``""`` for a non-dict node.
 
     Args:
-        content: The directory's structure dict (or any value; non-dicts yield
-            an empty string).
+        content: The directory's structure dict (or any value; non-dicts yield an empty
+            string).
         metrics: The metrics to display, in order.
 
     Returns:

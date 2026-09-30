@@ -1,7 +1,7 @@
 """Nerd Font icon mappings for files and directories.
 
-This module provides icon lookup utilities based on Nerd Font glyph codes.
-Icons are resolved in priority order:
+This module provides icon lookup utilities based on Nerd Font glyph codes. Icons are
+resolved in priority order:
 
 1. Exact filename match (e.g., ``Dockerfile``, ``package.json``)
 2. File extension match (e.g., ``.py``, ``.ts``)
@@ -154,9 +154,9 @@ def get_icon(
 ) -> str:
     """Return the icon for a file or directory in the requested style.
 
-    With the ``"emoji"`` style, a single generic file emoji is returned for
-    files and an open or closed folder emoji for directories. With the
-    ``"nerd"`` style, a Nerd Font glyph is resolved in priority order.
+    With the ``"emoji"`` style, a single generic file emoji is returned for files and
+    an open or closed folder emoji for directories. With the ``"nerd"`` style, a Nerd
+    Font glyph is resolved in priority order.
 
     For files:
 
@@ -164,20 +164,19 @@ def get_icon(
     2. File-extension match in ``EXTENSION_ICONS``.
     3. The ``DEFAULT_NERD_FILE`` fallback.
 
-    For directories, ``FOLDER_ICONS`` is consulted first (so well-known
-    folders keep their distinctive glyph regardless of their contents),
-    falling back to the open or closed generic folder glyph depending on
-    *is_empty*.
+    For directories, ``FOLDER_ICONS`` is consulted first (so well-known folders keep
+    their distinctive glyph regardless of their contents), falling back to the open or
+    closed generic folder glyph depending on *is_empty*.
 
     Args:
-        filename: Name of the file or directory (basename only, not a full
-            path). Matched case-insensitively.
-        is_dir: When ``True``, treat *filename* as a directory name and look
-            up folder icons instead of file icons.
+        filename: Name of the file or directory (basename only, not a full path).
+            Matched case-insensitively.
+        is_dir: When ``True``, treat *filename* as a directory name and look up folder
+            icons instead of file icons.
         style: Icon style to use, either ``"emoji"`` or ``"nerd"``.
-        is_empty: Only meaningful when *is_dir* is set. When ``True``, the
-            directory holds nothing that is being displayed and the closed
-            folder icon is used; otherwise the open folder icon is used.
+        is_empty: Only meaningful when *is_dir* is set. When ``True``, the directory
+            holds nothing that is being displayed and the closed folder icon is used;
+            otherwise the open folder icon is used.
 
     Returns:
         A single Unicode character containing the matching glyph.

@@ -1,7 +1,7 @@
 """Git status lookup.
 
-Wraps ``git status --porcelain`` and maps changed/untracked paths back to a
-location relative to the directory being visualised. Pure standard library.
+Wraps ``git status --porcelain`` and maps changed/untracked paths back to a location
+relative to the directory being visualised. Pure standard library.
 """
 
 import logging
@@ -14,8 +14,8 @@ def get_git_status(directory: str) -> dict[str, str]:
     """Get Git status for files relative to a given directory.
 
     Runs ``git status --porcelain -z`` from the repository root and maps every
-    changed/untracked path back to a path relative to *directory*, filtering
-    out files that live outside of it.
+    changed/untracked path back to a path relative to *directory*, filtering out files
+    that live outside of it.
 
     Status characters returned:
     - ``'U'``: Untracked (``??`` in porcelain output)
@@ -24,13 +24,13 @@ def get_git_status(directory: str) -> dict[str, str]:
     - ``'D'``: Deleted (working-tree or staged deletion)
 
     Args:
-        directory: Absolute path to the directory being visualised. Must be
-            inside a Git repository.
+        directory: Absolute path to the directory being visualised. Must be inside a Git
+            repository.
 
     Returns:
-        ``{relative_path: status_char}`` where *relative_path* uses forward
-        slashes regardless of OS, or an empty dict when Git is unavailable or
-        the directory is not tracked.
+        ``{relative_path: status_char}`` where *relative_path* uses forward slashes
+        regardless of OS, or an empty dict when Git is unavailable or the directory is
+        not tracked.
     """
     import subprocess
 

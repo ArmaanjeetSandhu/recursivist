@@ -1,30 +1,29 @@
 """Remote GitHub repository support.
 
-Lets the ``visualize``, ``export`` and ``compare`` commands accept a GitHub
-repository URL anywhere they accept a local directory. A repository is
-*materialized* by downloading its source archive from ``codeload.github.com``
-and extracting it into a temporary directory, after which the existing
-local-directory scanner, renderers and exporters are reused unchanged.
+Lets the ``visualize``, ``export`` and ``compare`` commands accept a GitHub repository
+URL anywhere they accept a local directory. A repository is *materialized* by
+downloading its source archive from ``codeload.github.com`` and extracting it into a
+temporary directory, after which the existing local-directory scanner, renderers and
+exporters are reused unchanged.
 
-The archive endpoint is used rather than the REST API on purpose: the REST API
-limits unauthenticated clients to 60 requests/hour (shared per public IP),
-which is easily exhausted, whereas archive downloads are not subject to that
-limit. Only the default branch is resolved through a lightweight, unlimited
-``info/refs`` request when the caller did not pin a ref explicitly.
+The archive endpoint is used rather than the REST API on purpose: the REST API limits
+unauthenticated clients to 60 requests/hour (shared per public IP), which is easily
+exhausted, whereas archive downloads are not subject to that limit. Only the default
+branch is resolved through a lightweight, unlimited ``info/refs`` request when the
+caller did not pin a ref explicitly.
 
-Because a hosted repository already reflects its ignore rules — files excluded
-by a ``.gitignore`` are simply absent — and because every file in a checkout
-shares the same Git status and effective modification time (the tip commit's),
-the ``--ignore-file``, ``--git-status``, ``--sort-by-git-status``, ``--mtime``
-and ``--sort-by-mtime`` options are not meaningful for a GitHub input and are
-skipped. The lines-of-code and size annotations are retained, since they are
-derived from the file contents. The ``--full-path`` option still applies, but
-instead of a filesystem path it shows each file's canonical GitHub blob URL.
+Because a hosted repository already reflects its ignore rules — files excluded by a
+``.gitignore`` are simply absent — and because every file in a checkout shares the same
+Git status and effective modification time (the tip commit's), the ``--ignore-file``,
+``--git-status``, ``--sort-by-git-status``, ``--mtime`` and ``--sort-by-mtime`` options
+are not meaningful for a GitHub input and are skipped. The lines-of-code and size
+annotations are retained, since they are derived from the file contents. The
+``--full-path`` option still applies, but instead of a filesystem path it shows each
+file's canonical GitHub blob URL.
 
 Only the Python standard library is used. When a token is present in the
-``GITHUB_TOKEN`` or ``GH_TOKEN`` environment variable it is sent with every
-request, which raises the rate limits and enables access to private
-repositories.
+``GITHUB_TOKEN`` or ``GH_TOKEN`` environment variable it is sent with every request,
+which raises the rate limits and enables access to private repositories.
 """
 
 from __future__ import annotations
@@ -83,9 +82,9 @@ def _strip_git_suffix(repo: str) -> str:
 class GitHubError(Exception):
     """Raised when a GitHub repository cannot be resolved or downloaded.
 
-    Carries a human-readable message suitable for surfacing directly to the
-    user (e.g. an invalid URL, a missing repository, a rate-limit response, or
-    a network/extraction failure).
+    Carries a human-readable message suitable for surfacing directly to the user (e.g.
+    an invalid URL, a missing repository, a rate-limit response, or a network/extraction
+    failure).
     """
 
 
@@ -96,11 +95,10 @@ class GitHubTarget:
     Attributes:
         owner: Repository owner (user or organization).
         repo: Repository name, without any trailing ``.git``.
-        ref: The branch, tag, or commit the caller pinned via
-            ``/tree/<ref>`` or ``/blob/<ref>``, or ``None`` to use the
-            repository's default branch.
-        subpath: A forward-slashed path within the repository to treat as the
-            root of the scan, or ``""`` for the whole repository.
+        ref: The branch, tag, or commit the caller pinned via ``/tree/<ref>`` or
+            ``/blob/<ref>``, or ``None`` to use the repository's default branch.
+        subpath: A forward-slashed path within the repository to treat as the root of
+            the scan, or ``""`` for the whole repository.
     """
 
     owner: str
@@ -125,12 +123,11 @@ class GitHubTarget:
 
         Args:
             ref: The concrete ref (branch, tag, or commit) to embed in the URL.
-            relpath: The file's forward-slashed path relative to the repository
-                root (already including any :attr:`subpath` prefix).
+            relpath: The file's forward-slashed path relative to the repository root
+                (already including any `subpath` prefix).
 
         Returns:
-            A URL of the form
-            ``https://github.com/<owner>/<repo>/blob/<ref>/<relpath>``.
+            A URL of the form ``https://github.com/<owner>/<repo>/blob/<ref>/<relpath>``.
         """
         clean = relpath.replace(os.sep, "/").lstrip("/")
         return f"{_WEB_HOST}/{self.owner}/{self.repo}/blob/{ref}/{clean}"
@@ -141,13 +138,14 @@ class RepoCheckout:
     """A materialized GitHub repository on the local filesystem.
 
     Attributes:
-        target: The :class:`GitHubTarget` that was checked out.
-        local_root: Absolute path to the directory to scan — the extracted
-            repository root, or the requested subpath within it.
-        ref: The concrete ref that was downloaded (the pinned ref, or the
-            resolved default branch).
-        root_name: The display name for the scanned root (the repository name,
-            or the last segment of the subpath).
+        target: The [`GitHubTarget`][recursivist.github.GitHubTarget] that was checked
+            out.
+        local_root: Absolute path to the directory to scan — the extracted repository
+            root, or the requested subpath within it.
+        ref: The concrete ref that was downloaded (the pinned ref, or the resolved
+            default branch).
+        root_name: The display name for the scanned root (the repository name, or the
+            last segment of the subpath).
     """
 
     target: GitHubTarget
@@ -159,9 +157,9 @@ class RepoCheckout:
 def get_github_token() -> str | None:
     """Return a GitHub token from the environment, if configured.
 
-    Looks up ``GITHUB_TOKEN`` first and then ``GH_TOKEN``. When set, the token
-    is sent with archive and ref requests, raising rate limits and permitting
-    access to private repositories.
+    Looks up ``GITHUB_TOKEN`` first and then ``GH_TOKEN``. When set, the token is sent
+    with archive and ref requests, raising rate limits and permitting access to private
+    repositories.
 
     Returns:
         The token string, or ``None`` when neither variable is set.
@@ -176,9 +174,8 @@ def get_github_token() -> str | None:
 def is_github_url(text: str) -> bool:
     """Return whether *text* looks like a GitHub repository reference.
 
-    This is a cheap syntactic check used to decide whether an argument should
-    be treated as a remote repository rather than a local path; it does not
-    contact the network.
+    This is a cheap syntactic check used to decide whether an argument should be treated
+    as a remote repository rather than a local path; it does not contact the network.
 
     Args:
         text: The raw argument to test.
@@ -190,25 +187,25 @@ def is_github_url(text: str) -> bool:
 
 
 def parse_github_url(text: str) -> GitHubTarget | None:
-    """Parse a GitHub repository URL into a :class:`GitHubTarget`.
+    """Parse a GitHub repository URL into a
+    [`GitHubTarget`][recursivist.github.GitHubTarget].
 
-    Accepts the common HTTPS forms (with or without scheme, ``www.`` or a
-    trailing ``.git``), an optional ``/tree/<ref>[/<subpath>]`` or
-    ``/blob/<ref>/<subpath>`` selector, and the SSH form
-    ``git@github.com:owner/repo.git``.
+    Accepts the common HTTPS forms (with or without scheme, ``www.`` or a trailing
+    ``.git``), an optional ``/tree/<ref>[/<subpath>]`` or ``/blob/<ref>/<subpath>``
+    selector, and the SSH form ``git@github.com:owner/repo.git``.
 
-    When a ``/tree`` or ``/blob`` selector is present, the segment immediately
-    after it is taken as the ref and everything beyond it as the subpath. Refs
-    that themselves contain slashes (e.g. ``feature/x``) therefore cannot be
-    distinguished from a subpath by URL alone; pass such a repository without a
-    selector, or pin the ref with a plain branch name.
+    When a ``/tree`` or ``/blob`` selector is present, the segment immediately after it
+    is taken as the ref and everything beyond it as the subpath. Refs that themselves
+    contain slashes (e.g. ``feature/x``) therefore cannot be distinguished from a
+    subpath by URL alone; pass such a repository without a selector, or pin the ref with
+    a plain branch name.
 
     Args:
         text: The raw argument to parse.
 
     Returns:
-        The parsed :class:`GitHubTarget`, or ``None`` when *text* is not a
-        recognizable GitHub URL.
+        The parsed [`GitHubTarget`][recursivist.github.GitHubTarget], or ``None`` when
+        *text* is not a recognizable GitHub URL.
     """
     if not text or "github.com" not in text:
         return None
@@ -245,11 +242,10 @@ def _request(
 def _fetch_refs_advertisement(target: GitHubTarget, token: str | None) -> bytes:
     """Fetch a repository's Git smart-HTTP ``info/refs`` advertisement.
 
-    The advertisement is served by the ``git-upload-pack`` service and lists
-    every ref (branches, tags, and the symbolic ``HEAD``) together with the
-    commit each points at. It is not subject to the REST API's unauthenticated
-    rate limit, so it is used both to discover the default branch and to resolve
-    refs to commit SHAs.
+    The advertisement is served by the ``git-upload-pack`` service and lists every ref
+    (branches, tags, and the symbolic ``HEAD``) together with the commit each points at.
+    It is not subject to the REST API's unauthenticated rate limit, so it is used both
+    to discover the default branch and to resolve refs to commit SHAs.
 
     Args:
         target: The repository whose refs are wanted.
@@ -259,8 +255,8 @@ def _fetch_refs_advertisement(target: GitHubTarget, token: str | None) -> bytes:
         The raw advertisement payload.
 
     Raises:
-        GitHubError: If the repository is missing or private without a valid
-            token, or cannot otherwise be reached.
+        GitHubError: If the repository is missing or private without a valid token, or
+            cannot otherwise be reached.
     """
     url = f"{_WEB_HOST}/{target.owner}/{target.repo}/info/refs?service=git-upload-pack"
     try:
@@ -282,10 +278,10 @@ def _fetch_refs_advertisement(target: GitHubTarget, token: str | None) -> bytes:
 def _iter_pkt_lines(payload: bytes) -> Iterator[bytes]:
     """Yield the content of each pkt-line in a Git smart-HTTP *payload*.
 
-    The advertisement is framed as pkt-lines: a 4-hex-digit length prefix
-    (counting itself) followed by that many bytes of content, with ``0000``
-    acting as a flush marker. Malformed framing stops iteration rather than
-    raising, since callers treat missing data as an unresolved ref.
+    The advertisement is framed as pkt-lines: a 4-hex-digit length prefix (counting
+    itself) followed by that many bytes of content, with ``0000`` acting as a flush
+    marker. Malformed framing stops iteration rather than raising, since callers treat
+    missing data as an unresolved ref.
     """
     i, n = 0, len(payload)
     while i + 4 <= n:
@@ -305,11 +301,10 @@ def _iter_pkt_lines(payload: bytes) -> Iterator[bytes]:
 def _parse_advertised_refs(payload: bytes) -> dict[str, str]:
     """Parse an ``info/refs`` advertisement into a ``ref name -> commit SHA`` map.
 
-    The returned mapping includes ``HEAD``, every ``refs/heads/*`` branch and
-    every ``refs/tags/*`` tag. Annotated tags are advertised both as the tag
-    object (``refs/tags/x``) and as the commit they dereference to
-    (``refs/tags/x^{}``); the peeled commit is preferred so that a tag always
-    maps to a commit.
+    The returned mapping includes ``HEAD``, every ``refs/heads/*`` branch and every
+    ``refs/tags/*`` tag. Annotated tags are advertised both as the tag object
+    (``refs/tags/x``) and as the commit they dereference to (``refs/tags/x^{}``); the
+    peeled commit is preferred so that a tag always maps to a commit.
 
     Args:
         payload: The raw advertisement bytes.
@@ -341,8 +336,8 @@ def resolve_default_branch(target: GitHubTarget, token: str | None = None) -> st
     """Resolve a repository's default branch without using the REST API.
 
     Reads the symbolic ``HEAD`` reference from the repository's Git smart-HTTP
-    ``info/refs`` advertisement, which is not subject to the REST API's
-    unauthenticated rate limit.
+    ``info/refs`` advertisement, which is not subject to the REST API's unauthenticated
+    rate limit.
 
     Args:
         target: The repository whose default branch is wanted.
@@ -352,8 +347,8 @@ def resolve_default_branch(target: GitHubTarget, token: str | None = None) -> st
         The default branch name (e.g. ``"main"``).
 
     Raises:
-        GitHubError: If the repository is missing or private without a valid
-            token, or if the default branch cannot be determined.
+        GitHubError: If the repository is missing or private without a valid token, or
+            if the default branch cannot be determined.
     """
     payload = _fetch_refs_advertisement(target, token)
     match = re.search(rb"symref=HEAD:refs/heads/([^\x00 \n]+)", payload)
@@ -374,16 +369,14 @@ def resolve_commit_shas(
 ) -> list[str | None]:
     """Resolve each ref in *refs* to a commit SHA using one advertisement fetch.
 
-    A single ``info/refs`` request is made and reused for every ref, so this is
-    cheap even for several refs on the same repository. Each entry is resolved
-    as follows:
+    A single ``info/refs`` request is made and reused for every ref, so this is cheap
+    even for several refs on the same repository. Each entry is resolved as follows:
 
     * ``None`` resolves to the commit the default branch (``HEAD``) points at.
-    * A branch or tag name resolves to its tip commit; annotated tags resolve to
-      the commit they dereference to.
-    * A value that is not an advertised ref but looks like a commit SHA (7–40
-      hex characters) is returned as-is, lowercased, so explicit commit pins are
-      supported.
+    * A branch or tag name resolves to its tip commit; annotated tags resolve to the
+      commit they dereference to.
+    * A value that is not an advertised ref but looks like a commit SHA (7–40 hex
+      characters) is returned as-is, lowercased, so explicit commit pins are supported.
     * Anything else resolves to ``None``.
 
     Args:
@@ -392,8 +385,8 @@ def resolve_commit_shas(
         token: Optional GitHub token for private repositories.
 
     Returns:
-        A list the same length as *refs*, each a lowercase commit SHA or
-        ``None`` when the ref could not be resolved.
+        A list the same length as *refs*, each a lowercase commit SHA or ``None`` when
+        the ref could not be resolved.
 
     Raises:
         GitHubError: If the repository is missing, private, or unreachable.
@@ -418,9 +411,9 @@ def resolve_commit_shas(
 def commit_shas_equal(sha1: str | None, sha2: str | None) -> bool:
     """Return whether two commit SHAs identify the same commit.
 
-    Handles abbreviated SHAs (as short as 7 characters, Git's conventional
-    minimum) by treating one as a match for the other when it is a
-    case-insensitive prefix. ``None`` never matches.
+    Handles abbreviated SHAs (as short as 7 characters, Git's conventional minimum) by
+    treating one as a match for the other when it is a case-insensitive prefix. ``None``
+    never matches.
 
     Args:
         sha1: The first commit SHA, or ``None``.
@@ -473,11 +466,11 @@ def _is_within(base: str, path: str) -> bool:
 def _safe_extract(archive_path: str, dest_dir: str) -> None:
     """Extract *archive_path* into *dest_dir*, rejecting path traversal.
 
-    Uses the tar ``data`` extraction filter when available (Python 3.12+) and
-    otherwise validates every member manually so that entries with absolute
-    paths, ``..`` components, or symlinks pointing outside *dest_dir* cannot
-    escape the destination directory. Any extraction failure is surfaced as a
-    :class:`GitHubError`.
+    Uses the tar ``data`` extraction filter when available (Python 3.12+) and otherwise
+    validates every member manually so that entries with absolute paths, ``..``
+    components, or symlinks pointing outside *dest_dir* cannot escape the destination
+    directory. Any extraction failure is surfaced as a
+    [`GitHubError`][recursivist.github.GitHubError].
     """
     try:
         with tarfile.open(archive_path, mode="r:gz") as tar:
@@ -507,13 +500,12 @@ def _safe_extract(archive_path: str, dest_dir: str) -> None:
 def _locate_root(extract_dir: str, target: GitHubTarget) -> str:
     """Return the directory to scan within a freshly extracted archive.
 
-    GitHub archives contain a single top-level directory (``<repo>-<ref>``);
-    this returns that directory, descending into :attr:`GitHubTarget.subpath`
-    when one was requested.
+    GitHub archives contain a single top-level directory (``<repo>-<ref>``); this
+    returns that directory, descending into `GitHubTarget.subpath` when one was requested.
 
     Raises:
-        GitHubError: If the archive layout is unexpected or the requested
-            subpath does not exist or is not a directory.
+        GitHubError: If the archive layout is unexpected or the requested subpath does
+            not exist or is not a directory.
     """
     entries = [e for e in os.listdir(extract_dir) if not e.startswith(".")]
     if len(entries) != 1:
@@ -537,20 +529,21 @@ def checkout_repository(
 ) -> Iterator[RepoCheckout]:
     """Download and extract a GitHub repository into a temporary directory.
 
-    Resolves the ref (using the default branch when the target does not pin
-    one), downloads the source archive, and safely extracts it. The extracted
-    files are removed when the context exits.
+    Resolves the ref (using the default branch when the target does not pin one),
+    downloads the source archive, and safely extracts it. The extracted files are
+    removed when the context exits.
 
     Args:
         target: The repository (and optional subtree) to check out.
-        token: Optional GitHub token; defaults to :func:`get_github_token`.
+        token: Optional GitHub token; defaults to
+            [`get_github_token`][recursivist.github.get_github_token].
 
     Yields:
-        A :class:`RepoCheckout` describing the local extraction.
+        A [`RepoCheckout`][recursivist.github.RepoCheckout] describing the local
+        extraction.
 
     Raises:
-        GitHubError: If the repository cannot be resolved, downloaded, or
-            extracted.
+        GitHubError: If the repository cannot be resolved, downloaded, or extracted.
     """
     if token is None:
         token = get_github_token()
@@ -580,17 +573,17 @@ def apply_github_urls(
 ) -> dict[str, Any]:
     """Rewrite each file's display path to its GitHub blob URL, in place.
 
-    Used when ``--full-path`` is requested for a GitHub input: it walks
-    *structure* and replaces every :class:`~recursivist._models.FileEntry`
-    ``path`` with the file's canonical blob URL, so the unmodified renderers
-    and exporters display GitHub URLs instead of temporary filesystem paths.
+    Used when ``--full-path`` is requested for a GitHub input: it walks *structure* and
+    replaces every [`FileEntry`][recursivist._models.FileEntry] ``path`` with the file's
+    canonical blob URL, so the unmodified renderers and exporters display GitHub URLs
+    instead of temporary filesystem paths.
 
     Args:
         structure: A scanned structure produced by
-            :func:`recursivist.scanner.get_directory_structure` for the
-            checkout's :attr:`RepoCheckout.local_root`.
-        checkout: The checkout the structure was scanned from, supplying the
-            owner, repo, ref, and subpath used to build URLs.
+            [`recursivist.scanner.get_directory_structure`][recursivist.scanner.get_directory_structure]
+            for the checkout's `RepoCheckout.local_root`.
+        checkout: The checkout the structure was scanned from, supplying the owner,
+            repo, ref, and subpath used to build URLs.
 
     Returns:
         The same *structure* object, with file paths rewritten.

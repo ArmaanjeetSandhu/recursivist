@@ -1,8 +1,8 @@
 """User configuration persistence.
 
-Reads and writes recursivist's JSON settings file, resolving its location
-with Typer's platform-aware application directory. The only stored preference
-is currently the icon style.
+Reads and writes recursivist's JSON settings file, resolving its location with Typer's
+platform-aware application directory. The only stored preference is currently the icon
+style.
 """
 
 import json
@@ -17,9 +17,9 @@ APP_NAME = "recursivist"
 def get_config_path() -> Path:
     """Return the path to the configuration file, creating its directory.
 
-    The location is resolved with :func:`typer.get_app_dir`, so it follows
-    each platform's convention for application data. The parent directory is
-    created if it does not already exist.
+    The location is resolved with `typer.get_app_dir`, so it follows each platform's
+    convention for application data. The parent directory is created if it does not
+    already exist.
 
     Returns:
         Path to ``config.json`` inside the application directory.
@@ -34,9 +34,8 @@ def load_config() -> dict[str, Any]:
     """Load the user configuration from disk.
 
     Returns:
-        The parsed configuration mapping, or the default
-        ``{"icon_style": "emoji"}`` when the file is missing, unreadable, or
-        does not contain a JSON object.
+        The parsed configuration mapping, or the default ``{"icon_style": "emoji"}``
+        when the file is missing, unreadable, or does not contain a JSON object.
     """
     config_path = get_config_path()
     if config_path.is_file():
@@ -54,8 +53,8 @@ def save_config(config: dict[str, Any]) -> None:
     """Write the user configuration to disk as indented JSON.
 
     Args:
-        config: Configuration mapping to persist. Overwrites any existing
-            file at the configuration path.
+        config: Configuration mapping to persist. Overwrites any existing file at the
+            configuration path.
     """
     config_path = get_config_path()
     with open(config_path, "w") as f:

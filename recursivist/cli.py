@@ -1,24 +1,21 @@
 #!/usr/bin/env python3
 """Recursivist CLI - A beautiful directory structure visualization tool.
 
-Provides the command-line interface for the recursivist package, letting
-users visualize directory structures, export them in various formats,
-compare two structures side-by-side, manage user configurations, and
-generate shell completion scripts.
+Provides the command-line interface for the recursivist package, letting users visualize
+directory structures, export them in various formats, compare two structures
+side-by-side, manage user configurations, and generate shell completion scripts.
 
 Main commands:
-    visualize: Display a directory structure in the terminal with rich
-        formatting and optional statistics.
-    export: Export a directory structure to TXT, JSON, HTML, MD,
-        SVG, or RST.
-    compare: Compare two directory structures with highlighted
-        differences.
+    visualize: Display a directory structure in the terminal with rich formatting and
+        optional statistics.
+    export: Export a directory structure to TXT, JSON, HTML, MD, SVG, or RST.
+    compare: Compare two directory structures with highlighted differences.
     config: Manage persistent user preferences like icon styles.
     version: Display the current version information.
     completion: Generate shell completion scripts for various shells.
 
-The visualize, export, and compare commands accept a GitHub repository URL
-anywhere they accept a local directory; see :mod:`recursivist.github`.
+The visualize, export, and compare commands accept a GitHub repository URL anywhere they
+accept a local directory; see [`recursivist.github`][recursivist.github].
 
 All commands share a consistent set of filtering and display options:
     - Exclude directories, file extensions, glob, or regex patterns.
@@ -26,8 +23,7 @@ All commands share a consistent set of filtering and display options:
     - Support for .gitignore and similar ignore files.
     - Depth limitation for large directories.
     - Full-path display option.
-    - File statistics with sorting by lines of code, size, or
-      modification time.
+    - File statistics with sorting by lines of code, size, or modification time.
 """
 
 import contextlib
@@ -234,16 +230,15 @@ def config_set(
 ) -> None:
     """Set a persistent configuration value.
 
-    Writes a user preference to the global configuration file.
-    Currently supports setting the `icon-style` to either `emoji` or `nerd`.
+    Writes a user preference to the global configuration file. Currently supports
+    setting the `icon-style` to either `emoji` or `nerd`.
 
     Args:
         key: The configuration key to set (e.g., "icon-style").
         value: The value to assign to the key.
 
     Raises:
-        typer.Exit: With exit code ``1`` if an invalid key or value
-            is provided.
+        typer.Exit: With exit code ``1`` if an invalid key or value is provided.
 
     Examples:
         >>> recursivist config set icon-style nerd
@@ -265,9 +260,8 @@ def config_set(
 def callback() -> None:
     """Recursivist CLI tool for directory visualization and export.
 
-    Entry-point callback invoked by Typer before any subcommand is
-    dispatched. It sets up the application context and makes top-level
-    help text available.
+    Entry-point callback invoked by Typer before any subcommand is dispatched. It sets
+    up the application context and makes top-level help text available.
 
     Available commands:
         visualize: Display a directory structure in the terminal.
@@ -286,24 +280,24 @@ def parse_list_option(option_value: list[str] | None) -> list[str]:
     To supply multiple values, repeat the flag once per value:
        >>> --exclude "Application Support" --exclude node_modules
 
-    Each occurrence is preserved verbatim, so values may contain spaces.
-    This is required to name directories or patterns such as
-    ``"Application Support"`` or ``"My Documents"``; those would be
-    impossible to express if values were split on whitespace.
+    Each occurrence is preserved verbatim, so values may contain spaces. This is
+    required to name directories or patterns such as ``"Application Support"`` or ``"My
+    Documents"``; those would be impossible to express if values were split on
+    whitespace.
 
-    Each value is stripped of surrounding whitespace, and values that
-    are empty or whitespace-only (e.g. from ``--exclude ""``) are
-    dropped. Interior whitespace is left untouched.
+    Each value is stripped of surrounding whitespace, and values that are empty or
+    whitespace-only (e.g. from ``--exclude ""``) are dropped. Interior whitespace is
+    left untouched.
 
     Args:
-        option_value: Raw list of strings collected by Typer for a
-            repeatable option, one element per flag occurrence. Pass
-            ``None`` when the option was not provided.
+        option_value: Raw list of strings collected by Typer for a repeatable option,
+            one element per flag occurrence. Pass ``None`` when the option was not
+            provided.
 
     Returns:
-        List of non-empty values with surrounding whitespace trimmed
-        and interior spaces preserved. Returns an empty list when
-        *option_value* is ``None`` or holds only empty values.
+        List of non-empty values with surrounding whitespace trimmed and interior spaces
+        preserved. Returns an empty list when *option_value* is ``None`` or holds only
+        empty values.
 
     Examples:
         >>> parse_list_option(["node_modules", ".git", "__pycache__"])
@@ -332,15 +326,14 @@ def _log_display_options(
 ) -> None:
     """Log the depth and resolved display/sort options for a command.
 
-    Emits the informational messages shared by the visualize, export, and
-    compare commands, driven by the already-resolved :class:`DisplayOptions`:
-    the single active sort key (if any), each displayed metric in order, and
-    whether Git-status markers are shown. Has no effect for options left at
-    their defaults.
+    Emits the informational messages shared by the visualize, export, and compare
+    commands, driven by the already-resolved
+    [`DisplayOptions`][recursivist.flags.DisplayOptions]: the single active sort key (if
+    any), each displayed metric in order, and whether Git-status markers are shown. Has
+    no effect for options left at their defaults.
 
     Args:
-        max_depth: Maximum directory depth; a message is logged when greater
-            than ``0``.
+        max_depth: Maximum directory depth; a message is logged when greater than ``0``.
         show_full_path: Whether full paths are shown.
         spec: The resolved sorting and annotation directives to report.
     """
@@ -367,10 +360,10 @@ def _parse_filter_options(
 ) -> tuple[list[str], set[str], list[str], list[str]]:
     """Parse and normalize the shared exclude/include filter options.
 
-    Normalizes each repeated flag value (dropping empties), lowercases and
-    dot-prefixes excluded extensions into a set, and emits the same debug
-    logging used by every command. This is the common preprocessing step
-    shared by the visualize, export, and compare commands.
+    Normalizes each repeated flag value (dropping empties), lowercases and dot-prefixes
+    excluded extensions into a set, and emits the same debug logging used by every
+    command. This is the common preprocessing step shared by the visualize, export, and
+    compare commands.
 
     Args:
         exclude_dirs: Raw directory-exclusion values from Typer.
@@ -380,8 +373,8 @@ def _parse_filter_options(
         use_regex: Whether patterns are regex (affects log wording).
 
     Returns:
-        A tuple of ``(parsed_exclude_dirs, exclude_exts_set,
-        parsed_exclude_patterns, parsed_include_patterns)``.
+        A tuple of ``(parsed_exclude_dirs, exclude_exts_set, parsed_exclude_patterns,
+        parsed_include_patterns)``.
     """
     parsed_exclude_dirs = parse_list_option(exclude_dirs)
     parsed_exclude_exts = parse_list_option(exclude_extensions)
@@ -429,9 +422,8 @@ def _enable_verbose_if_requested(verbose: bool) -> None:
 def _resolve_and_validate_directory(directory: Path) -> Path:
     """Resolve a directory path and verify it points at a directory.
 
-    Centralizes the existence/`is_dir` check shared by the visualize
-    and export commands so the validation behavior and error message
-    stay consistent.
+    Centralizes the existence/`is_dir` check shared by the visualize and export commands
+    so the validation behavior and error message stay consistent.
 
     Args:
         directory: Raw directory path as received from Typer.
@@ -440,8 +432,8 @@ def _resolve_and_validate_directory(directory: Path) -> Path:
         The resolved (absolute) directory path.
 
     Raises:
-        typer.Exit: With exit code ``1`` if the resolved path does not
-            exist or is not a directory.
+        typer.Exit: With exit code ``1`` if the resolved path does not exist or is not a
+            directory.
     """
     directory = directory.resolve()
     if not directory.exists() or not directory.is_dir():
@@ -455,19 +447,19 @@ def _resolve_ignore_file(
 ) -> str | None:
     """Resolve the ignore file name, optionally adding a leading dot.
 
-    Checks if the provided ignore_file exists in any of the target directories.
-    If it doesn't, but a version with a leading dot does, returns the dotted version.
+    Checks if the provided ignore_file exists in any of the target directories. If it
+    doesn't, but a version with a leading dot does, returns the dotted version.
     Otherwise, returns the original filename so normal warning logic proceeds.
 
     Args:
         directories: List of resolved directory paths to check for the ignore file.
-        ignore_file: Filename of the ignore file to look for, or
-            ``None`` when the option was not supplied.
+        ignore_file: Filename of the ignore file to look for, or ``None`` when the
+            option was not supplied.
 
     Returns:
-        The resolved filename string (potentially with an added dot), or the
-        original filename if no dotted version is found. Returns ``None`` if
-        *ignore_file* is ``None``.
+        The resolved filename string (potentially with an added dot), or the original
+        filename if no dotted version is found. Returns ``None`` if *ignore_file* is
+        ``None``.
     """
     if not ignore_file:
         return None
@@ -486,14 +478,14 @@ def _resolve_ignore_file(
 def _warn_if_ignore_file_missing(directory: Path, ignore_file: str | None) -> None:
     """Log whether the requested ignore file exists inside *directory*.
 
-    Emits a debug message when the ignore file is found and a warning
-    when it is requested but absent. Does nothing when no ignore file
-    was requested. Shared by the visualize and export commands.
+    Emits a debug message when the ignore file is found and a warning when it is
+    requested but absent. Does nothing when no ignore file was requested. Shared by the
+    visualize and export commands.
 
     Args:
         directory: Directory in which to look for the ignore file.
-        ignore_file: Filename of the ignore file to look for, or
-            ``None`` when the option was not supplied.
+        ignore_file: Filename of the ignore file to look for, or ``None`` when the
+            option was not supplied.
     """
     if not ignore_file:
         return
@@ -511,10 +503,9 @@ def _compile_patterns_for_scan(
 ) -> tuple[list[str | Pattern[str]], list[str | Pattern[str]]]:
     """Compile exclude/include patterns for the scanner.
 
-    When *use_regex* is ``True`` the patterns are compiled to regular
-    expressions; otherwise the plain glob strings are passed through
-    unchanged (cast to the scanner's expected type). Shared by the
-    visualize and export commands.
+    When *use_regex* is ``True`` the patterns are compiled to regular expressions;
+    otherwise the plain glob strings are passed through unchanged (cast to the scanner's
+    expected type). Shared by the visualize and export commands.
 
     Args:
         parsed_exclude_patterns: Flat list of exclude-pattern strings.
@@ -522,8 +513,8 @@ def _compile_patterns_for_scan(
         use_regex: Whether the patterns should be treated as regex.
 
     Returns:
-        A ``(compiled_exclude, compiled_include)`` tuple suitable for
-        passing directly to :func:`get_directory_structure`.
+        A ``(compiled_exclude, compiled_include)`` tuple suitable for passing directly
+        to [`get_directory_structure`][recursivist.scanner.get_directory_structure].
     """
     if use_regex:
         compiled_exclude = compile_regex_patterns(parsed_exclude_patterns, use_regex)
@@ -551,10 +542,9 @@ def _scan_directory(
 ) -> tuple[dict[str, Any], set[str]]:
     """Fetch Git status and scan *directory* into a tree structure.
 
-    Encapsulates the scanning pipeline shared by the visualize and
-    export commands: optionally resolving the Git status map, compiling
-    patterns, running the scan under a progress indicator, and logging
-    the number of unique extensions found.
+    Encapsulates the scanning pipeline shared by the visualize and export commands:
+    optionally resolving the Git status map, compiling patterns, running the scan under
+    a progress indicator, and logging the number of unique extensions found.
 
     Args:
         directory: Resolved directory to scan.
@@ -573,7 +563,7 @@ def _scan_directory(
 
     Returns:
         A ``(structure, extensions)`` tuple as produced by
-        :func:`get_directory_structure`.
+        [`get_directory_structure`][recursivist.scanner.get_directory_structure].
     """
     git_status_map: dict[str, str] | None = None
     if show_git_status:
@@ -621,11 +611,10 @@ def _log_ignored_remote_flags(
 ) -> None:
     """Report which options are being skipped for a GitHub input.
 
-    The ``--ignore-file``, ``--git-status``, ``--sort-by-git-status``,
-    ``--mtime`` and ``--sort-by-mtime`` options are not meaningful for a hosted
-    repository (see :mod:`recursivist.github`); when any were supplied for a
-    GitHub input, this logs an informational message naming them so the behavior
-    is not silent.
+    The ``--ignore-file``, ``--git-status``, ``--sort-by-git-status``, ``--mtime`` and
+    ``--sort-by-mtime`` options are not meaningful for a hosted repository (see
+    [`recursivist.github`][recursivist.github]); when any were supplied for a GitHub
+    input, this logs an informational message naming them so the behavior is not silent.
 
     Args:
         ignore_file: The requested ignore filename, if any.
@@ -660,20 +649,18 @@ def _same_github_target(
 ) -> bool:
     """Return whether two GitHub targets refer to the same scanned tree.
 
-    Owner and repository names are compared case-insensitively because
-    GitHub treats them that way, while the subpath is compared
-    case-sensitively because file paths are case-sensitive.
+    Owner and repository names are compared case-insensitively because GitHub treats
+    them that way, while the subpath is compared case-sensitively because file paths are
+    case-sensitive.
 
-    When both sides pin the same ref (or neither does, so both use the
-    default branch), no network access is needed. Otherwise the two refs
-    are resolved to the commits they point at and compared, so that
-    distinct refs that name the same commit — a branch and a tag on the
-    same tip, a branch and the default branch, or a branch and an explicit
-    commit SHA — are recognized as the same. If either ref cannot be
-    resolved (repository missing, private, unreachable, or the ref does not
-    exist), the targets are treated as *not* the same so the normal
-    comparison flow can surface the real error rather than a misleading
-    "compare with itself" message.
+    When both sides pin the same ref (or neither does, so both use the default branch),
+    no network access is needed. Otherwise the two refs are resolved to the commits they
+    point at and compared, so that distinct refs that name the same commit — a branch
+    and a tag on the same tip, a branch and the default branch, or a branch and an
+    explicit commit SHA — are recognized as the same. If either ref cannot be resolved
+    (repository missing, private, unreachable, or the ref does not exist), the targets
+    are treated as *not* the same so the normal comparison flow can surface the real
+    error rather than a misleading "compare with itself" message.
 
     Args:
         target1: The first parsed GitHub target.
@@ -681,8 +668,8 @@ def _same_github_target(
         token: Optional GitHub token used for the ref lookups.
 
     Returns:
-        ``True`` if both targets resolve to the same repository, commit and
-        subtree, else ``False``.
+        ``True`` if both targets resolve to the same repository, commit and subtree,
+        else ``False``.
     """
     if (
         target1.owner.lower() != target2.owner.lower()
@@ -707,30 +694,26 @@ def _compare_inputs_are_same(
 ) -> bool:
     """Return whether both ``compare`` inputs refer to the same target.
 
-    Comparing a structure against itself produces a diff in which every
-    item is shared and nothing is unique, which is never what the caller
-    intends. This detects that case so the :func:`compare` command can
-    reject it instead of doing pointless work.
+    Comparing a structure against itself produces a diff in which every item is shared
+    and nothing is unique, which is never what the caller intends. This detects that
+    case so the `compare` command can reject it instead of doing pointless work.
 
     The two inputs are considered the same when:
 
-    * both are GitHub repositories that resolve to the same repository,
-      ref and subtree — see :func:`_same_github_target` for how owner/repo
-      case-insensitivity and the default branch are handled; or
-    * both are local directories whose resolved absolute paths are equal,
-      so that ``dir`` and ``dir/``, relative and absolute spellings, and
-      symlinks pointing at the same location are all recognized as
-      identical.
+    * both are GitHub repositories that resolve to the same repository, ref and subtree
+      — see `_same_github_target` for how owner/repo case-insensitivity and the default
+      branch are handled; or
+    * both are local directories whose resolved absolute paths are equal, so that
+      ``dir`` and ``dir/``, relative and absolute spellings, and symlinks pointing at
+      the same location are all recognized as identical.
 
     A local directory and a GitHub repository are never the same.
 
     Args:
         dir1: The first raw input as given on the command line.
         dir2: The second raw input as given on the command line.
-        target1: The parsed GitHub target for *dir1*, or ``None`` if it is
-            a local path.
-        target2: The parsed GitHub target for *dir2*, or ``None`` if it is
-            a local path.
+        target1: The parsed GitHub target for *dir1*, or ``None`` if it is a local path.
+        target2: The parsed GitHub target for *dir2*, or ``None`` if it is a local path.
 
     Returns:
         ``True`` if the two inputs refer to the same target, else ``False``.
@@ -778,83 +761,72 @@ def visualize(
 ) -> None:
     """Visualize a directory structure as a tree in the terminal.
 
-    Scans *directory* and renders a rich, color-coded tree to stdout.
-    File-extension colors, optional statistics, and Git status markers
-    can be enabled through the available options. An animated progress
-    indicator is shown while scanning large directories.
+    Scans *directory* and renders a rich, color-coded tree to stdout. File-extension
+    colors, optional statistics, and Git status markers can be enabled through the
+    available options. An animated progress indicator is shown while scanning large
+    directories.
 
-    *directory* may also be a GitHub repository URL (optionally pinning a
-    branch/tag and subtree via ``/tree/<ref>`` or ``/tree/<ref>/<subpath>``),
-    in which case the
-    repository is downloaded and scanned like a local directory. For a GitHub
-    input the ``--ignore-file``, ``--git-status``, ``--sort-by-git-status``,
-    ``--mtime`` and ``--sort-by-mtime`` options do not apply and are skipped,
-    while ``--full-path`` shows each file's GitHub blob URL instead of a
-    filesystem path.
+    *directory* may also be a GitHub repository URL (optionally pinning a branch/tag and
+    subtree via ``/tree/<ref>`` or ``/tree/<ref>/<subpath>``), in which case the
+    repository is downloaded and scanned like a local directory. For a GitHub input the
+    ``--ignore-file``, ``--git-status``, ``--sort-by-git-status``, ``--mtime`` and
+    ``--sort-by-mtime`` options do not apply and are skipped, while ``--full-path``
+    shows each file's GitHub blob URL instead of a filesystem path.
 
-    Sorting and annotation flags are resolved strictly by their left-to-right
-    order on the command line: only the first sorting flag (``--sort-by-*``)
-    takes effect, while every display-only flag (``--loc``, ``--size``,
-    ``--mtime``, ``--git-status``) always annotates, in the order given. See
-    :mod:`recursivist.flags` for the full resolution rules.
+    Sorting and annotation flags are resolved strictly by their left-to-right order on
+    the command line: only the first sorting flag (``--sort-by-*``) takes effect, while
+    every display-only flag (``--loc``, ``--size``, ``--mtime``, ``--git-status``)
+    always annotates, in the order given. See [`recursivist.flags`][recursivist.flags]
+    for the full resolution rules.
 
     Args:
-        directory: Root directory to visualize, or a GitHub repository URL.
-            Must exist and be a directory when local. Defaults to the current
-            working directory.
-        exclude_dirs: Directory names to omit from the tree entirely
-            (e.g. ``["node_modules", ".git"]``).
-        exclude_extensions: File extensions to hide. Values are
-            normalized so both ``"pyc"`` and ``".pyc"`` are accepted.
-        exclude_patterns: Glob or regex patterns for file/directory
-            names to exclude. Interpretation depends on *use_regex*.
-        include_patterns: Patterns that *override* exclusions — any
-            path matching an include pattern is shown even if it
-            would otherwise be filtered out.
-        use_regex: When ``True``, treat *exclude_patterns* and
-            *include_patterns* as Python regular expressions instead
-            of glob patterns.
-        ignore_file: Filename of an ignore file located inside
-            *directory* (e.g. ``".gitignore"``). Entries in that file
-            are treated as additional exclusions.
-        max_depth: Maximum directory depth to display. ``0`` means
-            unlimited.
-        show_full_path: When ``True``, display absolute paths instead
-            of bare filenames.
-        sort_by_loc: When ``True``, sort files by lines-of-code count
-            (descending) and annotate each file with its LOC count.
-            Ignored entirely if an earlier sorting flag was given.
-        sort_by_size: When ``True``, sort files by size (descending)
-            and annotate each file with its size. Ignored entirely if
-            an earlier sorting flag was given.
-        sort_by_mtime: When ``True``, sort files by last-modification
-            time (newest first) and annotate each file with its
-            timestamp. Ignored entirely if an earlier sorting flag was
-            given.
-        sort_by_git_status: When ``True``, sort files by Git status and
-            annotate each file with its status marker. Ignored entirely
-            if an earlier sorting flag was given.
-        sort_by_similarity: When ``True``, group files with similar
-            names next to each other. Ignored entirely if an earlier
+        directory: Root directory to visualize, or a GitHub repository URL. Must exist
+            and be a directory when local. Defaults to the current working directory.
+        exclude_dirs: Directory names to omit from the tree entirely (e.g.
+            ``["node_modules", ".git"]``).
+        exclude_extensions: File extensions to hide. Values are normalized so both
+            ``"pyc"`` and ``".pyc"`` are accepted.
+        exclude_patterns: Glob or regex patterns for file/directory names to exclude.
+            Interpretation depends on *use_regex*.
+        include_patterns: Patterns that *override* exclusions — any path matching an
+            include pattern is shown even if it would otherwise be filtered out.
+        use_regex: When ``True``, treat *exclude_patterns* and *include_patterns* as
+            Python regular expressions instead of glob patterns.
+        ignore_file: Filename of an ignore file located inside *directory* (e.g.
+            ``".gitignore"``). Entries in that file are treated as additional
+            exclusions.
+        max_depth: Maximum directory depth to display. ``0`` means unlimited.
+        show_full_path: When ``True``, display absolute paths instead of bare filenames.
+        sort_by_loc: When ``True``, sort files by lines-of-code count (descending) and
+            annotate each file with its LOC count. Ignored entirely if an earlier
             sorting flag was given.
-        loc: When ``True``, display each file's lines-of-code count
-            without affecting the sort order.
-        size: When ``True``, display each file's size without affecting
+        sort_by_size: When ``True``, sort files by size (descending) and annotate each
+            file with its size. Ignored entirely if an earlier sorting flag was given.
+        sort_by_mtime: When ``True``, sort files by last-modification time (newest
+            first) and annotate each file with its timestamp. Ignored entirely if an
+            earlier sorting flag was given.
+        sort_by_git_status: When ``True``, sort files by Git status and annotate each
+            file with its status marker. Ignored entirely if an earlier sorting flag was
+            given.
+        sort_by_similarity: When ``True``, group files with similar names next to each
+            other. Ignored entirely if an earlier sorting flag was given.
+        loc: When ``True``, display each file's lines-of-code count without affecting
             the sort order.
-        mtime: When ``True``, display each file's modification time
-            without affecting the sort order.
-        show_git_status: When ``True``, annotate files with their Git status
-            without affecting the sort order: ``[U]`` untracked, ``[M]``
-            modified, ``[A]`` added, ``[D]`` deleted.
-        icon_style: Icon style to use for file/folder markers. If not
-            provided, falls back to the persistent user config.
-        verbose: When ``True``, lower the log level to DEBUG so that
-            internal processing steps are printed to the terminal.
+        size: When ``True``, display each file's size without affecting the sort order.
+        mtime: When ``True``, display each file's modification time without affecting
+            the sort order.
+        show_git_status: When ``True``, annotate files with their Git status without
+            affecting the sort order: ``[U]`` untracked, ``[M]`` modified, ``[A]``
+            added, ``[D]`` deleted.
+        icon_style: Icon style to use for file/folder markers. If not provided, falls
+            back to the persistent user config.
+        verbose: When ``True``, lower the log level to DEBUG so that internal processing
+            steps are printed to the terminal.
 
     Raises:
-        typer.Exit: With exit code ``1`` if *directory* does not exist
-            or is not a directory, or if any unhandled exception occurs
-            during scanning or rendering.
+        typer.Exit: With exit code ``1`` if *directory* does not exist or is not a
+            directory, or if any unhandled exception occurs during scanning or
+            rendering.
 
     Examples:
         >>> # Display current directory
@@ -1015,93 +987,78 @@ def export(
 ) -> None:
     """Export a directory structure to one or more file formats.
 
-    Scans *directory*, builds the internal tree representation, and
-    writes output files without rendering anything to the terminal.
-    Multiple formats can be requested in a single invocation; each
-    format produces a separate file named ``<prefix>.<format>`` inside
-    *output_dir*. By default, this forces the `emoji` icon style to
-    ensure cross-platform compatibility in external viewers, unless
-    explicitly overridden.
+    Scans *directory*, builds the internal tree representation, and writes output files
+    without rendering anything to the terminal. Multiple formats can be requested in a
+    single invocation; each format produces a separate file named ``<prefix>.<format>``
+    inside *output_dir*. By default, this forces the `emoji` icon style to ensure
+    cross-platform compatibility in external viewers, unless explicitly overridden.
 
-    *directory* may also be a GitHub repository URL (optionally pinning a
-    branch/tag and subtree via ``/tree/<ref>`` or ``/tree/<ref>/<subpath>``),
-    in which case the
-    repository is downloaded and scanned like a local directory. For a GitHub
-    input the ``--ignore-file``, ``--git-status``, ``--sort-by-git-status``,
-    ``--mtime`` and ``--sort-by-mtime`` options do not apply and are skipped,
-    while ``--full-path`` writes each file's GitHub blob URL instead of a
-    filesystem path.
+    *directory* may also be a GitHub repository URL (optionally pinning a branch/tag and
+    subtree via ``/tree/<ref>`` or ``/tree/<ref>/<subpath>``), in which case the
+    repository is downloaded and scanned like a local directory. For a GitHub input the
+    ``--ignore-file``, ``--git-status``, ``--sort-by-git-status``, ``--mtime`` and
+    ``--sort-by-mtime`` options do not apply and are skipped, while ``--full-path``
+    writes each file's GitHub blob URL instead of a filesystem path.
 
-    Sorting and annotation flags are resolved strictly by their left-to-right
-    order on the command line: only the first sorting flag (``--sort-by-*``)
-    takes effect, while every display-only flag (``--loc``, ``--size``,
-    ``--mtime``, ``--git-status``) always annotates, in the order given. See
-    :mod:`recursivist.flags` for the full resolution rules.
+    Sorting and annotation flags are resolved strictly by their left-to-right order on
+    the command line: only the first sorting flag (``--sort-by-*``) takes effect, while
+    every display-only flag (``--loc``, ``--size``, ``--mtime``, ``--git-status``)
+    always annotates, in the order given. See [`recursivist.flags`][recursivist.flags]
+    for the full resolution rules.
 
     Args:
-        directory: Root directory to export, or a GitHub repository URL.
-            Must exist and be a directory when local. Defaults to the current
-            working directory.
-        formats: Export format identifiers. Supported values are
-            ``"txt"``, ``"json"``, ``"html"``, ``"md"``, ``"svg"``,
-            and ``"rst"``. Multiple formats may be given as
-            separate flags or as a single space-separated string.
-        output_dir: Directory where exported files are written.
-            Created automatically if it does not exist. Defaults to
-            the current working directory.
-        output_prefix: Filename prefix shared by all exported files.
-            Defaults to ``"structure"``.
+        directory: Root directory to export, or a GitHub repository URL. Must exist and
+            be a directory when local. Defaults to the current working directory.
+        formats: Export format identifiers. Supported values are ``"txt"``, ``"json"``,
+            ``"html"``, ``"md"``, ``"svg"``, and ``"rst"``. Multiple formats may be
+            given as separate flags or as a single space-separated string.
+        output_dir: Directory where exported files are written. Created automatically if
+            it does not exist. Defaults to the current working directory.
+        output_prefix: Filename prefix shared by all exported files. Defaults to
+            ``"structure"``.
         exclude_dirs: Directory names to omit from the exported tree.
-        exclude_extensions: File extensions to hide. Values are
-            normalized so both ``"pyc"`` and ``".pyc"`` are accepted.
-        exclude_patterns: Glob or regex patterns for file/directory
-            names to exclude. Interpretation depends on *use_regex*.
-        include_patterns: Patterns that override exclusions — any
-            path matching an include pattern is exported even if it
-            would otherwise be filtered out.
-        use_regex: When ``True``, treat *exclude_patterns* and
-            *include_patterns* as Python regular expressions instead
-            of glob patterns.
-        ignore_file: Filename of an ignore file inside *directory*
-            (e.g. ``".gitignore"``). Entries are treated as additional
-            exclusions.
-        max_depth: Maximum directory depth to include in the export.
-            ``0`` means unlimited.
-        show_full_path: When ``True``, write absolute paths instead of
-            bare filenames.
-        sort_by_loc: When ``True``, sort files by lines-of-code count
-            (descending) and annotate each file with its LOC count.
-            Ignored entirely if an earlier sorting flag was given.
-        sort_by_size: When ``True``, sort files by size (descending)
-            and annotate each file with its size. Ignored entirely if
-            an earlier sorting flag was given.
-        sort_by_mtime: When ``True``, sort files by last-modification
-            time (newest first) and annotate each file with its
-            timestamp. Ignored entirely if an earlier sorting flag was
-            given.
-        sort_by_git_status: When ``True``, sort files by Git status and
-            annotate each file with its status marker. Ignored entirely
-            if an earlier sorting flag was given.
-        sort_by_similarity: When ``True``, group files with similar
-            names next to each other. Ignored entirely if an earlier
+        exclude_extensions: File extensions to hide. Values are normalized so both
+            ``"pyc"`` and ``".pyc"`` are accepted.
+        exclude_patterns: Glob or regex patterns for file/directory names to exclude.
+            Interpretation depends on *use_regex*.
+        include_patterns: Patterns that override exclusions — any path matching an
+            include pattern is exported even if it would otherwise be filtered out.
+        use_regex: When ``True``, treat *exclude_patterns* and *include_patterns* as
+            Python regular expressions instead of glob patterns.
+        ignore_file: Filename of an ignore file inside *directory* (e.g.
+            ``".gitignore"``). Entries are treated as additional exclusions.
+        max_depth: Maximum directory depth to include in the export. ``0`` means
+            unlimited.
+        show_full_path: When ``True``, write absolute paths instead of bare filenames.
+        sort_by_loc: When ``True``, sort files by lines-of-code count (descending) and
+            annotate each file with its LOC count. Ignored entirely if an earlier
             sorting flag was given.
-        loc: When ``True``, display each file's lines-of-code count
-            without affecting the sort order.
-        size: When ``True``, display each file's size without affecting
+        sort_by_size: When ``True``, sort files by size (descending) and annotate each
+            file with its size. Ignored entirely if an earlier sorting flag was given.
+        sort_by_mtime: When ``True``, sort files by last-modification time (newest
+            first) and annotate each file with its timestamp. Ignored entirely if an
+            earlier sorting flag was given.
+        sort_by_git_status: When ``True``, sort files by Git status and annotate each
+            file with its status marker. Ignored entirely if an earlier sorting flag was
+            given.
+        sort_by_similarity: When ``True``, group files with similar names next to each
+            other. Ignored entirely if an earlier sorting flag was given.
+        loc: When ``True``, display each file's lines-of-code count without affecting
             the sort order.
-        mtime: When ``True``, display each file's modification time
+        size: When ``True``, display each file's size without affecting the sort order.
+        mtime: When ``True``, display each file's modification time without affecting
+            the sort order.
+        show_git_status: When ``True``, annotate files with their Git status markers
             without affecting the sort order.
-        show_git_status: When ``True``, annotate files with their Git
-            status markers without affecting the sort order.
-        icon_style: Icon style to enforce on the export. Defaults to
-            'emoji' for external compatibility unless provided.
-        verbose: When ``True``, lower the log level to DEBUG so that
-            internal processing steps are printed to the terminal.
+        icon_style: Icon style to enforce on the export. Defaults to 'emoji' for
+            external compatibility unless provided.
+        verbose: When ``True``, lower the log level to DEBUG so that internal processing
+            steps are printed to the terminal.
 
     Raises:
-        typer.Exit: With exit code ``1`` if *directory* is invalid,
-            an unsupported format is requested, or an unhandled
-            exception occurs during scanning or file writing.
+        typer.Exit: With exit code ``1`` if *directory* is invalid, an unsupported
+            format is requested, or an unhandled exception occurs during scanning or
+            file writing.
 
     Examples:
         >>> # Export current directory to Markdown
@@ -1240,26 +1197,24 @@ def completion(
 ) -> None:
     """Print a shell completion script for the recursivist CLI.
 
-    Writes the completion script for the requested *shell* to stdout, ready to
-    be redirected to a file or sourced, enabling tab-completion for every
-    recursivist command, option, and argument. This is the same script Typer's
-    built-in ``--show-completion`` produces, generated here for the shell named
-    explicitly rather than the one auto-detected from the environment.
+    Writes the completion script for the requested *shell* to stdout, ready to be
+    redirected to a file or sourced, enabling tab-completion for every recursivist
+    command, option, and argument. This is the same script Typer's built-in
+    ``--show-completion`` produces, generated here for the shell named explicitly rather
+    than the one auto-detected from the environment.
 
-    To install it, redirect the output to the location your shell reads
-    completions from, or let Typer place it automatically with
-    ``recursivist --install-completion``. Only the script is written to stdout;
-    a short usage hint is written to stderr, so redirecting stdout to a file
-    captures the script alone.
+    To install it, redirect the output to the location your shell reads completions
+    from, or let Typer place it automatically with ``recursivist --install-completion``.
+    Only the script is written to stdout; a short usage hint is written to stderr, so
+    redirecting stdout to a file captures the script alone.
 
     Args:
-        shell: Target shell for the completion script. Must be one of
-            ``"bash"``, ``"zsh"``, ``"fish"``, or ``"powershell"``
-            (case-insensitive).
+        shell: Target shell for the completion script. Must be one of ``"bash"``,
+            ``"zsh"``, ``"fish"``, or ``"powershell"`` (case-insensitive).
 
     Raises:
-        typer.Exit: With exit code ``1`` if *shell* is not a supported value
-            or if the completion script cannot be generated.
+        typer.Exit: With exit code ``1`` if *shell* is not a supported value or if the
+            completion script cannot be generated.
 
     Examples:
         >>> # Bash: append to your startup file
@@ -1307,9 +1262,8 @@ def completion(
 def version() -> None:
     """Display the current version of recursivist.
 
-    Reads the version string from the installed package metadata and
-    prints it to stdout in the format
-    ``"Recursivist version: <version>"``.
+    Reads the version string from the installed package metadata and prints it to stdout
+    in the format ``"Recursivist version: <version>"``.
     """
     from recursivist import __version__
 
@@ -1358,103 +1312,88 @@ def compare(
 ) -> None:
     """Compare two directory structures side by side.
 
-    Builds the tree for each input using identical filtering options,
-    then renders a color-highlighted side-by-side diff. Items present
-    only in *dir1* are highlighted in one color; items present only in
-    *dir2* in another; shared items are shown normally. A legend is
-    included in the output. When *save_as_html* is ``True`` the
-    comparison is written to an HTML file instead.
+    Builds the tree for each input using identical filtering options, then renders a
+    color-highlighted side-by-side diff. Items present only in *dir1* are highlighted in
+    one color; items present only in *dir2* in another; shared items are shown normally.
+    A legend is included in the output. When *save_as_html* is ``True`` the comparison
+    is written to an HTML file instead.
 
-    Either input may be a local directory or a GitHub repository URL
-    (optionally pinning a branch/tag and subtree via
-    ``/tree/<ref>`` or ``/tree/<ref>/<subpath>``), allowing a local directory
-    to be compared
-    against a GitHub repository, two GitHub repositories, or two local
-    directories. A GitHub side is downloaded and scanned like a local
-    directory, and ``--full-path`` shows its files' GitHub blob URLs. The
-    ``--ignore-file``, ``--git-status`` and ``--sort-by-git-status`` options do
-    not apply to a GitHub side and are skipped for it; when *both* inputs are
-    GitHub repositories they are skipped entirely, but when either input is a
-    local directory those options are still honored for the local side.
+    Either input may be a local directory or a GitHub repository URL (optionally pinning
+    a branch/tag and subtree via ``/tree/<ref>`` or ``/tree/<ref>/<subpath>``), allowing
+    a local directory to be compared against a GitHub repository, two GitHub
+    repositories, or two local directories. A GitHub side is downloaded and scanned like
+    a local directory, and ``--full-path`` shows its files' GitHub blob URLs. The
+    ``--ignore-file``, ``--git-status`` and ``--sort-by-git-status`` options do not
+    apply to a GitHub side and are skipped for it; when *both* inputs are GitHub
+    repositories they are skipped entirely, but when either input is a local directory
+    those options are still honored for the local side.
 
-    Sorting and annotation flags are resolved strictly by their left-to-right
-    order on the command line: only the first sorting flag (``--sort-by-*``)
-    takes effect, while every display-only flag (``--loc``, ``--size``,
-    ``--mtime``, ``--git-status``) always annotates, in the order given. See
-    :mod:`recursivist.flags` for the full resolution rules. Git status is read
-    independently for each directory, so each side is annotated against its own
-    repository.
+    Sorting and annotation flags are resolved strictly by their left-to-right order on
+    the command line: only the first sorting flag (``--sort-by-*``) takes effect, while
+    every display-only flag (``--loc``, ``--size``, ``--mtime``, ``--git-status``)
+    always annotates, in the order given. See [`recursivist.flags`][recursivist.flags]
+    for the full resolution rules. Git status is read independently for each directory,
+    so each side is annotated against its own repository.
 
-    By default, uses the persistent user configuration for icon styling
-    in the terminal. If exported to HTML, strictly falls back to
-    the 'emoji' style to ensure cross-platform compatibility.
+    By default, uses the persistent user configuration for icon styling in the terminal.
+    If exported to HTML, strictly falls back to the 'emoji' style to ensure
+    cross-platform compatibility.
 
     Args:
-        dir1: First input to compare — a local directory path or a
-            GitHub repository URL.
-        dir2: Second input to compare — a local directory path or a
-            GitHub repository URL.
+        dir1: First input to compare — a local directory path or a GitHub repository
+            URL.
+        dir2: Second input to compare — a local directory path or a GitHub repository
+            URL.
         exclude_dirs: Directory names to omit from both trees.
-        exclude_extensions: File extensions to hide from both trees.
-            Values are normalized so both ``"pyc"`` and ``".pyc"``
-            are accepted.
-        exclude_patterns: Glob or regex patterns for file/directory
-            names to exclude from both trees. Interpretation depends
-            on *use_regex*.
-        include_patterns: Patterns that override exclusions — any
-            path matching an include pattern is shown even if it
-            would otherwise be filtered out.
-        use_regex: When ``True``, treat *exclude_patterns* and
-            *include_patterns* as Python regular expressions instead
-            of glob patterns.
-        ignore_file: Filename of an ignore file to look for inside
-            each directory (e.g. ``".gitignore"``).
-        max_depth: Maximum directory depth to display. ``0`` means
-            unlimited.
-        save_as_html: When ``True``, write the comparison to an HTML
-            file rather than printing to the terminal.
-        output_dir: Directory where the HTML file is written when
-            *save_as_html* is ``True``. Created if it does not exist.
-            Defaults to the current working directory.
-        output_prefix: Filename prefix for the exported HTML file.
-            Defaults to ``"comparison"``.
-        show_full_path: When ``True``, display absolute paths instead
-            of bare filenames.
-        sort_by_loc: When ``True``, sort files by lines-of-code count
-            (descending) and annotate each file with its LOC count.
-            Ignored entirely if an earlier sorting flag was given.
-        sort_by_size: When ``True``, sort files by size (descending)
-            and annotate each file with its size. Ignored entirely if
-            an earlier sorting flag was given.
-        sort_by_mtime: When ``True``, sort files by last-modification
-            time (newest first) and annotate each file with its
-            timestamp. Ignored entirely if an earlier sorting flag was
-            given.
-        sort_by_git_status: When ``True``, sort files by Git status and
-            annotate each file with its status marker. Ignored entirely
-            if an earlier sorting flag was given.
-        sort_by_similarity: When ``True``, group files with similar
-            names next to each other. Ignored entirely if an earlier
+        exclude_extensions: File extensions to hide from both trees. Values are
+            normalized so both ``"pyc"`` and ``".pyc"`` are accepted.
+        exclude_patterns: Glob or regex patterns for file/directory names to exclude
+            from both trees. Interpretation depends on *use_regex*.
+        include_patterns: Patterns that override exclusions — any path matching an
+            include pattern is shown even if it would otherwise be filtered out.
+        use_regex: When ``True``, treat *exclude_patterns* and *include_patterns* as
+            Python regular expressions instead of glob patterns.
+        ignore_file: Filename of an ignore file to look for inside each directory (e.g.
+            ``".gitignore"``).
+        max_depth: Maximum directory depth to display. ``0`` means unlimited.
+        save_as_html: When ``True``, write the comparison to an HTML file rather than
+            printing to the terminal.
+        output_dir: Directory where the HTML file is written when *save_as_html* is
+            ``True``. Created if it does not exist. Defaults to the current working
+            directory.
+        output_prefix: Filename prefix for the exported HTML file. Defaults to
+            ``"comparison"``.
+        show_full_path: When ``True``, display absolute paths instead of bare filenames.
+        sort_by_loc: When ``True``, sort files by lines-of-code count (descending) and
+            annotate each file with its LOC count. Ignored entirely if an earlier
             sorting flag was given.
-        loc: When ``True``, display each file's lines-of-code count
-            without affecting the sort order.
-        size: When ``True``, display each file's size without affecting
+        sort_by_size: When ``True``, sort files by size (descending) and annotate each
+            file with its size. Ignored entirely if an earlier sorting flag was given.
+        sort_by_mtime: When ``True``, sort files by last-modification time (newest
+            first) and annotate each file with its timestamp. Ignored entirely if an
+            earlier sorting flag was given.
+        sort_by_git_status: When ``True``, sort files by Git status and annotate each
+            file with its status marker. Ignored entirely if an earlier sorting flag was
+            given.
+        sort_by_similarity: When ``True``, group files with similar names next to each
+            other. Ignored entirely if an earlier sorting flag was given.
+        loc: When ``True``, display each file's lines-of-code count without affecting
             the sort order.
-        mtime: When ``True``, display each file's modification time
-            without affecting the sort order.
-        show_git_status: When ``True``, annotate files with their Git status
-            without affecting the sort order: ``[U]`` untracked, ``[M]``
-            modified, ``[A]`` added, ``[D]`` deleted. Read independently for
-            each directory.
-        icon_style: Style to use for folder and file icons. Will use
-            the user configuration when visualizing in terminal, and
-            default to 'emoji' when outputting to HTML.
-        verbose: When ``True``, lower the log level to DEBUG so that
-            internal processing steps are printed to the terminal.
+        size: When ``True``, display each file's size without affecting the sort order.
+        mtime: When ``True``, display each file's modification time without affecting
+            the sort order.
+        show_git_status: When ``True``, annotate files with their Git status without
+            affecting the sort order: ``[U]`` untracked, ``[M]`` modified, ``[A]``
+            added, ``[D]`` deleted. Read independently for each directory.
+        icon_style: Style to use for folder and file icons. Will use the user
+            configuration when visualizing in terminal, and default to 'emoji' when
+            outputting to HTML.
+        verbose: When ``True``, lower the log level to DEBUG so that internal processing
+            steps are printed to the terminal.
 
     Raises:
-        typer.Exit: With exit code ``1`` if an unhandled exception
-            occurs during comparison or export.
+        typer.Exit: With exit code ``1`` if an unhandled exception occurs during
+            comparison or export.
 
     Examples:
         >>> # Basic comparison
@@ -1631,10 +1570,9 @@ def compare(
 def main() -> None:
     """Entry point for the recursivist CLI application.
 
-    Invokes the Typer application, which parses command-line arguments
-    and dispatches to the appropriate subcommand function. This
-    function is registered as the ``recursivist`` console-script entry
-    point in the package configuration.
+    Invokes the Typer application, which parses command-line arguments and dispatches to
+    the appropriate subcommand function. This function is registered as the
+    ``recursivist`` console-script entry point in the package configuration.
     """
     app()
 

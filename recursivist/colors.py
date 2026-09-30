@@ -1,10 +1,9 @@
 """Deterministic color assignment for file extensions.
 
-Generates a stable, visually distinct hex color per file extension using a
-hash of the extension, with a collision-avoidance pass over already-assigned
-colors. Also provides WCAG 2.1 contrast helpers used by renderers that draw
-onto a known background (such as the HTML exporter) to guarantee legible
-text. Pure standard library.
+Generates a stable, visually distinct hex color per file extension using a hash of the
+extension, with a collision-avoidance pass over already-assigned colors. Also provides
+WCAG 2.1 contrast helpers used by renderers that draw onto a known background (such as
+the HTML exporter) to guarantee legible text. Pure standard library.
 """
 
 import colorsys
@@ -34,19 +33,18 @@ WCAG_AAA_LARGE_TEXT = 4.5
 def color_distance(color1: tuple[int, int, int], color2: tuple[int, int, int]) -> float:
     """Calculate the perceptual distance between two RGB colors.
 
-    Uses a weighted Euclidean distance formula that approximates human color
-    perception by emphasising the green channel over red and blue.
+    Uses a weighted Euclidean distance formula that approximates human color perception
+    by emphasising the green channel over red and blue.
 
     Args:
-        color1: First color as an ``(r, g, b)`` tuple with component values
-            in the range ``0``–``255``.
-        color2: Second color as an ``(r, g, b)`` tuple with component values
-            in the range ``0``–``255``.
+        color1: First color as an ``(r, g, b)`` tuple with component values in the range
+            ``0``–``255``.
+        color2: Second color as an ``(r, g, b)`` tuple with component values in the
+            range ``0``–``255``.
 
     Returns:
-        A non-negative float representing the perceptual distance; ``0.0``
-        means the colors are identical and larger values indicate greater
-        visual difference.
+        A non-negative float representing the perceptual distance; ``0.0`` means the
+        colors are identical and larger values indicate greater visual difference.
     """
     r1, g1, b1 = [x / 255 for x in color1]
     r2, g2, b2 = [x / 255 for x in color2]
@@ -63,12 +61,11 @@ def hex_to_rgb(hex_color: str) -> tuple[int, int, int]:
     """Convert a CSS hex color string to an ``(r, g, b)`` tuple.
 
     Args:
-        hex_color: Six-digit hex color string, optionally prefixed with
-            ``'#'`` (e.g., ``"#FF5733"`` or ``"FF5733"``).
+        hex_color: Six-digit hex color string, optionally prefixed with ``'#'`` (e.g.,
+            ``"#FF5733"`` or ``"FF5733"``).
 
     Returns:
-        A three-tuple of integers ``(red, green, blue)`` in the range
-        ``0``–``255``.
+        A three-tuple of integers ``(red, green, blue)`` in the range ``0``–``255``.
     """
     hex_color = hex_color.lstrip("#")
     return cast(
@@ -80,8 +77,7 @@ def rgb_to_hex(color: tuple[int, int, int]) -> str:
     """Convert an ``(r, g, b)`` tuple to a CSS hex color string.
 
     Args:
-        color: Three-tuple of integers ``(red, green, blue)`` in the range
-            ``0``–``255``.
+        color: Three-tuple of integers ``(red, green, blue)`` in the range ``0``–``255``
 
     Returns:
         A lowercase six-digit hex color string prefixed with ``'#'``.
@@ -92,13 +88,13 @@ def rgb_to_hex(color: tuple[int, int, int]) -> str:
 def relative_luminance(color: tuple[int, int, int]) -> float:
     """Calculate the WCAG relative luminance of an sRGB color.
 
-    Implements the definition given in WCAG 2.1: each channel is normalised
-    to ``0``–``1``, linearised to remove the sRGB transfer function, and then
-    combined with the standard luminance coefficients.
+    Implements the definition given in WCAG 2.1: each channel is normalised to
+    ``0``–``1``, linearised to remove the sRGB transfer function, and then combined with
+    the standard luminance coefficients.
 
     Args:
-        color: Color as an ``(r, g, b)`` tuple with component values in the
-            range ``0``–``255``.
+        color: Color as an ``(r, g, b)`` tuple with component values in the range
+            ``0``–``255``.
 
     Returns:
         The relative luminance, from ``0.0`` (black) to ``1.0`` (white).
@@ -118,15 +114,15 @@ def contrast_ratio(color1: tuple[int, int, int], color2: tuple[int, int, int]) -
     """Calculate the WCAG contrast ratio between two colors.
 
     Args:
-        color1: First color as an ``(r, g, b)`` tuple with component values
-            in the range ``0``–``255``.
-        color2: Second color as an ``(r, g, b)`` tuple with component values
-            in the range ``0``–``255``.
+        color1: First color as an ``(r, g, b)`` tuple with component values in the range
+            ``0``–``255``.
+        color2: Second color as an ``(r, g, b)`` tuple with component values in the
+            range ``0``–``255``.
 
     Returns:
-        The contrast ratio, from ``1.0`` (identical luminance) to ``21.0``
-        (black against white). WCAG 2.1 requires at least ``4.5`` for normal
-        body text at level AA and ``3.0`` for large text.
+        The contrast ratio, from ``1.0`` (identical luminance) to ``21.0`` (black
+        against white). WCAG 2.1 requires at least ``4.5`` for normal body text at level
+        AA and ``3.0`` for large text.
     """
     luminance1 = relative_luminance(color1)
     luminance2 = relative_luminance(color2)
@@ -149,25 +145,23 @@ def ensure_contrast(
 ) -> str:
     """Adjust a color until it meets a WCAG contrast ratio against *background*.
 
-    The hue is preserved so extensions stay recognisable and mutually
-    distinguishable; only brightness (and, if brightness alone is not enough,
-    saturation) is changed. Colors that already meet *min_ratio* are returned
-    unchanged, so this is a no-op for compliant input.
+    The hue is preserved so extensions stay recognisable and mutually distinguishable;
+    only brightness (and, if brightness alone is not enough, saturation) is changed.
+    Colors that already meet *min_ratio* are returned unchanged, so this is a no-op for
+    compliant input.
 
-    Colors are darkened against light backgrounds and lightened against dark
-    ones, whichever direction can reach the required ratio.
+    Colors are darkened against light backgrounds and lightened against dark ones,
+    whichever direction can reach the required ratio.
 
     Args:
-        hex_color: Foreground color as a hex string, with or without a
-            leading ``'#'``.
+        hex_color: Foreground color as a hex string, with or without a leading ``'#'``.
         background: Background color the text is drawn on, as a hex string.
-        min_ratio: Minimum acceptable contrast ratio. Defaults to ``4.5``,
-            the WCAG 2.1 level AA threshold for normal-sized text.
+        min_ratio: Minimum acceptable contrast ratio. Defaults to ``4.5``, the WCAG 2.1
+            level AA threshold for normal-sized text.
 
     Returns:
-        A CSS hex color string that meets *min_ratio* against *background*,
-        or (if no adjustment of this hue can reach the ratio) the closest
-        achievable color.
+        A CSS hex color string that meets *min_ratio* against *background*, or (if no
+        adjustment of this hue can reach the ratio) the closest achievable color.
     """
     foreground = hex_to_rgb(hex_color)
     background_rgb = hex_to_rgb(background)
@@ -205,12 +199,12 @@ def ensure_contrast(
 def generate_color_for_extension(extension: str) -> str:
     """Generate a stable, visually distinct color for a file extension.
 
-    The color is derived deterministically from a hash of the extension, so a
-    given extension always maps to the same color within a session. Candidate
-    colors are nudged through hue/saturation/value variations until they are
-    far enough from every previously assigned color, keeping distinct
-    extensions visually separable. The leading dot is optional and ignored, so
-    ``"py"`` and ``".py"`` share a color. An empty extension maps to white.
+    The color is derived deterministically from a hash of the extension, so a given
+    extension always maps to the same color within a session. Candidate colors are
+    nudged through hue/saturation/value variations until they are far enough from every
+    previously assigned color, keeping distinct extensions visually separable. The
+    leading dot is optional and ignored, so ``"py"`` and ``".py"`` share a color. An
+    empty extension maps to white.
 
     Args:
         extension: File extension, with or without a leading dot.

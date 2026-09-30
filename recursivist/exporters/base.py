@@ -1,8 +1,9 @@
 """Shared base class for directory-structure exporters.
 
-Defines :class:`BaseExporter`, which stores the scanned structure and the
-resolved display options common to every output format. Concrete exporters
-subclass it and implement :meth:`BaseExporter.export`.
+Defines [`BaseExporter`][recursivist.exporters.base.BaseExporter], which stores the
+scanned structure and the resolved display options common to every output format.
+Concrete exporters subclass it and implement
+[`BaseExporter.export`][recursivist.exporters.base.BaseExporter.export].
 """
 
 from typing import Any
@@ -13,18 +14,19 @@ from recursivist.flags import DisplayOptions
 class BaseExporter:
     """Common base for the per-format exporters.
 
-    Holds the scanned structure and the resolved :class:`DisplayOptions`; the
-    actual output is produced by each subclass's :meth:`export`. For
-    convenience, the individual pieces of the spec are also exposed as plain
-    attributes (``metrics``, ``sort_key``, ``show_loc``/``show_size``/
-    ``show_mtime``/``show_git_status``) so exporters can read them directly.
+    Holds the scanned structure and the resolved
+    [`DisplayOptions`][recursivist.flags.DisplayOptions]; the actual output is produced
+    by each subclass's [`export`][recursivist.exporters.base.BaseExporter.export]. For
+    convenience, the individual pieces of the spec are also exposed as plain attributes
+    (``metrics``, ``sort_key``,
+    ``show_loc``/``show_size``/``show_mtime``/``show_git_status``) so exporters can read
+    them directly.
 
     Attributes:
-        extension: Canonical file extension for this format, without a leading
-            dot (e.g. ``"md"``). Set by each concrete subclass and used as the
-            single source of truth for output filenames, so format aliases that
-            share an exporter (such as ``"md"`` and ``"markdown"``) resolve to
-            the same extension.
+        extension: Canonical file extension for this format, without a leading dot (e.g.
+            ``"md"``). Set by each concrete subclass and used as the single source of
+            truth for output filenames, so format aliases that share an exporter (such
+            as ``"md"`` and ``"markdown"``) resolve to the same extension.
     """
 
     extension: str = ""
@@ -42,10 +44,11 @@ class BaseExporter:
         Args:
             structure: Scanned directory structure to export.
             root_name: Display name of the root directory.
-            base_path: Base path for full-path display. When provided (not
-                ``None``), absolute paths are shown instead of bare filenames.
-            spec: Resolved sorting and annotation directives. Defaults to a
-                plain :class:`DisplayOptions` (no sorting, no annotations).
+            base_path: Base path for full-path display. When provided (not ``None``),
+                absolute paths are shown instead of bare filenames.
+            spec: Resolved sorting and annotation directives. Defaults to a plain
+                [`DisplayOptions`][recursivist.flags.DisplayOptions] (no sorting, no
+                annotations).
             icon_style: Icon style to use, either ``"emoji"`` or ``"nerd"``.
         """
         self.structure = structure

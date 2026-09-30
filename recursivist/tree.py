@@ -1,9 +1,8 @@
 """Terminal tree rendering.
 
-Builds and prints a ``rich`` tree from a scanned structure, with extension
-colors, optional metric annotations, and Git status markers. This is the top
-of the dependency stack, composing the scanner, filtering, colors, metrics,
-sorting, and icon modules.
+Builds and prints a ``rich`` tree from a scanned structure, with extension colors,
+optional metric annotations, and Git status markers. This is the top of the dependency
+stack, composing the scanner, filtering, colors, metrics, sorting, and icon modules.
 """
 
 import logging
@@ -40,28 +39,27 @@ def build_tree(
 ) -> None:
     """Populate a ``rich`` tree from a scanned directory structure.
 
-    Recursively adds each file and subdirectory of *structure* to *tree*, with
-    filenames colored by extension. Files are ordered by ``spec.sort_key`` via
-    :func:`recursivist.sorting.sort_files_by_type`. A subtree that hit the
-    depth limit is simply left unexpanded; its folder icon still shows whether
-    anything was cut off.
+    Recursively adds each file and subdirectory of *structure* to *tree*, with filenames
+    colored by extension. Files are ordered by ``spec.sort_key`` via
+    [`recursivist.sorting.sort_files_by_type`][recursivist.sorting.sort_files_by_type].
+    A subtree that hit the depth limit is simply left unexpanded; its folder icon still
+    shows whether anything was cut off.
 
     The resolved *spec* controls the annotations appended to each entry:
 
-    - ``spec.metrics``: the ordered lines-of-code, size, and modification-time
-      metrics to append (in the exact order requested).
-    - ``spec.show_git_status``: append a colored marker to each file — ``[U]``
-      untracked (grey), ``[M]`` modified (yellow), ``[A]`` added (green),
-      ``[D]`` deleted (red). The marker always trails the metric parenthetical,
-      and deleted files no longer on disk are also struck through.
+    - ``spec.metrics``: the ordered lines-of-code, size, and modification-time metrics
+      to append (in the exact order requested).
+    - ``spec.show_git_status``: append a colored marker to each file — ``[U]`` untracked
+      (grey), ``[M]`` modified (yellow), ``[A]`` added (green), ``[D]`` deleted (red).
+      The marker always trails the metric parenthetical, and deleted files no longer on
+      disk are also struck through.
 
     Args:
         structure: Directory-structure dict to render.
         tree: ``rich`` tree to add nodes to. Modified in place.
         color_map: Mapping of lowercase file extension to hex color.
         spec: Resolved sorting and annotation directives.
-        show_full_path: Whether to display absolute paths instead of bare
-            filenames.
+        show_full_path: Whether to display absolute paths instead of bare filenames.
         icon_style: Icon style to use, either ``"emoji"`` or ``"nerd"``.
     """
     _GIT_MARKER_STYLES = {
@@ -139,34 +137,34 @@ def display_tree(
 ) -> None:
     """Scan a directory and render it as a tree in the terminal.
 
-    Runs the full pipeline — optionally fetching Git status, scanning the
-    directory, building a color map, and printing a ``rich`` tree — unless a
-    pre-computed *structure* and *extensions* are supplied, in which case the
-    scan is skipped and those are rendered directly.
+    Runs the full pipeline — optionally fetching Git status, scanning the directory,
+    building a color map, and printing a ``rich`` tree — unless a pre-computed
+    *structure* and *extensions* are supplied, in which case the scan is skipped and
+    those are rendered directly.
 
     Args:
         root_dir: Directory to display.
         exclude_dirs: Directory names to skip entirely.
         ignore_file: Name of an ignore file to honor (e.g. ``.gitignore``).
-        exclude_extensions: File extensions to exclude. Normalized to a
-            lowercase, dot-prefixed form before scanning.
+        exclude_extensions: File extensions to exclude. Normalized to a lowercase,
+            dot-prefixed form before scanning.
         exclude_patterns: Glob or regex patterns to exclude.
-        include_patterns: Glob or regex patterns to include, which override
-            the exclusions.
-        use_regex: Whether to treat the patterns as regular expressions
-            instead of glob patterns.
+        include_patterns: Glob or regex patterns to include, which override the
+            exclusions.
+        use_regex: Whether to treat the patterns as regular expressions instead of glob
+            patterns.
         max_depth: Maximum depth to display, or ``0`` for unlimited.
-        show_full_path: Whether to display absolute paths instead of bare
-            filenames.
+        show_full_path: Whether to display absolute paths instead of bare filenames.
         spec: Resolved sorting and annotation directives. Defaults to a plain
-            :class:`DisplayOptions` (no sorting, no annotations).
+            [`DisplayOptions`][recursivist.flags.DisplayOptions] (no sorting, no
+            annotations).
         icon_style: Icon style to use, either ``"emoji"`` or ``"nerd"``.
         structure: Pre-computed directory structure. When given together with
             *extensions*, the directory is not re-scanned.
         extensions: Pre-computed set of file extensions matching *structure*.
         root_name: Display name for the root node. Defaults to the basename of
-            *root_dir*; supply this to label the tree with something other than
-            the scanned path (e.g. a repository name for a GitHub input).
+            *root_dir*; supply this to label the tree with something other than the
+            scanned path (e.g. a repository name for a GitHub input).
     """
     if exclude_dirs is None:
         exclude_dirs = []
