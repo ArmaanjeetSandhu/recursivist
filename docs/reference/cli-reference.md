@@ -10,7 +10,6 @@ A complete reference for every Recursivist command and option.
 | `export`     | Export a directory structure to files         |
 | `compare`    | Compare two directory structures side by side |
 | `config`     | Manage persistent user preferences            |
-| `completion` | Generate a shell completion snippet           |
 | `version`    | Show the installed version                    |
 
 ## Shared Options
@@ -250,20 +249,6 @@ recursivist config set KEY VALUE
 recursivist config set icon-style nerd
 recursivist config set icon-style emoji
 ```
-
-## `completion`
-
-Print a shell completion activation snippet to add to your shell's startup file.
-
-```bash
-recursivist completion SHELL
-```
-
-| Argument | Description                                       |
-| -------- | ------------------------------------------------- |
-| `SHELL`  | Target shell: `bash`, `zsh`, `fish`, `powershell` |
-
-For most users, the built-in `recursivist --install-completion` is the simplest way to enable completion. See [Shell Completion](../user-guide/shell-completion.md).
 
 ## `version`
 

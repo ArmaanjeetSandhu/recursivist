@@ -60,13 +60,11 @@ class HtmlExporter(BaseExporter):
 
         def _build_html_tree(
             structure: dict[str, Any],
-            path_prefix: str = "",
         ) -> str:
             """Return the nested ``<ul>`` markup for *structure*.
 
             Args:
                 structure: Directory-structure dict to render.
-                path_prefix: Accumulated path used when full paths are shown.
 
             Returns:
                 An HTML fragment representing this subtree.
@@ -79,8 +77,6 @@ class HtmlExporter(BaseExporter):
                     structure.get("_git_markers"),
                 ):
                     file_name = entry.name
-                    display_path = entry.path
-
                     ext = os.path.splitext(file_name)[1].lower()
                     color = ensure_contrast(
                         generate_color_for_extension(ext), _BACKGROUND, _MIN_CONTRAST
@@ -115,7 +111,7 @@ class HtmlExporter(BaseExporter):
 
                     html_content.append(
                         f'<li class="file" style="{_file_style}">{file_icon} '
-                        f"{_name_open}{html.escape(display_path)}{_name_close}"
+                        f"{_name_open}{html.escape(entry.path)}{_name_close}"
                         + format_metrics_suffix(
                             entry.loc, entry.size, entry.mtime, self.metrics
                         )
@@ -146,14 +142,13 @@ class HtmlExporter(BaseExporter):
                     f'<li class="directory">{folder_icon} '
                     f'<span class="dir-name">{html.escape(name)}</span>{metric_html}'
                 )
-                next_path = os.path.join(path_prefix, name) if path_prefix else name
                 if isinstance(content, dict):
                     if content.get("_symlink_loop"):
                         html_content.append(
                             '<ul><li class="symlink-loop">↩ (symlink loop)</li></ul>'
                         )
                     elif not content.get("_max_depth_reached"):
-                        html_content.append(_build_html_tree(content, next_path))
+                        html_content.append(_build_html_tree(content))
                 html_content.append("</li>")
             html_content.append("</ul>")
             return "\n".join(html_content)
@@ -202,9 +197,7 @@ class HtmlExporter(BaseExporter):
             if self.show_git_status
             else ""
         )
-        tree_html = _build_html_tree(
-            self.structure, self.root_name if self.show_full_path else ""
-        )
+        tree_html = _build_html_tree(self.structure)
         html_template = f"""
         <!DOCTYPE html>
         <html>

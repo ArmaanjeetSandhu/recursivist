@@ -105,8 +105,8 @@
     - [Same Behavior Across Commands](user-guide/pattern-filtering.md#same-behavior-across-commands)
     - [Examples](user-guide/pattern-filtering.md#examples)
 - [Shell Completion](user-guide/shell-completion.md)
-    - [Recommended: Built-in Installer](user-guide/shell-completion.md#recommended-built-in-installer)
-    - [The `completion` Command](user-guide/shell-completion.md#the-completion-command)
+    - [Built-in Installer](user-guide/shell-completion.md#built-in-installer)
+    - [Installing the Script Manually](user-guide/shell-completion.md#installing-the-script-manually)
     - [Using Completion](user-guide/shell-completion.md#using-completion)
     - [Troubleshooting](user-guide/shell-completion.md#troubleshooting)
 
@@ -129,7 +129,6 @@
         - [Examples](reference/cli-reference.md#examples_2)
     - [`config`](reference/cli-reference.md#config)
         - [Examples](reference/cli-reference.md#examples_3)
-    - [`completion`](reference/cli-reference.md#completion)
     - [`version`](reference/cli-reference.md#version)
 - [API Reference](reference/api-reference.md)
     - [Module Overview](reference/api-reference.md#module-overview)

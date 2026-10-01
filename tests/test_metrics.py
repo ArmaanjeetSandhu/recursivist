@@ -3,6 +3,7 @@
 Covers file size/mtime, count_lines_of_code, format_size, and format_timestamp.
 """
 
+import builtins
 import os
 import random
 import re
@@ -233,17 +234,24 @@ class TestCountLinesOfCode:
         finally:
             os.unlink(file_path)
 
-    def test_unicode_decode_error(self, mocker: MockerFixture) -> None:
-        """Test that count_lines_of_code handles UnicodeDecodeError."""
-        mocker.patch(
-            "builtins.open",
-            side_effect=UnicodeDecodeError(
-                "utf-8", b"\x80", 0, 1, "invalid start byte"
-            ),
-        )
-        assert count_lines_of_code("some/path.txt") == 0, (
-            "UnicodeDecodeError should return 0 lines"
-        )
+    def test_invalid_utf8_is_counted_in_one_read(
+        self, mocker: MockerFixture, temp_dir: str
+    ) -> None:
+        """Invalid UTF-8 bytes are replaced, not rejected, in a single open."""
+        path = os.path.join(temp_dir, "latin1.txt")
+        with open(path, "wb") as f:
+            f.write(b"caf\xe9\nna\xefve\r\nend")
+        open_spy = mocker.spy(builtins, "open")
+        assert count_lines_of_code(path) == 3
+        assert open_spy.call_count == 1
+
+    @pytest.mark.parametrize("encoding", ["utf-16-le", "utf-16-be"])
+    def test_utf16_without_bom(self, temp_dir: str, encoding: str) -> None:
+        """UTF-16 without a byte-order mark is detected from its null-byte pattern."""
+        path = os.path.join(temp_dir, "utf16.txt")
+        with open(path, "wb") as f:
+            f.write("first line\nsecond line\nthird\n".encode(encoding))
+        assert count_lines_of_code(path) == 3
 
 
 class TestFileSize:

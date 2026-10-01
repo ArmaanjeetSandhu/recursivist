@@ -3,7 +3,7 @@
 
 Provides the command-line interface for the recursivist package, letting users visualize
 directory structures, export them in various formats, compare two structures
-side-by-side, manage user configurations, and generate shell completion scripts.
+side-by-side, and manage user configurations.
 
 Main commands:
     visualize: Display a directory structure in the terminal with rich formatting and
@@ -12,7 +12,6 @@ Main commands:
     compare: Compare two directory structures with highlighted differences.
     config: Manage persistent user preferences like icon styles.
     version: Display the current version information.
-    completion: Generate shell completion scripts for various shells.
 
 The visualize, export, and compare commands accept a GitHub repository URL anywhere they
 accept a local directory; see [`recursivist.github`][recursivist.github].
@@ -291,7 +290,6 @@ def callback() -> None:
         compare: Compare two directory structures side by side.
         config: Manage user preferences.
         version: Display the current version.
-        completion: Generate a shell completion script.
     """
     pass
 
@@ -1234,75 +1232,6 @@ def export(
         raise typer.Exit(1) from None
     if failed_formats:
         raise typer.Exit(1)
-
-
-@app.command()
-def completion(
-    shell: Annotated[
-        str, typer.Argument(help="Shell type (bash, zsh, fish, powershell)")
-    ],
-) -> None:
-    """Print a shell completion script for the recursivist CLI.
-
-    Writes the completion script for the requested *shell* to stdout, ready to be
-    redirected to a file or sourced, enabling tab-completion for every recursivist
-    command, option, and argument. This is the same script Typer's built-in
-    ``--show-completion`` produces, generated here for the shell named explicitly rather
-    than the one auto-detected from the environment.
-
-    To install it, redirect the output to the location your shell reads completions
-    from, or let Typer place it automatically with ``recursivist --install-completion``.
-    Only the script is written to stdout; a short usage hint is written to stderr, so
-    redirecting stdout to a file captures the script alone.
-
-    Args:
-        shell: Target shell for the completion script. Must be one of ``"bash"``,
-            ``"zsh"``, ``"fish"``, or ``"powershell"`` (case-insensitive).
-
-    Raises:
-        typer.Exit: With exit code ``1`` if *shell* is not a supported value or if the
-            completion script cannot be generated.
-
-    Examples:
-        >>> # Bash: append to your startup file
-        >>> recursivist completion bash >> ~/.bashrc
-        >>> # Fish: write to the completions directory
-        >>> recursivist completion fish > ~/.config/fish/completions/recursivist.fish
-        >>> # Or let Typer install for the current shell automatically
-        >>> recursivist --install-completion
-    """
-    prog_name = "recursivist"
-    valid_shells = ["bash", "zsh", "fish", "powershell"]
-    normalized_shell = shell.lower()
-    if normalized_shell not in valid_shells:
-        logger.error(f"Unsupported shell: {shell}")
-        logger.info(f"Supported shells: {', '.join(valid_shells)}")
-        raise typer.Exit(1)
-
-    try:
-        from typer._completion_shared import get_completion_script
-
-        complete_var = f"_{prog_name}_COMPLETE".replace("-", "_").upper()
-        script = get_completion_script(
-            prog_name=prog_name,
-            complete_var=complete_var,
-            shell=normalized_shell,
-        )
-    except Exception as e:
-        logger.exception(
-            f"Could not generate the {normalized_shell} completion script: {e}. "
-            "Run 'recursivist --install-completion' to install completion for your "
-            "current shell instead."
-        )
-        raise typer.Exit(1) from None
-
-    typer.echo(script)
-    typer.echo(
-        f"# {normalized_shell} completion for recursivist. Redirect this output to "
-        "the file your shell reads completions from, or run "
-        "'recursivist --install-completion' to install it automatically.",
-        err=True,
-    )
 
 
 @app.command()

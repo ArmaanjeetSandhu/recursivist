@@ -4,7 +4,6 @@ Renders the scanned structure as an indented ASCII tree (``├──``/``└─�
 writes it to a ``.txt`` file.
 """
 
-import os
 from typing import Any
 
 from recursivist.icons import get_icon
@@ -35,14 +34,12 @@ class TxtExporter(BaseExporter):
         def _build_txt_tree(
             structure: dict[str, Any],
             prefix: str = "",
-            path_prefix: str = "",
         ) -> list[str]:
             """Return the text lines for *structure* and its descendants.
 
             Args:
                 structure: Directory-structure dict to render.
                 prefix: Branch-connector prefix carried down from parent levels.
-                path_prefix: Accumulated path used when full paths are shown.
 
             Returns:
                 The rendered lines for this subtree, in display order.
@@ -74,18 +71,8 @@ class TxtExporter(BaseExporter):
                     file_icon = get_icon(
                         entry.name, is_dir=False, style=self.icon_style
                     )
-                    display_path = (
-                        entry.path
-                        if (
-                            self.show_full_path
-                            or self.show_loc
-                            or self.show_size
-                            or self.show_mtime
-                        )
-                        else entry.name
-                    )
                     lines.append(
-                        f"{item_prefix}{file_icon} {display_path}"
+                        f"{item_prefix}{file_icon} {entry.path}"
                         + format_metrics_suffix(
                             entry.loc, entry.size, entry.mtime, self.metrics
                         )
@@ -95,7 +82,6 @@ class TxtExporter(BaseExporter):
             for i, (name, content) in enumerate(dir_items):
                 is_last_item = i == len(dir_items) - 1
                 item_prefix = prefix + ("└── " if is_last_item else "├── ")
-                next_path = os.path.join(path_prefix, name) if path_prefix else name
                 folder_icon = get_icon(
                     name,
                     is_dir=True,
@@ -112,7 +98,7 @@ class TxtExporter(BaseExporter):
                         lines.append(f"{next_prefix}└── ↩ (symlink loop)")
                     elif not content.get("_max_depth_reached"):
                         next_prefix = prefix + ("    " if is_last_item else "│   ")
-                        sublines = _build_txt_tree(content, next_prefix, next_path)
+                        sublines = _build_txt_tree(content, next_prefix)
                         lines.extend(sublines)
                 else:
                     lines.append(f"{item_prefix}{folder_icon} {name}")
@@ -129,10 +115,6 @@ class TxtExporter(BaseExporter):
         )
 
         tree_lines = [root_label]
-        tree_lines.extend(
-            _build_txt_tree(
-                self.structure, "", self.root_name if self.show_full_path else ""
-            )
-        )
+        tree_lines.extend(_build_txt_tree(self.structure))
         with open(output_path, "w", encoding="utf-8") as f:
             f.write("\n".join(tree_lines))

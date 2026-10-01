@@ -5,7 +5,6 @@ files as inline code — and writes it to a ``.md`` file.
 """
 
 import html
-import os
 from typing import Any
 
 from recursivist.icons import get_icon
@@ -61,14 +60,12 @@ class MarkdownExporter(BaseExporter):
         def _build_md_tree(
             structure: dict[str, Any],
             level: int = 0,
-            path_prefix: str = "",
         ) -> list[str]:
             """Return the Markdown lines for *structure* and its descendants.
 
             Args:
                 structure: Directory-structure dict to render.
                 level: Current nesting depth, controlling indentation.
-                path_prefix: Accumulated path used when full paths are shown.
 
             Returns:
                 The rendered lines for this subtree, in display order.
@@ -129,12 +126,11 @@ class MarkdownExporter(BaseExporter):
                 lines.append(
                     f"{indent}- {folder_icon} **{_md_escape_text(name)}**{metrics}"
                 )
-                next_path = os.path.join(path_prefix, name) if path_prefix else name
                 if isinstance(content, dict):
                     if content.get("_symlink_loop"):
                         lines.append(f"{indent}    - ↩ *(symlink loop)*")
                     elif not content.get("_max_depth_reached"):
-                        lines.extend(_build_md_tree(content, level + 1, next_path))
+                        lines.extend(_build_md_tree(content, level + 1))
             return lines
 
         root_icon = get_icon(
@@ -150,10 +146,6 @@ class MarkdownExporter(BaseExporter):
             "",
         ]
 
-        md_content.extend(
-            _build_md_tree(
-                self.structure, 0, self.root_name if self.show_full_path else ""
-            )
-        )
+        md_content.extend(_build_md_tree(self.structure))
         with open(output_path, "w", encoding="utf-8") as f:
             f.write("\n".join(md_content))

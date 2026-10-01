@@ -5,6 +5,7 @@ format those metrics into the annotation suffixes shown next to files and direct
 Pure standard library.
 """
 
+import io
 import logging
 import os
 from collections.abc import Sequence
@@ -17,11 +18,11 @@ logger = logging.getLogger(__name__)
 def count_lines_of_code(file_path: str) -> int:
     """Count the number of lines in a text file.
 
-    Detects the encoding well enough to count lines reliably: UTF-16 files are
-    recognized by their byte-order mark or by a regular pattern of null bytes, while
-    files containing null bytes that are not UTF-16 are treated as binary and skipped.
-    Decoding falls back from strict UTF-8 to UTF-16 and finally to UTF-8 with
-    replacement so that text is never rejected over a stray byte.
+    The encoding is inferred from the first 4 KiB: UTF-16 files are recognized by their
+    byte-order mark or by a regular pattern of null bytes, while files containing null
+    bytes that are not UTF-16 are treated as binary and skipped. Everything else is read
+    as UTF-8. Undecodable bytes are replaced rather than rejected, which never changes
+    the line count, so the file is opened once and read in a single pass.
 
     Args:
         file_path: Path to the file.
@@ -32,54 +33,46 @@ def count_lines_of_code(file_path: str) -> int:
     try:
         with open(file_path, "rb") as binary_file:
             sample = binary_file.read(4096)
-            if not sample:
+            encoding = _detect_text_encoding(sample)
+            if encoding is None:
                 return 0
-            utf16_le_bom = sample.startswith(b"\xff\xfe")
-            utf16_be_bom = sample.startswith(b"\xfe\xff")
-            if utf16_le_bom or utf16_be_bom:
-                encoding = "utf-16-le" if utf16_le_bom else "utf-16-be"
-                with open(file_path, encoding=encoding, errors="replace") as text_file:
-                    return sum(1 for _ in text_file)
-            potential_utf16le: bool = False
-            potential_utf16be: bool = False
-            if len(sample) >= 16:
-                odd_bytes_zero = all(
-                    sample[i] == 0 for i in range(1, min(32, len(sample)), 2)
-                )
-                even_bytes_zero = all(
-                    sample[i] == 0 for i in range(0, min(32, len(sample)), 2)
-                )
-                potential_utf16le = odd_bytes_zero and not even_bytes_zero
-                potential_utf16be = even_bytes_zero and not odd_bytes_zero
-                if potential_utf16le or potential_utf16be:
-                    encoding = "utf-16-le" if potential_utf16le else "utf-16-be"
-                    try:
-                        with open(
-                            file_path, encoding=encoding, errors="replace"
-                        ) as text_file:
-                            return sum(1 for _ in text_file)
-                    except Exception:
-                        pass
-            if b"\x00" in sample and not (potential_utf16le or potential_utf16be):
-                return 0
-    except Exception as e:
-        logger.debug(f"Could not analyze file: {file_path}: {e}")
-        return 0
-    try:
-        with open(file_path, encoding="utf-8", errors="strict") as text_file:
-            return sum(1 for _ in text_file)
-    except UnicodeDecodeError:
-        pass
-    except Exception as e:
-        logger.debug(f"Could not read file as UTF-8: {file_path}: {e}")
+            binary_file.seek(0)
+            with io.TextIOWrapper(
+                binary_file, encoding=encoding, errors="replace"
+            ) as text_file:
+                return sum(1 for _ in text_file)
+    except OSError as e:
+        logger.debug(f"Could not read file: {file_path}: {e}")
         return 0
 
-    try:
-        with open(file_path, encoding="utf-8", errors="replace") as text_file:
-            return sum(1 for _ in text_file)
-    except Exception as e:
-        logger.debug(f"Could not analyze file with replacement: {file_path}: {e}")
-        return 0
+
+def _detect_text_encoding(sample: bytes) -> str | None:
+    """Guess the text encoding of a file from its leading bytes.
+
+    Args:
+        sample: The first bytes of the file.
+
+    Returns:
+        The encoding to decode the file with, or ``None`` if the file is empty or looks
+        binary.
+    """
+    if not sample:
+        return None
+    if sample.startswith(b"\xff\xfe"):
+        return "utf-16-le"
+    if sample.startswith(b"\xfe\xff"):
+        return "utf-16-be"
+    if len(sample) >= 16:
+        head = sample[:32]
+        odd_bytes_zero = not any(head[1::2])
+        even_bytes_zero = not any(head[0::2])
+        if odd_bytes_zero and not even_bytes_zero:
+            return "utf-16-le"
+        if even_bytes_zero and not odd_bytes_zero:
+            return "utf-16-be"
+    if b"\x00" in sample:
+        return None
+    return "utf-8"
 
 
 def get_file_size(file_path: str) -> int:

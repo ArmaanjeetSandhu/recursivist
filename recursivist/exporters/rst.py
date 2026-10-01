@@ -6,7 +6,6 @@ bold, files as inline literals) under a section title for the root, and writes i
 and Sphinx.
 """
 
-import os
 import unicodedata
 from typing import Any
 
@@ -88,14 +87,12 @@ class RstExporter(BaseExporter):
         def _build_rst_tree(
             structure: dict[str, Any],
             level: int = 0,
-            path_prefix: str = "",
         ) -> list[str]:
             """Return the reStructuredText lines for *structure* and its descendants.
 
             Args:
                 structure: Directory-structure dict to render.
                 level: Current nesting depth, controlling indentation.
-                path_prefix: Accumulated path used when full paths are shown.
 
             Returns:
                 The rendered lines for this subtree, in display order. A blank
@@ -144,13 +141,12 @@ class RstExporter(BaseExporter):
                 lines.append(
                     f"{indent}- {folder_icon} **{_rst_escape(name)}**{metrics}"
                 )
-                next_path = os.path.join(path_prefix, name) if path_prefix else name
                 if isinstance(content, dict):
                     if content.get("_symlink_loop"):
                         lines.append("")
                         lines.append(f"{indent}  - ↩ *(symlink loop)*")
                     elif not content.get("_max_depth_reached"):
-                        sublines = _build_rst_tree(content, level + 1, next_path)
+                        sublines = _build_rst_tree(content, level + 1)
                         if sublines:
                             lines.append("")
                             lines.extend(sublines)
@@ -172,10 +168,6 @@ class RstExporter(BaseExporter):
             "",
         ]
 
-        rst_content.extend(
-            _build_rst_tree(
-                self.structure, 0, self.root_name if self.show_full_path else ""
-            )
-        )
+        rst_content.extend(_build_rst_tree(self.structure))
         with open(output_path, "w", encoding="utf-8") as f:
             f.write("\n".join(rst_content) + "\n")

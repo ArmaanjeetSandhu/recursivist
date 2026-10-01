@@ -16,7 +16,6 @@ The available commands are:
 | `export`     | Export a directory structure to files         |
 | `compare`    | Compare two directory structures side by side |
 | `config`     | Manage persistent user preferences            |
-| `completion` | Generate a shell completion script            |
 | `version`    | Show the installed version                    |
 
 ## Getting Help

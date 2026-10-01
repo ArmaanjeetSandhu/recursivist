@@ -1,4 +1,4 @@
-"""CLI command tests (recursivist.cli): visualize, export, compare, completion."""
+"""CLI command tests (recursivist.cli): visualize, export, compare, version."""
 
 import json
 import logging
@@ -1153,26 +1153,6 @@ def test_version_command(runner: CliRunner) -> None:
     result = runner.invoke(app, ["version"])
     assert result.exit_code == 0
     assert "Recursivist version" in result.stdout
-
-
-def test_completion_command(
-    runner: CliRunner, caplog: pytest.LogCaptureFixture
-) -> None:
-    expected_markers = {
-        "bash": "_recursivist_completion",
-        "zsh": "#compdef recursivist",
-        "fish": "complete --command recursivist",
-        "powershell": "Register-ArgumentCompleter",
-    }
-    for shell, marker in expected_markers.items():
-        result = runner.invoke(app, ["completion", shell])
-        assert result.exit_code == 0
-        assert marker in result.output
-        assert f"complete_{shell}" in result.output
-        assert "_RECURSIVIST_COMPLETE" in result.output
-    result = runner.invoke(app, ["completion", "invalid"])
-    assert result.exit_code == 1
-    assert any("Unsupported shell" in record.message for record in caplog.records)
 
 
 def test_verbose_mode(
