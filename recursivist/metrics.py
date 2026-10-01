@@ -41,7 +41,7 @@ def count_lines_of_code(file_path: str) -> int:
                 binary_file, encoding=encoding, errors="replace"
             ) as text_file:
                 return sum(1 for _ in text_file)
-    except OSError as e:
+    except (OSError, ValueError) as e:
         logger.debug(f"Could not read file: {file_path}: {e}")
         return 0
 

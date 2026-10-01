@@ -138,10 +138,6 @@ def _has_visible_entries(
             include_patterns,
         ):
             continue
-        if not os.path.isdir(item_path):
-            _, ext = os.path.splitext(item)
-            if ext.lower() in exclude_extensions:
-                continue
         return True
     return False
 
@@ -388,36 +384,35 @@ def _scan_level(
             continue
         if not os.path.isdir(item_path):
             _, ext = os.path.splitext(item)
-            if ext.lower() not in exclude_extensions:
-                if "_files" not in structure:
-                    structure["_files"] = []
-                file_loc = 0
-                file_size = 0
-                file_mtime = 0.0
-                if sort_by_loc:
-                    file_loc = count_lines_of_code(item_path)
-                    total_loc += file_loc
-                if sort_by_size:
-                    file_size = get_file_size(item_path)
-                    total_size += file_size
-                if sort_by_mtime:
-                    file_mtime = get_file_mtime(item_path)
-                    latest_mtime = max(latest_mtime, file_mtime)
-                if show_full_path:
-                    display = os.path.abspath(item_path).replace(os.sep, "/")
-                else:
-                    display = item
-                structure["_files"].append(
-                    FileEntry(
-                        name=item,
-                        path=display,
-                        loc=file_loc,
-                        size=file_size,
-                        mtime=file_mtime,
-                    )
+            if "_files" not in structure:
+                structure["_files"] = []
+            file_loc = 0
+            file_size = 0
+            file_mtime = 0.0
+            if sort_by_loc:
+                file_loc = count_lines_of_code(item_path)
+                total_loc += file_loc
+            if sort_by_size:
+                file_size = get_file_size(item_path)
+                total_size += file_size
+            if sort_by_mtime:
+                file_mtime = get_file_mtime(item_path)
+                latest_mtime = max(latest_mtime, file_mtime)
+            if show_full_path:
+                display = os.path.abspath(item_path).replace(os.sep, "/")
+            else:
+                display = item
+            structure["_files"].append(
+                FileEntry(
+                    name=item,
+                    path=display,
+                    loc=file_loc,
+                    size=file_size,
+                    mtime=file_mtime,
                 )
-                if ext:
-                    extensions_set.add(ext.lower())
+            )
+            if ext:
+                extensions_set.add(ext.lower())
     try:
         st = os.stat(root_dir)
         child_ancestor_ids = ancestor_ids | {(st.st_dev, st.st_ino)}

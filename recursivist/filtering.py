@@ -297,7 +297,7 @@ def should_exclude(
     1. If *include_patterns* are given and none match a file, exclude it.
     2. If any *exclude_patterns* match, exclude the path (this overrides include
        patterns).
-    3. If the file's extension is in *exclude_extensions*, exclude it.
+    3. If a non-directory's extension is in *exclude_extensions*, exclude it.
     4. If an include pattern matched a file, include it (this overrides the
        gitignore-style patterns below). Directories are never tested against include
        patterns, so they always fall through to the ignore rules.
@@ -326,9 +326,10 @@ def should_exclude(
         ``True`` if the path should be excluded, ``False`` otherwise.
     """
     basename = os.path.basename(path)
+    is_dir = os.path.isdir(path)
     if (
         include_patterns
-        and not os.path.isdir(path)
+        and not is_dir
         and not any(_pattern_matches(pattern, basename) for pattern in include_patterns)
     ):
         return True
@@ -338,11 +339,10 @@ def should_exclude(
         return True
     if (
         exclude_extensions
-        and os.path.isfile(path)
-        and os.path.splitext(path)[1].lower() in exclude_extensions
+        and not is_dir
+        and os.path.splitext(basename)[1].lower() in exclude_extensions
     ):
         return True
-    is_dir = os.path.isdir(path)
     if include_patterns and not is_dir:
         return False
     levels = _resolve_ignore_levels(ignore_context)

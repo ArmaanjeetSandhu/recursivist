@@ -30,7 +30,7 @@ import logging
 import os
 from pathlib import Path
 from re import Pattern
-from typing import Annotated, Any, cast
+from typing import Annotated, Any
 
 import typer
 from rich.console import Console
@@ -524,8 +524,9 @@ def _compile_patterns_for_scan(
     """Compile exclude/include patterns for the scanner.
 
     When *use_regex* is ``True`` the patterns are compiled to regular expressions;
-    otherwise the plain glob strings are passed through unchanged (cast to the scanner's
-    expected type). Shared by the visualize and export commands.
+    otherwise [`compile_regex_patterns`][recursivist.filtering.compile_regex_patterns]
+    passes the plain glob strings through unchanged. Shared by the visualize and export
+    commands.
 
     Args:
         parsed_exclude_patterns: Flat list of exclude-pattern strings.
@@ -536,13 +537,10 @@ def _compile_patterns_for_scan(
         A ``(compiled_exclude, compiled_include)`` tuple suitable for passing directly
         to [`get_directory_structure`][recursivist.scanner.get_directory_structure].
     """
-    if use_regex:
-        compiled_exclude = compile_regex_patterns(parsed_exclude_patterns, use_regex)
-        compiled_include = compile_regex_patterns(parsed_include_patterns, use_regex)
-    else:
-        compiled_exclude = cast(list[str | Pattern[str]], parsed_exclude_patterns)
-        compiled_include = cast(list[str | Pattern[str]], parsed_include_patterns)
-    return compiled_exclude, compiled_include
+    return (
+        compile_regex_patterns(parsed_exclude_patterns, use_regex),
+        compile_regex_patterns(parsed_include_patterns, use_regex),
+    )
 
 
 def _scan_directory(

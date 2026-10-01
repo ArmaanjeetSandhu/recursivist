@@ -549,6 +549,29 @@ class TestSymlinkCycles:
         assert max_depth(structure) == 3
 
 
+def test_exclude_extensions_applies_to_dangling_symlinks(temp_dir: str) -> None:
+    """--exclude-ext hides any non-directory entry, not only regular files.
+
+    A dangling symlink is neither a file nor a directory to ``os.path``, so the
+    extension rule must not depend on ``os.path.isfile``.
+    """
+    if not _supports_symlinks(temp_dir):
+        pytest.skip("platform does not support symlinks")
+    os.symlink(
+        os.path.join(temp_dir, "missing.log"), os.path.join(temp_dir, "dangling.log")
+    )
+    with open(os.path.join(temp_dir, "keep.txt"), "w") as f:
+        f.write("x\n")
+
+    structure, extensions = get_directory_structure(
+        temp_dir, exclude_extensions={".log"}
+    )
+
+    names = {f.name for f in structure["_files"]}
+    assert names == {"keep.txt"}
+    assert extensions == {".txt"}
+
+
 class TestHiddenContentsAtDepthLimit:
     """The ``_hidden_contents`` flag and the :func:`has_contents` predicate."""
 

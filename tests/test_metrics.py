@@ -542,6 +542,7 @@ class TestCountLinesOfCodeProperties:
     @example("file.bin")
     @example("file.txt")
     @example("file.py")
+    @example("\x00")
     @settings(max_examples=20)
     def test_nonexistent_files(self, filename: str) -> None:
         """Test that nonexistent files return 0 lines."""
