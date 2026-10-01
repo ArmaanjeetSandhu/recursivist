@@ -1685,3 +1685,63 @@ def test_short_option_value_arity_is_per_command(
     )
     assert result.exit_code == 0
     assert spy.spy_return.sort_key == "mtime"
+
+
+@pytest.mark.parametrize("command", ["visualize", "export", "compare"])
+def test_icon_style_rejects_unknown_value(
+    runner: CliRunner, sample_directory: str, command: str
+) -> None:
+    """``--icon-style`` accepts only the styles ``config set`` accepts."""
+    args = [command, sample_directory]
+    if command == "compare":
+        args.append(sample_directory)
+    result = runner.invoke(app, [*args, "--icon-style", "bogus"])
+    assert result.exit_code == 2
+    assert "'bogus' is not one of 'emoji', 'nerd'" in result.output
+
+
+@pytest.mark.parametrize("style", ["emoji", "nerd"])
+def test_icon_style_accepts_known_values(
+    runner: CliRunner, sample_directory: str, style: str
+) -> None:
+    result = runner.invoke(app, ["visualize", sample_directory, "--icon-style", style])
+    assert result.exit_code == 0
+
+
+@pytest.fixture
+def saved_config(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
+    """Capture what ``config set`` would write instead of touching the real file."""
+    saved: dict[str, Any] = {}
+    monkeypatch.setattr(cli_module, "load_config", lambda: {"icon_style": "emoji"})
+    monkeypatch.setattr(cli_module, "save_config", saved.update)
+    return saved
+
+
+@pytest.mark.parametrize("key", ["icon-style", "icon_style"])
+def test_config_set_icon_style(
+    runner: CliRunner, saved_config: dict[str, Any], key: str
+) -> None:
+    result = runner.invoke(app, ["config", "set", key, "nerd"])
+    assert result.exit_code == 0
+    assert saved_config == {"icon_style": "nerd"}
+
+
+def test_config_set_rejects_unknown_key(
+    runner: CliRunner, saved_config: dict[str, Any], caplog: pytest.LogCaptureFixture
+) -> None:
+    with caplog.at_level(logging.ERROR, logger="recursivist"):
+        result = runner.invoke(app, ["config", "set", "colour", "blue"])
+    assert result.exit_code == 1
+    assert saved_config == {}
+    assert "Unknown configuration key: colour" in caplog.text
+    assert "icon-style" in caplog.text
+
+
+def test_config_set_rejects_invalid_value(
+    runner: CliRunner, saved_config: dict[str, Any], caplog: pytest.LogCaptureFixture
+) -> None:
+    with caplog.at_level(logging.ERROR, logger="recursivist"):
+        result = runner.invoke(app, ["config", "set", "icon-style", "bogus"])
+    assert result.exit_code == 1
+    assert saved_config == {}
+    assert "Invalid value for icon-style: 'bogus'" in caplog.text

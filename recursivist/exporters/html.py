@@ -98,8 +98,7 @@ class HtmlExporter(BaseExporter):
                     if _git_marker and _git_marker in _GIT_STATUS_STYLES:
                         _, _file_style_extra = _GIT_STATUS_STYLES[_git_marker]
                         _git_badge = (
-                            f' <span class="git-badge git-{_git_marker.lower()}"'
-                            ' style="font-size:0.8em;font-weight:bold;">'
+                            f' <span class="git-badge git-{_git_marker.lower()}">'
                             f"[{_git_marker}]</span>"
                         )
                         _name_style = (

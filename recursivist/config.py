@@ -7,11 +7,20 @@ style.
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal, get_args
 
 import typer
 
 APP_NAME = "recursivist"
+
+IconStyle = Literal["emoji", "nerd"]
+"""Icon styles accepted by ``--icon-style`` and the ``icon-style`` config key."""
+
+ICON_STYLES: tuple[str, ...] = get_args(IconStyle)
+
+CONFIG_KEYS: dict[str, tuple[str, ...]] = {"icon_style": ICON_STYLES}
+"""Recognized configuration keys (in their stored, underscored form) mapped to the
+values each one accepts."""
 
 
 def get_config_path() -> Path:

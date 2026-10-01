@@ -43,7 +43,7 @@ from recursivist.compare import (
     display_comparison,
     export_comparison,
 )
-from recursivist.config import load_config, save_config
+from recursivist.config import CONFIG_KEYS, IconStyle, load_config, save_config
 from recursivist.exporters import (
     canonical_extension,
     get_exporter,
@@ -261,8 +261,15 @@ def config_set(
     """
     config_key = key.replace("-", "_")
 
-    if config_key == "icon_style" and value not in ["emoji", "nerd"]:
-        logger.error("Invalid value for icon-style. Use 'emoji' or 'nerd'.")
+    if config_key not in CONFIG_KEYS:
+        valid_keys = ", ".join(k.replace("_", "-") for k in CONFIG_KEYS)
+        logger.error(f"Unknown configuration key: {key}. Valid keys: {valid_keys}.")
+        raise typer.Exit(1)
+
+    allowed_values = CONFIG_KEYS[config_key]
+    if value not in allowed_values:
+        choices = " or ".join(f"'{v}'" for v in allowed_values)
+        logger.error(f"Invalid value for {key}: '{value}'. Use {choices}.")
         raise typer.Exit(1)
 
     config = load_config()
@@ -773,7 +780,7 @@ def visualize(
     mtime: MtimeOption = False,
     show_git_status: ShowGitStatusOption = False,
     icon_style: Annotated[
-        str | None,
+        IconStyle | None,
         typer.Option(
             "--icon-style",
             help="Override icon style ('emoji' or 'nerd'). Defaults to user config.",
@@ -1012,7 +1019,7 @@ def export(
     mtime: MtimeOption = False,
     show_git_status: ShowGitStatusOption = False,
     icon_style: Annotated[
-        str | None,
+        IconStyle | None,
         typer.Option(
             "--icon-style",
             help="Override icon style. Defaults to 'emoji' for safe file exports.",
@@ -1351,7 +1358,7 @@ def compare(
     mtime: MtimeOption = False,
     show_git_status: ShowGitStatusOption = False,
     icon_style: Annotated[
-        str | None,
+        IconStyle | None,
         typer.Option(
             "--icon-style",
             help=(

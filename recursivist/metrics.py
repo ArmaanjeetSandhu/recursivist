@@ -5,11 +5,10 @@ format those metrics into the annotation suffixes shown next to files and direct
 Pure standard library.
 """
 
-import datetime
 import logging
 import os
 from collections.abc import Sequence
-from datetime import datetime as dt
+from datetime import datetime, timedelta
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -157,16 +156,16 @@ def format_timestamp(timestamp: float) -> str:
     if not timestamp:
         return "-"
     try:
-        dt_object = dt.fromtimestamp(timestamp)
+        dt_object = datetime.fromtimestamp(timestamp)
     except (OSError, OverflowError, ValueError):
         return "-"
-    current_dt = dt.now()
+    current_dt = datetime.now()
     current_date = current_dt.date()
     if dt_object.date() == current_date:
         return f"Today {dt_object.strftime('%H:%M')}"
-    elif dt_object.date() == current_date - datetime.timedelta(days=1):
+    elif dt_object.date() == current_date - timedelta(days=1):
         return f"Yesterday {dt_object.strftime('%H:%M')}"
-    elif current_date - dt_object.date() < datetime.timedelta(days=7):
+    elif current_date - dt_object.date() < timedelta(days=7):
         return dt_object.strftime("%a %H:%M")
     elif dt_object.year == current_dt.year:
         return dt_object.strftime("%b %d")

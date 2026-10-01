@@ -931,11 +931,7 @@ def _export_comparison_to_html(
             escaped = html.escape(base)
             git_marker = markers.get(entry.name, "") if show_git_status else ""
             if git_marker and git_marker in _GIT_HTML_MARKERS:
-                git_badge = (
-                    f' <span class="git-badge" '
-                    f'style="font-size:0.8em;font-weight:bold;">'
-                    f"[{git_marker}]</span>"
-                )
+                git_badge = f' <span class="git-badge">[{git_marker}]</span>'
                 if git_marker == "D":
                     escaped = (
                         f'<span style="text-decoration: line-through;">{escaped}</span>'
