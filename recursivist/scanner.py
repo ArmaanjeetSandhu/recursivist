@@ -334,7 +334,6 @@ def _scan_level(
             ]
     ignore_context = {
         "pattern_stack": ignore_stack,
-        "current_dir": root_dir,
         "rel_dir": current_path,
     }
     structure: dict[str, Any] = {}

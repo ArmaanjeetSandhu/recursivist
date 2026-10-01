@@ -175,19 +175,19 @@ def _is_ignored_by_stack(
     return decision is True
 
 
-def _pattern_matches(pattern: str | Pattern[str], rel_path: str, basename: str) -> bool:
+def _pattern_matches(pattern: str | Pattern[str], name: str) -> bool:
     """Return whether a single ``--exclude-pattern``/``--include-pattern`` matches.
 
-    A compiled regex matches when it is found anywhere in *rel_path* or *basename*; a
-    glob matches when `fnmatch` accepts either of them. This is the single definition of
-    pattern matching shared by
+    Patterns are tested against an entry's *name* (its basename), never its path. A
+    compiled regex matches when it is found anywhere in *name*; a glob matches when
+    `fnmatch` accepts it. This is the single definition of pattern matching shared by
     [`should_exclude`][recursivist.filtering.should_exclude] and
     [`PatternMatchTracker`][recursivist.filtering.PatternMatchTracker], so the two can
     never disagree about what a pattern matches.
     """
     if isinstance(pattern, Pattern):
-        return bool(pattern.search(rel_path) or pattern.search(basename))
-    return fnmatch.fnmatch(rel_path, pattern) or fnmatch.fnmatch(basename, pattern)
+        return bool(pattern.search(name))
+    return fnmatch.fnmatch(name, pattern)
 
 
 def _describe_pattern(pattern: str | Pattern[str]) -> str:
@@ -256,13 +256,9 @@ class PatternMatchTracker:
         if not is_dir and self._exts:
             self._exts.pop(os.path.splitext(name)[1].lower(), None)
         if self._exclude:
-            self._exclude = [
-                p for p in self._exclude if not _pattern_matches(p, name, name)
-            ]
+            self._exclude = [p for p in self._exclude if not _pattern_matches(p, name)]
         if not is_dir and self._include:
-            self._include = [
-                p for p in self._include if not _pattern_matches(p, name, name)
-            ]
+            self._include = [p for p in self._include if not _pattern_matches(p, name)]
 
     def unmatched(self) -> list[tuple[str, str]]:
         """Return ``(flag, value)`` pairs for every filter that matched nothing."""
@@ -318,34 +314,26 @@ def should_exclude(
             ``"pattern_stack"`` (a shallowest-first sequence of
             ``(base_dir_relative_to_root, patterns)`` pairs, one per ignore file),
             ``"patterns"`` (a legacy flat pattern list, treated as a single ignore file
-            at the scan root when ``"pattern_stack"`` is absent), ``"current_dir"``
-            (directory used to anchor the ``--exclude-pattern``/``--include-pattern``
-            globs), and ``"rel_dir"`` (the current directory's path relative to the scan
-            root).
+            at the scan root when ``"pattern_stack"`` is absent), and ``"rel_dir"`` (the
+            current directory's path relative to the scan root).
         exclude_extensions: Lowercase, dot-prefixed extensions to exclude.
-        exclude_patterns: Glob or compiled-regex patterns to exclude.
-        include_patterns: Glob or compiled-regex patterns to include, which override the
-            gitignore-style exclusions.
+        exclude_patterns: Glob or compiled-regex patterns to exclude, matched against
+            the entry's name.
+        include_patterns: Glob or compiled-regex patterns to include, matched against
+            the entry's name, which override the gitignore-style exclusions.
 
     Returns:
         ``True`` if the path should be excluded, ``False`` otherwise.
     """
-    current_dir = ignore_context.get("current_dir", os.path.dirname(path))
-    rel_path = os.path.relpath(path, current_dir)
-    if os.name == "nt":
-        rel_path = rel_path.replace("\\", "/")
     basename = os.path.basename(path)
     if (
         include_patterns
         and not os.path.isdir(path)
-        and not any(
-            _pattern_matches(pattern, rel_path, basename)
-            for pattern in include_patterns
-        )
+        and not any(_pattern_matches(pattern, basename) for pattern in include_patterns)
     ):
         return True
     if exclude_patterns and any(
-        _pattern_matches(pattern, rel_path, basename) for pattern in exclude_patterns
+        _pattern_matches(pattern, basename) for pattern in exclude_patterns
     ):
         return True
     if (

@@ -43,12 +43,14 @@ def count_lines_of_code(file_path: str) -> int:
             potential_utf16le: bool = False
             potential_utf16be: bool = False
             if len(sample) >= 16:
-                potential_utf16le = all(
+                odd_bytes_zero = all(
                     sample[i] == 0 for i in range(1, min(32, len(sample)), 2)
                 )
-                potential_utf16be = all(
+                even_bytes_zero = all(
                     sample[i] == 0 for i in range(0, min(32, len(sample)), 2)
                 )
+                potential_utf16le = odd_bytes_zero and not even_bytes_zero
+                potential_utf16be = even_bytes_zero and not odd_bytes_zero
                 if potential_utf16le or potential_utf16be:
                     encoding = "utf-16-le" if potential_utf16le else "utf-16-be"
                     try:
@@ -101,7 +103,9 @@ def format_size(size_in_bytes: int) -> str:
     """Format a byte count as a human-readable size string.
 
     Scales the value to bytes, KB, MB, or GB and formats it with one decimal place for
-    every unit above bytes.
+    every unit above bytes. The unit is chosen after rounding, so a value that rounds up
+    to 1024 moves to the next unit (``1048575`` is ``"1.0 MB"``, not ``"1024.0 KB"``).
+    GB is the largest unit, so it is never promoted.
 
     Args:
         size_in_bytes: Size in bytes.
@@ -111,12 +115,13 @@ def format_size(size_in_bytes: int) -> str:
     """
     if size_in_bytes < 1024:
         return f"{size_in_bytes} B"
-    elif size_in_bytes < 1024 * 1024:
-        return f"{size_in_bytes / 1024:.1f} KB"
-    elif size_in_bytes < 1024 * 1024 * 1024:
-        return f"{size_in_bytes / (1024 * 1024):.1f} MB"
-    else:
-        return f"{size_in_bytes / (1024 * 1024 * 1024):.1f} GB"
+    value = size_in_bytes / 1024
+    for unit in ("KB", "MB"):
+        text = f"{value:.1f}"
+        if float(text) < 1024:
+            return f"{text} {unit}"
+        value /= 1024
+    return f"{value:.1f} GB"
 
 
 def get_file_mtime(file_path: str) -> float:
