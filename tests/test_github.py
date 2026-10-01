@@ -660,6 +660,11 @@ def test_cli_visualize_github_ignores_flags(
         assert flag in caplog.text
 
 
+def _rendered_tree(stdout: str) -> str:
+    """Return the tree from ``visualize`` output, without the log lines above it."""
+    return stdout[stdout.index("📂 r") :]
+
+
 def test_cli_visualize_github_mtime_not_annotated(
     runner: CliRunner, patch_network: None
 ) -> None:
@@ -667,8 +672,8 @@ def test_cli_visualize_github_mtime_not_annotated(
     with_mtime = runner.invoke(app, ["visualize", "https://github.com/o/r", "--mtime"])
     with_loc = runner.invoke(app, ["visualize", "https://github.com/o/r", "--loc"])
     assert baseline.exit_code == with_mtime.exit_code == with_loc.exit_code == 0
-    assert with_mtime.stdout == baseline.stdout
-    assert with_loc.stdout != baseline.stdout
+    assert _rendered_tree(with_mtime.stdout) == _rendered_tree(baseline.stdout)
+    assert _rendered_tree(with_loc.stdout) != _rendered_tree(baseline.stdout)
 
 
 def test_cli_visualize_github_sort_by_loc(

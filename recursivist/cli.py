@@ -64,20 +64,12 @@ from recursivist.github import (
 from recursivist.scanner import get_directory_structure
 from recursivist.tree import display_tree
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(message)s",
-    datefmt="[%X]",
-    handlers=[RichHandler(rich_tracebacks=True)],
-)
 logger = logging.getLogger("recursivist")
 app = typer.Typer(
     help="Recursivist: A beautiful directory structure visualization tool",
     add_completion=True,
 )
 console = Console()
-
-USER_CONFIG = load_config()
 
 _RAW_ARGS_KEY = "recursivist.raw_args"
 
@@ -277,12 +269,38 @@ def config_set(
     typer.echo(f"Configuration updated: {key} = '{value}'")
 
 
+def _configure_logging(ctx: typer.Context) -> None:
+    """Send the package's log records to the terminal for one CLI invocation.
+
+    Attaches a Rich handler to the ``recursivist`` logger and sets it to INFO, then
+    registers a cleanup on ``ctx`` that detaches the handler and restores the previous
+    level once the invocation finishes. Logging is therefore configured only while a
+    command is running: importing this module configures nothing, the root logger is
+    never touched, and a ``--verbose`` run leaves no DEBUG level behind in the process.
+
+    Args:
+        ctx: The context of the running application; the logging setup lives exactly as
+            long as it does.
+    """
+    handler = RichHandler(rich_tracebacks=True)
+    handler.setFormatter(logging.Formatter("%(message)s", datefmt="[%X]"))
+    previous_level = logger.level
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
+
+    def restore() -> None:
+        logger.removeHandler(handler)
+        logger.setLevel(previous_level)
+
+    ctx.call_on_close(restore)
+
+
 @app.callback()
-def callback() -> None:
+def callback(ctx: typer.Context) -> None:
     """Recursivist CLI tool for directory visualization and export.
 
     Entry-point callback invoked by Typer before any subcommand is dispatched. It sets
-    up the application context and makes top-level help text available.
+    up logging for the invocation and makes top-level help text available.
 
     Available commands:
         visualize: Display a directory structure in the terminal.
@@ -291,7 +309,7 @@ def callback() -> None:
         config: Manage user preferences.
         version: Display the current version.
     """
-    pass
+    _configure_logging(ctx)
 
 
 def parse_list_option(option_value: list[str] | None) -> list[str]:
@@ -426,8 +444,9 @@ def _parse_filter_options(
 def _enable_verbose_if_requested(verbose: bool) -> None:
     """Lower the logger to DEBUG when verbose output is requested.
 
-    Shared by the visualize, export, and compare commands so the
-    verbose preamble is defined in exactly one place.
+    Shared by the visualize, export, and compare commands so the verbose preamble is
+    defined in exactly one place. The level lasts only for the current invocation:
+    `_configure_logging` restores the previous one when the command finishes.
 
     Args:
         verbose: When ``True``, set the logger level to DEBUG and emit
@@ -879,7 +898,7 @@ def visualize(
     """
     _enable_verbose_if_requested(verbose)
 
-    resolved_style = icon_style or USER_CONFIG.get("icon_style", "emoji")
+    resolved_style = icon_style or load_config().get("icon_style", "emoji")
     target = parse_github_url(directory)
     is_remote = target is not None
 
@@ -1484,7 +1503,7 @@ def compare(
     elif save_as_html:
         resolved_style = "emoji"
     else:
-        resolved_style = USER_CONFIG.get("icon_style", "emoji")
+        resolved_style = load_config().get("icon_style", "emoji")
 
     (
         parsed_exclude_dirs,

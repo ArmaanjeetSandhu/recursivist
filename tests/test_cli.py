@@ -5,6 +5,8 @@ import logging
 import os
 import re
 import shutil
+import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 from unittest import mock
@@ -1721,3 +1723,97 @@ def test_config_set_rejects_invalid_value(
     assert result.exit_code == 1
     assert saved_config == {}
     assert "Invalid value for icon-style: 'bogus'" in caplog.text
+
+
+def test_importing_cli_has_no_side_effects(tmp_path: Path) -> None:
+    """Importing the CLI configures no logging and creates no config directory."""
+    script = (
+        "import logging\n"
+        "root = logging.getLogger()\n"
+        "before = (list(root.handlers), root.level)\n"
+        "import recursivist.cli\n"
+        "assert (list(root.handlers), root.level) == before, 'root logger changed'\n"
+        "package = logging.getLogger('recursivist')\n"
+        "assert package.handlers == [], 'handler attached on import'\n"
+        "assert package.level == logging.NOTSET, 'level set on import'\n"
+    )
+    home = str(tmp_path)
+    env = {
+        **os.environ,
+        "HOME": home,
+        "USERPROFILE": home,
+        "APPDATA": home,
+        "XDG_CONFIG_HOME": home,
+    }
+    result = subprocess.run(
+        [sys.executable, "-c", script], env=env, capture_output=True, text=True
+    )
+    assert result.returncode == 0, result.stderr
+    assert list(tmp_path.iterdir()) == []
+
+
+@pytest.mark.parametrize("extra_args", [[], ["--verbose"]])
+def test_logging_setup_does_not_outlive_the_command(
+    runner: CliRunner, sample_directory: str, extra_args: list[str]
+) -> None:
+    """A run leaves the root and package loggers exactly as it found them."""
+    root = logging.getLogger()
+    package = logging.getLogger("recursivist")
+    before = (list(root.handlers), root.level, list(package.handlers), package.level)
+    result = runner.invoke(app, ["visualize", sample_directory, *extra_args])
+    assert result.exit_code == 0
+    after = (list(root.handlers), root.level, list(package.handlers), package.level)
+    assert after == before
+
+
+def test_logging_setup_is_undone_when_the_command_fails(
+    runner: CliRunner, temp_dir: str
+) -> None:
+    package = logging.getLogger("recursivist")
+    before = (list(package.handlers), package.level)
+    result = runner.invoke(
+        app, ["visualize", os.path.join(temp_dir, "nonexistent"), "--verbose"]
+    )
+    assert result.exit_code == 1
+    assert (list(package.handlers), package.level) == before
+
+
+def test_log_messages_reach_the_terminal(
+    runner: CliRunner, saved_config: dict[str, Any]
+) -> None:
+    result = runner.invoke(app, ["config", "set", "icon-style", "bogus"])
+    assert result.exit_code == 1
+    assert "Invalid value for icon-style" in result.output
+
+
+def test_debug_messages_shown_only_when_verbose(
+    runner: CliRunner, sample_directory: str
+) -> None:
+    verbose = runner.invoke(app, ["visualize", sample_directory, "--verbose"])
+    quiet = runner.invoke(app, ["visualize", sample_directory])
+    assert "Verbose mode enabled" in verbose.output
+    assert "Verbose mode enabled" not in quiet.output
+
+
+def test_icon_style_config_read_when_command_runs(
+    runner: CliRunner, sample_directory: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The saved icon style is read per run, not frozen when the module is imported."""
+    styles = iter(["emoji", "nerd"])
+    monkeypatch.setattr(cli_module, "load_config", lambda: {"icon_style": next(styles)})
+    with mock.patch.object(cli_module, "display_tree") as display_tree:
+        first = runner.invoke(app, ["visualize", sample_directory])
+        second = runner.invoke(app, ["visualize", sample_directory])
+    assert first.exit_code == second.exit_code == 0
+    seen = [call.kwargs["icon_style"] for call in display_tree.call_args_list]
+    assert seen == ["emoji", "nerd"]
+
+
+def test_explicit_icon_style_skips_config(
+    runner: CliRunner, sample_directory: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    load_config = mock.Mock(return_value={"icon_style": "emoji"})
+    monkeypatch.setattr(cli_module, "load_config", load_config)
+    result = runner.invoke(app, ["visualize", sample_directory, "--icon-style", "nerd"])
+    assert result.exit_code == 0
+    load_config.assert_not_called()
