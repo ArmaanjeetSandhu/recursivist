@@ -139,6 +139,22 @@ def runner() -> CliRunner:
         ("https://github.com/o/r/blob/main/a/b.py", "o", "r", "main", "a/b.py"),
         ("git@github.com:o/r.git", "o", "r", None, ""),
         ("https://github.com/o/r?tab=readme", "o", "r", None, ""),
+        (
+            "https://github.com/o/r/tree/main/my%20dir/sub%231",
+            "o",
+            "r",
+            "main",
+            "my dir/sub#1",
+        ),
+        (
+            "https://github.com/o/r/blob/main/src/my%20file%231.py",
+            "o",
+            "r",
+            "main",
+            "src/my file#1.py",
+        ),
+        ("https://github.com/o/r/tree/v1%2B2/docs", "o", "r", "v1+2", "docs"),
+        ("https://github.com/o/r/tree/main/caf%C3%A9", "o", "r", "main", "café"),
     ],
 )
 def test_parse_github_url_valid(
@@ -187,6 +203,29 @@ def test_target_blob_url() -> None:
         "https://github.com/ArmaanjeetSandhu/recursivist/"
         "blob/main/recursivist/exporters/base.py"
     )
+
+
+def test_target_blob_url_percent_encodes_special_characters() -> None:
+    url = GitHubTarget("o", "r").blob_url("main", "src/my file#1.py")
+    assert url == "https://github.com/o/r/blob/main/src/my%20file%231.py"
+
+
+def test_target_blob_url_encodes_query_and_percent_but_keeps_slashes() -> None:
+    url = GitHubTarget("o", "r").blob_url("feature/x", "a?b/100%.txt")
+    assert url == "https://github.com/o/r/blob/feature/x/a%3Fb/100%25.txt"
+
+
+def test_target_blob_url_encodes_non_ascii() -> None:
+    url = GitHubTarget("o", "r").blob_url("main", "docs/café.md")
+    assert url == "https://github.com/o/r/blob/main/docs/caf%C3%A9.md"
+
+
+def test_parse_then_blob_url_round_trips_encoding() -> None:
+    url = "https://github.com/o/r/blob/main/src/my%20file%231.py"
+    target = parse_github_url(url)
+    assert target is not None
+    assert target.ref is not None
+    assert target.blob_url(target.ref, target.subpath) == url
 
 
 def test_target_blob_url_normalizes_leading_slash() -> None:
@@ -412,6 +451,39 @@ def test_checkout_repository_subpath(monkeypatch: pytest.MonkeyPatch) -> None:
     with checkout_repository(target) as checkout:
         assert checkout.root_name == "util"
         assert os.path.isfile(os.path.join(checkout.local_root, "helpers.py"))
+
+
+def test_checkout_repository_encoded_subpath(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    tarball = _make_tarball("r-main", {"my dir/a.py": "x = 1\n"})
+    monkeypatch.setattr(
+        "recursivist.github.urllib.request.urlopen", _fake_urlopen(tarball=tarball)
+    )
+    target = parse_github_url("https://github.com/o/r/tree/main/my%20dir")
+    assert target is not None
+    with checkout_repository(target) as checkout:
+        assert checkout.root_name == "my dir"
+        assert os.path.isfile(os.path.join(checkout.local_root, "a.py"))
+
+
+def test_checkout_repository_encodes_ref_in_archive_url(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    tarball = _make_tarball("r-v1", SAMPLE_FILES)
+    requested: list[str] = []
+
+    def fake(request: Any, timeout: Any = None) -> io.BytesIO:
+        requested.append(request.full_url)
+        return io.BytesIO(tarball)
+
+    monkeypatch.setattr("recursivist.github.urllib.request.urlopen", fake)
+    target = parse_github_url("https://github.com/o/r/tree/v1%231")
+    assert target is not None
+    assert target.ref == "v1#1"
+    with checkout_repository(target):
+        pass
+    assert requested == ["https://codeload.github.com/o/r/tar.gz/v1%231"]
 
 
 def test_checkout_repository_missing_subpath(

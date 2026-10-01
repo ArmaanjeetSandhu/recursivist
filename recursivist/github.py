@@ -35,6 +35,7 @@ import shutil
 import tarfile
 import tempfile
 import urllib.error
+import urllib.parse
 import urllib.request
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -128,10 +129,14 @@ class GitHubTarget:
                 (already including any `subpath` prefix).
 
         Returns:
-            A URL of the form ``https://github.com/<owner>/<repo>/blob/<ref>/<relpath>``.
+            A URL of the form ``https://github.com/<owner>/<repo>/blob/<ref>/<relpath>``,
+            with the ref and path percent-encoded so that characters such as spaces,
+            ``#`` and ``?`` do not break the link. ``/`` is kept as the path separator.
         """
         clean = relpath.replace(os.sep, "/").lstrip("/")
-        return f"{_WEB_HOST}/{self.owner}/{self.repo}/blob/{ref}/{clean}"
+        quoted_ref = urllib.parse.quote(ref, safe="/")
+        quoted_path = urllib.parse.quote(clean, safe="/")
+        return f"{_WEB_HOST}/{self.owner}/{self.repo}/blob/{quoted_ref}/{quoted_path}"
 
 
 @dataclass(frozen=True)
@@ -193,7 +198,9 @@ def parse_github_url(text: str) -> GitHubTarget | None:
 
     Accepts the common HTTPS forms (with or without scheme, ``www.`` or a trailing
     ``.git``), an optional ``/tree/<ref>[/<subpath>]`` or ``/blob/<ref>/<subpath>``
-    selector, and the SSH form ``git@github.com:owner/repo.git``.
+    selector, and the SSH form ``git@github.com:owner/repo.git``. Percent-encoded
+    characters in the ref and subpath (e.g. ``%20``, ``%23``) are decoded, so URLs
+    copied from a browser address bar resolve to the real names.
 
     When a ``/tree`` or ``/blob`` selector is present, the segment immediately after it
     is taken as the ref and everything beyond it as the subpath. Refs that themselves
@@ -219,11 +226,14 @@ def parse_github_url(text: str) -> GitHubTarget | None:
     match = _HTTP_RE.match(text)
     if not match:
         return None
-    subpath = (match.group("subpath") or "").strip("/")
+    ref = match.group("ref")
+    if ref is not None:
+        ref = urllib.parse.unquote(ref)
+    subpath = urllib.parse.unquote(match.group("subpath") or "").strip("/")
     return GitHubTarget(
         owner=match.group("owner"),
         repo=_strip_git_suffix(match.group("repo")),
-        ref=match.group("ref"),
+        ref=ref,
         subpath=subpath,
     )
 
@@ -436,7 +446,8 @@ def _download_archive(
     target: GitHubTarget, ref: str, token: str | None, dest: str
 ) -> None:
     """Download the ``tar.gz`` source archive for *ref* to the file *dest*."""
-    url = f"{_ARCHIVE_HOST}/{target.owner}/{target.repo}/tar.gz/{ref}"
+    quoted_ref = urllib.parse.quote(ref, safe="/")
+    url = f"{_ARCHIVE_HOST}/{target.owner}/{target.repo}/tar.gz/{quoted_ref}"
     try:
         with (
             urllib.request.urlopen(_request(url, token), timeout=120) as response,

@@ -856,15 +856,15 @@ def visualize(
         >>> # Display a specific directory
         >>> recursivist visualize /path/to/project
         >>> # Exclude directories
-        >>> recursivist visualize -e node_modules .git
+        >>> recursivist visualize -e node_modules -e .git
         >>> # Exclude file extensions
-        >>> recursivist visualize -x .pyc .log
+        >>> recursivist visualize -x .pyc -x .log
         >>> # Exclude glob patterns
-        >>> recursivist visualize -p "*.test.js" "*.spec.js"
+        >>> recursivist visualize -p "*.test.js" -p "*.spec.js"
         >>> # Exclude regex patterns
         >>> recursivist visualize -p ".*test.*" -r
         >>> # Include overrides
-        >>> recursivist visualize -i "src/*" "*.md"
+        >>> recursivist visualize -i "*.py" -i "*.md"
         >>> # Limit depth to 2
         >>> recursivist visualize -d 2
         >>> # Override icon style for this run
@@ -1453,13 +1453,13 @@ def compare(
         >>> # Exclude a directory
         >>> recursivist compare dir1 dir2 -e node_modules
         >>> # Exclude extensions
-        >>> recursivist compare dir1 dir2 -x .pyc .log
+        >>> recursivist compare dir1 dir2 -x .pyc -x .log
         >>> # Exclude glob patterns
         >>> recursivist compare dir1 dir2 -p "*.test.js"
         >>> # Exclude regex patterns
         >>> recursivist compare dir1 dir2 -p ".*test.*" -r
         >>> # Include overrides
-        >>> recursivist compare dir1 dir2 -i "src/*"
+        >>> recursivist compare dir1 dir2 -i "*.py"
         >>> # Limit depth to 2
         >>> recursivist compare dir1 dir2 -d 2
         >>> # Show full paths
