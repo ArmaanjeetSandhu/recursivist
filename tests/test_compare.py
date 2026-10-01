@@ -1109,9 +1109,10 @@ class TestBuildComparisonTreeStructures:
         common_dir_calls = [
             call
             for call in mock_tree.add.call_args_list
-            if not isinstance(call.args[0], Text) and "common_dir" in str(call.args[0])
+            if isinstance(call.args[0], Text) and "common_dir" in call.args[0].plain
         ]
         assert len(common_dir_calls) > 0
+        assert all("green" not in str(c.args[0].style) for c in common_dir_calls)
 
     def test_with_statistics(self, mock_tree: MagicMock) -> None:
         """Test comparison tree with statistics."""

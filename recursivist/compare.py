@@ -386,7 +386,7 @@ def build_comparison_tree(
         if other_match is None:
             subtree = tree.add(Text(folder_label, style="green"))
         else:
-            subtree = tree.add(folder_label)
+            subtree = tree.add(Text(folder_label))
         if isinstance(content, dict) and content.get("_symlink_loop"):
             subtree.add(Text("↩ (symlink loop)", style="dim"))
         elif not (isinstance(content, dict) and content.get("_max_depth_reached")):
@@ -712,7 +712,9 @@ def display_comparison(
             )
         if pattern_info:
             pattern_panel = Panel(
-                "\n".join(pattern_info), title="Applied Patterns", border_style="blue"
+                Text("\n".join(pattern_info)),
+                title="Applied Patterns",
+                border_style="blue",
             )
             console.print(pattern_panel)
     legend_panel = Panel(legend_text, border_style="dim")
@@ -722,12 +724,12 @@ def display_comparison(
             console,
             Panel(
                 tree1,
-                title=f"Directory 1: {root_base1}",
+                title=Text(f"Directory 1: {root_base1}"),
                 border_style="blue",
             ),
             Panel(
                 tree2,
-                title=f"Directory 2: {root_base2}",
+                title=Text(f"Directory 2: {root_base2}"),
                 border_style="green",
             ),
         )

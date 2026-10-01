@@ -112,7 +112,7 @@ def build_tree(
         )
         metrics = format_dir_metrics(content, spec.metrics)
         folder_display = f"{folder_icon} {folder}{metrics}"
-        subtree = tree.add(folder_display)
+        subtree = tree.add(Text(folder_display))
         if isinstance(content, dict) and content.get("_symlink_loop"):
             subtree.add(Text("↩ (symlink loop)", style="dim"))
         elif not (isinstance(content, dict) and content.get("_max_depth_reached")):
@@ -224,7 +224,7 @@ def display_tree(
     root_label = f"{root_icon} {root_base}" + format_dir_metrics(
         structure, spec.metrics
     )
-    tree = Tree(root_label)
+    tree = Tree(Text(root_label))
     build_tree(
         structure,
         tree,

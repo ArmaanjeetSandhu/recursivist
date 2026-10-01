@@ -9,6 +9,7 @@ import os
 from typing import Any
 
 from rich.console import Console
+from rich.text import Text
 from rich.tree import Tree
 
 from recursivist._models import FileEntry
@@ -69,7 +70,7 @@ class SvgExporter(BaseExporter):
             self.structure, self.metrics
         )
 
-        tree = Tree(root_label)
+        tree = Tree(Text(root_label))
 
         build_tree(
             structure=self.structure,

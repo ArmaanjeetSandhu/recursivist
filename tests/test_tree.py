@@ -400,12 +400,9 @@ class TestBuildTreeStructures:
         build_tree(nested_structure, mock_tree, color_map, DisplayOptions())
         assert mock_tree.add.call_count >= 4
         assert mock_subtree.add.call_count >= 3
-        dir_calls = [
-            call
-            for call in mock_tree.add.call_args_list
-            if not isinstance(call.args[0], Text)
-        ]
-        dir_names = [call.args[0] for call in dir_calls]
+        added = [call.args[0] for call in mock_tree.add.call_args_list]
+        assert all(isinstance(node, Text) for node in added)
+        dir_names = [node.plain for node in added if node.plain.startswith("📂")]
         assert "📂 subdir1" in dir_names
         assert "📂 subdir2" in dir_names
 
