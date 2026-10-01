@@ -609,8 +609,7 @@ def apply_github_urls(
         files = node.get("_files")
         if files:
             rewritten: list[FileEntry] = []
-            for raw in files:
-                entry = FileEntry.coerce(raw)
+            for entry in files:
                 rel_file = f"{rel_dir}/{entry.name}" if rel_dir else entry.name
                 url = target.blob_url(checkout.ref, rel_file)
                 rewritten.append(entry._replace(path=url))

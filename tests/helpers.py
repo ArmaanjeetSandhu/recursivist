@@ -33,12 +33,7 @@ def assert_structure_has_files(
 ) -> None:
     """Assert that a structure contains the expected files."""
     assert "_files" in structure
-    file_names: list[str] = []
-    for file_item in structure["_files"]:
-        if isinstance(file_item, tuple):
-            file_names.append(file_item[0])
-        else:
-            file_names.append(file_item)
+    file_names = [file_item.name for file_item in structure["_files"]]
     for expected_file in expected_files:
         assert expected_file in file_names
 
@@ -59,15 +54,9 @@ def assert_stats_in_structure(structure: DirStructure) -> None:
     assert "_mtime" in structure
     if "_files" in structure:
         for file_item in structure["_files"]:
-            if isinstance(file_item, tuple) and len(file_item) > 2:
-                _, _, loc = file_item[:3]
-                assert isinstance(loc, int)
-                if len(file_item) > 3:
-                    _, _, _, size = file_item[:4]
-                    assert isinstance(size, int)
-                if len(file_item) > 4:
-                    _, _, _, _, mtime = file_item[:5]
-                    assert isinstance(mtime, float)
+            assert isinstance(file_item.loc, int)
+            assert isinstance(file_item.size, int)
+            assert isinstance(file_item.mtime, float)
 
 
 def assert_json_export_valid(file_path: str, root_name: str) -> dict[str, Any]:

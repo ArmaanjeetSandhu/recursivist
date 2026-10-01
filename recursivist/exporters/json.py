@@ -41,16 +41,13 @@ class JsonExporter(BaseExporter):
         has_detail = self.show_full_path or bool(self.metrics) or self.show_git_status
 
         def file_to_json(
-            item: Any, git_markers_here: dict[str, str]
+            entry: FileEntry, git_markers_here: dict[str, str]
         ) -> str | dict[str, Any]:
             """Encode a single ``_files`` entry for the detail JSON form.
 
-            The entry is normalised through
-            [`FileEntry.coerce`][recursivist._models.FileEntry.coerce] and rendered with
-            exactly the keys the active flags call for, with metric fields following the
-            resolved display order.
+            The entry is rendered with exactly the keys the active flags call for, with
+            metric fields following the resolved display order.
             """
-            entry = FileEntry.coerce(item)
             git_status = (
                 git_markers_here.get(entry.name, "") if self.show_git_status else ""
             )

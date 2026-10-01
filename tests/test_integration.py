@@ -9,6 +9,7 @@ from typing import Any
 import pytest
 from typer.testing import CliRunner
 
+from recursivist._models import FileEntry
 from recursivist.cli import app
 from recursivist.compare import compare_directory_structures, export_comparison
 from recursivist.exporters import get_exporter
@@ -34,7 +35,7 @@ def get_file_names(
         List of file names.
     """
     if path is None:
-        return [f if isinstance(f, str) else f[0] for f in structure.get("_files", [])]
+        return [f.name for f in structure.get("_files", [])]
     else:
         current = structure
         for segment in path:
@@ -42,7 +43,7 @@ def get_file_names(
                 current = current[segment]
             else:
                 return []
-        return [f if isinstance(f, str) else f[0] for f in current.get("_files", [])]
+        return [f.name for f in current.get("_files", [])]
 
 
 def test_cli_with_complex_structure(
@@ -126,7 +127,7 @@ def test_regex_filtering_with_complex_directory(complex_directory: str) -> None:
         nonlocal python_files_found, non_python_files_found
         if "_files" in structure:
             for file in structure["_files"]:
-                file_name = file if isinstance(file, str) else file[0]
+                file_name = file.name
                 if file_name.endswith(".py"):
                     python_files_found = True
                 else:
@@ -160,7 +161,7 @@ def test_comparison_with_complex_directories(
     changelog_found = False
     if "_files" in structure2:
         for file_item in structure2["_files"]:
-            file_name = file_item if isinstance(file_item, str) else file_item[0]
+            file_name = file_item.name
             if file_name == "CHANGELOG.md":
                 changelog_found = True
                 break
@@ -193,10 +194,9 @@ def test_full_path_display_with_complex_directory(
     )
     assert "_files" in structure
     for file_item in structure["_files"]:
-        assert isinstance(file_item, tuple)
-        file_name, full_path = file_item[0], file_item[1]
-        assert os.path.isabs(full_path.replace("/", os.sep))
-        assert file_name in os.path.basename(full_path)
+        assert isinstance(file_item, FileEntry)
+        assert os.path.isabs(file_item.path.replace("/", os.sep))
+        assert file_item.name in os.path.basename(file_item.path)
 
     output_path = os.path.join(output_dir, "full_path.json")
     get_exporter(
@@ -284,7 +284,7 @@ def test_gitignore_pattern_with_complex_directory(complex_directory: str) -> Non
         for key, value in structure.items():
             if key == "_files":
                 for file in value:
-                    file_name = file if isinstance(file, str) else file[0]
+                    file_name = file.name
                     assert not file_name.endswith(".pyc")
                     assert not file_name.endswith(".so")
                     assert not file_name.endswith(".tmp")
@@ -317,11 +317,9 @@ def test_statistics_integration(temp_dir: str) -> None:
     assert "_mtime" in structure["src"]
     if "_files" in structure["src"]:
         for file_item in structure["src"]["_files"]:
-            if isinstance(file_item, tuple) and len(file_item) > 4:
-                _, _, loc, size, mtime = file_item
-                assert isinstance(loc, int)
-                assert isinstance(size, int)
-                assert isinstance(mtime, float)
+            assert isinstance(file_item.loc, int)
+            assert isinstance(file_item.size, int)
+            assert isinstance(file_item.mtime, float)
 
 
 @pytest.mark.parametrize("fmt", ["json", "txt", "md", "html"])
@@ -409,7 +407,7 @@ def test_pathlib_compatibility(temp_dir: str, output_dir: str) -> None:
     assert "_files" in structure
     file_found = False
     for file_item in structure["_files"]:
-        file_name = file_item if isinstance(file_item, str) else file_item[0]
+        file_name = file_item.name
         if file_name == "test.txt":
             file_found = True
     assert file_found, "File not found when using pathlib.Path"

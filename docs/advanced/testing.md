@@ -49,7 +49,7 @@ tests/
 ├── strategies.py        # Hypothesis strategies for property tests
 ├── test_cli.py          # Command-line interface
 ├── test_flags.py        # Flag resolution (DisplayOptions, command-line order)
-├── test_models.py       # FileEntry and positional coercion
+├── test_models.py       # FileEntry model
 ├── test_scanner.py      # Directory traversal
 ├── test_tree.py         # Tree rendering
 ├── test_filtering.py    # Exclusion, glob, and regex logic
@@ -125,13 +125,12 @@ def test_export_to_markdown(tmp_path):
 
 ### File Statistics
 
-`_files` entries are `FileEntry` tuples with fields `(name, path, loc, size, mtime)`. Read them by attribute (after normalizing with `FileEntry.from_raw`) or by index, since `FileEntry` subclasses `tuple`:
+`_files` entries are `FileEntry` tuples with fields `(name, path, loc, size, mtime)`. Read them by attribute or by index, since `FileEntry` subclasses `tuple`:
 
 ```python
 import os
 
 from recursivist.scanner import get_directory_structure
-from recursivist._models import FileEntry
 
 
 def test_file_statistics(tmp_path):
@@ -145,7 +144,7 @@ def test_file_statistics(tmp_path):
     assert structure["_loc"] == 3
     assert structure["_size"] == os.path.getsize(str(py_file))
 
-    entry = FileEntry.coerce(structure["_files"][0])
+    entry = structure["_files"][0]
     assert entry.name == "test.py"
     assert entry.loc == 3
     assert isinstance(entry, tuple)  # still a tuple
@@ -180,13 +179,13 @@ def test_exclude_directories(tmp_path, exclude_dirs, expected):
     names = []
     for key, value in structure.items():
         if isinstance(value, dict):
-            names += [f if isinstance(f, str) else f[0] for f in value.get("_files", [])]
+            names += [f.name for f in value.get("_files", [])]
     assert sorted(names) == sorted(expected)
 ```
 
 ### Property-Based Tests
 
-Property tests use Hypothesis with strategies defined in `tests/strategies.py` and are marked `property`. They assert invariants over many generated inputs (for example, that scanning never raises on arbitrary valid trees, or that a name always survives a round trip through `FileEntry.from_raw`). Mark new ones accordingly:
+Property tests use Hypothesis with strategies defined in `tests/strategies.py` and are marked `property`. They assert invariants over many generated inputs (for example, that scanning never raises on arbitrary valid trees, or that sorting always preserves the set of file names). Mark new ones accordingly:
 
 ```python
 import pytest

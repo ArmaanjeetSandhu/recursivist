@@ -10,7 +10,7 @@ be used as a plain tuple — ``entry[0]`` is the name and ``isinstance(entry, tu
 
 from __future__ import annotations
 
-from typing import Any, NamedTuple
+from typing import NamedTuple
 
 
 class FileEntry(NamedTuple):
@@ -34,38 +34,3 @@ class FileEntry(NamedTuple):
     loc: int = 0
     size: int = 0
     mtime: float = 0.0
-
-    @classmethod
-    def coerce(cls, item: FileEntry | tuple[Any, ...] | str) -> FileEntry:
-        """Normalize any raw ``_files`` entry to a
-        [`FileEntry`][recursivist._models.FileEntry] by position.
-
-        A [`FileEntry`][recursivist._models.FileEntry] is returned unchanged; a bare
-        string becomes a name-only entry; and a tuple is read by its canonical
-        ``(name, path, loc, size, mtime)`` slots by index, defaulting any missing
-        trailing field. This matches how the scanner always emits entries (as full
-        [`FileEntry`][recursivist._models.FileEntry] values), and is the single
-        normalization boundary the sorting layer routes file lists through before the
-        metric values are read.
-
-        Args:
-            item: A [`FileEntry`][recursivist._models.FileEntry], a positional tuple, or
-                a bare filename string.
-
-        Returns:
-            The equivalent [`FileEntry`][recursivist._models.FileEntry].
-        """
-        if isinstance(item, cls):
-            return item
-        if not isinstance(item, tuple):
-            name = str(item)
-            return cls(name=name, path=name)
-        n = len(item)
-        if n == 0:
-            return cls(name="unknown", path="unknown")
-        name = item[0]
-        path = item[1] if n > 1 else name
-        loc = item[2] if n > 2 else 0
-        size = item[3] if n > 3 else 0
-        mtime = item[4] if n > 4 else 0.0
-        return cls(name=name, path=path, loc=loc, size=size, mtime=float(mtime))

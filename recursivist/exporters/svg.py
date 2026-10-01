@@ -12,7 +12,6 @@ from rich.console import Console
 from rich.text import Text
 from rich.tree import Tree
 
-from recursivist._models import FileEntry
 from recursivist.colors import generate_color_for_extension
 from recursivist.icons import get_icon
 from recursivist.metrics import format_dir_metrics
@@ -49,9 +48,8 @@ class SvgExporter(BaseExporter):
                 this subtree.
             """
             exts = set()
-            for f in struct.get("_files", []):
-                name = FileEntry.coerce(f).name
-                exts.add(os.path.splitext(name)[1].lower())
+            for entry in struct.get("_files", []):
+                exts.add(os.path.splitext(entry.name)[1].lower())
             for _, content in iter_subdirectories(struct):
                 if isinstance(content, dict):
                     exts.update(extract_extensions(content))

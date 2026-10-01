@@ -1454,7 +1454,7 @@ def test_glob_patterns(pattern_test_directory: str) -> None:
         nonlocal test_files_found, log_files_found
         if "_files" in struct:
             for file in struct["_files"]:
-                file_name = file if isinstance(file, str) else file[0]
+                file_name = file.name
                 if file_name.startswith("test_"):
                     test_files_found = True
                 if file_name.endswith(".log"):
@@ -1509,7 +1509,7 @@ def test_regex_pattern_escaping(pattern_test_directory: str) -> None:
     found = False
     if "_files" in structure:
         for file_item in structure["_files"]:
-            file_name = file_item if isinstance(file_item, str) else file_item[0]
+            file_name = file_item.name
             if file_name == "file+[special].txt":
                 found = True
                 break
@@ -1528,9 +1528,7 @@ def test_regex_nested_directory_patterns(pattern_test_directory: str) -> None:
     structure, _ = get_directory_structure(
         pattern_test_directory, include_patterns=include_patterns
     )
-    files_at_root = [
-        f if isinstance(f, str) else f[0] for f in structure.get("_files", [])
-    ]
+    files_at_root = [f.name for f in structure.get("_files", [])]
     assert "test_file1.py" in files_at_root, "Root test_file1.py should be included"
     assert "regular_file.txt" not in files_at_root, (
         "Non-matching files should be excluded"
@@ -1540,9 +1538,7 @@ def test_regex_nested_directory_patterns(pattern_test_directory: str) -> None:
         pattern_test_directory, include_patterns=include_patterns
     )
     if "_files" in structure:
-        files_at_root = [
-            f if isinstance(f, str) else f[0] for f in structure.get("_files", [])
-        ]
+        files_at_root = [f.name for f in structure.get("_files", [])]
         assert "regular_file.txt" in files_at_root, "Regular file should be included"
         assert "test_file1.py" not in files_at_root, "Test file should be excluded"
     with open(os.path.join(pattern_test_directory, "unique_test_pattern.py"), "w") as f:
@@ -1552,7 +1548,7 @@ def test_regex_nested_directory_patterns(pattern_test_directory: str) -> None:
         pattern_test_directory, include_patterns=include_patterns
     )
     if "_files" in structure:
-        files = [f if isinstance(f, str) else f[0] for f in structure["_files"]]
+        files = [f.name for f in structure["_files"]]
         assert "unique_test_pattern.py" in files, "Unique test file should be included"
 
 

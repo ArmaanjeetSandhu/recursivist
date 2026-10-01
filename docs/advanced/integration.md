@@ -118,7 +118,7 @@ print("Total lines of code:", structure.get("_loc", 0))
 print("Total size (bytes):", structure.get("_size", 0))
 ```
 
-Each entry in a directory's `_files` list is a `FileEntry` (a `NamedTuple`); use `FileEntry.coerce(...)` to normalize a raw entry, then read attributes like `.name`, `.path`, and `.loc`. Because `FileEntry` subclasses `tuple`, tuple-style access and `isinstance(item, tuple)` still work. See the [API Reference](../reference/api-reference.md) for a complete example.
+Each entry in a directory's `_files` list is a `FileEntry` (a `NamedTuple`); read attributes like `.name`, `.path`, and `.loc` directly. Because `FileEntry` subclasses `tuple`, tuple-style access and `isinstance(item, tuple)` still work. See the [API Reference](../reference/api-reference.md) for a complete example.
 
 ### Serving Structures from Flask
 

@@ -12,6 +12,7 @@ from typing import Any, cast
 import pytest
 from pytest_mock import MockerFixture
 
+from recursivist._models import FileEntry
 from recursivist.scanner import (
     get_directory_structure,
     get_subdirectory,
@@ -38,9 +39,7 @@ def _normalize_structure(structure: dict[str, Any]) -> dict[str, Any]:
     normalized: dict[str, Any] = {}
     for key, value in structure.items():
         if key == "_files":
-            normalized["_files"] = {
-                item[0] if isinstance(item, tuple) else item for item in value
-            }
+            normalized["_files"] = {item.name for item in value}
         elif isinstance(value, dict):
             normalized[key] = _normalize_structure(value)
         else:
@@ -54,7 +53,7 @@ def test_get_directory_structure(sample_directory: Any) -> None:
     assert isinstance(structure, dict)
     assert "_files" in structure
     assert "subdir" in structure
-    file_names = [f if isinstance(f, str) else f[0] for f in structure["_files"]]
+    file_names = [f.name for f in structure["_files"]]
     assert "file1.txt" in file_names
     assert "file2.py" in file_names
     assert ".txt" in extensions
@@ -154,7 +153,7 @@ def test_get_directory_structure_nested_gitignore_anchoring(temp_dir: str) -> No
 @pytest.mark.parametrize(
     "option_name,option_value,expected_result",
     [
-        ("show_full_path", True, "tuple with path"),
+        ("show_full_path", True, "entry with full path"),
         ("max_depth", 1, "max_depth_reached in level1"),
         ("sort_by_loc", True, "_loc in structure"),
         ("sort_by_size", True, "_size in structure"),
@@ -170,13 +169,11 @@ def test_get_directory_structure_with_options(
     """Test getting directory structure with various options."""
     kwargs = {option_name: option_value}
     structure, _ = get_directory_structure(deeply_nested_directory, **kwargs)
-    if expected_result == "tuple with path":
+    if expected_result == "entry with full path":
         assert "_files" in structure
         for file_item in structure["_files"]:
-            assert isinstance(file_item, tuple)
-            assert len(file_item) >= 2
-            full_path = file_item[1]
-            assert os.path.isabs(full_path.replace("/", os.sep))
+            assert isinstance(file_item, FileEntry)
+            assert os.path.isabs(file_item.path.replace("/", os.sep))
     elif expected_result == "max_depth_reached in level1":
         assert "level1" in structure
         assert "_max_depth_reached" in structure["level1"]
@@ -204,7 +201,7 @@ def test_pathlib_compatibility(temp_dir: str) -> None:
     assert "_files" in structure
     file_found = False
     for file_item in structure["_files"]:
-        file_name = file_item if isinstance(file_item, str) else file_item[0]
+        file_name = file_item.name
         if file_name == "test.txt":
             file_found = True
     assert file_found, "File not found when using pathlib.Path"
@@ -233,16 +230,16 @@ class TestGetDirectoryStructure:
             "Subdir structure should have _files key"
         )
         root_files = structure["_files"]
-        assert "file1.txt" in [f if isinstance(f, str) else f[0] for f in root_files], (
+        assert "file1.txt" in [f.name for f in root_files], (
             "file1.txt should be in root files"
         )
-        assert "file2.py" in [f if isinstance(f, str) else f[0] for f in root_files], (
+        assert "file2.py" in [f.name for f in root_files], (
             "file2.py should be in root files"
         )
         subdir_files = structure["subdir"]["_files"]
-        assert "subfile.md" in [
-            f if isinstance(f, str) else f[0] for f in subdir_files
-        ], "subfile.md should be in subdir files"
+        assert "subfile.md" in [f.name for f in subdir_files], (
+            "subfile.md should be in subdir files"
+        )
         assert ".txt" in extensions, ".txt should be in extensions"
         assert ".py" in extensions, ".py should be in extensions"
         assert ".md" in extensions, ".md should be in extensions"
@@ -315,7 +312,7 @@ class TestPatternMatching:
         assert "_files" in structure
         py_files_found = False
         for file in structure.get("_files", []):
-            file_name = file if isinstance(file, str) else file[0]
+            file_name = file.name
             if file_name.endswith(".py"):
                 py_files_found = True
                 break
@@ -329,7 +326,7 @@ class TestPatternMatching:
                 if key != "_files" and isinstance(value, dict):
                     if "_files" in value:
                         for file in value["_files"]:
-                            file_name = file if isinstance(file, str) else file[0]
+                            file_name = file.name
                             assert not file_name.endswith(".py"), (
                                 f"Python file {file_name} found despite exclude pattern"
                             )
@@ -347,7 +344,7 @@ class TestPatternMatching:
         )
         if "_files" in structure:
             for file in structure["_files"]:
-                file_name = file if isinstance(file, str) else file[0]
+                file_name = file.name
                 assert file_name.endswith(".json"), (
                     f"Non-JSON file {file_name} was included"
                 )
@@ -359,7 +356,7 @@ class TestPatternMatching:
                 if key != "_files" and isinstance(value, dict):
                     if "_files" in value:
                         for file in value["_files"]:
-                            file_name = file if isinstance(file, str) else file[0]
+                            file_name = file.name
                             assert file_name.endswith(".json"), (
                                 f"Non-JSON file {file_name} was included"
                             )
@@ -377,7 +374,7 @@ class TestPatternMatching:
         )
         assert "_files" in structure
         assert len(structure["_files"]) == 2, "Should find exactly 2 data CSV files"
-        file_names = [f if isinstance(f, str) else f[0] for f in structure["_files"]]
+        file_names = [f.name for f in structure["_files"]]
         assert "data_20230101.csv" in file_names
         assert "data_20230102.csv" in file_names
         assert ".csv" in extensions
@@ -398,12 +395,10 @@ class TestPatternMatching:
         assert "_mtime" in structure
         if "_files" in structure:
             for file_item in structure["_files"]:
-                assert isinstance(file_item, tuple)
-                assert len(file_item) > 4, "File item doesn't include statistics"
-                _, _, loc, size, mtime = file_item
-                assert isinstance(loc, int)
-                assert isinstance(size, int)
-                assert isinstance(mtime, float)
+                assert isinstance(file_item, FileEntry)
+                assert isinstance(file_item.loc, int)
+                assert isinstance(file_item.size, int)
+                assert isinstance(file_item.mtime, float)
         for key, value in structure.items():
             if (
                 key != "_files"
@@ -434,10 +429,7 @@ class TestPatternMatching:
         file_names = []
         if "_files" in structure:
             for file_item in structure["_files"]:
-                if isinstance(file_item, tuple):
-                    file_names.append(file_item[0])
-                else:
-                    file_names.append(file_item)
+                file_names.append(file_item.name)
         assert "test_file1.py" in file_names
         assert "include_me.py" in file_names
         assert "exclude_me.py" not in file_names
@@ -455,7 +447,7 @@ def test_get_directory_structure_pathlib(pattern_test_directory: str) -> None:
     assert ".py" in extensions
     if "_files" in structure:
         for file_item in structure["_files"]:
-            file_name = file_item if isinstance(file_item, str) else file_item[0]
+            file_name = file_item.name
             assert file_name.endswith(".py"), (
                 f"Non-Python file {file_name} was included"
             )
@@ -526,7 +518,7 @@ class TestSymlinkCycles:
 
         alias = structure["src"]["alias"]
         assert "_symlink_loop" not in alias
-        names = {f.name if not isinstance(f, str) else f for f in alias["_files"]}
+        names = {f.name for f in alias["_files"]}
         assert "keep.txt" in names
 
     def test_cycle_does_not_explode_depth(self, temp_dir: str) -> None:
@@ -624,7 +616,7 @@ class TestHiddenContentsAtDepthLimit:
             ({}, False),
             ({"_files": []}, False),
             ({"_loc": 0, "_size": 0}, False),
-            ({"_files": ["a.txt"]}, True),
+            ({"_files": [FileEntry("a.txt", "a.txt")]}, True),
             ({"subdir": {}}, True),
             ({"_max_depth_reached": True}, False),
             ({"_max_depth_reached": True, "_hidden_contents": True}, True),

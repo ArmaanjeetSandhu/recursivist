@@ -7,7 +7,6 @@ groups them by name similarity. Operates on [`FileEntry`][recursivist._models.Fi
 import os
 from collections.abc import Mapping, Sequence
 from difflib import SequenceMatcher
-from typing import Any
 
 from recursivist._models import FileEntry
 from recursivist.flags import (
@@ -22,7 +21,7 @@ _GIT_SORT_RANK: dict[str, int] = {"M": 0, "A": 1, "D": 2, "U": 3}
 _GIT_SORT_CLEAN = 4
 
 
-def sort_files_by_similarity(files: Sequence[Any]) -> list[FileEntry]:
+def sort_files_by_similarity(files: Sequence[FileEntry]) -> list[FileEntry]:
     """Order files so that similarly named files sit next to each other.
 
     Unlike the LOC/size/mtime metrics, name similarity is *relational*: it depends on
@@ -47,14 +46,10 @@ def sort_files_by_similarity(files: Sequence[Any]) -> list[FileEntry]:
     holds relatively few files, so the ``O(n^2)`` pairwise comparisons are cheap, and
     the result reliably places obvious name-siblings adjacent to one another.
 
-    Inputs may be [`FileEntry`][recursivist._models.FileEntry] instances, bare filename
-    strings, or positional tuples; every item is normalised to a
-    [`FileEntry`][recursivist._models.FileEntry] via
-    [`FileEntry.coerce`][recursivist._models.FileEntry.coerce] before ordering. Since
-    only the name is used, the metric slots do not affect the result.
+    Only the name is used, so the metric fields do not affect the result.
 
     Args:
-        files: List of file items (``FileEntry``, tuple, or ``str``).
+        files: The [`FileEntry`][recursivist._models.FileEntry] items to order.
 
     Returns:
         Reordered list of [`FileEntry`][recursivist._models.FileEntry] with name-similar
@@ -62,7 +57,7 @@ def sort_files_by_similarity(files: Sequence[Any]) -> list[FileEntry]:
     """
     if not files:
         return []
-    entries = [FileEntry.coerce(f) for f in files]
+    entries = list(files)
     if len(entries) < 2:
         return entries
     remaining = sorted(entries, key=lambda e: e.name.lower())
@@ -83,7 +78,7 @@ def sort_files_by_similarity(files: Sequence[Any]) -> list[FileEntry]:
 
 
 def sort_files_by_type(
-    files: Sequence[Any],
+    files: Sequence[FileEntry],
     sort_key: str | None = None,
     git_markers: Mapping[str, str] | None = None,
 ) -> list[FileEntry]:
@@ -103,13 +98,8 @@ def sort_files_by_type(
     the first sorting flag on the command line takes effect, so there is never more than
     one active metric to combine.
 
-    Inputs may be [`FileEntry`][recursivist._models.FileEntry] instances, bare filename
-    strings, or positional tuples; every item is normalised to a
-    [`FileEntry`][recursivist._models.FileEntry] via
-    [`FileEntry.coerce`][recursivist._models.FileEntry.coerce] before sorting.
-
     Args:
-        files: List of file items (``FileEntry``, tuple, or ``str``).
+        files: The [`FileEntry`][recursivist._models.FileEntry] items to order.
         sort_key: The single metric to order by, or ``None`` for the default.
         git_markers: ``{filename: status_char}`` mapping, required when *sort_key* is
             ``"git_status"``.
@@ -120,7 +110,7 @@ def sort_files_by_type(
     if not files:
         return []
 
-    entries = [FileEntry.coerce(f) for f in files]
+    entries = list(files)
 
     if sort_key == METRIC_LOC:
         return sorted(entries, key=lambda e: -e.loc)

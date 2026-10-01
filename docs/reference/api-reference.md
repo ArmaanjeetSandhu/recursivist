@@ -145,13 +145,10 @@ def analyze_directory(directory_path: str) -> None:
     print(f"Total lines of code: {structure.get('_loc', 0)}")
     print(f"Total size (bytes): {structure.get('_size', 0)}")
 
-    # Collect every file as a FileEntry and find the largest by LOC.
-    # FileEntry.coerce reads the canonical (name, path, loc, size, mtime)
-    # slots positionally, so it needs no knowledge of which flags were set.
+    # Collect every file (each a FileEntry) and find the largest by LOC.
     def collect(struct: dict, path: str = "") -> list[tuple[str, FileEntry]]:
         found: list[tuple[str, FileEntry]] = []
-        for entry in struct.get("_files", []):
-            fe = FileEntry.coerce(entry)
+        for fe in struct.get("_files", []):
             found.append((f"{path}/{fe.name}" if path else fe.name, fe))
         for name, content in struct.items():
             if isinstance(content, dict) and not name.startswith("_"):

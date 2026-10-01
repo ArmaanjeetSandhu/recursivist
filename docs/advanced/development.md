@@ -42,7 +42,7 @@ Recursivist is organized into small, focused modules:
 recursivist/
 ├── __init__.py        # Package metadata and version
 ├── __main__.py        # `python -m recursivist` entry point
-├── _models.py         # FileEntry (a NamedTuple), FileEntry.from_raw and .coerce
+├── _models.py         # FileEntry (a NamedTuple)
 ├── cli.py             # Typer-based command-line interface
 ├── flags.py           # DisplayOptions and command-line-order flag resolution
 ├── scanner.py         # Directory traversal -> nested structure dict

@@ -19,6 +19,7 @@ from pytest_mock import MockerFixture
 from rich.text import Text
 from rich.tree import Tree
 
+from recursivist._models import FileEntry
 from recursivist.flags import (
     METRIC_LOC,
     METRIC_MTIME,
@@ -77,10 +78,12 @@ class TestBuildTree:
         mock_tree.add.return_value = mock_subtree
         structure = {
             "_files": [
-                ("file1.txt", "/path/to/file1.txt"),
-                ("file2.py", "/path/to/file2.py"),
+                FileEntry("file1.txt", "/path/to/file1.txt"),
+                FileEntry("file2.py", "/path/to/file2.py"),
             ],
-            "subdir": {"_files": [("subfile.py", "/path/to/subdir/subfile.py")]},
+            "subdir": {
+                "_files": [FileEntry("subfile.py", "/path/to/subdir/subfile.py")]
+            },
         }
         build_tree(
             structure, mock_tree, color_map, DisplayOptions(), show_full_path=True
@@ -163,7 +166,13 @@ class TestBuildTreeGitStatus:
     @pytest.fixture
     def git_structure(self) -> dict[str, Any]:
         return {
-            "_files": ["clean.py", "mod.py", "add.py", "del.py", "untr.py"],
+            "_files": [
+                FileEntry("clean.py", "clean.py"),
+                FileEntry("mod.py", "mod.py"),
+                FileEntry("add.py", "add.py"),
+                FileEntry("del.py", "del.py"),
+                FileEntry("untr.py", "untr.py"),
+            ],
             "_git_markers": {
                 "mod.py": "M",
                 "add.py": "A",
@@ -313,13 +322,13 @@ def test_build_tree_combined(mocker: MockerFixture) -> None:
     color_map = {".py": "#FF0000", ".txt": "#00FF00"}
     structure = {
         "_files": [
-            "file1.txt",
-            ("file2.py", "/path/to/file2.py"),
-            ("file3.md", "/path/to/file3.md", 50),
-            ("file4.json", "/path/to/file4.json", 20, 1024),
-            ("file5.js", "/path/to/file5.js", 30, 2048, time.time()),
+            FileEntry("file1.txt", "file1.txt"),
+            FileEntry("file2.py", "/path/to/file2.py"),
+            FileEntry("file3.md", "/path/to/file3.md", 50),
+            FileEntry("file4.json", "/path/to/file4.json", 20, 1024),
+            FileEntry("file5.js", "/path/to/file5.js", 30, 2048, time.time()),
         ],
-        "subdir": {"_files": ["subfile.py"]},
+        "subdir": {"_files": [FileEntry("subfile.py", "subfile.py")]},
     }
     build_tree(structure, mock_tree, color_map, ALL_METRICS_SPEC)
     assert mock_tree.add.call_count >= 6
@@ -412,9 +421,9 @@ class TestBuildTreeStructures:
         """Test building a tree with full file paths."""
         full_path_structure = {
             "_files": [
-                ("file1.txt", "/path/to/file1.txt"),
-                ("file2.py", "/path/to/file2.py"),
-                ("file3.md", "/path/to/file3.md"),
+                FileEntry("file1.txt", "/path/to/file1.txt"),
+                FileEntry("file2.py", "/path/to/file2.py"),
+                FileEntry("file3.md", "/path/to/file3.md"),
             ],
         }
         build_tree(
@@ -484,11 +493,11 @@ class TestBuildTreeStructures:
         """Test building a tree with various file info formats."""
         mixed_structure = {
             "_files": [
-                "file1.txt",
-                ("file2.py", "/path/to/file2.py"),
-                ("file3.md", "/path/to/file3.md", 50),
-                ("file4.json", "/path/to/file4.json", 20, 1024),
-                ("file5.js", "/path/to/file5.js", 30, 2048, time.time()),
+                FileEntry("file1.txt", "file1.txt"),
+                FileEntry("file2.py", "/path/to/file2.py"),
+                FileEntry("file3.md", "/path/to/file3.md", 50),
+                FileEntry("file4.json", "/path/to/file4.json", 20, 1024),
+                FileEntry("file5.js", "/path/to/file5.js", 30, 2048, time.time()),
             ]
         }
         build_tree(mixed_structure, mock_tree, color_map, ALL_METRICS_SPEC)

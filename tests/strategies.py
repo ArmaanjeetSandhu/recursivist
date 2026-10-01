@@ -4,6 +4,8 @@ from typing import Any
 
 from hypothesis import strategies as st
 
+from recursivist._models import FileEntry
+
 simple_filename = st.text(
     alphabet=st.characters(
         whitelist_categories=("Lu", "Ll", "Nd"),
@@ -18,38 +20,20 @@ simple_filename = st.text(
 )
 
 
-file_item_tuple = st.tuples(
-    simple_filename,
-    st.text(min_size=1, max_size=100),
-    st.integers(min_value=0, max_value=1000),
-    st.integers(min_value=0, max_value=10 * 1024 * 1024),
-    st.floats(min_value=0, max_value=1672531200),
-)
-
-
-file_list = st.lists(
-    st.one_of(
-        simple_filename,
-        st.tuples(
-            simple_filename,
-            st.text(min_size=1, max_size=100),
-        ),
-        st.tuples(
-            simple_filename,
-            st.text(min_size=1, max_size=100),
-            st.integers(min_value=0, max_value=1000),
-        ),
-        st.tuples(
-            simple_filename,
-            st.text(min_size=1, max_size=100),
-            st.integers(min_value=0, max_value=1000),
-            st.integers(min_value=0, max_value=10 * 1024 * 1024),
-        ),
-        file_item_tuple,
+file_entry = st.one_of(
+    simple_filename.map(lambda name: FileEntry(name=name, path=name)),
+    st.builds(
+        FileEntry,
+        name=simple_filename,
+        path=st.text(min_size=1, max_size=100),
+        loc=st.integers(min_value=0, max_value=1000),
+        size=st.integers(min_value=0, max_value=10 * 1024 * 1024),
+        mtime=st.floats(min_value=0, max_value=1672531200),
     ),
-    min_size=0,
-    max_size=20,
 )
+
+
+file_list = st.lists(file_entry, min_size=0, max_size=20)
 
 
 @st.composite

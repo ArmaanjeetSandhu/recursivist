@@ -53,7 +53,7 @@ def get_file_names(
 ) -> list[str]:
     """Extract file names from a structure, optionally at a specific path."""
     if path is None:
-        return [f if isinstance(f, str) else f[0] for f in structure.get("_files", [])]
+        return [f.name for f in structure.get("_files", [])]
     else:
         current = structure
         for segment in path:
@@ -61,7 +61,7 @@ def get_file_names(
                 current = current[segment]
             else:
                 return []
-        return [f if isinstance(f, str) else f[0] for f in current.get("_files", [])]
+        return [f.name for f in current.get("_files", [])]
 
 
 @st.composite
@@ -75,7 +75,7 @@ def comparison_structure(draw: st.DrawFn, ensure_files: bool = False) -> dict[st
         loc = 100
         size = 1024
         mtime = 1600000000.0
-        file_list.append((filename, file_path, loc, size, mtime))
+        file_list.append(FileEntry(filename, file_path, loc, size, mtime))
     for _ in range(draw(st.integers(min_value=0, max_value=5))):
         filename = draw(
             st.text(
@@ -92,9 +92,9 @@ def comparison_structure(draw: st.DrawFn, ensure_files: bool = False) -> dict[st
             loc = draw(st.integers(min_value=1, max_value=1000))
             size = draw(st.integers(min_value=1, max_value=10 * 1024 * 1024))
             mtime = draw(st.floats(min_value=1000000, max_value=1672531200))
-            file_list.append((filename, file_path, loc, size, mtime))
+            file_list.append(FileEntry(filename, file_path, loc, size, mtime))
         else:
-            file_list.append(filename)
+            file_list.append(FileEntry(filename, filename))
     structure["_files"] = file_list
     if draw(st.booleans()):
         structure["_loc"] = draw(st.integers(min_value=0, max_value=10000))
@@ -129,7 +129,7 @@ def comparison_structure(draw: st.DrawFn, ensure_files: bool = False) -> dict[st
                         max_size=15,
                     )
                 ) + draw(st.sampled_from([".txt", ".py", ".md"]))
-                sub_file_list.append(sub_filename)
+                sub_file_list.append(FileEntry(sub_filename, sub_filename))
             sub_structure["_files"] = sub_file_list
             if draw(st.booleans()):
                 sub_structure["_loc"] = draw(st.integers(min_value=0, max_value=5000))
@@ -175,9 +175,11 @@ def comparison_pair(
                 loc = draw(st.integers(min_value=1, max_value=1000))
                 size = draw(st.integers(min_value=1, max_value=10 * 1024 * 1024))
                 mtime = draw(st.floats(min_value=1000000, max_value=1672531200))
-                modified_files.append((new_filename, file_path, loc, size, mtime))
+                modified_files.append(
+                    FileEntry(new_filename, file_path, loc, size, mtime)
+                )
             else:
-                modified_files.append(new_filename)
+                modified_files.append(FileEntry(new_filename, new_filename))
         modified_structure["_files"] = modified_files
     if (
         "_loc" in base_structure
@@ -243,14 +245,10 @@ def test_compare_directory_structures(comparison_directories: tuple[str, str]) -
     assert "dir1_only" not in structure2
     assert "dir2_only" not in structure1
     assert "dir2_only" in structure2
-    names1 = [f if isinstance(f, str) else f[0] for f in structure1["_files"]]
-    names2 = [f if isinstance(f, str) else f[0] for f in structure2["_files"]]
-    names1_get = [
-        f if isinstance(f, str) else f[0] for f in structure1.get("_files", [])
-    ]
-    names2_get = [
-        f if isinstance(f, str) else f[0] for f in structure2.get("_files", [])
-    ]
+    names1 = [f.name for f in structure1["_files"]]
+    names2 = [f.name for f in structure2["_files"]]
+    names1_get = [f.name for f in structure1.get("_files", [])]
+    names2_get = [f.name for f in structure2.get("_files", [])]
     assert "file1.txt" in names1
     assert "file1.txt" in names2
     assert "dir1_only.txt" in names1
@@ -303,47 +301,35 @@ def test_compare_directory_structures_with_options(
     if option_name == "show_full_path":
         assert "_files" in structure1
         assert "_files" in structure2
-        assert isinstance(structure1["_files"][0], tuple)
-        assert len(structure1["_files"][0]) >= 2
+        assert isinstance(structure1["_files"][0], FileEntry)
         found = False
         for entry in structure1["_files"]:
-            filename, full_path = entry[0], entry[1]
-            if filename == "file1.txt":
+            if entry.name == "file1.txt":
                 found = True
                 assert (
-                    os.path.basename(dir1) in os.path.dirname(full_path)
-                    or "file1.txt" in full_path
+                    os.path.basename(dir1) in os.path.dirname(entry.path)
+                    or "file1.txt" in entry.path
                 )
         assert found, "Could not find file1.txt with full path in structure1"
     elif option_name == "exclude_dirs":
         assert expected_result not in structure1
         assert expected_result not in structure2
     elif option_name == "exclude_patterns":
-        names1 = [
-            f if isinstance(f, str) else f[0] for f in structure1.get("_files", [])
-        ]
-        names2 = [
-            f if isinstance(f, str) else f[0] for f in structure2.get("_files", [])
-        ]
+        names1 = [f.name for f in structure1.get("_files", [])]
+        names2 = [f.name for f in structure2.get("_files", [])]
         assert not any(n.startswith(expected_result) for n in names1)
         assert not any(n.startswith(expected_result) for n in names2)
     elif option_name == "include_patterns":
-        for file_name in structure1.get("_files", []):
-            actual_name = file_name if isinstance(file_name, str) else file_name[0]
-            assert actual_name.endswith(".txt"), (
-                f"Non-txt file {actual_name} was included"
+        for entry in structure1.get("_files", []):
+            assert entry.name.endswith(".txt"), (
+                f"Non-txt file {entry.name} was included"
             )
-        for file_name in structure2.get("_files", []):
-            actual_name = file_name if isinstance(file_name, str) else file_name[0]
-            assert actual_name.endswith(".txt"), (
-                f"Non-txt file {actual_name} was included"
+        for entry in structure2.get("_files", []):
+            assert entry.name.endswith(".txt"), (
+                f"Non-txt file {entry.name} was included"
             )
-        assert "include_me.txt" in [
-            f if isinstance(f, str) else f[0] for f in structure1.get("_files", [])
-        ]
-        assert "exclude_me.log" not in [
-            f if isinstance(f, str) else f[0] for f in structure1.get("_files", [])
-        ]
+        assert "include_me.txt" in [f.name for f in structure1.get("_files", [])]
+        assert "exclude_me.log" not in [f.name for f in structure1.get("_files", [])]
 
 
 def test_compare_directory_structures_with_statistics(
@@ -358,9 +344,7 @@ def test_compare_directory_structures_with_statistics(
         assert "_size" in structure
         assert "_mtime" in structure
     if "_files" in structure1 and structure1["_files"]:
-        file_item = structure1["_files"][0]
-        if isinstance(file_item, tuple):
-            assert file_item[4] is not None
+        assert structure1["_files"][0].mtime is not None
 
 
 def test_display_comparison(
@@ -667,14 +651,14 @@ class TestCompareDirectoryStructures:
         """Test that compare_directory_structures returns valid structures."""
         with patch("recursivist.compare.get_directory_structure") as mock_get_structure:
             mock_get_structure.side_effect = [
-                ({"_files": ["file1.txt"]}, {".txt"}),
-                ({"_files": ["file2.txt"]}, {".txt"}),
+                ({"_files": [FileEntry("file1.txt", "file1.txt")]}, {".txt"}),
+                ({"_files": [FileEntry("file2.txt", "file2.txt")]}, {".txt"}),
             ]
             structure1, structure2 = compare_directory_structures(dir1, dir2)
-            assert structure1 == {"_files": ["file1.txt"]}, (
+            assert structure1 == {"_files": [FileEntry("file1.txt", "file1.txt")]}, (
                 "Should return structure1 from get_directory_structure"
             )
-            assert structure2 == {"_files": ["file2.txt"]}, (
+            assert structure2 == {"_files": [FileEntry("file2.txt", "file2.txt")]}, (
                 "Should return structure2 from get_directory_structure"
             )
             assert mock_get_structure.call_count == 2, (
@@ -726,8 +710,8 @@ class TestCompareDirectoryStructures:
         """Test compare_directory_structures with various options."""
         with patch("recursivist.compare.get_directory_structure") as mock_get_structure:
             mock_get_structure.side_effect = [
-                ({"_files": ["file1.txt"]}, {".txt"}),
-                ({"_files": ["file2.txt"]}, {".txt"}),
+                ({"_files": [FileEntry("file1.txt", "file1.txt")]}, {".txt"}),
+                ({"_files": [FileEntry("file2.txt", "file2.txt")]}, {".txt"}),
             ]
             exclude_dirs = ["node_modules", "dist"]
             exclude_extensions = {".pyc", ".log"}
@@ -1059,8 +1043,18 @@ class TestBuildComparisonTreeStructures:
 
     def test_different_files(self, mock_tree: MagicMock) -> None:
         """Test comparing structures with different files."""
-        structure1 = {"_files": ["file1.txt", "common.py"]}
-        structure2 = {"_files": ["file2.txt", "common.py"]}
+        structure1 = {
+            "_files": [
+                FileEntry("file1.txt", "file1.txt"),
+                FileEntry("common.py", "common.py"),
+            ]
+        }
+        structure2 = {
+            "_files": [
+                FileEntry("file2.txt", "file2.txt"),
+                FileEntry("common.py", "common.py"),
+            ]
+        }
         build_comparison_tree(structure1, structure2, mock_tree, DisplayOptions())
         calls = [
             call
@@ -1084,12 +1078,12 @@ class TestBuildComparisonTreeStructures:
     ) -> None:
         """Test comparing structures with different directories."""
         structure1 = {
-            "dir1": {"_files": ["file1.txt"]},
-            "common_dir": {"_files": ["common.py"]},
+            "dir1": {"_files": [FileEntry("file1.txt", "file1.txt")]},
+            "common_dir": {"_files": [FileEntry("common.py", "common.py")]},
         }
         structure2 = {
-            "dir2": {"_files": ["file2.txt"]},
-            "common_dir": {"_files": ["common.py"]},
+            "dir2": {"_files": [FileEntry("file2.txt", "file2.txt")]},
+            "common_dir": {"_files": [FileEntry("common.py", "common.py")]},
         }
         mock_tree.add.return_value = mock_subtree
         build_comparison_tree(structure1, structure2, mock_tree, DisplayOptions())
@@ -1121,13 +1115,13 @@ class TestBuildComparisonTreeStructures:
             "_loc": 100,
             "_size": 1024,
             "_mtime": now,
-            "_files": [("file1.txt", "/path/to/file1.txt", 50, 512, now)],
+            "_files": [FileEntry("file1.txt", "/path/to/file1.txt", 50, 512, now)],
         }
         structure2 = {
             "_loc": 200,
             "_size": 2048,
             "_mtime": now,
-            "_files": [("file2.txt", "/path/to/file2.txt", 100, 1024, now)],
+            "_files": [FileEntry("file2.txt", "/path/to/file2.txt", 100, 1024, now)],
         }
         build_comparison_tree(
             structure1,
@@ -1160,20 +1154,40 @@ class TestBuildComparisonTreeStructures:
     ) -> None:
         """Test comparison with complex nested structures."""
         structure1 = {
-            "_files": ["common1.txt", "only1.txt"],
+            "_files": [
+                FileEntry("common1.txt", "common1.txt"),
+                FileEntry("only1.txt", "only1.txt"),
+            ],
             "dir1": {
-                "_files": ["dir1_file.txt"],
-                "nested1": {"_files": ["nested1_file.txt"]},
+                "_files": [FileEntry("dir1_file.txt", "dir1_file.txt")],
+                "nested1": {
+                    "_files": [FileEntry("nested1_file.txt", "nested1_file.txt")]
+                },
             },
-            "common_dir": {"_files": ["common_file.txt", "only_in_1.txt"]},
+            "common_dir": {
+                "_files": [
+                    FileEntry("common_file.txt", "common_file.txt"),
+                    FileEntry("only_in_1.txt", "only_in_1.txt"),
+                ]
+            },
         }
         structure2 = {
-            "_files": ["common1.txt", "only2.txt"],
+            "_files": [
+                FileEntry("common1.txt", "common1.txt"),
+                FileEntry("only2.txt", "only2.txt"),
+            ],
             "dir2": {
-                "_files": ["dir2_file.txt"],
-                "nested2": {"_files": ["nested2_file.txt"]},
+                "_files": [FileEntry("dir2_file.txt", "dir2_file.txt")],
+                "nested2": {
+                    "_files": [FileEntry("nested2_file.txt", "nested2_file.txt")]
+                },
             },
-            "common_dir": {"_files": ["common_file.txt", "only_in_2.txt"]},
+            "common_dir": {
+                "_files": [
+                    FileEntry("common_file.txt", "common_file.txt"),
+                    FileEntry("only_in_2.txt", "only_in_2.txt"),
+                ]
+            },
         }
         all_calls = []
 
@@ -1206,12 +1220,15 @@ class TestBuildComparisonTreeStructures:
     ) -> None:
         """Test that a truncated directory is left unexpanded."""
         structure1 = {
-            "_files": ["file1.txt"],
+            "_files": [FileEntry("file1.txt", "file1.txt")],
             "subdir": {
                 "_max_depth_reached": True,
             },
         }
-        structure2 = {"_files": ["file2.txt"], "subdir": {"_files": ["subfile.txt"]}}
+        structure2 = {
+            "_files": [FileEntry("file2.txt", "file2.txt")],
+            "subdir": {"_files": [FileEntry("subfile.txt", "subfile.txt")]},
+        }
         mock_tree.add.return_value = mock_subtree
         build_comparison_tree(structure1, structure2, mock_tree, DisplayOptions())
         subtree_calls = [
@@ -1314,7 +1331,7 @@ class TestCompareGitStatus:
     def test_build_comparison_tree_renders_git_badges(self) -> None:
         """Files carry their status badge; deleted files are struck through."""
         structure = {
-            "_files": ["mod.py", "del.py"],
+            "_files": [FileEntry("mod.py", "mod.py"), FileEntry("del.py", "del.py")],
             "_git_markers": {"mod.py": "M", "del.py": "D"},
         }
         tree = MagicMock()
@@ -1337,7 +1354,7 @@ class TestCompareGitStatus:
     def test_build_comparison_tree_no_badges_without_flag(self) -> None:
         """Markers present in the structure are ignored when git is off."""
         structure = {
-            "_files": ["mod.py"],
+            "_files": [FileEntry("mod.py", "mod.py")],
             "_git_markers": {"mod.py": "M"},
         }
         tree = MagicMock()
@@ -1349,7 +1366,7 @@ class TestCompareGitStatus:
         """Files unique to the *other* structure use the other side's markers."""
         this_structure: dict[str, Any] = {"_files": []}
         other_structure = {
-            "_files": ["only_other.py"],
+            "_files": [FileEntry("only_other.py", "only_other.py")],
             "_git_markers": {"only_other.py": "A"},
         }
         tree = MagicMock()
@@ -1361,7 +1378,13 @@ class TestCompareGitStatus:
         """git_status sort orders files modified, added, deleted, untracked,
         then clean."""
         structure = {
-            "_files": ["clean.py", "unt.py", "del.py", "add.py", "mod.py"],
+            "_files": [
+                FileEntry("clean.py", "clean.py"),
+                FileEntry("unt.py", "unt.py"),
+                FileEntry("del.py", "del.py"),
+                FileEntry("add.py", "add.py"),
+                FileEntry("mod.py", "mod.py"),
+            ],
             "_git_markers": {
                 "unt.py": "U",
                 "del.py": "D",

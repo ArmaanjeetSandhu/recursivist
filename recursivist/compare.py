@@ -391,9 +391,9 @@ class _ComparisonWalker:
         return self.spec.show_git_status or self.spec.sort_key == METRIC_GIT
 
     def _identities(
-        self, files: Sequence[Any], markers: Mapping[str, str]
+        self, files: Sequence[FileEntry], markers: Mapping[str, str]
     ) -> set[tuple[str, str, str]]:
-        return {self._identity(FileEntry.coerce(item), markers) for item in files}
+        return {self._identity(entry, markers) for entry in files}
 
     def _identity(
         self, entry: FileEntry, markers: Mapping[str, str]

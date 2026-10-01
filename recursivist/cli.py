@@ -456,7 +456,7 @@ def _resolve_and_validate_directory(directory: Path) -> Path:
             directory.
     """
     directory = directory.resolve()
-    if not directory.exists() or not directory.is_dir():
+    if not directory.is_dir():
         logger.error(f"Error: {directory} is not a valid directory")
         raise typer.Exit(1)
     return directory
@@ -1430,7 +1430,7 @@ def compare(
     ]
     for raw in local_inputs:
         local_dir = Path(raw)
-        if not local_dir.exists() or not local_dir.is_dir():
+        if not local_dir.is_dir():
             logger.error(f"Error: {raw} is not a valid directory or GitHub URL")
             raise typer.Exit(1)
 

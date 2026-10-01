@@ -12,6 +12,8 @@ import pytest
 from rich.tree import Tree
 from typer.testing import CliRunner
 
+from recursivist._models import FileEntry
+
 FileInfo = (
     str
     | tuple[str, str]
@@ -343,7 +345,11 @@ def color_map() -> dict[str, str]:
 def simple_structure() -> DirStructure:
     """Create a simple directory structure for testing."""
     return {
-        "_files": ["file1.txt", "file2.py", "file3.md"],
+        "_files": [
+            FileEntry("file1.txt", "file1.txt"),
+            FileEntry("file2.py", "file2.py"),
+            FileEntry("file3.md", "file3.md"),
+        ],
     }
 
 
@@ -351,14 +357,20 @@ def simple_structure() -> DirStructure:
 def nested_structure() -> DirStructure:
     """Create a nested directory structure for testing."""
     return {
-        "_files": ["root_file1.txt", "root_file2.py"],
+        "_files": [
+            FileEntry("root_file1.txt", "root_file1.txt"),
+            FileEntry("root_file2.py", "root_file2.py"),
+        ],
         "subdir1": {
-            "_files": ["subdir1_file1.txt", "subdir1_file2.js"],
+            "_files": [
+                FileEntry("subdir1_file1.txt", "subdir1_file1.txt"),
+                FileEntry("subdir1_file2.js", "subdir1_file2.js"),
+            ],
         },
         "subdir2": {
-            "_files": ["subdir2_file1.md"],
+            "_files": [FileEntry("subdir2_file1.md", "subdir2_file1.md")],
             "nested": {
-                "_files": ["nested_file1.json"],
+                "_files": [FileEntry("nested_file1.json", "nested_file1.json")],
             },
         },
     }
@@ -373,15 +385,17 @@ def structure_with_stats() -> DirStructure:
         "_size": 1024,
         "_mtime": now,
         "_files": [
-            ("file1.txt", "/path/to/file1.txt", 50, 512, now - 100),
-            ("file2.py", "/path/to/file2.py", 30, 256, now - 200),
+            FileEntry("file1.txt", "/path/to/file1.txt", 50, 512, now - 100),
+            FileEntry("file2.py", "/path/to/file2.py", 30, 256, now - 200),
         ],
         "subdir": {
             "_loc": 20,
             "_size": 256,
             "_mtime": now - 300,
             "_files": [
-                ("subfile.md", "/path/to/subdir/subfile.md", 20, 256, now - 400),
+                FileEntry(
+                    "subfile.md", "/path/to/subdir/subfile.md", 20, 256, now - 400
+                ),
             ],
         },
     }
@@ -395,7 +409,7 @@ def max_depth_structure() -> DirStructure:
     ``empty_subdir`` was cut short but holds nothing.
     """
     return {
-        "_files": ["root_file.txt"],
+        "_files": [FileEntry("root_file.txt", "root_file.txt")],
         "subdir": {
             "_max_depth_reached": True,
             "_hidden_contents": True,
