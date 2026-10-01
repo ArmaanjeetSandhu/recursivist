@@ -46,15 +46,15 @@ def load_config() -> dict[str, Any]:
         The parsed configuration mapping, or the default ``{"icon_style": "emoji"}``
         when the file is missing, unreadable, or does not contain a JSON object.
     """
-    config_path = get_config_path()
-    if config_path.is_file():
-        try:
-            with open(config_path) as f:
+    try:
+        config_path = get_config_path()
+        if config_path.is_file():
+            with open(config_path, encoding="utf-8") as f:
                 config = json.load(f)
-                if isinstance(config, dict):
-                    return config
-        except json.JSONDecodeError:
-            pass
+            if isinstance(config, dict):
+                return config
+    except (OSError, ValueError):
+        pass
     return {"icon_style": "emoji"}
 
 

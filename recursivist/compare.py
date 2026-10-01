@@ -11,6 +11,7 @@ import html
 import logging
 import os
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from re import Pattern
 from typing import Any
 
@@ -22,7 +23,7 @@ from rich.tree import Tree
 
 from recursivist._models import FileEntry
 from recursivist.filtering import PatternMatchTracker, compile_regex_patterns
-from recursivist.flags import METRIC_GIT, DisplayOptions
+from recursivist.flags import METRIC_GIT, METRIC_MTIME, DisplayOptions
 from recursivist.git_status import get_git_status
 from recursivist.github import (
     GitHubTarget,
@@ -210,6 +211,49 @@ def compare_directory_structures(
     return structure1, structure2
 
 
+_GIT_BADGE_MARKERS = frozenset({"U", "M", "A", "D"})
+"""Git status characters that render as a badge on a compared file."""
+
+_SHARED = "shared"
+_UNIQUE_THIS = "this"
+_UNIQUE_OTHER = "other"
+
+
+def _side_metrics(metrics: Sequence[str], is_remote: bool) -> tuple[str, ...]:
+    """Return the metrics displayable for one side of a comparison.
+
+    A hosted repository has no meaningful modification times, so ``mtime`` is dropped
+    for a remote side; a local side displays every requested metric.
+
+    Args:
+        metrics: The requested numeric metrics, in display order.
+        is_remote: Whether the side originates from a hosted repository.
+
+    Returns:
+        The metrics to display for that side, in display order.
+    """
+    if is_remote:
+        return tuple(m for m in metrics if m != METRIC_MTIME)
+    return tuple(metrics)
+
+
+def _git_badge_marker(markers: Mapping[str, str], name: str) -> str:
+    """Return the badge-worthy Git status for *name*, or ``""``.
+
+    Both renderers and the cross-side identity go through this one filter, so a marker
+    never affects highlighting unless it would also be shown as a badge.
+
+    Args:
+        markers: The ``{filename: status_char}`` map for the file's side.
+        name: The bare filename.
+
+    Returns:
+        The status character if it is one of `_GIT_BADGE_MARKERS`, otherwise ``""``.
+    """
+    marker = markers.get(name, "")
+    return marker if marker in _GIT_BADGE_MARKERS else ""
+
+
 def _comparison_identity(
     entry: FileEntry,
     metrics: Sequence[str],
@@ -245,9 +289,346 @@ def _comparison_identity(
     metric_annotation = format_metrics(entry.loc, entry.size, entry.mtime, metrics)
     git_badge = ""
     if show_git_status:
-        marker = markers.get(entry.name, "")
+        marker = _git_badge_marker(markers, entry.name)
         git_badge = f"[{marker}]" if marker else ""
     return (entry.name, metric_annotation, git_badge)
+
+
+@dataclass(frozen=True)
+class _FileNode:
+    """A file in the renderer-neutral comparison tree.
+
+    Attributes:
+        icon: The file's icon.
+        label: The display string (bare name, or full path / URL).
+        metrics_suffix: The formatted metric parenthetical, or ``""``.
+        git_marker: The Git badge character to show, or ``""`` when none is shown.
+        uniqueness: `_SHARED`, `_UNIQUE_THIS` or `_UNIQUE_OTHER`.
+    """
+
+    icon: str
+    label: str
+    metrics_suffix: str
+    git_marker: str
+    uniqueness: str
+
+    @property
+    def deleted(self) -> bool:
+        """Whether the file is shown as deleted (and so struck through)."""
+        return self.git_marker == "D"
+
+
+@dataclass(frozen=True)
+class _DirNode:
+    """A directory in the renderer-neutral comparison tree.
+
+    Attributes:
+        icon: The directory's icon.
+        name: The directory name.
+        metrics_suffix: The formatted aggregate-metric parenthetical, or ``""``.
+        uniqueness: `_SHARED`, `_UNIQUE_THIS` or `_UNIQUE_OTHER`.
+        symlink_loop: Whether the directory is a symlink back to an ancestor.
+        children: The directory's entries, or ``None`` when the depth limit stopped the
+            scan before its contents were read.
+    """
+
+    icon: str
+    name: str
+    metrics_suffix: str
+    uniqueness: str
+    symlink_loop: bool = False
+    children: tuple["_FileNode | _DirNode", ...] | None = ()
+
+
+_Node = _FileNode | _DirNode
+
+
+@dataclass(frozen=True)
+class _ComparisonWalker:
+    """Builds the renderer-neutral comparison tree for one side.
+
+    This is the single traversal behind both the terminal and HTML comparison views: it
+    decides ordering, which annotations and badges appear, and which entries are unique
+    to either side. The renderers only translate the resulting nodes into their output
+    format.
+
+    Attributes:
+        spec: Resolved sorting and annotation directives.
+        identity_spec: Directives governing which annotations contribute to cross-side
+            file identity (see `_comparison_identity`).
+        this_metrics: Metrics displayed for entries of the side being rendered.
+        other_metrics: Metrics displayed for entries unique to the other side.
+        icon_style: Icon style, either ``"emoji"`` or ``"nerd"``.
+    """
+
+    spec: DisplayOptions
+    identity_spec: DisplayOptions
+    this_metrics: tuple[str, ...]
+    other_metrics: tuple[str, ...]
+    icon_style: str = "emoji"
+
+    @classmethod
+    def for_sides(
+        cls,
+        spec: DisplayOptions,
+        identity_spec: DisplayOptions | None,
+        this_is_remote: bool,
+        other_is_remote: bool,
+        icon_style: str,
+    ) -> "_ComparisonWalker":
+        """Create a walker for one side given where each side comes from."""
+        return cls(
+            spec=spec,
+            identity_spec=identity_spec if identity_spec is not None else spec,
+            this_metrics=_side_metrics(spec.metrics, this_is_remote),
+            other_metrics=_side_metrics(spec.metrics, other_is_remote),
+            icon_style=icon_style,
+        )
+
+    @property
+    def _loads_git_markers(self) -> bool:
+        """Whether Git markers are needed, for display *or* for sorting."""
+        return self.spec.show_git_status or self.spec.sort_key == METRIC_GIT
+
+    def _identities(
+        self, files: Sequence[Any], markers: Mapping[str, str]
+    ) -> set[tuple[str, str, str]]:
+        return {self._identity(FileEntry.coerce(item), markers) for item in files}
+
+    def _identity(
+        self, entry: FileEntry, markers: Mapping[str, str]
+    ) -> tuple[str, str, str]:
+        return _comparison_identity(
+            entry,
+            self.identity_spec.metrics,
+            self.identity_spec.show_git_status,
+            markers,
+        )
+
+    def _file(
+        self,
+        entry: FileEntry,
+        markers: Mapping[str, str],
+        uniqueness: str,
+        metrics: Sequence[str],
+    ) -> _FileNode:
+        git_marker = (
+            _git_badge_marker(markers, entry.name) if self.spec.show_git_status else ""
+        )
+        return _FileNode(
+            icon=get_icon(entry.name, is_dir=False, style=self.icon_style),
+            label=entry.path,
+            metrics_suffix=format_metrics_suffix(
+                entry.loc, entry.size, entry.mtime, metrics
+            ),
+            git_marker=git_marker,
+            uniqueness=uniqueness,
+        )
+
+    def _dir(
+        self,
+        name: str,
+        content: Any,
+        this_content: dict[str, Any],
+        other_content: dict[str, Any],
+        uniqueness: str,
+        metrics: Sequence[str],
+        is_empty: bool,
+    ) -> _DirNode:
+        is_dict = isinstance(content, dict)
+        symlink_loop = bool(is_dict and content.get("_symlink_loop"))
+        children: tuple[_Node, ...] | None
+        if symlink_loop:
+            children = ()
+        elif is_dict and content.get("_max_depth_reached"):
+            children = None
+        else:
+            children = tuple(self.walk(this_content, other_content))
+        return _DirNode(
+            icon=get_icon(name, is_dir=True, style=self.icon_style, is_empty=is_empty),
+            name=name,
+            metrics_suffix=format_dir_metrics(content, metrics),
+            uniqueness=uniqueness,
+            symlink_loop=symlink_loop,
+            children=children,
+        )
+
+    def walk(
+        self, structure: dict[str, Any], other_structure: dict[str, Any]
+    ) -> list[_Node]:
+        """Return the nodes for *structure*, compared against *other_structure*.
+
+        Entries are ordered: this side's files (sorted), this side's directories, then
+        files and directories that exist only on the other side.
+
+        Args:
+            structure: Structure of the directory being rendered.
+            other_structure: Structure of the directory being compared against.
+
+        Returns:
+            The comparison nodes at this level, each directory carrying its children.
+        """
+        loads_git = self._loads_git_markers
+        sort_key = self.spec.sort_key
+        markers: dict[str, str] = structure.get("_git_markers", {}) if loads_git else {}
+        other_markers: dict[str, str] = (
+            other_structure.get("_git_markers", {})
+            if loads_git and other_structure
+            else {}
+        )
+        nodes: list[_Node] = []
+
+        if "_files" in structure:
+            files_in_other = (
+                other_structure.get("_files", []) if other_structure else []
+            )
+            other_ids = self._identities(files_in_other, other_markers)
+            for entry in sort_files_by_type(structure["_files"], sort_key, markers):
+                unique = self._identity(entry, markers) not in other_ids
+                nodes.append(
+                    self._file(
+                        entry,
+                        markers,
+                        _UNIQUE_THIS if unique else _SHARED,
+                        self.this_metrics,
+                    )
+                )
+
+        for name, content in iter_subdirectories(structure):
+            other_match = (
+                get_subdirectory(other_structure, name) if other_structure else None
+            )
+            other_content = other_match if other_match is not None else {}
+            nodes.append(
+                self._dir(
+                    name,
+                    content,
+                    content,
+                    other_content,
+                    _UNIQUE_THIS if other_match is None else _SHARED,
+                    self.this_metrics,
+                    is_empty=not (has_contents(content) or has_contents(other_content)),
+                )
+            )
+
+        if not other_structure:
+            return nodes
+
+        if "_files" in other_structure:
+            this_ids = self._identities(structure.get("_files", []), markers)
+            for entry in sort_files_by_type(
+                other_structure["_files"], sort_key, other_markers
+            ):
+                if self._identity(entry, other_markers) not in this_ids:
+                    nodes.append(
+                        self._file(
+                            entry, other_markers, _UNIQUE_OTHER, self.other_metrics
+                        )
+                    )
+
+        for name, other_content in iter_subdirectories(other_structure):
+            if get_subdirectory(structure, name) is not None:
+                continue
+            nodes.append(
+                self._dir(
+                    name,
+                    other_content,
+                    {},
+                    other_content,
+                    _UNIQUE_OTHER,
+                    self.other_metrics,
+                    is_empty=not has_contents(other_content),
+                )
+            )
+        return nodes
+
+
+_RICH_FILE_HIGHLIGHT = {_UNIQUE_THIS: "on green", _UNIQUE_OTHER: "on red"}
+_RICH_DIR_STYLE = {_UNIQUE_THIS: "green", _UNIQUE_OTHER: "red"}
+
+
+def _render_rich_nodes(nodes: Sequence[_Node], tree: Tree) -> None:
+    """Add comparison *nodes* to a ``rich`` tree.
+
+    Unique files get a green/red background and unique directories green/red text.
+    Deleted files are struck through; the Git badge trails the metrics, uncolored.
+
+    Args:
+        nodes: Nodes produced by `_ComparisonWalker.walk`.
+        tree: ``rich`` tree to add nodes to. Modified in place.
+    """
+    for node in nodes:
+        if isinstance(node, _FileNode):
+            highlight = _RICH_FILE_HIGHLIGHT.get(node.uniqueness, "")
+            style = f"{highlight} strike".strip() if node.deleted else highlight
+            text = Text(f"{node.icon} {node.label}{node.metrics_suffix}", style=style)
+            if node.git_marker:
+                text.append(f" [{node.git_marker}]", style=highlight)
+            tree.add(text)
+            continue
+        subtree = tree.add(
+            Text(
+                f"{node.icon} {node.name}{node.metrics_suffix}",
+                style=_RICH_DIR_STYLE.get(node.uniqueness, ""),
+            )
+        )
+        if node.symlink_loop:
+            subtree.add(Text("↩ (symlink loop)", style="dim"))
+        elif node.children is not None:
+            _render_rich_nodes(node.children, subtree)
+
+
+_HTML_FILE_CLASS = {
+    _UNIQUE_THIS: ' class="file-unique-left"',
+    _UNIQUE_OTHER: ' class="file-unique-right"',
+}
+_HTML_STRIKE = '<span style="text-decoration: line-through;">{}</span>'
+_HTML_DIR_CLASS = {
+    _UNIQUE_THIS: ' class="directory-unique-left"',
+    _UNIQUE_OTHER: ' class="directory-unique-right"',
+}
+
+
+def _render_html_nodes(nodes: Sequence[_Node]) -> str:
+    """Render comparison *nodes* as a nested ``<ul>`` fragment.
+
+    Uniqueness becomes a ``*-unique-left``/``*-unique-right`` class. Deleted files are
+    struck through; the Git badge trails the metrics, uncolored.
+
+    Args:
+        nodes: Nodes produced by `_ComparisonWalker.walk`.
+
+    Returns:
+        An HTML fragment representing the directory tree.
+    """
+    parts = ["<ul>"]
+    for node in nodes:
+        if isinstance(node, _FileNode):
+            display_text = html.escape(node.label + node.metrics_suffix)
+            if node.deleted:
+                display_text = _HTML_STRIKE.format(display_text)
+            git_badge = (
+                f' <span class="git-badge">[{node.git_marker}]</span>'
+                if node.git_marker
+                else ""
+            )
+            parts.append(
+                f"<li{_HTML_FILE_CLASS.get(node.uniqueness, '')}>"
+                f'<span class="file">{node.icon} {display_text}</span>{git_badge}</li>'
+            )
+            continue
+        parts.append(
+            f"<li{_HTML_DIR_CLASS.get(node.uniqueness, '')}>"
+            f'<span class="directory">{node.icon} '
+            f"{html.escape(node.name + node.metrics_suffix)}</span>"
+        )
+        if node.symlink_loop:
+            parts.append('<ul><li class="symlink-loop">↩ (symlink loop)</li></ul>')
+        elif node.children is not None:
+            parts.append(_render_html_nodes(node.children))
+        parts.append("</li>")
+    parts.append("</ul>")
+    return "\n".join(parts)
 
 
 def build_comparison_tree(
@@ -287,12 +668,16 @@ def build_comparison_tree(
     still *displayed* per *spec*, they just no longer split otherwise-matching files
     across the two sides.
 
+    The traversal is shared with the HTML export (see `_ComparisonWalker`), so both
+    views always agree on ordering, badges and highlighting.
+
     Args:
         structure: Structure of the directory being rendered.
         other_structure: Structure of the directory being compared against.
         tree: ``rich`` tree to add nodes to. Modified in place.
         spec: Resolved sorting and annotation directives.
-        show_full_path: Whether to display absolute paths instead of bare filenames.
+        show_full_path: Accepted for API compatibility. Each file's stored ``path``
+            already holds the full path when full-path display was requested.
         icon_style: Icon style to use, either ``"emoji"`` or ``"nerd"``.
         identity_spec: Directives governing which annotations contribute to cross-side
             file identity. Defaults to *spec*.
@@ -301,157 +686,11 @@ def build_comparison_tree(
         other_is_remote: Whether the compared structure originates from a hosted
             repository.
     """
-    id_spec = identity_spec if identity_spec is not None else spec
-    need_git = spec.show_git_status or spec.sort_key == METRIC_GIT
-    git_markers_dict: dict[str, str] = (
-        structure.get("_git_markers", {}) if need_git else {}
+    del show_full_path
+    walker = _ComparisonWalker.for_sides(
+        spec, identity_spec, this_is_remote, other_is_remote, icon_style
     )
-    other_git_markers: dict[str, str] = (
-        other_structure.get("_git_markers", {}) if need_git and other_structure else {}
-    )
-
-    this_metrics = (
-        tuple(m for m in spec.metrics if m != "mtime")
-        if this_is_remote
-        else spec.metrics
-    )
-    other_metrics = (
-        tuple(m for m in spec.metrics if m != "mtime")
-        if other_is_remote
-        else spec.metrics
-    )
-
-    def _add_file_node(
-        entry: Any, markers: dict[str, str], highlight: str, metrics: Sequence[str]
-    ) -> None:
-        """Add a single file entry to *tree* with metrics and Git badge.
-
-        The Git badge (``[U]``/``[M]``/``[A]``/``[D]``) is rendered without any color of
-        its own; deleted files are struck through.
-
-        Args:
-            entry: The [`FileEntry`][recursivist._models.FileEntry] to render.
-            markers: The ``{filename: status_char}`` map for this file's side.
-            highlight: The background highlight style (``"on green"``, ``"on red"``, or
-                ``""``) marking difference state.
-            metrics: Displayed metrics for the file.
-        """
-        file_icon = get_icon(entry.name, is_dir=False, style=icon_style)
-        label = f"{file_icon} {entry.path}" + format_metrics_suffix(
-            entry.loc, entry.size, entry.mtime, metrics
-        )
-        git_marker = markers.get(entry.name, "") if need_git else ""
-        if git_marker == "D":
-            name_style = f"{highlight} strike".strip()
-        else:
-            name_style = highlight
-        text = Text(label, style=name_style)
-        if spec.show_git_status and git_marker:
-            text.append(f" [{git_marker}]", style=highlight)
-        tree.add(text)
-
-    if "_files" in structure:
-        files_in_other = other_structure.get("_files", []) if other_structure else []
-        other_identities = {
-            _comparison_identity(
-                FileEntry.coerce(item),
-                id_spec.metrics,
-                id_spec.show_git_status,
-                other_git_markers,
-            )
-            for item in files_in_other
-        }
-        for entry in sort_files_by_type(
-            structure["_files"], spec.sort_key, git_markers_dict
-        ):
-            identity = _comparison_identity(
-                entry, id_spec.metrics, id_spec.show_git_status, git_markers_dict
-            )
-            highlight = "on green" if identity not in other_identities else ""
-            _add_file_node(entry, git_markers_dict, highlight, this_metrics)
-    for folder, content in iter_subdirectories(structure):
-        other_match = (
-            get_subdirectory(other_structure, folder) if other_structure else None
-        )
-        other_content = other_match if other_match is not None else {}
-        folder_icon = get_icon(
-            folder,
-            is_dir=True,
-            style=icon_style,
-            is_empty=not (has_contents(content) or has_contents(other_content)),
-        )
-
-        metrics_suffix = format_dir_metrics(content, this_metrics)
-        folder_label = f"{folder_icon} {folder}{metrics_suffix}"
-        if other_match is None:
-            subtree = tree.add(Text(folder_label, style="green"))
-        else:
-            subtree = tree.add(Text(folder_label))
-        if isinstance(content, dict) and content.get("_symlink_loop"):
-            subtree.add(Text("↩ (symlink loop)", style="dim"))
-        elif not (isinstance(content, dict) and content.get("_max_depth_reached")):
-            build_comparison_tree(
-                content,
-                other_content,
-                subtree,
-                spec,
-                show_full_path,
-                icon_style=icon_style,
-                identity_spec=id_spec,
-                this_is_remote=this_is_remote,
-                other_is_remote=other_is_remote,
-            )
-    if other_structure and "_files" in other_structure:
-        files_in_this = structure.get("_files", [])
-        this_identities = {
-            _comparison_identity(
-                FileEntry.coerce(item),
-                id_spec.metrics,
-                id_spec.show_git_status,
-                git_markers_dict,
-            )
-            for item in files_in_this
-        }
-        for entry in sort_files_by_type(
-            other_structure["_files"], spec.sort_key, other_git_markers
-        ):
-            identity = _comparison_identity(
-                entry, id_spec.metrics, id_spec.show_git_status, other_git_markers
-            )
-            if identity not in this_identities:
-                _add_file_node(entry, other_git_markers, "on red", other_metrics)
-    if other_structure:
-        for folder, other_content in iter_subdirectories(other_structure):
-            if get_subdirectory(structure, folder) is not None:
-                continue
-            folder_icon = get_icon(
-                folder,
-                is_dir=True,
-                style=icon_style,
-                is_empty=not has_contents(other_content),
-            )
-
-            metrics_suffix = format_dir_metrics(other_content, other_metrics)
-            subtree = tree.add(
-                Text(f"{folder_icon} {folder}{metrics_suffix}", style="red")
-            )
-            if isinstance(other_content, dict) and other_content.get("_symlink_loop"):
-                subtree.add(Text("↩ (symlink loop)", style="dim"))
-            elif not (
-                isinstance(other_content, dict)
-                and other_content.get("_max_depth_reached")
-            ):
-                build_comparison_tree(
-                    {},
-                    other_content,
-                    subtree,
-                    spec,
-                    show_full_path,
-                    icon_style=icon_style,
-                    identity_spec=id_spec,
-                    this_is_remote=this_is_remote,
-                    other_is_remote=other_is_remote,
-                )
+    _render_rich_nodes(walker.walk(structure, other_structure), tree)
 
 
 def _side_display_name(raw: str) -> str:
@@ -601,12 +840,8 @@ def display_comparison(
     is_remote1 = parse_github_url(dir1) is not None
     is_remote2 = parse_github_url(dir2) is not None
 
-    dir1_metrics = (
-        tuple(m for m in spec.metrics if m != "mtime") if is_remote1 else spec.metrics
-    )
-    dir2_metrics = (
-        tuple(m for m in spec.metrics if m != "mtime") if is_remote2 else spec.metrics
-    )
+    dir1_metrics = _side_metrics(spec.metrics, is_remote1)
+    dir2_metrics = _side_metrics(spec.metrics, is_remote2)
 
     root_base1 = _side_display_name(dir1)
     root_base2 = _side_display_name(dir2)
@@ -864,203 +1099,6 @@ def _export_comparison_to_html(
         icon_style: Icon style to use, either ``"emoji"`` or ``"nerd"``.
     """
 
-    def _build_html_tree(
-        structure: dict[str, Any],
-        other_structure: dict[str, Any],
-        this_is_remote: bool,
-        other_is_remote: bool,
-    ) -> str:
-        """Build the nested ``<ul>`` markup for one side of the comparison.
-
-        Walks *structure*, emitting list items for its files and subdirectories and
-        tagging any entry absent from *other_structure* so it can be highlighted as
-        unique.
-
-        Args:
-            structure: Structure of the directory being rendered.
-            other_structure: Structure of the directory being compared against.
-
-        Returns:
-            An HTML fragment representing the directory tree.
-        """
-        html_content = ["<ul>"]
-        _meta = comparison_data.get("metadata", {})
-        show_full_path = _meta.get("show_full_path", False)
-        metrics = _meta.get("metrics", [])
-        sort_key = _meta.get("sort_key")
-        show_git_status = _meta.get("show_git_status", False)
-        identity_metrics = _meta.get("identity_metrics", metrics)
-        identity_git = _meta.get("identity_git", show_git_status)
-
-        this_metrics = (
-            [m for m in metrics if m != "mtime"] if this_is_remote else metrics
-        )
-        other_metrics = (
-            [m for m in metrics if m != "mtime"] if other_is_remote else metrics
-        )
-
-        git_markers = structure.get("_git_markers", {}) if show_git_status else {}
-        other_git_markers = (
-            other_structure.get("_git_markers", {})
-            if show_git_status and other_structure
-            else {}
-        )
-        _GIT_HTML_MARKERS = {"U", "M", "A", "D"}
-
-        def _file_li(
-            entry: Any,
-            markers: dict[str, str],
-            file_class: str,
-            file_metrics: Sequence[str],
-        ) -> str:
-            """Render one file ``<li>`` with metrics and an optional Git badge.
-
-            The badge is not color-coded; deleted files are struck through.
-
-            Args:
-                entry: The [`FileEntry`][recursivist._models.FileEntry] to render.
-                markers: The ``{filename: status_char}`` map for this side.
-                file_class: The ``class="..."`` attribute (including a leading space)
-                    marking difference state, or ``""``.
-                file_metrics: Specific metrics for this file.
-
-            Returns:
-                The ``<li>`` HTML fragment for the file.
-            """
-            base = entry.path if show_full_path else entry.name
-            escaped = html.escape(base)
-            git_marker = markers.get(entry.name, "") if show_git_status else ""
-            if git_marker and git_marker in _GIT_HTML_MARKERS:
-                git_badge = f' <span class="git-badge">[{git_marker}]</span>'
-                if git_marker == "D":
-                    escaped = (
-                        f'<span style="text-decoration: line-through;">{escaped}</span>'
-                    )
-            else:
-                git_badge = ""
-            display_text = escaped + format_metrics_suffix(
-                entry.loc, entry.size, entry.mtime, file_metrics
-            )
-            file_icon = get_icon(entry.name, is_dir=False, style=icon_style)
-            return (
-                f'<li{file_class}><span class="file">{file_icon} '
-                f"{display_text}</span>{git_badge}</li>"
-            )
-
-        files_in_this = structure.get("_files", [])
-        if "_files" in structure:
-            files_in_other = (
-                other_structure.get("_files", []) if other_structure else []
-            )
-            other_identities = {
-                _comparison_identity(
-                    FileEntry.coerce(item),
-                    identity_metrics,
-                    identity_git,
-                    other_git_markers,
-                )
-                for item in files_in_other
-            }
-            sorted_files = sort_files_by_type(files_in_this, sort_key, git_markers)
-            for entry in sorted_files:
-                identity = _comparison_identity(
-                    entry, identity_metrics, identity_git, git_markers
-                )
-                if identity not in other_identities:
-                    file_class = ' class="file-unique-left"'
-                else:
-                    file_class = ""
-                html_content.append(
-                    _file_li(entry, git_markers, file_class, this_metrics)
-                )
-        for name, content in iter_subdirectories(structure):
-            other_match = (
-                get_subdirectory(other_structure, name) if other_structure else None
-            )
-            if other_match is None:
-                dir_class = ' class="directory-unique-left"'
-            else:
-                dir_class = ""
-
-            other_content = other_match if other_match is not None else {}
-            folder_icon = get_icon(
-                name,
-                is_dir=True,
-                style=icon_style,
-                is_empty=not (has_contents(content) or has_contents(other_content)),
-            )
-
-            metrics_suffix = format_dir_metrics(content, this_metrics)
-            html_content.append(
-                f'<li{dir_class}><span class="directory">{folder_icon} '
-                f"{html.escape(name)}{metrics_suffix}</span>"
-            )
-            if isinstance(content, dict) and content.get("_symlink_loop"):
-                html_content.append(
-                    '<ul><li class="symlink-loop">↩ (symlink loop)</li></ul>'
-                )
-            elif not (isinstance(content, dict) and content.get("_max_depth_reached")):
-                html_content.append(
-                    _build_html_tree(
-                        content, other_content, this_is_remote, other_is_remote
-                    )
-                )
-            html_content.append("</li>")
-        if other_structure and "_files" in other_structure:
-            this_identities = {
-                _comparison_identity(
-                    FileEntry.coerce(item), identity_metrics, identity_git, git_markers
-                )
-                for item in files_in_this
-            }
-            sorted_other_files = sort_files_by_type(
-                other_structure["_files"], sort_key, other_git_markers
-            )
-            for entry in sorted_other_files:
-                identity = _comparison_identity(
-                    entry, identity_metrics, identity_git, other_git_markers
-                )
-                if identity not in this_identities:
-                    html_content.append(
-                        _file_li(
-                            entry,
-                            other_git_markers,
-                            ' class="file-unique-right"',
-                            other_metrics,
-                        )
-                    )
-        if other_structure:
-            for name, content in iter_subdirectories(other_structure):
-                if get_subdirectory(structure, name) is not None:
-                    continue
-                dir_class = ' class="directory-unique-right"'
-
-                folder_icon = get_icon(
-                    name,
-                    is_dir=True,
-                    style=icon_style,
-                    is_empty=not has_contents(content),
-                )
-
-                metrics_suffix = format_dir_metrics(content, other_metrics)
-                html_content.append(
-                    f'<li{dir_class}><span class="directory">{folder_icon} '
-                    f"{html.escape(name)}{metrics_suffix}</span>"
-                )
-                if isinstance(content, dict) and content.get("_symlink_loop"):
-                    html_content.append(
-                        '<ul><li class="symlink-loop">↩ (symlink loop)</li></ul>'
-                    )
-                elif not (
-                    isinstance(content, dict) and content.get("_max_depth_reached")
-                ):
-                    html_content.append(
-                        _build_html_tree({}, content, this_is_remote, other_is_remote)
-                    )
-                html_content.append("</li>")
-        html_content.append("</ul>")
-        return "\n".join(html_content)
-
     dir1_name = html.escape(comparison_data["dir1"]["name"])
     dir2_name = html.escape(comparison_data["dir2"]["name"])
     dir1_structure = comparison_data["dir1"]["structure"]
@@ -1139,9 +1177,17 @@ def _export_comparison_to_html(
             </div>
             """
 
-    _metrics = metadata.get("metrics", [])
-    dir1_metrics = [m for m in _metrics if m != "mtime"] if dir1_is_remote else _metrics
-    dir2_metrics = [m for m in _metrics if m != "mtime"] if dir2_is_remote else _metrics
+    spec = DisplayOptions(
+        sort_key=metadata.get("sort_key"),
+        metrics=tuple(metadata.get("metrics", ())),
+        show_git_status=metadata.get("show_git_status", False),
+    )
+    identity_spec = DisplayOptions(
+        metrics=tuple(metadata.get("identity_metrics", spec.metrics)),
+        show_git_status=metadata.get("identity_git", spec.show_git_status),
+    )
+    dir1_metrics = _side_metrics(spec.metrics, dir1_is_remote)
+    dir2_metrics = _side_metrics(spec.metrics, dir2_is_remote)
 
     dir1_title = dir1_name + format_dir_metrics(dir1_structure, dir1_metrics)
     dir2_title = dir2_name + format_dir_metrics(dir2_structure, dir2_metrics)
@@ -1158,11 +1204,15 @@ def _export_comparison_to_html(
         style=icon_style,
         is_empty=not has_contents(dir2_structure),
     )
-    dir1_tree_html = _build_html_tree(
-        dir1_structure, dir2_structure, dir1_is_remote, dir2_is_remote
+    dir1_tree_html = _render_html_nodes(
+        _ComparisonWalker.for_sides(
+            spec, identity_spec, dir1_is_remote, dir2_is_remote, icon_style
+        ).walk(dir1_structure, dir2_structure)
     )
-    dir2_tree_html = _build_html_tree(
-        dir2_structure, dir1_structure, dir2_is_remote, dir1_is_remote
+    dir2_tree_html = _render_html_nodes(
+        _ComparisonWalker.for_sides(
+            spec, identity_spec, dir2_is_remote, dir1_is_remote, icon_style
+        ).walk(dir2_structure, dir1_structure)
     )
 
     html_template = f"""

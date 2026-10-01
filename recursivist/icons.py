@@ -82,13 +82,13 @@ EXTENSION_ICONS = {
     ".cpp": "\ue61d",  # C++
     ".hpp": "\ue61d",
     ".cc": "\ue61d",
-    ".cs": "\uf81a",  # C#
+    ".cs": "\ue648",  # C#
     ".rb": "\ue739",  # Ruby
     ".php": "\ue73d",  # PHP
     ".swift": "\ue755",  # Swift
     ".kt": "\ue634",  # Kotlin
     ".dart": "\ue798",  # Dart
-    ".vue": "\ufd42",  # Vue
+    ".vue": "\ue6a0",  # Vue
     ".svelte": "\ue697",  # Svelte
     ".lua": "\ue620",  # Lua
     # Shell & Scripts
