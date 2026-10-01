@@ -24,6 +24,22 @@ FileInfo = (
 DirStructure = dict[str, Any]
 
 
+@pytest.fixture(autouse=True)
+def isolated_user_config(
+    tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Keep every test away from the real user configuration file.
+
+    Commands that are not given ``--icon-style`` fall back to the saved ``icon_style``
+    preference, so a developer who has run ``recursivist config set icon-style nerd``
+    would otherwise get Nerd Font glyphs where the tests expect emoji. Pointing the
+    configuration path at an empty temporary directory makes the suite see the built-in
+    defaults on any machine, and keeps a test from ever writing to the real file.
+    """
+    config_path = tmp_path_factory.mktemp("config") / "config.json"
+    monkeypatch.setattr("recursivist.config.get_config_path", lambda: config_path)
+
+
 @pytest.fixture
 def runner() -> CliRunner:
     """Create a Typer test runner."""

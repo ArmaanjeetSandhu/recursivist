@@ -289,6 +289,8 @@ def should_exclude(
     exclude_extensions: set[str] | None = None,
     exclude_patterns: Sequence[str | Pattern[str]] | None = None,
     include_patterns: Sequence[str | Pattern[str]] | None = None,
+    *,
+    is_dir: bool | None = None,
 ) -> bool:
     """Decide whether a path should be excluded from the scan.
 
@@ -321,12 +323,15 @@ def should_exclude(
             the entry's name.
         include_patterns: Glob or compiled-regex patterns to include, matched against
             the entry's name, which override the gitignore-style exclusions.
+        is_dir: Whether *path* is a directory, when the caller already knows. Left as
+            ``None``, it is looked up with `os.path.isdir`.
 
     Returns:
         ``True`` if the path should be excluded, ``False`` otherwise.
     """
     basename = os.path.basename(path)
-    is_dir = os.path.isdir(path)
+    if is_dir is None:
+        is_dir = os.path.isdir(path)
     if (
         include_patterns
         and not is_dir

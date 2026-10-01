@@ -69,11 +69,11 @@ def test_should_exclude(
     """Test file exclusion logic."""
     mocker.patch("os.path.isfile", return_value=True)
     ignore_context = {"patterns": patterns, "current_dir": "/test"}
-    kwargs = {}
-    if exclude_patterns:
-        kwargs["exclude_patterns"] = exclude_patterns
     result = should_exclude(
-        path, ignore_context, exclude_extensions=extensions, **kwargs
+        path,
+        ignore_context,
+        exclude_extensions=extensions,
+        exclude_patterns=exclude_patterns or None,
     )
     assert result == expected, (
         f"Expected should_exclude('{path}') to return {expected}, got {result}"

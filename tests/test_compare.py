@@ -35,6 +35,7 @@ from recursivist.flags import (
     METRIC_SIZE,
     DisplayOptions,
 )
+from recursivist.github import GitHubTarget
 from tests.strategies import simple_directory_structure
 
 _METRIC_SPECS = {
@@ -841,6 +842,7 @@ class TestDisplayComparison:
                 max_depth=2,
                 show_full_path=True,
                 spec=_ALL_METRICS_SPEC,
+                targets=(None, None),
             )
 
 
@@ -918,6 +920,7 @@ class TestExportComparison:
                 max_depth=2,
                 show_full_path=True,
                 spec=_ALL_METRICS_SPEC,
+                targets=(None, None),
             )
 
 
@@ -1605,6 +1608,7 @@ class TestCompareAnnotationAwareDifferences:
 
 
 _GITHUB_URL = "https://github.com/owner/repo"
+_GITHUB_TARGET = GitHubTarget(owner="owner", repo="repo")
 
 
 class TestCompareRemoteIdentity:
@@ -1632,21 +1636,21 @@ class TestCompareRemoteIdentity:
     def test_identity_spec_local_vs_local_is_full_spec(self) -> None:
         """With two local paths, identity uses the full display spec."""
         spec = DisplayOptions(metrics=(METRIC_LOC, METRIC_MTIME), show_git_status=True)
-        assert _identity_spec_for("/a", "/b", spec) is spec
+        assert _identity_spec_for(None, None, spec) is spec
 
     def test_identity_spec_drops_mtime_and_git_for_github_side(self) -> None:
         """With a GitHub side, mtime and Git status leave the identity."""
         spec = DisplayOptions(
             metrics=(METRIC_LOC, METRIC_SIZE, METRIC_MTIME), show_git_status=True
         )
-        reduced = _identity_spec_for("/local", _GITHUB_URL, spec)
+        reduced = _identity_spec_for(None, _GITHUB_TARGET, spec)
         assert reduced.metrics == (METRIC_LOC, METRIC_SIZE)
         assert reduced.show_git_status is False
 
     def test_identity_spec_reduced_when_first_side_is_github(self) -> None:
         """The GitHub side may be either argument."""
         spec = DisplayOptions(metrics=(METRIC_MTIME,), show_git_status=True)
-        reduced = _identity_spec_for(_GITHUB_URL, "/local", spec)
+        reduced = _identity_spec_for(_GITHUB_TARGET, None, spec)
         assert reduced.metrics == ()
         assert reduced.show_git_status is False
 

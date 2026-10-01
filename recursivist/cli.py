@@ -1547,6 +1547,7 @@ def compare(
                 show_full_path=show_full_path,
                 spec=spec,
                 icon_style=resolved_style,
+                targets=(target1, target2),
             )
             logger.info(f"Successfully exported to {output_path}")
         else:
@@ -1563,6 +1564,7 @@ def compare(
                 show_full_path=show_full_path,
                 spec=spec,
                 icon_style=resolved_style,
+                targets=(target1, target2),
             )
     except Exception as e:
         logger.error(f"Error: {e}", exc_info=verbose)

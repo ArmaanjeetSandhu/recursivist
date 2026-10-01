@@ -47,6 +47,31 @@ from recursivist.sorting import sort_files_by_type
 
 logger = logging.getLogger(__name__)
 
+_Targets = tuple[GitHubTarget | None, GitHubTarget | None]
+"""Both comparison inputs as parsed by
+[`parse_github_url`][recursivist.github.parse_github_url], in ``(dir1, dir2)`` order;
+each item is ``None`` for a local directory."""
+
+
+def _resolve_targets(dir1: str, dir2: str, targets: _Targets | None) -> _Targets:
+    """Return the parsed GitHub targets for both inputs, parsing only if needed.
+
+    Every stage of a comparison needs to know which inputs are GitHub repositories. The
+    inputs are parsed once, by whichever entry point is called first, and the result is
+    handed down from there rather than being re-derived at each stage.
+
+    Args:
+        dir1: First input — a local directory path or a GitHub repository URL.
+        dir2: Second input — a local directory path or a GitHub repository URL.
+        targets: The already-parsed targets, or ``None`` to parse the inputs now.
+
+    Returns:
+        *targets* unchanged when given, otherwise the freshly parsed pair.
+    """
+    if targets is not None:
+        return targets
+    return parse_github_url(dir1), parse_github_url(dir2)
+
 
 def _scan_one_side(
     scan_dir: str,
@@ -119,6 +144,8 @@ def compare_directory_structures(
     max_depth: int = 0,
     show_full_path: bool = False,
     spec: DisplayOptions | None = None,
+    *,
+    targets: _Targets | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     """Scan two inputs for comparison, each a local directory or GitHub URL.
 
@@ -152,6 +179,10 @@ def compare_directory_structures(
         spec: Resolved sorting and annotation directives. When Git status is requested
             it is looked up independently for each *local* side. Defaults to a plain
             [`DisplayOptions`][recursivist.flags.DisplayOptions].
+        targets: The ``(target1, target2)`` pair already parsed from *dir1* and *dir2*
+            with [`parse_github_url`][recursivist.github.parse_github_url] (``None`` for
+            a local side), for callers that have it. Left as ``None``, the inputs are
+            parsed here.
 
     Returns:
         A ``(structure1, structure2)`` tuple holding each input's structure.
@@ -163,8 +194,7 @@ def compare_directory_structures(
         spec = DisplayOptions()
     remote_spec = spec.without_remote_unsupported()
 
-    target1 = parse_github_url(dir1)
-    target2 = parse_github_url(dir2)
+    target1, target2 = _resolve_targets(dir1, dir2, targets)
     tracker = PatternMatchTracker(
         exclude_dirs, exclude_extensions, exclude_patterns, include_patterns
     )
@@ -693,7 +723,7 @@ def build_comparison_tree(
     _render_rich_nodes(walker.walk(structure, other_structure), tree)
 
 
-def _side_display_name(raw: str) -> str:
+def _side_display_name(raw: str, target: GitHubTarget | None) -> str:
     """Return the label for one comparison side, local path or GitHub URL.
 
     For a GitHub URL this is the repository name (or the subpath's last segment); for a
@@ -701,17 +731,19 @@ def _side_display_name(raw: str) -> str:
 
     Args:
         raw: The raw input for one side of the comparison.
+        target: The GitHub target parsed from *raw*, or ``None`` for a local path.
 
     Returns:
         A short display name for the side.
     """
-    target = parse_github_url(raw)
     if target is not None:
         return target.display_name
     return os.path.basename(os.path.abspath(raw))
 
 
-def _identity_spec_for(dir1: str, dir2: str, spec: DisplayOptions) -> DisplayOptions:
+def _identity_spec_for(
+    target1: GitHubTarget | None, target2: GitHubTarget | None, spec: DisplayOptions
+) -> DisplayOptions:
     """Return the spec governing cross-side file identity for two inputs.
 
     When both inputs are local directories the full *spec* is used, so every displayed
@@ -725,17 +757,17 @@ def _identity_spec_for(dir1: str, dir2: str, spec: DisplayOptions) -> DisplayOpt
     difference highlighting changes.
 
     Args:
-        dir1: First input — a local directory path or a GitHub repository URL.
-        dir2: Second input — a local directory path or a GitHub repository URL.
+        target1: The GitHub target parsed from the first input, or ``None`` if it is a
+            local directory.
+        target2: The GitHub target parsed from the second input, or ``None`` if it is a
+            local directory.
         spec: The resolved display directives for the run.
 
     Returns:
         *spec* unchanged for a local-vs-local comparison, or its remote-adjusted form
         when either side is a GitHub repository.
     """
-    involves_remote = (
-        parse_github_url(dir1) is not None or parse_github_url(dir2) is not None
-    )
+    involves_remote = target1 is not None or target2 is not None
     return spec.without_remote_unsupported() if involves_remote else spec
 
 
@@ -779,6 +811,8 @@ def display_comparison(
     show_full_path: bool = False,
     spec: DisplayOptions | None = None,
     icon_style: str = "emoji",
+    *,
+    targets: _Targets | None = None,
 ) -> None:
     """Render two directory trees side by side in the terminal.
 
@@ -804,6 +838,10 @@ def display_comparison(
         spec: Resolved sorting and annotation directives. Defaults to a plain
             [`DisplayOptions`][recursivist.flags.DisplayOptions].
         icon_style: Icon style to use, either ``"emoji"`` or ``"nerd"``.
+        targets: The ``(target1, target2)`` pair already parsed from *dir1* and *dir2*
+            with [`parse_github_url`][recursivist.github.parse_github_url] (``None`` for
+            a local side), for callers that have it. Left as ``None``, the inputs are
+            parsed here.
     """
     if spec is None:
         spec = DisplayOptions()
@@ -821,6 +859,8 @@ def display_comparison(
     }
     compiled_exclude = compile_regex_patterns(exclude_patterns, use_regex)
     compiled_include = compile_regex_patterns(include_patterns, use_regex)
+    targets = _resolve_targets(dir1, dir2, targets)
+    target1, target2 = targets
     structure1, structure2 = compare_directory_structures(
         dir1,
         dir2,
@@ -832,19 +872,20 @@ def display_comparison(
         max_depth=max_depth,
         show_full_path=show_full_path,
         spec=spec,
+        targets=targets,
     )
     console = Console()
 
-    identity_spec = _identity_spec_for(dir1, dir2, spec)
+    identity_spec = _identity_spec_for(target1, target2, spec)
 
-    is_remote1 = parse_github_url(dir1) is not None
-    is_remote2 = parse_github_url(dir2) is not None
+    is_remote1 = target1 is not None
+    is_remote2 = target2 is not None
 
     dir1_metrics = _side_metrics(spec.metrics, is_remote1)
     dir2_metrics = _side_metrics(spec.metrics, is_remote2)
 
-    root_base1 = _side_display_name(dir1)
-    root_base2 = _side_display_name(dir2)
+    root_base1 = _side_display_name(dir1, target1)
+    root_base2 = _side_display_name(dir2, target2)
     root_icon1 = get_icon(
         root_base1,
         is_dir=True,
@@ -986,6 +1027,8 @@ def export_comparison(
     show_full_path: bool = False,
     spec: DisplayOptions | None = None,
     icon_style: str = "emoji",
+    *,
+    targets: _Targets | None = None,
 ) -> None:
     """Export a side-by-side directory comparison to an HTML file.
 
@@ -1012,6 +1055,10 @@ def export_comparison(
         spec: Resolved sorting and annotation directives. Defaults to a plain
             [`DisplayOptions`][recursivist.flags.DisplayOptions].
         icon_style: Icon style to use, either ``"emoji"`` or ``"nerd"``.
+        targets: The ``(target1, target2)`` pair already parsed from *dir1* and *dir2*
+            with [`parse_github_url`][recursivist.github.parse_github_url] (``None`` for
+            a local side), for callers that have it. Left as ``None``, the inputs are
+            parsed here.
 
     Raises:
         ValueError: If *format_type* is not ``"html"``.
@@ -1034,6 +1081,8 @@ def export_comparison(
     }
     compiled_exclude = compile_regex_patterns(exclude_patterns, use_regex)
     compiled_include = compile_regex_patterns(include_patterns, use_regex)
+    targets = _resolve_targets(dir1, dir2, targets)
+    target1, target2 = targets
     structure1, structure2 = compare_directory_structures(
         dir1,
         dir2,
@@ -1045,22 +1094,23 @@ def export_comparison(
         max_depth=max_depth,
         show_full_path=show_full_path,
         spec=spec,
+        targets=targets,
     )
-    identity_spec = _identity_spec_for(dir1, dir2, spec)
+    identity_spec = _identity_spec_for(target1, target2, spec)
 
-    is_remote1 = parse_github_url(dir1) is not None
-    is_remote2 = parse_github_url(dir2) is not None
+    is_remote1 = target1 is not None
+    is_remote2 = target2 is not None
 
     comparison_data = {
         "dir1": {
             "path": dir1,
-            "name": _side_display_name(dir1),
+            "name": _side_display_name(dir1, target1),
             "structure": structure1,
             "is_remote": is_remote1,
         },
         "dir2": {
             "path": dir2,
-            "name": _side_display_name(dir2),
+            "name": _side_display_name(dir2, target2),
             "structure": structure2,
             "is_remote": is_remote2,
         },

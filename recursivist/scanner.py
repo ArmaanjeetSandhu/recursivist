@@ -8,7 +8,7 @@ consumed by the renderers and exporters.
 
 import logging
 import os
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from re import Pattern
 from typing import Any
 
@@ -167,6 +167,28 @@ def has_contents(structure: Any) -> bool:
     return any(True for _ in iter_subdirectories(structure))
 
 
+def _group_git_status(git_status_map: Mapping[str, str]) -> dict[str, dict[str, str]]:
+    """Group a Git status map by the directory each path lives in.
+
+    Done once per scan so that every directory can look its own markers up directly,
+    instead of filtering the whole map again at each level.
+
+    Args:
+        git_status_map: ``{rel_path: status_char}`` with forward-slashed paths, as
+            returned by
+            [`recursivist.git_status.get_git_status`][recursivist.git_status.get_git_status].
+
+    Returns:
+        ``{directory: {filename: status_char}}``, where *directory* is forward-slashed
+        and relative to the scan root (``""`` for the root itself).
+    """
+    grouped: dict[str, dict[str, str]] = {}
+    for git_path, status in git_status_map.items():
+        file_dir, _, fname = git_path.rpartition("/")
+        grouped.setdefault(file_dir, {})[fname] = status
+    return grouped
+
+
 def get_directory_structure(
     root_dir: str,
     exclude_dirs: Sequence[str] | None = None,
@@ -266,6 +288,11 @@ def get_directory_structure(
         pattern_tracker = PatternMatchTracker(
             exclude_dirs, exclude_extensions, exclude_patterns, include_patterns
         )
+    git_markers_by_dir = (
+        _group_git_status(git_status_map)
+        if show_git_status and git_status_map is not None
+        else None
+    )
     structure, extensions_set = _scan_level(
         root_dir,
         exclude_dirs,
@@ -281,8 +308,7 @@ def get_directory_structure(
         sort_by_loc,
         sort_by_size,
         sort_by_mtime,
-        show_git_status,
-        git_status_map,
+        git_markers_by_dir,
         ancestor_ids,
         pattern_tracker,
     )
@@ -306,17 +332,20 @@ def _scan_level(
     sort_by_loc: bool,
     sort_by_size: bool,
     sort_by_mtime: bool,
-    show_git_status: bool,
-    git_status_map: dict[str, str] | None,
+    git_markers_by_dir: Mapping[str, dict[str, str]] | None,
     ancestor_ids: frozenset[tuple[int, int]],
     pattern_tracker: PatternMatchTracker,
 ) -> tuple[dict[str, Any], set[str]]:
     """Scan one directory level for
     [`get_directory_structure`][recursivist.scanner.get_directory_structure].
 
-    Takes the same arguments with their defaults already filled in, and recurses into
-    subdirectories through `get_directory_structure` so the shared *pattern_tracker* is
-    threaded through the whole walk.
+    Takes the same arguments with their defaults already filled in, except that the Git
+    status map arrives pre-grouped by directory (see `_group_git_status`), or as
+    ``None`` when Git status is not wanted. Recurses into subdirectories directly, so
+    that grouping and the shared *pattern_tracker* are reused for the whole walk.
+
+    Each entry is classified and filtered exactly once: files are recorded as they are
+    met, and the surviving subdirectories are queued and descended into afterwards.
     """
     ignore_stack: list[tuple[str, tuple[str, ...]]] = (
         list(parent_ignore_patterns) if parent_ignore_patterns else []
@@ -337,18 +366,6 @@ def _scan_level(
     total_loc = 0
     total_size = 0
     latest_mtime = 0.0
-
-    git_markers: dict[str, str] = {}
-    if show_git_status and git_status_map is not None:
-        current_prefix = current_path.replace(os.sep, "/") if current_path else ""
-        for git_path, status in git_status_map.items():
-            slash_idx = git_path.rfind("/")
-            if slash_idx == -1:
-                file_dir, fname = "", git_path
-            else:
-                file_dir, fname = git_path[:slash_idx], git_path[slash_idx + 1 :]
-            if file_dir == current_prefix:
-                git_markers[fname] = status
     if max_depth > 0 and current_depth >= max_depth:
         pattern_tracker.depth_limited = True
         truncated: dict[str, Any] = {"_max_depth_reached": True}
@@ -370,19 +387,24 @@ def _scan_level(
     except Exception as e:
         logger.exception(f"Error reading directory {root_dir}: {e}")
         return structure, extensions_set
+    subdirectories: list[tuple[str, str]] = []
     for item in items:
         item_path = os.path.join(root_dir, item)
+        is_dir = os.path.isdir(item_path)
         if pattern_tracker.pending:
-            pattern_tracker.observe(item_path, os.path.isdir(item_path))
+            pattern_tracker.observe(item_path, is_dir)
         if item in exclude_dirs or should_exclude(
             item_path,
             ignore_context,
             exclude_extensions,
             exclude_patterns,
             include_patterns,
+            is_dir=is_dir,
         ):
             continue
-        if not os.path.isdir(item_path):
+        if is_dir:
+            subdirectories.append((item, item_path))
+        else:
             _, ext = os.path.splitext(item)
             if "_files" not in structure:
                 structure["_files"] = []
@@ -418,63 +440,52 @@ def _scan_level(
         child_ancestor_ids = ancestor_ids | {(st.st_dev, st.st_ino)}
     except OSError:
         child_ancestor_ids = ancestor_ids
-    for item in items:
-        item_path = os.path.join(root_dir, item)
-        if item in exclude_dirs or should_exclude(
+    for item, item_path in subdirectories:
+        try:
+            item_st = os.stat(item_path)
+            item_id: tuple[int, int] | None = (item_st.st_dev, item_st.st_ino)
+        except OSError:
+            item_id = None
+        if item_id is not None and item_id in child_ancestor_ids:
+            logger.warning(
+                f"Skipping symlink cycle: {item_path} resolves to an ancestor"
+            )
+            structure[subdirectory_key(item)] = {"_symlink_loop": True}
+            continue
+        next_path = os.path.join(current_path, item) if current_path else item
+        substructure, sub_extensions = _scan_level(
             item_path,
-            ignore_context,
+            exclude_dirs,
+            ignore_file,
             exclude_extensions,
+            ignore_stack,
             exclude_patterns,
             include_patterns,
+            max_depth,
+            current_depth + 1,
+            next_path,
+            show_full_path,
+            sort_by_loc,
+            sort_by_size,
+            sort_by_mtime,
+            git_markers_by_dir,
+            child_ancestor_ids,
+            pattern_tracker,
+        )
+        if include_patterns and not (
+            substructure.get("_files")
+            or substructure.get("_max_depth_reached")
+            or any(True for _ in iter_subdirectories(substructure))
         ):
             continue
-        if os.path.isdir(item_path):
-            try:
-                item_st = os.stat(item_path)
-                item_id: tuple[int, int] | None = (item_st.st_dev, item_st.st_ino)
-            except OSError:
-                item_id = None
-            if item_id is not None and item_id in child_ancestor_ids:
-                logger.warning(
-                    f"Skipping symlink cycle: {item_path} resolves to an ancestor"
-                )
-                structure[subdirectory_key(item)] = {"_symlink_loop": True}
-                continue
-            next_path = os.path.join(current_path, item) if current_path else item
-            substructure, sub_extensions = get_directory_structure(
-                item_path,
-                exclude_dirs,
-                ignore_file,
-                exclude_extensions,
-                ignore_stack,
-                exclude_patterns,
-                include_patterns,
-                max_depth,
-                current_depth + 1,
-                next_path,
-                show_full_path,
-                sort_by_loc,
-                sort_by_size,
-                sort_by_mtime,
-                show_git_status,
-                git_status_map,
-                child_ancestor_ids,
-                pattern_tracker,
-            )
-            if include_patterns and not (
-                substructure.get("_files")
-                or substructure.get("_max_depth_reached")
-                or any(True for _ in iter_subdirectories(substructure))
-            ):
-                continue
-            structure[subdirectory_key(item)] = substructure
-            extensions_set.update(sub_extensions)
-            if sort_by_loc and "_loc" in substructure:
-                total_loc += substructure["_loc"]
-            if sort_by_size and "_size" in substructure:
-                total_size += substructure["_size"]
-            if sort_by_mtime and "_mtime" in substructure:
-                latest_mtime = max(latest_mtime, substructure["_mtime"])
+        structure[subdirectory_key(item)] = substructure
+        extensions_set.update(sub_extensions)
+        if sort_by_loc and "_loc" in substructure:
+            total_loc += substructure["_loc"]
+        if sort_by_size and "_size" in substructure:
+            total_size += substructure["_size"]
+        if sort_by_mtime and "_mtime" in substructure:
+            latest_mtime = max(latest_mtime, substructure["_mtime"])
     if sort_by_loc:
         structure["_loc"] = total_loc
     if sort_by_size:
@@ -482,7 +493,12 @@ def _scan_level(
     if sort_by_mtime:
         structure["_mtime"] = latest_mtime
 
-    if show_git_status and git_markers:
+    git_markers = (
+        git_markers_by_dir.get(current_path.replace(os.sep, "/"))
+        if git_markers_by_dir is not None
+        else None
+    )
+    if git_markers:
         existing_names = {f.name for f in structure.get("_files", [])}
 
         for fname, status in git_markers.items():
