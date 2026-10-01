@@ -1270,10 +1270,6 @@ def _export_comparison_to_html(
                 margin-left: 20px;
                 margin-bottom: 10px;
             }}
-            .timestamp {{
-                color: #6c757d;
-                font-size: 0.9em;
-            }}
             .git-badge {{
                 font-size: 0.8em;
                 font-weight: bold;

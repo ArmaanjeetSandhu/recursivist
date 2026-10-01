@@ -20,14 +20,8 @@ _HEX_FORMAT = "#{:02x}{:02x}{:02x}"
 WCAG_AA_NORMAL_TEXT = 4.5
 """WCAG 2.1 level AA minimum contrast ratio for normal-sized body text."""
 
-WCAG_AA_LARGE_TEXT = 3.0
-"""WCAG 2.1 level AA minimum contrast ratio for large text (>=18pt, or >=14pt bold)."""
-
 WCAG_AAA_NORMAL_TEXT = 7.0
 """WCAG 2.1 level AAA minimum contrast ratio for normal-sized body text."""
-
-WCAG_AAA_LARGE_TEXT = 4.5
-"""WCAG 2.1 level AAA minimum contrast ratio for large text (>=18pt, or >=14pt bold)."""
 
 
 def color_distance(color1: tuple[int, int, int], color2: tuple[int, int, int]) -> float:

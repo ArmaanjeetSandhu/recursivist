@@ -260,6 +260,30 @@ def test_visualize_with_ignore_file(runner: CliRunner, sample_with_logs: str) ->
     assert "node_modules" not in result.stdout
 
 
+def test_visualize_include_pattern_keeps_ignored_dirs_pruned(
+    runner: CliRunner, sample_with_logs: str
+) -> None:
+    """--include-pattern overrides ignore files for matching files only; it must
+    not re-open directories the ignore file prunes."""
+    with open(os.path.join(sample_with_logs, "node_modules", "dep.json"), "w") as f:
+        f.write("{}")
+    result = runner.invoke(
+        app,
+        [
+            "visualize",
+            sample_with_logs,
+            "--ignore-file",
+            ".gitignore",
+            "--include-pattern",
+            "*.json",
+        ],
+    )
+    assert result.exit_code == 0
+    assert "node_modules" not in result.stdout
+    assert "dep.json" not in result.stdout
+    assert "package.json" not in result.stdout
+
+
 def test_visualize_with_depth_limit(
     runner: CliRunner, deeply_nested_directory: str
 ) -> None:

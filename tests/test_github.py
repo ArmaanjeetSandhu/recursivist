@@ -30,7 +30,6 @@ from recursivist.github import (
     checkout_repository,
     commit_shas_equal,
     get_github_token,
-    is_github_url,
     parse_github_url,
     resolve_commit_shas,
     resolve_default_branch,
@@ -188,7 +187,6 @@ def test_parse_github_url_valid(
 )
 def test_parse_github_url_invalid(text: str) -> None:
     assert parse_github_url(text) is None
-    assert is_github_url(text) is False
 
 
 def test_parse_github_url_prefers_existing_local_path_without_scheme(
@@ -198,7 +196,6 @@ def test_parse_github_url_prefers_existing_local_path_without_scheme(
     monkeypatch.chdir(tmp_path)
     assert parse_github_url("github.com/golang/go") is None
     assert parse_github_url("github.com/golang/go/") is None
-    assert is_github_url("github.com/golang/go") is False
     target = parse_github_url("https://github.com/golang/go")
     assert target is not None
     assert target.slug == "golang/go"
@@ -211,10 +208,6 @@ def test_parse_github_url_without_scheme_is_remote_when_path_missing(
     target = parse_github_url("github.com/golang/go")
     assert target is not None
     assert target.slug == "golang/go"
-
-
-def test_is_github_url_true() -> None:
-    assert is_github_url("https://github.com/o/r") is True
 
 
 def test_target_slug_and_display_name() -> None:

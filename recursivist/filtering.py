@@ -302,8 +302,9 @@ def should_exclude(
     2. If any *exclude_patterns* match, exclude the path (this overrides include
        patterns).
     3. If the file's extension is in *exclude_extensions*, exclude it.
-    4. If an include pattern matched, include the path (this overrides the
-       gitignore-style patterns below).
+    4. If an include pattern matched a file, include it (this overrides the
+       gitignore-style patterns below). Directories are never tested against include
+       patterns, so they always fall through to the ignore rules.
     5. Otherwise apply the gitignore-style rules from *ignore_context* via `pathspec`,
        honoring anchoring, ``**`` wildcards, directory-only (trailing ``/``) patterns,
        ``!`` negation, character classes and escapes per the gitignore specification.
@@ -353,7 +354,8 @@ def should_exclude(
         and os.path.splitext(path)[1].lower() in exclude_extensions
     ):
         return True
-    if include_patterns:
+    is_dir = os.path.isdir(path)
+    if include_patterns and not is_dir:
         return False
     levels = _resolve_ignore_levels(ignore_context)
     if not levels:
@@ -361,6 +363,6 @@ def should_exclude(
     rel_dir = ignore_context.get("rel_dir", "")
     target = (f"{rel_dir}/{basename}" if rel_dir else basename).replace("\\", "/")
     target = target.lstrip("/")
-    if os.path.isdir(path):
+    if is_dir:
         target += "/"
     return _is_ignored_by_stack(target, levels)

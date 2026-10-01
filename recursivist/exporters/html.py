@@ -236,11 +236,6 @@ class HtmlExporter(BaseExporter):
                     color: {_MUTED};
                     font-style: italic;
                 }}
-                .path-info {{
-                    margin-bottom: 20px;
-                    font-style: italic;
-                    color: {_MUTED};
-                }}
                 {metric_styles}
                 {git_styles}
             </style>

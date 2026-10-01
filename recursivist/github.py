@@ -181,21 +181,6 @@ def get_github_token() -> str | None:
     return None
 
 
-def is_github_url(text: str) -> bool:
-    """Return whether *text* looks like a GitHub repository reference.
-
-    This is a cheap syntactic check used to decide whether an argument should be treated
-    as a remote repository rather than a local path; it does not contact the network.
-
-    Args:
-        text: The raw argument to test.
-
-    Returns:
-        ``True`` if *text* parses as a GitHub URL, ``False`` otherwise.
-    """
-    return parse_github_url(text) is not None
-
-
 def parse_github_url(text: str) -> GitHubTarget | None:
     """Parse a GitHub repository URL into a
     [`GitHubTarget`][recursivist.github.GitHubTarget].

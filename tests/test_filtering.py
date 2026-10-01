@@ -198,6 +198,36 @@ def test_should_exclude_filter_precedence(
 
 
 @pytest.mark.parametrize(
+    "ignore_patterns,include_patterns,rel_path,is_dir,expected",
+    [
+        (["node_modules/"], ["*.js"], "node_modules", True, True),
+        (["build/"], [re.compile(r"\.js$")], "build", True, True),
+        (["*.log"], ["*.js"], "src", True, False),
+        (["node_modules/"], ["*.js"], "app.js", False, False),
+    ],
+)
+def test_should_exclude_include_patterns_do_not_bypass_ignore_for_dirs(
+    temp_dir: str,
+    ignore_patterns: list[str],
+    include_patterns: list[Any],
+    rel_path: str,
+    is_dir: bool,
+    expected: bool,
+) -> None:
+    """Include patterns are only tested against files, so they must not make a
+    directory skip the ignore-file stage; otherwise ignored directories such as
+    node_modules/ get walked and shown."""
+    target, current_dir, rel_dir = _make_entry(temp_dir, rel_path, is_dir=is_dir)
+    ignore_context = {
+        "patterns": ignore_patterns,
+        "current_dir": current_dir,
+        "rel_dir": rel_dir,
+    }
+    result = should_exclude(target, ignore_context, include_patterns=include_patterns)
+    assert result is expected
+
+
+@pytest.mark.parametrize(
     "ignore_patterns,rel_path,is_dir,expected",
     [
         (["doc/**/*.txt"], "doc/a.txt", False, True),

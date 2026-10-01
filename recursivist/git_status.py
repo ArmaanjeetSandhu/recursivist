@@ -13,9 +13,9 @@ logger = logging.getLogger(__name__)
 def get_git_status(directory: str) -> dict[str, str]:
     """Get Git status for files relative to a given directory.
 
-    Runs ``git status --porcelain -z`` from the repository root and maps every
-    changed/untracked path back to a path relative to *directory*, filtering out files
-    that live outside of it.
+    Runs ``git status --porcelain -z --untracked-files=all`` from the repository root
+    and maps every changed/untracked path back to a path relative to *directory*,
+    filtering out files that live outside of it.
 
     Status characters returned:
     - ``'U'``: Untracked (``??`` in porcelain output)
@@ -46,7 +46,7 @@ def get_git_status(directory: str) -> dict[str, str]:
         git_root = root_result.stdout.strip()
 
         status_result = subprocess.run(
-            ["git", "status", "--porcelain", "-z"],
+            ["git", "status", "--porcelain", "-z", "--untracked-files=all"],
             cwd=git_root,
             capture_output=True,
             text=True,
