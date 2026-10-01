@@ -45,7 +45,6 @@ Tests mirror the package's modules:
 ```
 tests/
 ├── conftest.py          # Shared fixtures and configuration
-├── helpers.py           # Test helper utilities
 ├── strategies.py        # Hypothesis strategies for property tests
 ├── test_cli.py          # Command-line interface
 ├── test_flags.py        # Flag resolution (DisplayOptions, command-line order)
@@ -147,7 +146,7 @@ def test_file_statistics(tmp_path):
     entry = structure["_files"][0]
     assert entry.name == "test.py"
     assert entry.loc == 3
-    assert isinstance(entry, tuple)  # still a tuple
+    assert isinstance(entry, tuple)  # FileEntry subclasses tuple
 ```
 
 ### Parametrization
@@ -200,7 +199,7 @@ def test_invariant(value):
 
 ## Fixtures and Mocking
 
-Put shared setup in `conftest.py` as fixtures, and reuse utilities from `helpers.py`. Use `monkeypatch` or `unittest.mock` for filesystem edge cases:
+Put shared setup in `conftest.py` as fixtures. Use `monkeypatch` or `unittest.mock` for filesystem edge cases:
 
 ```python
 import os

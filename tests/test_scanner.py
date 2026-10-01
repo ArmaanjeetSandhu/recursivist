@@ -503,7 +503,7 @@ class TestSymlinkCycles:
         assert structure["c"]["self"] == {"_symlink_loop": True}
 
     def test_non_cyclic_symlink_is_still_followed(self, temp_dir: str) -> None:
-        """A symlink to a non-ancestor directory is traversed as before."""
+        """A symlink to a non-ancestor directory is traversed like any directory."""
         if not _supports_symlinks(temp_dir):
             pytest.skip("platform does not support directory symlinks")
         os.makedirs(os.path.join(temp_dir, "target"))
@@ -522,7 +522,7 @@ class TestSymlinkCycles:
         assert "keep.txt" in names
 
     def test_cycle_does_not_explode_depth(self, temp_dir: str) -> None:
-        """The scanned tree stays shallow instead of ~40 bogus levels."""
+        """The scanned tree stops at the symlink that closes the cycle."""
         if not _supports_symlinks(temp_dir):
             pytest.skip("platform does not support directory symlinks")
         os.makedirs(os.path.join(temp_dir, "a", "b"))

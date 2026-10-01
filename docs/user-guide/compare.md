@@ -85,7 +85,7 @@ recursivist compare https://github.com/owner/repo/tree/main https://github.com/o
 
 Each GitHub side is downloaded and scanned like a local directory. A `/tree/<ref>` or `/blob/<ref>/<subpath>` selector pins a branch, tag, or commit and, optionally, a subtree; set `GITHUB_TOKEN` (or `GH_TOKEN`) to raise rate limits and reach private repositories. Lines of code and size apply to a GitHub side, and `--full-path` shows its files' blob URLs.
 
-The options tied to a working copy — `--git-status`, `--sort-by-git-status`, `--mtime`, `--sort-by-mtime`, and `--ignore-file` — are skipped for a GitHub side. When **both** inputs are GitHub repositories they are skipped entirely; in a **mixed** comparison they still apply to the local side, so a local directory can be annotated with Git status while the GitHub side is not. See the [CLI Reference](../reference/cli-reference.md#github-repositories) for the accepted URL forms.
+The options tied to a working copy — `--git-status`, `--sort-by-git-status`, `--mtime`, `--sort-by-mtime`, and `--ignore-file` — are skipped for a GitHub side. When **both** inputs are GitHub repositories they are skipped entirely. In a **mixed** comparison, `--git-status`, `--mtime`, and `--ignore-file` still apply to the local side, so a local directory can be annotated with Git status while the GitHub side is not; `--sort-by-git-status` and `--sort-by-mtime` are skipped for both sides, because the two sides share one ordering. See the [CLI Reference](../reference/cli-reference.md#github-repositories) for the accepted URL forms.
 
 ## Use Cases
 

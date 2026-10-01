@@ -136,9 +136,7 @@ HELP_SORT_BY_LOC = "Sort files by lines of code and display LOC counts"
 HELP_SORT_BY_SIZE = "Sort files by size and display file sizes"
 HELP_SORT_BY_MTIME = "Sort files by modification time and display timestamps"
 HELP_SORT_BY_GIT_STATUS = "Sort files by Git status and display status markers"
-HELP_SORT_BY_SIMILARITY = (
-    "Group files with similar names together (overridden by other sort options)"
-)
+HELP_SORT_BY_SIMILARITY = "Group files with similar names together"
 HELP_LOC = "Display lines of code without affecting sort order"
 HELP_SIZE = "Display file sizes without affecting sort order"
 HELP_MTIME = "Display modification times without affecting sort order"
@@ -1332,10 +1330,12 @@ def compare(
     a local directory to be compared against a GitHub repository, two GitHub
     repositories, or two local directories. A GitHub side is downloaded and scanned like
     a local directory, and ``--full-path`` shows its files' GitHub blob URLs. The
-    ``--ignore-file``, ``--git-status`` and ``--sort-by-git-status`` options do not
-    apply to a GitHub side and are skipped for it; when *both* inputs are GitHub
-    repositories they are skipped entirely, but when either input is a local directory
-    those options are still honored for the local side.
+    ``--ignore-file``, ``--git-status`` and ``--mtime`` options do not apply to a GitHub
+    side and are skipped for it; when *both* inputs are GitHub repositories they are
+    skipped entirely, but when either input is a local directory those options are still
+    honored for the local side. The ``--sort-by-git-status`` and ``--sort-by-mtime``
+    flags are skipped whenever either input is a GitHub repository, because both sides
+    share one ordering.
 
     Sorting and annotation flags are resolved strictly by their left-to-right order on
     the command line: only the first sorting flag (``--sort-by-*``) takes effect, while

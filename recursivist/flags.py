@@ -90,9 +90,9 @@ class DisplayOptions:
     """Resolved sorting and annotation directives for a single run.
 
     This is the value produced by [`resolve_flags`][recursivist.flags.resolve_flags] and
-    threaded through the renderers and exporters. It cleanly separates the two concerns
-    the flags used to conflate: *how files are ordered* (`sort_key`) and *what is
-    annotated, and in what order* (`metrics` plus `show_git_status`).
+    threaded through the renderers and exporters. It keeps two concerns separate: *how
+    files are ordered* (`sort_key`) and *what is annotated, and in what order*
+    (`metrics` plus `show_git_status`).
 
     Attributes:
         sort_key: The single metric files are ordered by — one of `METRIC_LOC`,

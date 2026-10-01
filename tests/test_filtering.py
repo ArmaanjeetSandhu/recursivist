@@ -6,6 +6,7 @@ Covers should_exclude, compile_regex_patterns, and parse_ignore_file.
 import os
 import re
 import tempfile
+from collections.abc import Sequence
 from typing import Any
 from unittest.mock import patch
 
@@ -21,10 +22,19 @@ from recursivist.filtering import (
 )
 
 
-def _make_entry(base_dir: str, rel_path: str, is_dir: bool) -> tuple[str, str, str]:
+def _ignore_context(patterns: Sequence[str] = (), rel_dir: str = "") -> dict[str, Any]:
+    """Build the ignore context for a single ignore file at the scan root.
+
+    *patterns* are that file's lines and *rel_dir* is the directory of the entry under
+    test, relative to the scan root.
+    """
+    return {"pattern_stack": [("", tuple(patterns))], "rel_dir": rel_dir}
+
+
+def _make_entry(base_dir: str, rel_path: str, is_dir: bool) -> tuple[str, str]:
     """Create *rel_path* (relative to a fresh scan root under *base_dir*) on disk
-    and return ``(path, current_dir, rel_dir)`` exactly as get_directory_structure
-    would hand them to should_exclude for a direct child entry.
+    and return ``(path, rel_dir)`` exactly as get_directory_structure would hand them to
+    should_exclude for a direct child entry.
 
     A fresh scan root per call keeps the cases order- and fixture-scope-independent
     (so a dir named ``build`` in one case can't collide with a file named ``build``
@@ -41,7 +51,7 @@ def _make_entry(base_dir: str, rel_path: str, is_dir: bool) -> tuple[str, str, s
     else:
         with open(target, "w") as fh:
             fh.write("x")
-    return target, parent, parent_rel
+    return target, parent_rel
 
 
 @pytest.mark.parametrize(
@@ -68,7 +78,7 @@ def test_should_exclude(
 ) -> None:
     """Test file exclusion logic."""
     mocker.patch("os.path.isfile", return_value=True)
-    ignore_context = {"patterns": patterns, "current_dir": "/test"}
+    ignore_context = _ignore_context(patterns)
     result = should_exclude(
         path,
         ignore_context,
@@ -109,12 +119,8 @@ def test_should_exclude_gitignore_patterns(
 ) -> None:
     """Gitignore-style matching in should_exclude: root-relative anchoring,
     directory-only markers, '*' not crossing '/', and order-sensitive negation."""
-    target, current_dir, rel_dir = _make_entry(temp_dir, rel_path, is_dir)
-    ignore_context = {
-        "patterns": patterns,
-        "current_dir": current_dir,
-        "rel_dir": rel_dir,
-    }
+    target, rel_dir = _make_entry(temp_dir, rel_path, is_dir)
+    ignore_context = _ignore_context(patterns, rel_dir)
     assert should_exclude(target, ignore_context) is expected
 
 
@@ -149,13 +155,17 @@ def test_should_exclude_nested_ignore_stack(
     is anchored to its own base directory and deeper files override shallower
     ones, so a nested file's anchored patterns stay scoped to its subtree,
     matching Git's treatment of nested ``.gitignore`` files."""
-    target, current_dir, rel_dir = _make_entry(temp_dir, rel_path, is_dir)
-    ignore_context = {
-        "pattern_stack": stack,
-        "current_dir": current_dir,
-        "rel_dir": rel_dir,
-    }
+    target, rel_dir = _make_entry(temp_dir, rel_path, is_dir)
+    ignore_context = {"pattern_stack": stack, "rel_dir": rel_dir}
     assert should_exclude(target, ignore_context) is expected
+
+
+def test_should_exclude_without_pattern_stack(temp_dir: str) -> None:
+    """A context with no ``pattern_stack`` carries no ignore rules; the other
+    filters apply as usual."""
+    target, rel_dir = _make_entry(temp_dir, "app.log", is_dir=False)
+    assert should_exclude(target, {"rel_dir": rel_dir}) is False
+    assert should_exclude(target, {"rel_dir": rel_dir}, exclude_extensions={".log"})
 
 
 @pytest.mark.parametrize(
@@ -181,12 +191,8 @@ def test_should_exclude_filter_precedence(
     """CLI excludes and excluded extensions take priority over the gitignore
     stage, and include_patterns bypasses it; the gitignore negation only decides
     the outcome when no higher-priority filter applies."""
-    target, current_dir, rel_dir = _make_entry(temp_dir, rel_path, is_dir=False)
-    ignore_context = {
-        "patterns": ignore_patterns,
-        "current_dir": current_dir,
-        "rel_dir": rel_dir,
-    }
+    target, rel_dir = _make_entry(temp_dir, rel_path, is_dir=False)
+    ignore_context = _ignore_context(ignore_patterns, rel_dir)
     result = should_exclude(
         target,
         ignore_context,
@@ -217,12 +223,8 @@ def test_should_exclude_include_patterns_do_not_bypass_ignore_for_dirs(
     """Include patterns are only tested against files, so they must not make a
     directory skip the ignore-file stage; otherwise ignored directories such as
     node_modules/ get walked and shown."""
-    target, current_dir, rel_dir = _make_entry(temp_dir, rel_path, is_dir=is_dir)
-    ignore_context = {
-        "patterns": ignore_patterns,
-        "current_dir": current_dir,
-        "rel_dir": rel_dir,
-    }
+    target, rel_dir = _make_entry(temp_dir, rel_path, is_dir=is_dir)
+    ignore_context = _ignore_context(ignore_patterns, rel_dir)
     result = should_exclude(target, ignore_context, include_patterns=include_patterns)
     assert result is expected
 
@@ -249,12 +251,8 @@ def test_should_exclude_double_star(
     """'**' spans directory boundaries: 'doc/**/*.txt' matches at any depth under
     doc/, '**/foo' floats a name anywhere, and intermediate directories are not
     incidentally matched."""
-    target, current_dir, rel_dir = _make_entry(temp_dir, rel_path, is_dir=is_dir)
-    ignore_context = {
-        "patterns": ignore_patterns,
-        "current_dir": current_dir,
-        "rel_dir": rel_dir,
-    }
+    target, rel_dir = _make_entry(temp_dir, rel_path, is_dir=is_dir)
+    ignore_context = _ignore_context(ignore_patterns, rel_dir)
     assert should_exclude(target, ignore_context) is expected
 
 
@@ -325,8 +323,8 @@ def test_parse_ignore_file(
 def test_parse_ignore_file_preserves_escapes_and_whitespace(temp_dir: str) -> None:
     """Escaped comments/negations and escaped trailing spaces survive parsing.
 
-    These are exactly the cases a pre-stripping parser would corrupt; keeping
-    the lines intact lets the gitignore matcher honor them.
+    These are exactly the cases that stripping lines while parsing would corrupt;
+    keeping the lines intact lets the gitignore matcher honor them.
     """
     ignore_path = os.path.join(temp_dir, ".testignore")
     with open(ignore_path, "w") as f:
@@ -361,13 +359,13 @@ class TestShouldExcludeProperties:
         with patch("os.path.isfile", return_value=True):
             for ext in exclude_extensions:
                 path = f"test_file{ext}"
-                ignore_context = {"patterns": [], "current_dir": os.path.dirname(path)}
+                ignore_context = _ignore_context()
                 result = should_exclude(
                     path, ignore_context, exclude_extensions=exclude_extensions
                 )
                 assert result, f"Path with excluded extension {ext} should be excluded"
             path = "test_file.allowed_ext"
-            ignore_context = {"patterns": [], "current_dir": os.path.dirname(path)}
+            ignore_context = _ignore_context()
             result = should_exclude(
                 path, ignore_context, exclude_extensions=exclude_extensions
             )
@@ -427,7 +425,7 @@ class TestShouldExclude:
     ) -> None:
         """Test exclusion based on ignore patterns."""
         mocker.patch("os.path.isfile", return_value=True)
-        ignore_context = {"patterns": patterns, "current_dir": "/test"}
+        ignore_context = _ignore_context(patterns)
         result = should_exclude(path, ignore_context)
         assert result == expected
 
@@ -444,7 +442,7 @@ class TestShouldExclude:
     ) -> None:
         """Test exclusion based on file extensions."""
         mocker.patch("os.path.isfile", return_value=True)
-        ignore_context = {"patterns": [], "current_dir": "/test"}
+        ignore_context = _ignore_context()
         result = should_exclude(path, ignore_context, exclude_extensions=extensions)
         assert result == expected
 
@@ -461,7 +459,7 @@ class TestShouldExclude:
     ) -> None:
         """Test exclusion based on regex patterns."""
         mocker.patch("os.path.isfile", return_value=True)
-        ignore_context = {"patterns": [], "current_dir": "/test"}
+        ignore_context = _ignore_context()
         exclude_patterns = [re.compile(pattern)]
         result = should_exclude(path, ignore_context, exclude_patterns=exclude_patterns)
         assert result == expected
@@ -469,10 +467,7 @@ class TestShouldExclude:
     def test_with_negation_patterns(self, mocker: MockerFixture) -> None:
         """Test negation patterns in ignore files."""
         mocker.patch("os.path.isfile", return_value=True)
-        ignore_context = {
-            "patterns": ["*.txt", "!important.txt"],
-            "current_dir": "/test",
-        }
+        ignore_context = _ignore_context(["*.txt", "!important.txt"])
         assert should_exclude("/test/file.txt", ignore_context)
         assert not should_exclude("/test/important.txt", ignore_context)
         assert not should_exclude("/test/file.py", ignore_context)
@@ -480,7 +475,7 @@ class TestShouldExclude:
     def test_with_include_patterns(self, mocker: MockerFixture) -> None:
         """Test include patterns override exclusion."""
         mocker.patch("os.path.isfile", return_value=True)
-        ignore_context = {"patterns": ["*.py"], "current_dir": "/test"}
+        ignore_context = _ignore_context(["*.py"])
         exclude_patterns = [re.compile(r"\.js$")]
         include_patterns = [re.compile(r"important\.py$")]
         assert should_exclude(
@@ -520,7 +515,7 @@ class TestShouldExclude:
     ) -> None:
         """Test matching against the basename only."""
         mocker.patch("os.path.isfile", return_value=True)
-        ignore_context = {"patterns": [], "current_dir": "/test"}
+        ignore_context = _ignore_context()
         exclude_patterns = [re.compile(pattern + "$")]
         result = should_exclude(path, ignore_context, exclude_patterns=exclude_patterns)
         assert result == expected
@@ -528,7 +523,7 @@ class TestShouldExclude:
     def test_case_sensitivity(self, mocker: MockerFixture) -> None:
         """Test case sensitivity in pattern matching."""
         mocker.patch("os.path.isfile", return_value=True)
-        ignore_context = {"patterns": [], "current_dir": "/test"}
+        ignore_context = _ignore_context()
         exclude_patterns = [re.compile(r"\.py$")]
         assert should_exclude(
             "/test/script.py", ignore_context, exclude_patterns=exclude_patterns
@@ -561,52 +556,48 @@ class TestShouldExcludeGitignoreEngine:
     scanner invokes ``should_exclude``.
     """
 
-    @staticmethod
-    def _ctx(patterns: list[str], current_dir: str, rel_dir: str) -> dict[str, Any]:
-        return {"patterns": patterns, "current_dir": current_dir, "rel_dir": rel_dir}
-
     def test_directory_only_pattern_matches_dir_not_file(self, temp_dir: str) -> None:
         """'logs/' excludes a directory named logs but not a file named logs."""
-        dpath, dcur, drel = _make_entry(temp_dir, "logs", is_dir=True)
-        assert should_exclude(dpath, self._ctx(["logs/"], dcur, drel))
-        fpath, fcur, frel = _make_entry(temp_dir, "logs", is_dir=False)
-        assert not should_exclude(fpath, self._ctx(["logs/"], fcur, frel))
+        dpath, drel = _make_entry(temp_dir, "logs", is_dir=True)
+        assert should_exclude(dpath, _ignore_context(["logs/"], drel))
+        fpath, frel = _make_entry(temp_dir, "logs", is_dir=False)
+        assert not should_exclude(fpath, _ignore_context(["logs/"], frel))
 
     def test_anchored_pattern_only_matches_root(self, temp_dir: str) -> None:
         """'/build' matches build at the scan root but not a nested build."""
-        root_build, cur, rel = _make_entry(temp_dir, "build", is_dir=True)
-        assert should_exclude(root_build, self._ctx(["/build"], cur, rel))
-        nested, ncur, nrel = _make_entry(temp_dir, "src/build", is_dir=True)
-        assert not should_exclude(nested, self._ctx(["/build"], ncur, nrel))
+        root_build, rel = _make_entry(temp_dir, "build", is_dir=True)
+        assert should_exclude(root_build, _ignore_context(["/build"], rel))
+        nested, nrel = _make_entry(temp_dir, "src/build", is_dir=True)
+        assert not should_exclude(nested, _ignore_context(["/build"], nrel))
 
     def test_double_star_matches_at_any_depth(self, temp_dir: str) -> None:
         """'**/foo.py' matches foo.py however deeply it is nested."""
-        deep, cur, rel = _make_entry(temp_dir, "a/b/c/foo.py", is_dir=False)
-        assert should_exclude(deep, self._ctx(["**/foo.py"], cur, rel))
+        deep, rel = _make_entry(temp_dir, "a/b/c/foo.py", is_dir=False)
+        assert should_exclude(deep, _ignore_context(["**/foo.py"], rel))
 
     def test_negation_reincludes_at_depth(self, temp_dir: str) -> None:
         """Last-match-wins: '!keep.log' re-includes even under a broad '*.log'."""
-        keep, kcur, krel = _make_entry(temp_dir, "pkg/keep.log", is_dir=False)
-        assert not should_exclude(keep, self._ctx(["*.log", "!keep.log"], kcur, krel))
-        drop, dcur, drel = _make_entry(temp_dir, "pkg/debug.log", is_dir=False)
-        assert should_exclude(drop, self._ctx(["*.log", "!keep.log"], dcur, drel))
+        keep, krel = _make_entry(temp_dir, "pkg/keep.log", is_dir=False)
+        assert not should_exclude(keep, _ignore_context(["*.log", "!keep.log"], krel))
+        drop, drel = _make_entry(temp_dir, "pkg/debug.log", is_dir=False)
+        assert should_exclude(drop, _ignore_context(["*.log", "!keep.log"], drel))
 
     def test_unescaped_trailing_whitespace_is_stripped(self, temp_dir: str) -> None:
         """Git strips unescaped trailing spaces, so 'name   ' matches file 'name'."""
-        p, cur, rel = _make_entry(temp_dir, "name", is_dir=False)
-        assert should_exclude(p, self._ctx(["name   "], cur, rel))
+        p, rel = _make_entry(temp_dir, "name", is_dir=False)
+        assert should_exclude(p, _ignore_context(["name   "], rel))
 
     def test_escaped_trailing_space_is_significant(self, temp_dir: str) -> None:
         r"""'name\ ' matches a file literally named 'name ' but not 'name'."""
-        with_space, cur, rel = _make_entry(temp_dir, "name ", is_dir=False)
-        assert should_exclude(with_space, self._ctx(["name\\ "], cur, rel))
-        without, wcur, wrel = _make_entry(temp_dir, "name", is_dir=False)
-        assert not should_exclude(without, self._ctx(["name\\ "], wcur, wrel))
+        with_space, rel = _make_entry(temp_dir, "name ", is_dir=False)
+        assert should_exclude(with_space, _ignore_context(["name\\ "], rel))
+        without, wrel = _make_entry(temp_dir, "name", is_dir=False)
+        assert not should_exclude(without, _ignore_context(["name\\ "], wrel))
 
     def test_malformed_pattern_is_skipped_not_fatal(self, temp_dir: str) -> None:
         """A malformed pattern (a lone '!') is skipped, not raised, and valid
         patterns in the same file still apply."""
-        logf, lcur, lrel = _make_entry(temp_dir, "app.log", is_dir=False)
-        assert should_exclude(logf, self._ctx(["!", "*.log"], lcur, lrel))
-        txtf, tcur, trel = _make_entry(temp_dir, "app.txt", is_dir=False)
-        assert not should_exclude(txtf, self._ctx(["!", "*.log"], tcur, trel))
+        logf, lrel = _make_entry(temp_dir, "app.log", is_dir=False)
+        assert should_exclude(logf, _ignore_context(["!", "*.log"], lrel))
+        txtf, trel = _make_entry(temp_dir, "app.txt", is_dir=False)
+        assert not should_exclude(txtf, _ignore_context(["!", "*.log"], trel))

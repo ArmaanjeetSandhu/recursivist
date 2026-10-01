@@ -393,7 +393,7 @@ class TestExporterFileOutput:
     def test_export_with_max_depth(
         self, max_depth_structure: dict[str, Any], tmp_path: Path
     ) -> None:
-        """Truncated directories carry no marker, only an open folder icon."""
+        """Truncated directories are marked by their folder icon alone."""
         for fmt, truncated, empty in [
             ("txt", "📂 subdir", "📁 empty_subdir"),
             ("md", "📂 **subdir**", "📁 **empty\\_subdir**"),
@@ -1276,7 +1276,7 @@ class TestRstExporter:
     def test_max_depth_folder_icons(
         self, max_depth_structure: dict[str, Any], tmp_path: Path
     ) -> None:
-        """Depth-limited directories carry no marker, just an open folder icon."""
+        """Depth-limited directories are marked by their folder icon alone."""
         output_path = os.path.join(tmp_path, "structure.rst")
         get_exporter("rst", structure=max_depth_structure, root_name="root").export(
             output_path
@@ -1402,8 +1402,8 @@ class TestRstExporter:
 
         Skipped when docutils is unavailable. This exercises the finicky
         parts of the format together: an emoji-icon section title, nested
-        bullet lists (with the required blank lines), Git-status badges, the
-        max-depth marker, metric suffixes and escaped special characters.
+        bullet lists (with the required blank lines), Git-status badges, a
+        depth-limited directory, metric suffixes and escaped special characters.
         """
         docutils_core = pytest.importorskip("docutils.core")
 

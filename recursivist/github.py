@@ -3,8 +3,8 @@
 Lets the ``visualize``, ``export`` and ``compare`` commands accept a GitHub repository
 URL anywhere they accept a local directory. A repository is *materialized* by
 downloading its source archive from ``codeload.github.com`` and extracting it into a
-temporary directory, after which the existing local-directory scanner, renderers and
-exporters are reused unchanged.
+temporary directory, which is then scanned, rendered and exported exactly like a local
+directory.
 
 The archive endpoint is used rather than the REST API on purpose: the REST API limits
 unauthenticated clients to 60 requests/hour (shared per public IP), which is easily
@@ -589,8 +589,8 @@ def apply_github_urls(
 
     Used when ``--full-path`` is requested for a GitHub input: it walks *structure* and
     replaces every [`FileEntry`][recursivist._models.FileEntry] ``path`` with the file's
-    canonical blob URL, so the unmodified renderers and exporters display GitHub URLs
-    instead of temporary filesystem paths.
+    canonical blob URL, so the renderers and exporters display GitHub URLs instead of
+    temporary filesystem paths.
 
     Args:
         structure: A scanned structure produced by

@@ -41,7 +41,11 @@ repos:
           - "--prefix"
           - "structure"
           - "--exclude"
-          - "node_modules .git venv"
+          - "node_modules"
+          - "--exclude"
+          - ".git"
+          - "--exclude"
+          - "venv"
 ```
 
 Then enable it:
@@ -118,7 +122,7 @@ print("Total lines of code:", structure.get("_loc", 0))
 print("Total size (bytes):", structure.get("_size", 0))
 ```
 
-Each entry in a directory's `_files` list is a `FileEntry` (a `NamedTuple`); read attributes like `.name`, `.path`, and `.loc` directly. Because `FileEntry` subclasses `tuple`, tuple-style access and `isinstance(item, tuple)` still work. See the [API Reference](../reference/api-reference.md) for a complete example.
+Each entry in a directory's `_files` list is a `FileEntry` (a `NamedTuple`); read attributes like `.name`, `.path`, and `.loc` directly. Because `FileEntry` subclasses `tuple`, tuple-style access and `isinstance(item, tuple)` work as well. See the [API Reference](../reference/api-reference.md) for a complete example.
 
 ### Serving Structures from Flask
 
@@ -143,8 +147,8 @@ def get_structure():
             sort_by_size="sort_by_size" in request.args,
         )
         return jsonify({"directory": directory, "structure": structure})
-    except Exception as exc:
-        return jsonify({"error": str(exc)}), 500
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 ```
 
 ## Continuous Integration

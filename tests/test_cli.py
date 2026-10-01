@@ -1798,7 +1798,7 @@ def test_debug_messages_shown_only_when_verbose(
 def test_icon_style_config_read_when_command_runs(
     runner: CliRunner, sample_directory: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The saved icon style is read per run, not frozen when the module is imported."""
+    """The saved icon style is read each time a command runs."""
     styles = iter(["emoji", "nerd"])
     monkeypatch.setattr(cli_module, "load_config", lambda: {"icon_style": next(styles)})
     with mock.patch.object(cli_module, "display_tree") as display_tree:

@@ -72,7 +72,11 @@ repos:
           - "--prefix"
           - "structure"
           - "--exclude"
-          - "node_modules .git venv"
+          - "node_modules"
+          - "--exclude"
+          - ".git"
+          - "--exclude"
+          - "venv"
 ```
 
 Then run `pre-commit install`. See [Integration](../advanced/integration.md#pre-commit-framework) for details.

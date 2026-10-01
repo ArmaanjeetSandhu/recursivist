@@ -28,6 +28,13 @@ from recursivist.sorting import sort_files_by_type
 
 logger = logging.getLogger(__name__)
 
+_GIT_MARKER_STYLES: dict[str, tuple[str, str]] = {
+    "U": ("dim", "[U]"),
+    "M": ("yellow", "[M]"),
+    "A": ("green", "[A]"),
+    "D": ("red", "[D]"),
+}
+
 
 def build_tree(
     structure: dict[str, Any],
@@ -62,12 +69,6 @@ def build_tree(
         show_full_path: Whether to display absolute paths instead of bare filenames.
         icon_style: Icon style to use, either ``"emoji"`` or ``"nerd"``.
     """
-    _GIT_MARKER_STYLES = {
-        "U": ("dim", "[U]"),
-        "M": ("yellow", "[M]"),
-        "A": ("green", "[A]"),
-        "D": ("red", "[D]"),
-    }
     need_git = spec.show_git_status or spec.sort_key == METRIC_GIT
     git_markers_dict: dict[str, str] = (
         structure.get("_git_markers", {}) if need_git else {}

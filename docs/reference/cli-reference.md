@@ -68,9 +68,6 @@ When several of these flags are combined, they are resolved strictly by their **
 
 To sort by one metric while displaying others, pair a single sorting flag with display-only flags. For example, `--sort-by-loc --size --mtime` orders files by lines of code and annotates each with its LOC, size, and modification time, in that order.
 
-!!! tip "Migrating from earlier versions"
-Earlier releases combined metrics with repeated `--sort-by-*` flags and always displayed them in a fixed LOC → size → mtime order. That no longer works: a second `--sort-by-*` is now ignored. Replace, for example, `--sort-by-loc --sort-by-size` (old: sort by LOC, show both) with `--sort-by-loc --size`.
-
 All three commands (`visualize`, `export`, and `compare`) support every sorting and display flag. In `compare`, Git status is read independently for each directory, so each side is annotated against its own repository.
 
 ## GitHub Repositories
@@ -115,7 +112,7 @@ A hosted repository already reflects its own ignore rules, and every file in a c
 | `--size`, `--sort-by-size`             | Applied, since sizes come from the file contents                                                                             |
 | `--full-path`                          | Applied; shows each file's GitHub blob URL (`https://github.com/owner/repo/blob/<ref>/<path>`) in place of a filesystem path |
 
-In `compare`, these options are skipped for a given side only when that side is a GitHub repository. When both inputs are GitHub repositories they are skipped entirely; in a mixed comparison — one local directory and one GitHub repository — they still apply to the local side.
+In `compare`, `--ignore-file`, `--git-status`, and `--mtime` are skipped for a given side only when that side is a GitHub repository. When both inputs are GitHub repositories they are skipped entirely; in a mixed comparison — one local directory and one GitHub repository — they still apply to the local side. The sorting flags `--sort-by-git-status` and `--sort-by-mtime` are skipped whenever either input is a GitHub repository, because both sides share one ordering.
 
 ## `visualize`
 

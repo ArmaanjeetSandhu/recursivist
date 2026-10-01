@@ -35,7 +35,7 @@ recursivist compare \
   --save --prefix main-vs-develop
 ```
 
-Set `GITHUB_TOKEN` (or `GH_TOKEN`) to raise rate limits and reach private repositories. When both sides are GitHub repositories, the Git-status, modification-time, and ignore-file options are skipped; in a mixed comparison they still apply to the local side.
+Set `GITHUB_TOKEN` (or `GH_TOKEN`) to raise rate limits and reach private repositories. When both sides are GitHub repositories, the Git-status, modification-time, and ignore-file options are skipped; in a mixed comparison, `--git-status`, `--mtime`, and `--ignore-file` still apply to the local side, while `--sort-by-git-status` and `--sort-by-mtime` are skipped for both sides.
 
 ## Comparisons with Statistics
 

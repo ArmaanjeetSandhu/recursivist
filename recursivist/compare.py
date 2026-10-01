@@ -294,10 +294,8 @@ def _comparison_identity(
 ) -> tuple[str, str, str]:
     """Return the key that decides whether a file matches one across the sides.
 
-    Comparison highlighting used to key on the filename alone, so two identically named
-    files were always treated as the same entry — even when an active annotating option
-    gave them different values. This folds the *displayed* annotations into the identity
-    so that a file counts as shared only when it also presents identically:
+    Two identically named files count as the same entry only when they also present
+    identically, so the identity combines the filename with the *displayed* annotations:
 
     * the numeric metrics named in *metrics* (LOC, size, mtime), rendered in the same
       order they are shown, and
@@ -697,8 +695,8 @@ def build_comparison_tree(
     local directory against a hosted repository passes
     ``spec.without_remote_unsupported()`` so that annotations a remote side cannot
     provide (modification time, Git status) are excluded from the identity — those are
-    still *displayed* per *spec*, they just no longer split otherwise-matching files
-    across the two sides.
+    still *displayed* per *spec*, but they do not split otherwise-matching files across
+    the two sides.
 
     The traversal is shared with the HTML export (see `_ComparisonWalker`), so both
     views always agree on ordering, badges and highlighting.
@@ -708,8 +706,8 @@ def build_comparison_tree(
         other_structure: Structure of the directory being compared against.
         tree: ``rich`` tree to add nodes to. Modified in place.
         spec: Resolved sorting and annotation directives.
-        show_full_path: Accepted for API compatibility. Each file's stored ``path``
-            already holds the full path when full-path display was requested.
+        show_full_path: Has no effect here. Each file's stored ``path`` already holds
+            the full path when full-path display was requested.
         icon_style: Icon style to use, either ``"emoji"`` or ``"nerd"``.
         identity_spec: Directives governing which annotations contribute to cross-side
             file identity. Defaults to *spec*.
@@ -754,9 +752,9 @@ def _identity_spec_for(
     cannot provide — modification time and Git status — are dropped from the identity
     via
     [`without_remote_unsupported`][recursivist.flags.DisplayOptions.without_remote_unsupported],
-    so they no longer split otherwise-matching files across the two sides. Those
-    annotations are still *displayed* according to *spec*; only their effect on
-    difference highlighting changes.
+    so they do not split otherwise-matching files across the two sides. Those
+    annotations are still *displayed* according to *spec*; they are left out of
+    difference highlighting only.
 
     Args:
         target1: The GitHub target parsed from the first input, or ``None`` if it is a

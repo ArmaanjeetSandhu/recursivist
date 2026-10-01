@@ -14,13 +14,6 @@ from typer.testing import CliRunner
 
 from recursivist._models import FileEntry
 
-FileInfo = (
-    str
-    | tuple[str, str]
-    | tuple[str, str, int]
-    | tuple[str, str, int, int]
-    | tuple[str, str, int, int, float]
-)
 DirStructure = dict[str, Any]
 
 

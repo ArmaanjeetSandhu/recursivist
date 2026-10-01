@@ -47,6 +47,13 @@ class MarkdownExporter(BaseExporter):
 
     extension = "md"
 
+    _GIT_MD_BADGE = {
+        "U": "**[U]**",
+        "M": "**[M]**",
+        "A": "**[A]**",
+        "D": "**[D]**",
+    }
+
     def export(self, output_path: str) -> None:
         """Write the structure to *output_path* as a Markdown list.
 
@@ -88,20 +95,14 @@ class MarkdownExporter(BaseExporter):
                         if self.show_git_status
                         else ""
                     )
-                    _GIT_MD_BADGE = {
-                        "U": "**[U]**",
-                        "M": "**[M]**",
-                        "A": "**[A]**",
-                        "D": "**[D]**",
-                    }
                     _md_code = _md_inline_code(entry.path)
                     if _git_marker_md == "D":
                         _md_display = f"~~{_md_code}~~"
                     else:
                         _md_display = _md_code
                     _md_git_suffix = (
-                        f" {_GIT_MD_BADGE[_git_marker_md]}"
-                        if _git_marker_md in _GIT_MD_BADGE
+                        f" {self._GIT_MD_BADGE[_git_marker_md]}"
+                        if _git_marker_md in self._GIT_MD_BADGE
                         else ""
                     )
 

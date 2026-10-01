@@ -19,8 +19,6 @@ Exclude directories by name. Matching directories are pruned entirely and never 
 
 ```bash
 recursivist visualize --exclude node_modules --exclude .git --exclude venv
-# or with repeated flags:
-recursivist visualize --exclude node_modules --exclude .git
 ```
 
 ## Extension Exclusion

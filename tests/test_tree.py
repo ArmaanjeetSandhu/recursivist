@@ -137,7 +137,7 @@ class TestBuildTree:
         max_depth_structure: dict[str, Any],
         color_map: dict[str, str],
     ) -> None:
-        """A truncated directory gets no placeholder child."""
+        """A truncated directory is added without any children."""
         mock_tree = MagicMock(spec=Tree)
         mock_subtree = MagicMock(spec=Tree)
         mock_tree.add.return_value = mock_subtree

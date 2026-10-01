@@ -7,7 +7,7 @@ matcher), which implements the full gitignore specification: anchoring, ``**``
 wildcards, directory-only (trailing ``/``) patterns, ``!`` negation with
 last-match-wins, character classes, backslash escapes, and trailing-whitespace handling.
 The glob and regex matching used by ``--exclude-pattern``/``--include-pattern`` is
-unrelated and remains pure standard library.
+unrelated and uses only the standard library.
 
 Like Git, each ignore file is evaluated *relative to the directory that contains it*
 rather than relative to the scan root. The active ignore files are kept as a stack
@@ -128,18 +128,13 @@ def _resolve_ignore_levels(
     lines. Levels are ordered shallowest-first so a caller can let a deeper file's
     verdict override a shallower one, matching Git's precedence.
 
-    The explicit ``"pattern_stack"`` produced by the scanner is preferred. When it is
-    absent the legacy flat ``"patterns"`` list is used and treated as a single ignore
-    file rooted at the scan root.
+    The levels are read from the ``"pattern_stack"`` entry of *ignore_context*; a
+    context without one carries no ignore rules.
     """
-    stack = ignore_context.get("pattern_stack")
-    if stack is not None:
-        return tuple(
-            (base, tuple(p for p in pats if isinstance(p, str))) for base, pats in stack
-        )
-    patterns = ignore_context.get("patterns", [])
-    root_patterns = tuple(p for p in patterns if isinstance(p, str))
-    return (("", root_patterns),) if root_patterns else ()
+    stack = ignore_context.get("pattern_stack") or ()
+    return tuple(
+        (base, tuple(p for p in pats if isinstance(p, str))) for base, pats in stack
+    )
 
 
 def _is_ignored_by_stack(
@@ -314,10 +309,9 @@ def should_exclude(
         path: Filesystem path to test.
         ignore_context: Mapping describing the active ignore rules. Recognized keys are
             ``"pattern_stack"`` (a shallowest-first sequence of
-            ``(base_dir_relative_to_root, patterns)`` pairs, one per ignore file),
-            ``"patterns"`` (a legacy flat pattern list, treated as a single ignore file
-            at the scan root when ``"pattern_stack"`` is absent), and ``"rel_dir"`` (the
-            current directory's path relative to the scan root).
+            ``(base_dir_relative_to_root, patterns)`` pairs, one per ignore file; a
+            single ignore file at the scan root is ``[("", patterns)]``) and
+            ``"rel_dir"`` (the current directory's path relative to the scan root).
         exclude_extensions: Lowercase, dot-prefixed extensions to exclude.
         exclude_patterns: Glob or compiled-regex patterns to exclude, matched against
             the entry's name.
