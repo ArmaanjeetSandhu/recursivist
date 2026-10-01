@@ -247,8 +247,10 @@ def get_directory_structure(
             Each ignore file keeps its own anchoring so its patterns stay scoped to its
             subtree, matching Git. Set internally across the recursion.
         exclude_patterns: Glob or compiled-regex patterns to exclude.
-        include_patterns: Glob or compiled-regex patterns to include, which override the
-            exclusions.
+        include_patterns: Glob or compiled-regex patterns to include. When given, only
+            files whose names match one are kept, and a match overrides ignore-file
+            rules for that file. They do not override *exclude_dirs*,
+            *exclude_extensions*, or *exclude_patterns*.
         max_depth: Maximum depth to traverse, or ``0`` for unlimited.
         current_depth: Current recursion depth. Set internally.
         current_path: Path of the current directory relative to the scan root. Set

@@ -140,7 +140,7 @@ Like the metric sorts, this is a sorting flag, so only the first sorting flag on
 
 ## Pattern Filtering
 
-Glob patterns (default) and regular expressions (`--regex`) give finer control than directory or extension exclusions, and include patterns can override exclusions:
+Glob patterns (default) and regular expressions (`--regex`) give finer control than directory or extension exclusions, and include patterns limit the view to matching files, overriding ignore files but not explicit exclusions:
 
 ```bash
 recursivist visualize --exclude-pattern "*.test.js"

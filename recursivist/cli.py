@@ -18,7 +18,8 @@ accept a local directory; see [`recursivist.github`][recursivist.github].
 
 All commands share a consistent set of filtering and display options:
     - Exclude directories, file extensions, glob, or regex patterns.
-    - Include specific patterns that override exclusions.
+    - Include patterns that keep only matching files and override ignore files, but not
+      the explicit exclusions above.
     - Support for .gitignore and similar ignore files.
     - Depth limitation for large directories.
     - Full-path display option.
@@ -122,7 +123,8 @@ HELP_EXCLUDE_PATTERNS = (
     "Pattern to exclude; repeat the flag for several (values may contain spaces)"
 )
 HELP_INCLUDE_PATTERNS = (
-    "Pattern to include (overrides exclusions); repeat the flag for several"
+    "Pattern to include (overrides ignore files, but not other exclusions); "
+    "repeat the flag for several"
 )
 HELP_USE_REGEX = "Treat patterns as regex instead of glob patterns"
 HELP_IGNORE_FILE = "Ignore file to use (e.g., .gitignore)"
@@ -832,8 +834,9 @@ def visualize(
             ``"pyc"`` and ``".pyc"`` are accepted.
         exclude_patterns: Glob or regex patterns for file/directory names to exclude.
             Interpretation depends on *use_regex*.
-        include_patterns: Patterns that *override* exclusions — any path matching an
-            include pattern is shown even if it would otherwise be filtered out.
+        include_patterns: Patterns restricting the output to files whose names match at
+            least one. A match overrides ignore-file rules for that file, but not
+            *exclude_dirs*, *exclude_extensions*, or *exclude_patterns*.
         use_regex: When ``True``, treat *exclude_patterns* and *include_patterns* as
             Python regular expressions instead of glob patterns.
         ignore_file: Filename of an ignore file located inside *directory* (e.g.
@@ -1078,8 +1081,9 @@ def export(
             ``"pyc"`` and ``".pyc"`` are accepted.
         exclude_patterns: Glob or regex patterns for file/directory names to exclude.
             Interpretation depends on *use_regex*.
-        include_patterns: Patterns that override exclusions — any path matching an
-            include pattern is exported even if it would otherwise be filtered out.
+        include_patterns: Patterns restricting the output to files whose names match at
+            least one. A match overrides ignore-file rules for that file, but not
+            *exclude_dirs*, *exclude_extensions*, or *exclude_patterns*.
         use_regex: When ``True``, treat *exclude_patterns* and *include_patterns* as
             Python regular expressions instead of glob patterns.
         ignore_file: Filename of an ignore file inside *directory* (e.g.
@@ -1255,8 +1259,8 @@ def export(
 def version() -> None:
     """Display the current version of recursivist.
 
-    Reads the version string from the installed package metadata and prints it to stdout
-    in the format ``"Recursivist version: <version>"``.
+    Prints ``recursivist.__version__`` to stdout in the format ``"Recursivist version:
+    <version>"``.
     """
     from recursivist import __version__
 
@@ -1354,8 +1358,9 @@ def compare(
             normalized so both ``"pyc"`` and ``".pyc"`` are accepted.
         exclude_patterns: Glob or regex patterns for file/directory names to exclude
             from both trees. Interpretation depends on *use_regex*.
-        include_patterns: Patterns that override exclusions — any path matching an
-            include pattern is shown even if it would otherwise be filtered out.
+        include_patterns: Patterns restricting the output to files whose names match at
+            least one. A match overrides ignore-file rules for that file, but not
+            *exclude_dirs*, *exclude_extensions*, or *exclude_patterns*.
         use_regex: When ``True``, treat *exclude_patterns* and *include_patterns* as
             Python regular expressions instead of glob patterns.
         ignore_file: Filename of an ignore file to look for inside each directory (e.g.

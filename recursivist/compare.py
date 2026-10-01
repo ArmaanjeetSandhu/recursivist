@@ -171,8 +171,10 @@ def compare_directory_structures(
             ``.gitignore``); ignored for GitHub sides.
         exclude_extensions: Lowercase, dot-prefixed extensions to exclude.
         exclude_patterns: Glob or compiled-regex patterns to exclude.
-        include_patterns: Glob or compiled-regex patterns to include, which override the
-            exclusions.
+        include_patterns: Glob or compiled-regex patterns to include. When given, only
+            files whose names match one are kept, and a match overrides ignore-file
+            rules for that file. They do not override *exclude_dirs*,
+            *exclude_extensions*, or *exclude_patterns*.
         max_depth: Maximum depth to scan, or ``0`` for unlimited.
         show_full_path: Whether to store absolute paths (local sides) or GitHub
             blob URLs (GitHub sides) instead of bare filenames.
@@ -829,8 +831,10 @@ def display_comparison(
         exclude_extensions: File extensions to exclude. Normalized to a lowercase,
             dot-prefixed form before scanning.
         exclude_patterns: Glob or regex patterns to exclude.
-        include_patterns: Glob or regex patterns to include, which override the
-            exclusions.
+        include_patterns: Glob or regex patterns to include. When given, only files
+            whose names match one are kept, and a match overrides ignore-file rules for
+            that file. They do not override *exclude_dirs*, *exclude_extensions*, or
+            *exclude_patterns*.
         use_regex: Whether to treat the patterns as regular expressions instead of glob
             patterns.
         max_depth: Maximum depth to display, or ``0`` for unlimited.
@@ -1046,8 +1050,10 @@ def export_comparison(
         exclude_extensions: File extensions to exclude. Normalized to a lowercase,
             dot-prefixed form before scanning.
         exclude_patterns: Glob or regex patterns to exclude.
-        include_patterns: Glob or regex patterns to include, which override the
-            exclusions.
+        include_patterns: Glob or regex patterns to include. When given, only files
+            whose names match one are kept, and a match overrides ignore-file rules for
+            that file. They do not override *exclude_dirs*, *exclude_extensions*, or
+            *exclude_patterns*.
         use_regex: Whether to treat the patterns as regular expressions instead of glob
             patterns.
         max_depth: Maximum depth to include, or ``0`` for unlimited.
