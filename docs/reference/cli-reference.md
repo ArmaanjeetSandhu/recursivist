@@ -92,6 +92,8 @@ All three commands (`visualize`, `export`, and `compare`) support every sorting 
 
 When no ref is pinned, the repository's default branch is used. A `/tree/` or `/blob/` selector pins a branch, tag, or commit, and any path after the ref scopes the scan to that subtree, so the tree is rooted at the subtree rather than the repository root. The segment immediately after `/tree/` or `/blob/` is read as the ref, so a ref whose own name contains a slash (such as `feature/login`) cannot be combined with a subpath in a single URL; pass the repository without a selector, or pin a ref whose name has no slash. The SSH form addresses the whole repository only and carries no ref or subpath.
 
+The scheme and host are case-insensitive (`https://GitHub.com/owner/repo` works); the owner, repository, ref, and subpath are used exactly as written. Because the scheme-less form is also a valid relative path, an argument such as `github.com/golang/go` is treated as a local directory when that path exists (for example, a GOPATH-style checkout); add `https://` to force the GitHub repository.
+
 ### Authentication
 
 A token in the `GITHUB_TOKEN` environment variable — or `GH_TOKEN` when `GITHUB_TOKEN` is unset — is sent with each request, which raises GitHub's rate limits and grants access to private repositories.

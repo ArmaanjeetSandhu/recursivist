@@ -68,10 +68,14 @@ _HTTP_RE = re.compile(
     (?:[#?].*)?
     \Z
     """,
-    re.VERBOSE,
+    re.VERBOSE | re.IGNORECASE,
 )
 
-_SSH_RE = re.compile(r"\Agit@github\.com:(?P<owner>[^/\s]+)/(?P<repo>[^/\s#?]+)/?\Z")
+_SSH_RE = re.compile(
+    r"\Agit@github\.com:(?P<owner>[^/\s]+)/(?P<repo>[^/\s#?]+)/?\Z", re.IGNORECASE
+)
+
+_HAS_SCHEME_RE = re.compile(r"\A(?:[a-zA-Z][a-zA-Z0-9+.-]*://|git@)")
 
 
 def _strip_git_suffix(repo: str) -> str:
@@ -200,7 +204,15 @@ def parse_github_url(text: str) -> GitHubTarget | None:
     ``.git``), an optional ``/tree/<ref>[/<subpath>]`` or ``/blob/<ref>/<subpath>``
     selector, and the SSH form ``git@github.com:owner/repo.git``. Percent-encoded
     characters in the ref and subpath (e.g. ``%20``, ``%23``) are decoded, so URLs
-    copied from a browser address bar resolve to the real names.
+    copied from a browser address bar resolve to the real names. The scheme and host are
+    matched case-insensitively, as URL hosts are; owner, repository, ref and subpath are
+    kept exactly as written.
+
+    A form without a scheme (``github.com/owner/repo``) is also a valid relative
+    filesystem path, e.g. a GOPATH-style ``src/github.com/golang/go`` checkout entered
+    from ``src``. When such an argument names an existing local file or directory, it is
+    treated as that local path and ``None`` is returned. A URL with an explicit
+    ``http(s)://`` scheme, or the SSH form, is always treated as GitHub.
 
     When a ``/tree`` or ``/blob`` selector is present, the segment immediately after it
     is taken as the ref and everything beyond it as the subpath. Refs that themselves
@@ -215,9 +227,11 @@ def parse_github_url(text: str) -> GitHubTarget | None:
         The parsed [`GitHubTarget`][recursivist.github.GitHubTarget], or ``None`` when
         *text* is not a recognizable GitHub URL.
     """
-    if not text or "github.com" not in text:
+    if not text or "github.com" not in text.lower():
         return None
     text = text.strip()
+    if _HAS_SCHEME_RE.match(text) is None and os.path.exists(text):
+        return None
     ssh = _SSH_RE.match(text)
     if ssh:
         return GitHubTarget(

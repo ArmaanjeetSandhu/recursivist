@@ -13,6 +13,7 @@ import os
 import tarfile
 from collections.abc import Callable, Mapping
 from email.message import Message
+from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError, URLError
 
@@ -155,6 +156,10 @@ def runner() -> CliRunner:
         ),
         ("https://github.com/o/r/tree/v1%2B2/docs", "o", "r", "v1+2", "docs"),
         ("https://github.com/o/r/tree/main/caf%C3%A9", "o", "r", "main", "café"),
+        ("https://GitHub.com/o/r", "o", "r", None, ""),
+        ("HTTPS://WWW.GITHUB.COM/o/r", "o", "r", None, ""),
+        ("GitHub.com/Owner/Repo/tree/Main/Src", "Owner", "Repo", "Main", "Src"),
+        ("git@GitHub.com:o/r.git", "o", "r", None, ""),
     ],
 )
 def test_parse_github_url_valid(
@@ -184,6 +189,28 @@ def test_parse_github_url_valid(
 def test_parse_github_url_invalid(text: str) -> None:
     assert parse_github_url(text) is None
     assert is_github_url(text) is False
+
+
+def test_parse_github_url_prefers_existing_local_path_without_scheme(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (tmp_path / "github.com" / "golang" / "go").mkdir(parents=True)
+    monkeypatch.chdir(tmp_path)
+    assert parse_github_url("github.com/golang/go") is None
+    assert parse_github_url("github.com/golang/go/") is None
+    assert is_github_url("github.com/golang/go") is False
+    target = parse_github_url("https://github.com/golang/go")
+    assert target is not None
+    assert target.slug == "golang/go"
+
+
+def test_parse_github_url_without_scheme_is_remote_when_path_missing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    target = parse_github_url("github.com/golang/go")
+    assert target is not None
+    assert target.slug == "golang/go"
 
 
 def test_is_github_url_true() -> None:
