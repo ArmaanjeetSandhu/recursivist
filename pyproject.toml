@@ -39,6 +39,7 @@ dependencies = [
     "typer",
     "shellingham",
     "pathspec",
+    "tomli; python_version < '3.11'",
 ]
 
 [project.urls]

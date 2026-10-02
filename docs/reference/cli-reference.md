@@ -172,7 +172,7 @@ In addition to the [shared options](#shared-options) and the [sorting and displa
 | `--output-dir` | `-o`  | Output directory (created if missing; defaults to current directory)     |
 | `--prefix`     | `-n`  | Filename prefix for exports (default `structure`)                        |
 
-Exports default to the `emoji` icon style for cross-platform consistency, regardless of saved configuration. `DIRECTORY` may also be a [GitHub repository URL](#github-repositories), in which case the repository is downloaded and scanned in place of a local directory.
+Exports default to the `emoji` icon style for cross-platform consistency, regardless of saved or project configuration. `DIRECTORY` may also be a [GitHub repository URL](#github-repositories), in which case the repository is downloaded and scanned in place of a local directory.
 
 ### Examples
 
@@ -248,6 +248,34 @@ recursivist config set KEY VALUE
 recursivist config set icon-style nerd
 recursivist config set icon-style emoji
 ```
+
+### Project Configuration
+
+A project can carry its own settings in a TOML file, which override your user preferences for that project. Recursivist reads either of two files:
+
+```toml
+# .recursivist.toml
+icon-style = "nerd"
+```
+
+```toml
+# pyproject.toml
+[tool.recursivist]
+icon-style = "nerd"
+```
+
+The file is looked up in the directory being scanned, then in each parent directory; the nearest one is used and files further up are not merged in. When a directory holds both files, `.recursivist.toml` is used. A `pyproject.toml` without a `[tool.recursivist]` table is skipped. Project files accept the same keys and values as `config set`, and are edited by hand: `config set` only writes your user preferences.
+
+Each setting is resolved in this order, the first one found winning:
+
+1. The command-line flag (for example `--icon-style`)
+2. The project configuration
+3. Your user configuration (`config set`)
+4. The built-in default
+
+An unknown key or an invalid value in a project file is reported with a warning and ignored, so that setting falls through to the next layer. Run a command with `--verbose` to see which project file was used.
+
+`compare` uses the project configuration of the first local directory given. A [GitHub repository](#github-repositories) input has no project configuration.
 
 ## `version`
 

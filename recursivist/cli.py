@@ -43,7 +43,13 @@ from recursivist.compare import (
     display_comparison,
     export_comparison,
 )
-from recursivist.config import CONFIG_KEYS, IconStyle, load_config, save_config
+from recursivist.config import (
+    CONFIG_KEYS,
+    IconStyle,
+    load_config,
+    resolve_config,
+    save_config,
+)
 from recursivist.exporters import (
     canonical_extension,
     get_exporter,
@@ -146,6 +152,7 @@ HELP_GIT_STATUS = (
 )
 HELP_VERBOSE = "Enable verbose output"
 
+MSG_ERROR = "Error: %s"
 MSG_VERBOSE = "Verbose mode enabled"
 MSG_FULL_PATH = "Showing full paths instead of just filenames"
 MSG_GIT_STATUS = "Annotating files with Git status markers"
@@ -237,7 +244,9 @@ def config_set(
     """Set a persistent configuration value.
 
     Writes a user preference to the global configuration file. Currently supports
-    setting the `icon-style` to either `emoji` or `nerd`.
+    setting the `icon-style` to either `emoji` or `nerd`. A project configuration file
+    (`.recursivist.toml`, or `[tool.recursivist]` in `pyproject.toml`) overrides the
+    value saved here for the directories it applies to.
 
     Args:
         key: The configuration key to set (e.g., "icon-style").
@@ -797,7 +806,10 @@ def visualize(
         IconStyle | None,
         typer.Option(
             "--icon-style",
-            help="Override icon style ('emoji' or 'nerd'). Defaults to user config.",
+            help=(
+                "Override icon style ('emoji' or 'nerd'). Defaults to the project "
+                "config, then the user config."
+            ),
         ),
     ] = None,
     verbose: VerboseOption = False,
@@ -863,7 +875,10 @@ def visualize(
             affecting the sort order: ``[U]`` untracked, ``[M]`` modified, ``[A]``
             added, ``[D]`` deleted.
         icon_style: Icon style to use for file/folder markers. If not provided, falls
-            back to the persistent user config.
+            back to the project configuration that applies to *directory* (a
+            ``.recursivist.toml`` or ``[tool.recursivist]`` in ``pyproject.toml``, in
+            *directory* or the nearest parent that has one), then to the persistent user
+            config. A GitHub input has no project configuration.
         verbose: When ``True``, lower the log level to DEBUG so that internal processing
             steps are printed to the terminal.
 
@@ -898,7 +913,6 @@ def visualize(
     """
     _enable_verbose_if_requested(verbose)
 
-    resolved_style = icon_style or load_config().get("icon_style", "emoji")
     target = parse_github_url(directory)
     is_remote = target is not None
 
@@ -926,6 +940,10 @@ def visualize(
     else:
         validated = _resolve_and_validate_directory(Path(directory))
         ignore_file = _resolve_ignore_file([validated], ignore_file)
+
+    resolved_style = icon_style or resolve_config(None if is_remote else validated).get(
+        "icon_style", "emoji"
+    )
 
     _log_display_options(max_depth, show_full_path, spec)
     (
@@ -986,7 +1004,7 @@ def visualize(
                 root_name=root_name,
             )
     except Exception as e:
-        logger.error("Error: %s", e, exc_info=verbose)
+        logger.error(MSG_ERROR, e, exc_info=verbose)
         raise typer.Exit(1) from None
 
 
@@ -1246,7 +1264,7 @@ def export(
                     logger.error("Failed to export to %s: %s", fmt, e, exc_info=verbose)
                     failed_formats.append(fmt)
     except Exception as e:
-        logger.error("Error: %s", e, exc_info=verbose)
+        logger.error(MSG_ERROR, e, exc_info=verbose)
         raise typer.Exit(1) from None
     if failed_formats:
         raise typer.Exit(1)
@@ -1310,7 +1328,7 @@ def compare(
             "--icon-style",
             help=(
                 "Override icon style. Defaults to 'emoji' if saving to HTML, "
-                "else user config."
+                "else the project config, then the user config."
             ),
         ),
     ] = None,
@@ -1343,7 +1361,8 @@ def compare(
     for the full resolution rules. Git status is read independently for each directory,
     so each side is annotated against its own repository.
 
-    By default, uses the persistent user configuration for icon styling in the terminal.
+    By default, uses the project configuration of the first local directory, then the
+    persistent user configuration, for icon styling in the terminal.
     If exported to HTML, strictly falls back to the 'emoji' style to ensure
     cross-platform compatibility.
 
@@ -1394,9 +1413,10 @@ def compare(
         show_git_status: When ``True``, annotate files with their Git status without
             affecting the sort order: ``[U]`` untracked, ``[M]`` modified, ``[A]``
             added, ``[D]`` deleted. Read independently for each directory.
-        icon_style: Style to use for folder and file icons. Will use the user
-            configuration when visualizing in terminal, and default to 'emoji' when
-            outputting to HTML.
+        icon_style: Style to use for folder and file icons. Will use the project
+            configuration of the first local directory, then the user configuration,
+            when visualizing in terminal, and default to 'emoji' when outputting to
+            HTML.
         verbose: When ``True``, lower the log level to DEBUG so that internal processing
             steps are printed to the terminal.
 
@@ -1508,7 +1528,8 @@ def compare(
     elif save_as_html:
         resolved_style = "emoji"
     else:
-        resolved_style = load_config().get("icon_style", "emoji")
+        project_dir = local_paths[0] if local_paths else None
+        resolved_style = resolve_config(project_dir).get("icon_style", "emoji")
 
     (
         parsed_exclude_dirs,
@@ -1572,7 +1593,7 @@ def compare(
                 targets=(target1, target2),
             )
     except Exception as e:
-        logger.error("Error: %s", e, exc_info=verbose)
+        logger.error(MSG_ERROR, e, exc_info=verbose)
         raise typer.Exit(1) from None
 
 

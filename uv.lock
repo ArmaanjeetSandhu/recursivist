@@ -1669,6 +1669,7 @@ dependencies = [
     { name = "pathspec" },
     { name = "rich" },
     { name = "shellingham" },
+    { name = "tomli", marker = "python_full_version < '3.11'" },
     { name = "typer" },
 ]
 
@@ -1714,6 +1715,7 @@ requires-dist = [
     { name = "rich" },
     { name = "ruff", marker = "extra == 'dev'" },
     { name = "shellingham" },
+    { name = "tomli", marker = "python_full_version < '3.11'" },
     { name = "twine", marker = "extra == 'dev'" },
     { name = "typer" },
     { name = "types-pyyaml", marker = "extra == 'dev'" },

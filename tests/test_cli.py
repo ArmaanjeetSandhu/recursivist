@@ -1800,7 +1800,9 @@ def test_icon_style_config_read_when_command_runs(
 ) -> None:
     """The saved icon style is read each time a command runs."""
     styles = iter(["emoji", "nerd"])
-    monkeypatch.setattr(cli_module, "load_config", lambda: {"icon_style": next(styles)})
+    monkeypatch.setattr(
+        "recursivist.config.load_config", lambda: {"icon_style": next(styles)}
+    )
     with mock.patch.object(cli_module, "display_tree") as display_tree:
         first = runner.invoke(app, ["visualize", sample_directory])
         second = runner.invoke(app, ["visualize", sample_directory])
@@ -1812,8 +1814,137 @@ def test_icon_style_config_read_when_command_runs(
 def test_explicit_icon_style_skips_config(
     runner: CliRunner, sample_directory: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    load_config = mock.Mock(return_value={"icon_style": "emoji"})
-    monkeypatch.setattr(cli_module, "load_config", load_config)
+    resolve_config = mock.Mock(return_value={"icon_style": "emoji"})
+    monkeypatch.setattr(cli_module, "resolve_config", resolve_config)
     result = runner.invoke(app, ["visualize", sample_directory, "--icon-style", "nerd"])
     assert result.exit_code == 0
-    load_config.assert_not_called()
+    resolve_config.assert_not_called()
+
+
+def _write_project_config(directory: str, style: str, pyproject: bool = False) -> None:
+    """Give *directory* a project configuration selecting the icon *style*."""
+    if pyproject:
+        name, text = "pyproject.toml", f'[tool.recursivist]\nicon-style = "{style}"\n'
+    else:
+        name, text = ".recursivist.toml", f'icon-style = "{style}"\n'
+    Path(directory, name).write_text(text, encoding="utf-8")
+
+
+@pytest.mark.parametrize("pyproject", [False, True], ids=["dedicated", "pyproject"])
+def test_visualize_uses_project_icon_style(
+    runner: CliRunner, sample_directory: str, pyproject: bool
+) -> None:
+    _write_project_config(sample_directory, "nerd", pyproject)
+    with mock.patch.object(cli_module, "display_tree") as display_tree:
+        result = runner.invoke(app, ["visualize", sample_directory])
+    assert result.exit_code == 0
+    assert display_tree.call_args.kwargs["icon_style"] == "nerd"
+
+
+def test_visualize_subdirectory_uses_parent_project_config(
+    runner: CliRunner, sample_directory: str
+) -> None:
+    _write_project_config(sample_directory, "nerd")
+    subdir = os.path.join(sample_directory, "subdir")
+    with mock.patch.object(cli_module, "display_tree") as display_tree:
+        result = runner.invoke(app, ["visualize", subdir])
+    assert result.exit_code == 0
+    assert display_tree.call_args.kwargs["icon_style"] == "nerd"
+
+
+def test_project_icon_style_overrides_user_config(
+    runner: CliRunner, sample_directory: str
+) -> None:
+    assert runner.invoke(app, ["config", "set", "icon-style", "nerd"]).exit_code == 0
+    _write_project_config(sample_directory, "emoji")
+    with mock.patch.object(cli_module, "display_tree") as display_tree:
+        result = runner.invoke(app, ["visualize", sample_directory])
+    assert result.exit_code == 0
+    assert display_tree.call_args.kwargs["icon_style"] == "emoji"
+
+
+def test_icon_style_flag_overrides_project_config(
+    runner: CliRunner, sample_directory: str
+) -> None:
+    _write_project_config(sample_directory, "nerd")
+    with mock.patch.object(cli_module, "display_tree") as display_tree:
+        result = runner.invoke(
+            app, ["visualize", sample_directory, "--icon-style", "emoji"]
+        )
+    assert result.exit_code == 0
+    assert display_tree.call_args.kwargs["icon_style"] == "emoji"
+
+
+def test_project_icon_style_changes_rendered_tree(
+    runner: CliRunner, sample_directory: str
+) -> None:
+    before = runner.invoke(app, ["visualize", sample_directory])
+    _write_project_config(sample_directory, "nerd")
+    after = runner.invoke(app, ["visualize", sample_directory])
+    assert before.exit_code == after.exit_code == 0
+    assert "📄" in before.output
+    assert "📄" not in after.output
+
+
+def test_invalid_project_config_warns_and_keeps_running(
+    runner: CliRunner, sample_directory: str
+) -> None:
+    _write_project_config(sample_directory, "bogus")
+    with mock.patch.object(cli_module, "display_tree") as display_tree:
+        result = runner.invoke(app, ["visualize", sample_directory])
+    assert result.exit_code == 0
+    assert "Ignoring invalid value for 'icon-style'" in result.output
+    assert display_tree.call_args.kwargs["icon_style"] == "emoji"
+
+
+def test_visualize_github_input_skips_project_config(
+    runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A GitHub input has no project layer, even when the working directory does."""
+    from recursivist.github import GitHubError
+
+    _write_project_config(str(tmp_path), "nerd")
+    monkeypatch.chdir(tmp_path)
+    resolve_config = mock.Mock(return_value={"icon_style": "emoji"})
+    monkeypatch.setattr(cli_module, "resolve_config", resolve_config)
+    with mock.patch("recursivist.cli.checkout_repository", side_effect=GitHubError("")):
+        runner.invoke(app, ["visualize", "https://github.com/o/r"])
+    resolve_config.assert_called_once_with(None)
+
+
+def test_export_ignores_project_icon_style(
+    runner: CliRunner, sample_directory: str, output_dir: str
+) -> None:
+    """Exports stay on emoji so the files render anywhere, as with the user config."""
+    _write_project_config(sample_directory, "nerd")
+    result = runner.invoke(
+        app, ["export", sample_directory, "-f", "txt", "-o", output_dir]
+    )
+    assert result.exit_code == 0
+    exported = Path(output_dir, "structure.txt").read_text(encoding="utf-8")
+    assert "📄" in exported
+
+
+def test_compare_uses_project_config_of_first_local_directory(
+    runner: CliRunner, comparison_directories: tuple[str, str]
+) -> None:
+    dir1, dir2 = comparison_directories
+    _write_project_config(dir1, "nerd")
+    _write_project_config(dir2, "emoji")
+    with mock.patch("recursivist.cli.display_comparison") as display:
+        first = runner.invoke(app, ["compare", dir1, dir2])
+        second = runner.invoke(app, ["compare", dir2, dir1])
+    assert first.exit_code == second.exit_code == 0
+    seen = [call.kwargs["icon_style"] for call in display.call_args_list]
+    assert seen == ["nerd", "emoji"]
+
+
+def test_compare_saved_html_ignores_project_icon_style(
+    runner: CliRunner, comparison_directories: tuple[str, str], output_dir: str
+) -> None:
+    dir1, dir2 = comparison_directories
+    _write_project_config(dir1, "nerd")
+    with mock.patch("recursivist.cli.export_comparison") as export_comparison:
+        result = runner.invoke(app, ["compare", dir1, dir2, "--save", "-o", output_dir])
+    assert result.exit_code == 0
+    assert export_comparison.call_args.kwargs["icon_style"] == "emoji"

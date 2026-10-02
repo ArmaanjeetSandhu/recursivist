@@ -18,7 +18,7 @@ Recursivist is organized as a set of focused modules that can be used directly f
 | `recursivist.icons`      | Emoji and Nerd Font icon lookup                     |
 | `recursivist.git_status` | Git status lookup                                   |
 | `recursivist.github`     | Materialize a GitHub repository for scanning        |
-| `recursivist.config`     | User-configuration persistence                      |
+| `recursivist.config`     | User and project configuration                      |
 
 ## The Structure Dictionary
 

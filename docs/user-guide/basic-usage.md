@@ -58,6 +58,15 @@ The preference is stored in a JSON config file in your platform's application-da
 recursivist visualize --icon-style nerd
 ```
 
+A project can also set the style for everyone who works on it, in a `.recursivist.toml` file or a `[tool.recursivist]` table in `pyproject.toml`:
+
+```toml
+# .recursivist.toml
+icon-style = "nerd"
+```
+
+A project setting overrides your saved preference, and `--icon-style` overrides both. See [Project Configuration](../reference/cli-reference.md#project-configuration) for how the file is found.
+
 Exports default to the `emoji` style regardless of your configuration, so exported files render consistently on any machine. Pass `--icon-style nerd` to override this.
 
 ## Common Options

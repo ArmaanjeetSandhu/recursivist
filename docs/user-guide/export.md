@@ -66,7 +66,7 @@ recursivist export --format md --git-status
 
 ## Icon Style
 
-Exports use the `emoji` icon style by default — independent of your saved configuration — so files render consistently anywhere. Switch to Nerd Font glyphs with:
+Exports use the `emoji` icon style by default — independent of your saved and project configurations — so files render consistently anywhere. Switch to Nerd Font glyphs with:
 
 ```bash
 recursivist export --format md --icon-style nerd
