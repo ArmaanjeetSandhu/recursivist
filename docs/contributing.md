@@ -31,41 +31,41 @@ Thank you for your interest in contributing to Recursivist! This document provid
 ### Setting Up Your Development Environment
 
 1. **Fork the repository**:
-   - Visit the [Recursivist repository](https://github.com/ArmaanjeetSandhu/recursivist) and click the "Fork" button to create your own copy.
+    - Visit the [Recursivist repository](https://github.com/ArmaanjeetSandhu/recursivist) and click the "Fork" button to create your own copy.
 
 2. **Clone your fork**:
 
-   ```bash
-   git clone https://github.com/YOUR_USERNAME/recursivist.git
-   cd recursivist
-   ```
+    ```bash
+    git clone https://github.com/YOUR_USERNAME/recursivist.git
+    cd recursivist
+    ```
 
 3. **Install uv** (used for all environment and dependency management):
 
-   ```bash
-   # macOS/Linux
-   curl -LsSf https://astral.sh/uv/install.sh | sh
+    ```bash
+    # macOS/Linux
+    curl -LsSf https://astral.sh/uv/install.sh | sh
 
-   # Windows
-   powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
-   ```
+    # Windows
+    powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+    ```
 
 4. **Create a virtual environment and install development dependencies**:
 
-   ```bash
-   uv venv
-   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-   uv pip install -e ".[dev]"
-   ```
+    ```bash
+    uv venv
+    source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+    uv pip install -e ".[dev]"
+    ```
 
 5. **Install pre-commit hooks**:
 
-   ```bash
-   uv pip install pre-commit
-   pre-commit install
-   ```
+    ```bash
+    uv pip install pre-commit
+    pre-commit install
+    ```
 
-   The pre-commit hooks will automatically run Ruff (lint + format) and mypy/pyright type checks on every commit.
+    The pre-commit hooks will automatically run Ruff (lint + format) and mypy/pyright type checks on every commit.
 
 ## Development Workflow
 
@@ -73,11 +73,11 @@ Thank you for your interest in contributing to Recursivist! This document provid
 
 1. **Create a new branch for your feature or bugfix**:
 
-   ```bash
-   git checkout -b feature/your-feature-name
-   # or
-   git checkout -b fix/issue-description
-   ```
+    ```bash
+    git checkout -b feature/your-feature-name
+    # or
+    git checkout -b fix/issue-description
+    ```
 
 ### Making Changes
 
@@ -85,18 +85,18 @@ Thank you for your interest in contributing to Recursivist! This document provid
 
 2. **Commit your changes** with clear and descriptive commit messages:
 
-   ```bash
-   git add .
-   git commit -m "Add feature: description of what you added"
-   ```
+    ```bash
+    git add .
+    git commit -m "Add feature: description of what you added"
+    ```
 
-   Pre-commit hooks will run automatically on commit. If they flag issues, fix them and commit again.
+    Pre-commit hooks will run automatically on commit. If they flag issues, fix them and commit again.
 
 3. **Keep your branch updated** with the upstream repository by syncing your fork on GitHub and pulling locally:
 
-   ```bash
-   git pull origin main
-   ```
+    ```bash
+    git pull origin main
+    ```
 
 ### Testing Your Changes
 
@@ -104,46 +104,46 @@ We use [Nox](https://nox.thea.codes/) as the task runner. All sessions run insid
 
 1. **Run the full test suite** across all supported Python versions:
 
-   ```bash
-   nox -s tests
-   ```
+    ```bash
+    nox -s tests
+    ```
 
 2. **Run linting and type checks**:
 
-   ```bash
-   nox -s lint typecheck
-   ```
+    ```bash
+    nox -s lint typecheck
+    ```
 
 3. **Build and preview the documentation**:
 
-   ```bash
-   nox -s docs
-   ```
+    ```bash
+    nox -s docs
+    ```
 
 4. **Test the CLI** to verify it works as expected:
 
-   ```bash
-   python -m recursivist --help
-   ```
+    ```bash
+    python -m recursivist --help
+    ```
 
 ### Submitting a Pull Request
 
 1. **Push your branch** to your fork:
 
-   ```bash
-   git push origin feature/your-feature-name
-   ```
+    ```bash
+    git push origin feature/your-feature-name
+    ```
 
 2. **Create a Pull Request** from your fork to the main repository:
-   - Go to the [Recursivist repository](https://github.com/ArmaanjeetSandhu/recursivist)
-   - Click "Pull Requests" > "New Pull Request"
-   - Select "compare across forks" and choose your fork and branch
-   - Click "Create Pull Request"
+    - Go to the [Recursivist repository](https://github.com/ArmaanjeetSandhu/recursivist)
+    - Click "Pull Requests" > "New Pull Request"
+    - Select "compare across forks" and choose your fork and branch
+    - Click "Create Pull Request"
 
 3. **Describe your changes** in the PR:
-   - What problem does it solve?
-   - How can it be tested?
-   - Any dependencies or breaking changes?
+    - What problem does it solve?
+    - How can it be tested?
+    - Any dependencies or breaking changes?
 
 4. **Address review feedback** if requested by maintainers.
 
@@ -282,26 +282,26 @@ Releases are largely automated via GitHub Actions.
 
 1. **Bump the version** in `pyproject.toml`:
 
-   ```toml
-   version = "X.Y.Z"
-   ```
+    ```toml
+    version = "X.Y.Z"
+    ```
 
 2. **Commit and push to `main`**:
 
-   ```bash
-   git add pyproject.toml
-   git commit -m "Release vX.Y.Z"
-   git push origin main
-   ```
+    ```bash
+    git add pyproject.toml
+    git commit -m "Release vX.Y.Z"
+    git push origin main
+    ```
 
 3. **Automatic tagging**: The `tag-release` workflow detects the version change in `pyproject.toml`, checks that the tag doesn't already exist, and creates and pushes the Git tag automatically. No manual tagging is required.
 
 4. **Publish to PyPI** (maintainers only):
 
-   ```bash
-   python -m build
-   python -m twine upload dist/*
-   ```
+    ```bash
+    python -m build
+    python -m twine upload dist/*
+    ```
 
 ## Community
 

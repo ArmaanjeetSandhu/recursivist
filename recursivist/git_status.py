@@ -18,6 +18,7 @@ def get_git_status(directory: str) -> dict[str, str]:
     filtering out files that live outside of it.
 
     Status characters returned:
+
     - ``'U'``: Untracked (``??`` in porcelain output)
     - ``'M'``: Modified (working-tree or staged modification)
     - ``'A'``: Added / staged for the first time (includes renames)

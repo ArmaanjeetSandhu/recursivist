@@ -72,23 +72,23 @@ See the [API Reference](../reference/api-reference.md) for the public functions 
 
 1. Create a branch:
 
-   ```bash
-   git checkout -b feature/your-feature-name
-   ```
+    ```bash
+    git checkout -b feature/your-feature-name
+    ```
 
 2. Make your changes.
 3. Run the test suite:
 
-   ```bash
-   nox -s tests
-   ```
+    ```bash
+    nox -s tests
+    ```
 
 4. Commit (pre-commit hooks run automatically):
 
-   ```bash
-   git add .
-   git commit -m "Describe your change"
-   ```
+    ```bash
+    git add .
+    git commit -m "Describe your change"
+    ```
 
 5. Push and open a pull request.
 
@@ -136,30 +136,30 @@ Exporters live in `recursivist/exporters/` and subclass `BaseExporter`, which st
 
 1. Create `recursivist/exporters/your_format.py`:
 
-   ```python
-   from .base import BaseExporter
+    ```python
+    from .base import BaseExporter
 
 
-   class YourFormatExporter(BaseExporter):
-       def export(self, output_path: str) -> None:
-           with open(output_path, "w", encoding="utf-8") as f:
-               # Build output from self.structure and self.root_name,
-               # honoring the resolved display options exposed by BaseExporter:
-               # self.sort_key, self.metrics (ordered), self.show_git_status,
-               # self.icon_style, and self.show_full_path as appropriate.
-               ...
-   ```
+    class YourFormatExporter(BaseExporter):
+        def export(self, output_path: str) -> None:
+            with open(output_path, "w", encoding="utf-8") as f:
+                # Build output from self.structure and self.root_name,
+                # honoring the resolved display options exposed by BaseExporter:
+                # self.sort_key, self.metrics (ordered), self.show_git_status,
+                # self.icon_style, and self.show_full_path as appropriate.
+                ...
+    ```
 
 2. Register it in `recursivist/exporters/__init__.py` by importing the class and adding it to the `_EXPORTERS` map:
 
-   ```python
-   from .your_format import YourFormatExporter
+    ```python
+    from .your_format import YourFormatExporter
 
-   _EXPORTERS = {
-       # existing entries...
-       "your_format": YourFormatExporter,
-   }
-   ```
+    _EXPORTERS = {
+        # existing entries...
+        "your_format": YourFormatExporter,
+    }
+    ```
 
 3. Add the format to the `--format` option in `cli.py` and add tests.
 
@@ -219,10 +219,10 @@ Recursivist follows [Semantic Versioning](https://semver.org/): MAJOR for incomp
 2. Commit and push to `main`. The `tag-release` workflow detects the version change and creates and pushes the matching Git tag automatically.
 3. Maintainers build and upload to PyPI:
 
-   ```bash
-   python -m build
-   twine upload dist/*
-   ```
+    ```bash
+    python -m build
+    twine upload dist/*
+    ```
 
 ## Performance Notes
 

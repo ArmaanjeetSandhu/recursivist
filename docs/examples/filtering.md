@@ -3,7 +3,8 @@
 Practical recipes for narrowing what Recursivist shows. For the rules behind these, see [Pattern Filtering](../user-guide/pattern-filtering.md).
 
 !!! note
-`--exclude-pattern` and `--include-pattern` match a file's **name**, not its path. To filter by location, use `--exclude` (directory names) or `--ignore-file` (gitignore-style, path-aware).
+
+    `--exclude-pattern` and `--include-pattern` match a file's **name**, not its path. To filter by location, use `--exclude` (directory names) or `--ignore-file` (gitignore-style, path-aware).
 
 ## Excluding Directories and Extensions
 

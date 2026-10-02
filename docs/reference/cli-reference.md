@@ -4,13 +4,13 @@ A complete reference for every Recursivist command and option.
 
 ## Commands
 
-| Command      | Description                                   |
-| ------------ | --------------------------------------------- |
-| `visualize`  | Display a directory structure in the terminal |
-| `export`     | Export a directory structure to files         |
-| `compare`    | Compare two directory structures side by side |
-| `config`     | Manage persistent user preferences            |
-| `version`    | Show the installed version                    |
+| Command     | Description                                   |
+| ----------- | --------------------------------------------- |
+| `visualize` | Display a directory structure in the terminal |
+| `export`    | Export a directory structure to files         |
+| `compare`   | Compare two directory structures side by side |
+| `config`    | Manage persistent user preferences            |
+| `version`   | Show the installed version                    |
 
 ## Shared Options
 
@@ -43,7 +43,8 @@ The `--ignore-file` name is matched with or without a leading dot, so `--ignore-
 The sorting and annotation flags (`--sort-by-*`, `--loc`, `--size`, `--mtime`, `--git-status`) follow a specific resolution model when several are combined; that model is described in the [Sorting and Display Flags](#sorting-and-display-flags) section below.
 
 !!! note "Pattern scope"
-`--exclude-pattern` and `--include-pattern` match against each file's **name**, not its path. For path-based filtering, use `--exclude` (directory names) or `--ignore-file` (gitignore-style). See [Pattern Matching](pattern-matching.md).
+
+    `--exclude-pattern` and `--include-pattern` match against each file's **name**, not its path. For path-based filtering, use `--exclude` (directory names) or `--ignore-file` (gitignore-style). See [Pattern Matching](pattern-matching.md).
 
 ## Sorting and Display Flags
 
@@ -211,7 +212,8 @@ In addition to the [shared options](#shared-options) and the [sorting and displa
 | `--prefix`     | `-n`  | Filename prefix for the HTML file (default `comparison`)           |
 
 !!! note
-In `compare`, `-f` is shorthand for `--save`, not `--format`. Items unique to `DIR1` are highlighted in green, items unique to `DIR2` in red. When Git status is enabled, it is read independently for each directory, so each side is annotated against its own repository. Either input may be a [GitHub repository URL](#github-repositories); a local directory can be compared against a GitHub repository, or two GitHub repositories against each other.
+
+    In `compare`, `-f` is shorthand for `--save`, not `--format`. Items unique to `DIR1` are highlighted in green, items unique to `DIR2` in red. When Git status is enabled, it is read independently for each directory, so each side is annotated against its own repository. Either input may be a [GitHub repository URL](#github-repositories); a local directory can be compared against a GitHub repository, or two GitHub repositories against each other.
 
 ### Examples
 

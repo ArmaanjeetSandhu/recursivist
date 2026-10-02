@@ -10,13 +10,13 @@ recursivist [COMMAND] [OPTIONS] [ARGUMENTS]
 
 The available commands are:
 
-| Command      | Purpose                                       |
-| ------------ | --------------------------------------------- |
-| `visualize`  | Display a directory structure in the terminal |
-| `export`     | Export a directory structure to files         |
-| `compare`    | Compare two directory structures side by side |
-| `config`     | Manage persistent user preferences            |
-| `version`    | Show the installed version                    |
+| Command     | Purpose                                       |
+| ----------- | --------------------------------------------- |
+| `visualize` | Display a directory structure in the terminal |
+| `export`    | Export a directory structure to files         |
+| `compare`   | Compare two directory structures side by side |
+| `config`    | Manage persistent user preferences            |
+| `version`   | Show the installed version                    |
 
 ## Getting Help
 

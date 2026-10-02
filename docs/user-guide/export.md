@@ -123,20 +123,20 @@ A structured representation. Without detail flags, files collapse to bare names:
 
 ```json
 {
-  "root": "my-project",
-  "structure": {
-    "_files": ["README.md", "setup.py", "requirements.txt"],
-    "src": {
-      "_files": ["main.py", "utils.py"],
-      "tests": {
-        "_files": ["test_main.py", "test_utils.py"]
-      }
-    }
-  },
-  "show_loc": false,
-  "show_size": false,
-  "show_mtime": false,
-  "show_git_status": false
+    "root": "my-project",
+    "structure": {
+        "_files": ["README.md", "setup.py", "requirements.txt"],
+        "src": {
+            "_files": ["main.py", "utils.py"],
+            "tests": {
+                "_files": ["test_main.py", "test_utils.py"]
+            }
+        }
+    },
+    "show_loc": false,
+    "show_size": false,
+    "show_mtime": false,
+    "show_git_status": false
 }
 ```
 
@@ -144,33 +144,45 @@ With a detail flag (full path, LOC, size, mtime, or Git status), each file becom
 
 ```json
 {
-  "root": "my-project",
-  "structure": {
-    "_loc": 1262,
-    "_files": [
-      { "name": "README.md", "path": "README.md", "loc": 124 },
-      { "name": "setup.py", "path": "setup.py", "loc": 65 },
-      { "name": "requirements.txt", "path": "requirements.txt", "loc": 18 }
-    ],
-    "src": {
-      "_loc": 1055,
-      "_files": [
-        { "name": "main.py", "path": "main.py", "loc": 245 },
-        { "name": "utils.py", "path": "utils.py", "loc": 157 }
-      ],
-      "tests": {
-        "_loc": 653,
+    "root": "my-project",
+    "structure": {
+        "_loc": 1262,
         "_files": [
-          { "name": "test_main.py", "path": "test_main.py", "loc": 412 },
-          { "name": "test_utils.py", "path": "test_utils.py", "loc": 241 }
-        ]
-      }
-    }
-  },
-  "show_loc": true,
-  "show_size": false,
-  "show_mtime": false,
-  "show_git_status": false
+            { "name": "README.md", "path": "README.md", "loc": 124 },
+            { "name": "setup.py", "path": "setup.py", "loc": 65 },
+            {
+                "name": "requirements.txt",
+                "path": "requirements.txt",
+                "loc": 18
+            }
+        ],
+        "src": {
+            "_loc": 1055,
+            "_files": [
+                { "name": "main.py", "path": "main.py", "loc": 245 },
+                { "name": "utils.py", "path": "utils.py", "loc": 157 }
+            ],
+            "tests": {
+                "_loc": 653,
+                "_files": [
+                    {
+                        "name": "test_main.py",
+                        "path": "test_main.py",
+                        "loc": 412
+                    },
+                    {
+                        "name": "test_utils.py",
+                        "path": "test_utils.py",
+                        "loc": 241
+                    }
+                ]
+            }
+        }
+    },
+    "show_loc": true,
+    "show_size": false,
+    "show_mtime": false,
+    "show_git_status": false
 }
 ```
 
@@ -193,11 +205,11 @@ A nested bullet list that renders cleanly on GitHub and other Markdown viewers �
 - 📄 `setup.py`
 - 📄 `requirements.txt`
 - 📂 **src**
-  - 📄 `main.py`
-  - 📄 `utils.py`
-  - 📂 **tests**
-    - 📄 `test_main.py`
-    - 📄 `test_utils.py`
+    - 📄 `main.py`
+    - 📄 `utils.py`
+    - 📂 **tests**
+        - 📄 `test_main.py`
+        - 📄 `test_utils.py`
 ```
 
 With statistics:
@@ -209,11 +221,11 @@ With statistics:
 - 📄 `setup.py` (65 lines)
 - 📄 `requirements.txt` (18 lines)
 - 📂 **src** (1055 lines)
-  - 📄 `main.py` (245 lines)
-  - 📄 `utils.py` (157 lines)
-  - 📂 **tests** (653 lines)
-    - 📄 `test_main.py` (412 lines)
-    - 📄 `test_utils.py` (241 lines)
+    - 📄 `main.py` (245 lines)
+    - 📄 `utils.py` (157 lines)
+    - 📂 **tests** (653 lines)
+        - 📄 `test_main.py` (412 lines)
+        - 📄 `test_utils.py` (241 lines)
 ```
 
 ### SVG (`.svg`)

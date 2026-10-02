@@ -58,8 +58,8 @@ If completion doesn't activate:
 1. Make sure you restarted the shell (or opened a new terminal) after installing.
 2. Confirm your shell's completion system is enabled. For Zsh, that means `compinit` is loaded:
 
-   ```zsh
-   autoload -U compinit; compinit
-   ```
+    ```zsh
+    autoload -U compinit; compinit
+    ```
 
 3. Re-run `recursivist --install-completion` and check for any reported errors.

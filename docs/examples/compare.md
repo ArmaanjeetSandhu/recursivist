@@ -102,12 +102,12 @@ A GitHub Actions step that compares a pull request against `main` and uploads th
 ```yaml
 - name: Compare structures
   run: |
-    recursivist compare main-branch pr-branch \
-      --exclude node_modules --exclude .git \
-      --save --prefix structure-diff --sort-by-loc
+      recursivist compare main-branch pr-branch \
+        --exclude node_modules --exclude .git \
+        --save --prefix structure-diff --sort-by-loc
 
 - uses: actions/upload-artifact@v4
   with:
-    name: structure-comparison
-    path: structure-diff.html
+      name: structure-comparison
+      path: structure-diff.html
 ```

@@ -7,7 +7,8 @@ This reference covers the glob and regular-expression syntax used by `--exclude-
 `--exclude-pattern` and `--include-pattern` test each file's **name** (its basename), evaluated at every level of the tree. They do **not** match against paths.
 
 !!! warning "Use the right tool for paths"
-A pattern that contains a path separator, such as `src/*` or `src/**/*.js`, matches nothing — file names never contain a `/`. A pattern like `*.js` matches `.js` files at **any** depth. To filter by location, use a directory exclusion (`--exclude`) or a gitignore-style [ignore file](../user-guide/pattern-filtering.md#ignore-files), which _do_ match paths.
+
+    A pattern that contains a path separator, such as `src/*` or `src/**/*.js`, matches nothing — file names never contain a `/`. A pattern like `*.js` matches `.js` files at **any** depth. To filter by location, use a directory exclusion (`--exclude`) or a gitignore-style [ignore file](../user-guide/pattern-filtering.md#ignore-files), which _do_ match paths.
 
 Patterns are globs by default. Add `--regex` to interpret them as Python regular expressions instead.
 

@@ -141,7 +141,8 @@ pip install recursivist
 ```
 
 !!! info "Dependencies"
-Recursivist is built with [Rich](https://github.com/Textualize/rich) for beautiful terminal output and [Typer](https://github.com/fastapi/typer) for an intuitive command interface.
+
+    Recursivist is built with [Rich](https://github.com/Textualize/rich) for beautiful terminal outputs and [Typer](https://github.com/fastapi/typer) for an intuitive command interface.
 
 ## Getting Started
 
@@ -168,7 +169,8 @@ Recursivist is built with [Rich](https://github.com/Textualize/rich) for beautif
 </div>
 
 !!! tip "Shell Completion"
-Recursivist supports shell completion for easier command entry. See the [shell completion guide](user-guide/shell-completion.md) for instructions.
+
+    Recursivist supports shell completion for easier command entry. See the [shell completion guide](user-guide/shell-completion.md) for instructions.
 
 ## Next Steps
 

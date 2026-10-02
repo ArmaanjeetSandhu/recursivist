@@ -66,7 +66,8 @@ recursivist compare dir1 dir2 --sort-by-git-status
 See [Pattern Filtering](pattern-filtering.md) for details.
 
 !!! note
-`compare` supports every sorting and display flag, including the Git-status flags (`--git-status` and `--sort-by-git-status`), the metric sorts, the display-only `--loc`/`--size`/`--mtime`, and `--sort-by-similarity`. When Git status is enabled, each directory's status is read independently against its own repository, so both sides are annotated correctly even when they belong to different repos. Also note that `-f` here is shorthand for `--save`, not `--format`.
+
+    `compare` supports every sorting and display flag, including the Git-status flags (`--git-status` and `--sort-by-git-status`), the metric sorts, the display-only `--loc`/`--size`/`--mtime`, and `--sort-by-similarity`. When Git status is enabled, each directory's status is read independently against its own repository, so both sides are annotated correctly even when they belong to different repos. Also note that `-f` here is shorthand for `--save`, not `--format`.
 
 ## GitHub Repositories
 

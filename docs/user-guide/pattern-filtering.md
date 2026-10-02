@@ -45,7 +45,8 @@ recursivist visualize --include-pattern "*.md" --include-pattern "*.py"
 ```
 
 !!! warning "Patterns match file names, not paths"
-Because patterns are tested against the file name only, a path-style pattern such as `src/*` or `src/**/*.js` will not match anything — file names never contain a `/`. A pattern like `*.js`, by contrast, matches `.js` files at **any** depth. To filter by location rather than by name, use a directory exclusion (`--exclude src`) or an ignore file (see below).
+
+    Because patterns are tested against the file name only, a path-style pattern such as `src/*` or `src/**/*.js` will not match anything — file names never contain a `/`. A pattern like `*.js`, by contrast, matches `.js` files at **any** depth. To filter by location rather than by name, use a directory exclusion (`--exclude src`) or an ignore file (see below).
 
 Glob syntax: `*` matches any run of characters, `?` matches a single character, `[abc]` matches one listed character, and `[!abc]` matches one character not listed. With `--regex`, patterns follow Python's regular-expression syntax and are searched within the file name (anchor with `^` and `$` for a full-name match):
 
@@ -95,7 +96,8 @@ When several mechanisms are combined, Recursivist resolves them per file as foll
 6. **Ignore-file patterns** (`--ignore-file`) are applied last to anything still undecided.
 
 !!! note
-This means include patterns do **not** override everything. Explicit exclude patterns and excluded extensions take priority over includes; include patterns only take priority over ignore-file patterns.
+
+    This means include patterns do **not** override everything. Explicit exclude patterns and excluded extensions take priority over includes; include patterns only take priority over ignore-file patterns.
 
 ## Combining Filters
 

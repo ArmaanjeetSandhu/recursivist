@@ -28,24 +28,24 @@ Recursivist ships an official [pre-commit](https://pre-commit.com) hook (id `rec
 
 ```yaml
 repos:
-  - repo: https://github.com/ArmaanjeetSandhu/recursivist
-    rev: v2.1.0 # use the latest release tag
-    hooks:
-      - id: recursivist-export
-        args:
-          - "."
-          - "--format"
-          - "md"
-          - "--output-dir"
-          - "docs"
-          - "--prefix"
-          - "structure"
-          - "--exclude"
-          - "node_modules"
-          - "--exclude"
-          - ".git"
-          - "--exclude"
-          - "venv"
+    - repo: https://github.com/ArmaanjeetSandhu/recursivist
+      rev: v2.1.0 # use the latest release tag
+      hooks:
+          - id: recursivist-export
+            args:
+                - "."
+                - "--format"
+                - "md"
+                - "--output-dir"
+                - "docs"
+                - "--prefix"
+                - "structure"
+                - "--exclude"
+                - "node_modules"
+                - "--exclude"
+                - ".git"
+                - "--exclude"
+                - "venv"
 ```
 
 Then enable it:
@@ -159,45 +159,45 @@ def get_structure():
 name: Generate Project Structure Documentation
 
 on:
-  push:
-    branches: [main]
-    paths-ignore:
-      - "docs/structure.md"
+    push:
+        branches: [main]
+        paths-ignore:
+            - "docs/structure.md"
 
 jobs:
-  update-structure:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - run: pip install recursivist
-      - run: |
-          mkdir -p docs
-          recursivist export --format md \
-            --exclude node_modules --exclude .git \
-            --output-dir ./docs --prefix structure --sort-by-loc
-      - run: |
-          git config user.email "action@github.com"
-          git config user.name "GitHub Action"
-          git add docs/structure.md
-          git diff --quiet && git diff --staged --quiet || git commit -m "Update structure docs"
-          git push
+    update-structure:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-python@v5
+              with:
+                  python-version: "3.12"
+            - run: pip install recursivist
+            - run: |
+                  mkdir -p docs
+                  recursivist export --format md \
+                    --exclude node_modules --exclude .git \
+                    --output-dir ./docs --prefix structure --sort-by-loc
+            - run: |
+                  git config user.email "action@github.com"
+                  git config user.name "GitHub Action"
+                  git add docs/structure.md
+                  git diff --quiet && git diff --staged --quiet || git commit -m "Update structure docs"
+                  git push
 ```
 
 ### GitLab CI
 
 ```yaml
 generate-structure:
-  image: python:3.12-slim
-  script:
-    - pip install recursivist
-    - mkdir -p docs
-    - recursivist export --format md --exclude node_modules --exclude .git --output-dir ./docs --prefix structure --sort-by-loc
-  artifacts:
-    paths:
-      - docs/structure.md
+    image: python:3.12-slim
+    script:
+        - pip install recursivist
+        - mkdir -p docs
+        - recursivist export --format md --exclude node_modules --exclude .git --output-dir ./docs --prefix structure --sort-by-loc
+    artifacts:
+        paths:
+            - docs/structure.md
 ```
 
 ## Documentation Tools

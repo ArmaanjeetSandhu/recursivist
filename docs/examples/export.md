@@ -37,11 +37,11 @@ A Markdown export with `--sort-by-loc`:
 - 📄 `setup.py` (65 lines)
 - 📄 `requirements.txt` (18 lines)
 - 📂 **src** (1055 lines)
-  - 📄 `main.py` (245 lines)
-  - 📄 `utils.py` (157 lines)
-  - 📂 **tests** (653 lines)
-    - 📄 `test_main.py` (412 lines)
-    - 📄 `test_utils.py` (241 lines)
+    - 📄 `main.py` (245 lines)
+    - 📄 `utils.py` (157 lines)
+    - 📂 **tests** (653 lines)
+        - 📄 `test_main.py` (412 lines)
+        - 📄 `test_utils.py` (241 lines)
 ```
 
 ## Output Location and Filename
