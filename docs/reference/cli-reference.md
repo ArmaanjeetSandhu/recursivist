@@ -235,6 +235,7 @@ Manage persistent user preferences, stored as JSON in your platform's applicatio
 
 ```bash
 recursivist config set KEY VALUE
+recursivist config unset KEY
 ```
 
 | Argument | Description                                       |
@@ -242,11 +243,14 @@ recursivist config set KEY VALUE
 | `KEY`    | Configuration key (currently `icon-style`)        |
 | `VALUE`  | Value to set (`emoji` or `nerd` for `icon-style`) |
 
+`config set` saves a value. `config unset` removes a saved value, so the setting falls back to its default. `unset` accepts any key, including one Recursivist does not recognize, which makes it the way to clear an entry that is reported with a warning. Both commands change only the key they are given and leave the rest of the file untouched.
+
 ### Examples
 
 ```bash
 recursivist config set icon-style nerd
 recursivist config set icon-style emoji
+recursivist config unset icon-style
 ```
 
 ### Project Configuration
@@ -273,7 +277,7 @@ Each setting is resolved in this order, the first one found winning:
 3. Your user configuration (`config set`)
 4. The built-in default
 
-An unknown key or an invalid value in a project file is reported with a warning and ignored, so that setting falls through to the next layer. Run a command with `--verbose` to see which project file was used.
+An unknown key or an invalid value is reported with a warning and ignored, so that setting falls through to the next layer. This applies to project files and to your user configuration file alike, so a mistake made while editing either by hand cannot change what is rendered. Remove an entry from your user configuration file with `config unset`. Run a command with `--verbose` to see which project file was used.
 
 `compare` uses the project configuration of the first local directory given. A [GitHub repository](#github-repositories) input has no project configuration.
 

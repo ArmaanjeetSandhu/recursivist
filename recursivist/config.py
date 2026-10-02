@@ -9,11 +9,16 @@ the directory being scanned: either a dedicated ``.recursivist.toml`` or a
 [`resolve_config`][recursivist.config.resolve_config] merges them, each layer overriding
 the ones before it: built-in defaults, then the user file, then the project file. A
 command-line flag overrides all three. The only preference is currently the icon style.
+
+Both files can be edited by hand, so both are validated as they are loaded: an unknown
+key or an unacceptable value is reported with a warning and left out, and the setting
+falls through to the layer below.
 """
 
 import json
 import logging
 import os
+import shlex
 import sys
 from pathlib import Path
 from typing import Any, Literal, get_args
@@ -63,25 +68,53 @@ def get_config_path() -> Path:
     return Path(typer.get_app_dir(APP_NAME)) / "config.json"
 
 
-def load_config() -> dict[str, Any]:
-    """Load the user configuration from disk.
+def read_config_file() -> dict[str, Any]:
+    """Read the user configuration file exactly as it is stored.
 
-    Reading never writes: a missing configuration directory is left missing.
+    Nothing is validated, so the mapping may hold keys and values that recursivist does
+    not recognize. It is what ``recursivist config set`` and ``config unset`` edit, so
+    that changing one setting leaves the rest of the file untouched. Use `load_config`
+    for settings that are safe to act on.
+
+    A file that cannot be read, is not valid JSON, or does not hold a JSON object is
+    reported with a warning and treated as empty. Reading never writes: a missing
+    configuration directory is left missing.
 
     Returns:
-        The parsed configuration mapping, or the default ``{"icon_style": "emoji"}``
-        when the file is missing, unreadable, or does not contain a JSON object.
+        The stored mapping, or an empty one when the file is missing or unusable.
     """
+    config_path = get_config_path()
+    if not os.path.isfile(config_path):
+        return {}
     try:
-        config_path = get_config_path()
-        if config_path.is_file():
-            with open(config_path, encoding="utf-8") as f:
-                config = json.load(f)
-            if isinstance(config, dict):
-                return config
-    except (OSError, ValueError):
-        pass
-    return {"icon_style": "emoji"}
+        with open(config_path, encoding="utf-8") as f:
+            config = json.load(f)
+    except (OSError, ValueError) as e:
+        logger.warning("Ignoring user configuration %s: %s", config_path, e)
+        return {}
+    if not isinstance(config, dict):
+        logger.warning(
+            "Ignoring user configuration %s: expected a JSON object", config_path
+        )
+        return {}
+    return config
+
+
+def load_config() -> dict[str, Any]:
+    """Load the valid settings of the user configuration file.
+
+    The file is validated as it is loaded, so a hand-edited mistake never reaches the
+    rest of the program: an unknown key or an unacceptable value is reported with a
+    warning and left out. The warning for an unknown key gives the ``recursivist config
+    unset`` command that removes it. Keys may be written with dashes or underscores.
+    Reading never writes, so the file itself is left as it is.
+
+    Returns:
+        The valid settings, keyed in their underscored form. Settings the file does not
+        set, or sets wrongly, are absent; the mapping is empty when the file is missing
+        or unusable. Use `resolve_config` for a mapping with every key present.
+    """
+    return _validate_settings(read_config_file(), get_config_path(), unset_hint=True)
 
 
 def save_config(config: dict[str, Any]) -> None:
@@ -146,13 +179,71 @@ def _project_table_in(directory: Path) -> tuple[Path, Any] | None:
     return None
 
 
-def _validate_project_table(table: Any, source: Path) -> dict[str, Any]:
-    """Keep the recognized, valid settings of a project configuration table.
+def _unset_command(key: str) -> str:
+    """Return the shell command that removes *key* from the user configuration.
+
+    The key comes from a hand-edited file, so it is quoted for the shell, and one that
+    starts with a dash is placed after ``--`` so it is not read as an option.
+    """
+    separator = "-- " if key.startswith("-") else ""
+    return f"{APP_NAME} config unset {separator}{shlex.quote(key)}"
+
+
+def _validate_settings(
+    table: dict[str, Any], source: Path, *, unset_hint: bool = False
+) -> dict[str, Any]:
+    """Keep the recognized, valid settings of a configuration file.
 
     Keys may be written with dashes or underscores (``icon-style`` or ``icon_style``).
     An unknown key or an unacceptable value is reported with a warning and dropped, so a
     typo in one setting leaves that setting to the lower layers without discarding the
     rest of the file.
+
+    Args:
+        table: The parsed settings, as found in the file.
+        source: The file they came from, used in warnings.
+        unset_hint: Whether the warning for an unknown key should end with the
+            ``recursivist config unset`` command that removes it. Only meaningful for
+            the user configuration file, which is the one that command edits.
+
+    Returns:
+        The valid settings, keyed in their underscored form.
+    """
+    settings: dict[str, Any] = {}
+    for raw_key, value in table.items():
+        key = raw_key.replace("-", "_")
+        allowed_values = CONFIG_KEYS.get(key)
+        if allowed_values is None:
+            valid_keys = ", ".join(k.replace("_", "-") for k in CONFIG_KEYS)
+            hint = (
+                f" To remove it, run: {_unset_command(raw_key)}" if unset_hint else ""
+            )
+            logger.warning(
+                "Ignoring unknown configuration key '%s' in %s. Valid keys: %s.%s",
+                raw_key,
+                source,
+                valid_keys,
+                hint,
+            )
+        elif not isinstance(value, str) or value not in allowed_values:
+            choices = " or ".join(f"'{v}'" for v in allowed_values)
+            logger.warning(
+                "Ignoring invalid value for '%s' in %s: %r. Use %s.",
+                raw_key,
+                source,
+                value,
+                choices,
+            )
+        else:
+            settings[key] = value
+    return settings
+
+
+def _validate_project_table(table: Any, source: Path) -> dict[str, Any]:
+    """Keep the recognized, valid settings of a project configuration table.
+
+    A ``[tool.recursivist]`` entry that is not a table is reported with a warning and
+    counts as empty; otherwise the settings are checked by `_validate_settings`.
 
     Args:
         table: The parsed settings, as found in the file.
@@ -167,31 +258,7 @@ def _validate_project_table(table: Any, source: Path) -> dict[str, Any]:
             source,
         )
         return {}
-
-    settings: dict[str, Any] = {}
-    for raw_key, value in table.items():
-        key = raw_key.replace("-", "_")
-        allowed_values = CONFIG_KEYS.get(key)
-        if allowed_values is None:
-            valid_keys = ", ".join(k.replace("_", "-") for k in CONFIG_KEYS)
-            logger.warning(
-                "Ignoring unknown configuration key '%s' in %s. Valid keys: %s.",
-                raw_key,
-                source,
-                valid_keys,
-            )
-        elif not isinstance(value, str) or value not in allowed_values:
-            choices = " or ".join(f"'{v}'" for v in allowed_values)
-            logger.warning(
-                "Ignoring invalid value for '%s' in %s: %r. Use %s.",
-                raw_key,
-                source,
-                value,
-                choices,
-            )
-        else:
-            settings[key] = value
-    return settings
+    return _validate_settings(table, source)
 
 
 def load_project_config(start_dir: Path) -> dict[str, Any]:
@@ -228,7 +295,8 @@ def resolve_config(project_dir: Path | None = None) -> dict[str, Any]:
 
     Layers are applied in order, each overriding the previous one: the built-in
     defaults, the user configuration file, then the project configuration that applies
-    to *project_dir*.
+    to *project_dir*. Both files are validated as they are loaded, so every value in the
+    result is one its key accepts.
 
     Args:
         project_dir: Directory whose project configuration should apply, normally the

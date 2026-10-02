@@ -46,7 +46,7 @@ from recursivist.compare import (
 from recursivist.config import (
     CONFIG_KEYS,
     IconStyle,
-    load_config,
+    read_config_file,
     resolve_config,
     save_config,
 )
@@ -234,6 +234,27 @@ config_app = typer.Typer(help="Manage recursivist user configuration")
 app.add_typer(config_app, name="config")
 
 
+def _without_setting(stored: dict[str, Any], config_key: str) -> dict[str, Any]:
+    """Return the stored user configuration without its entries for one key.
+
+    A key may be stored under either spelling (``icon_style`` or a hand-written
+    ``icon-style``), so both are dropped. Every other entry is kept as it is, including
+    ones recursivist does not recognize.
+
+    Args:
+        stored: The user configuration as read from its file.
+        config_key: The key to drop, in its underscored form.
+
+    Returns:
+        A mapping holding the remaining entries, in their stored order.
+    """
+    return {
+        stored_key: stored_value
+        for stored_key, stored_value in stored.items()
+        if stored_key.replace("-", "_") != config_key
+    }
+
+
 @config_app.command("set")
 def config_set(
     key: Annotated[str, typer.Argument(help="Configuration key (e.g., icon-style)")],
@@ -272,10 +293,46 @@ def config_set(
         logger.error("Invalid value for %s: '%s'. Use %s.", key, value, choices)
         raise typer.Exit(1)
 
-    config = load_config()
+    config = _without_setting(read_config_file(), config_key)
     config[config_key] = value
     save_config(config)
     typer.echo(f"Configuration updated: {key} = '{value}'")
+
+
+@config_app.command("unset")
+def config_unset(
+    key: Annotated[
+        str, typer.Argument(help="Configuration key to remove (e.g., icon-style)")
+    ],
+) -> None:
+    """Remove a saved configuration value.
+
+    Deletes one entry from the global configuration file, so the setting falls back to
+    its built-in default (or to the project configuration, where one applies). Unlike
+    `config set`, any key is accepted: this is also how to remove an entry that
+    recursivist does not recognize and reports with a warning.
+
+    The key matches under either spelling (`icon-style` or `icon_style`), and every
+    other entry in the file is left as it is. When the key is not saved there is nothing
+    to do: the file is not written and the command still succeeds.
+
+    Args:
+        key: The configuration key to remove (e.g., "icon-style").
+
+    Examples:
+        >>> recursivist config unset icon-style
+    """
+    stored = read_config_file()
+    remaining = _without_setting(stored, key.replace("-", "_"))
+    if len(remaining) == len(stored):
+        message = f"Nothing to unset: {key} is not saved"
+        if stored:
+            message += f" (saved keys: {', '.join(stored)})"
+        typer.echo(message)
+        return
+
+    save_config(remaining)
+    typer.echo(f"Configuration updated: {key} unset")
 
 
 def _configure_logging(ctx: typer.Context) -> None:

@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -1690,7 +1691,7 @@ def test_icon_style_accepts_known_values(
 def saved_config(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     """Capture what ``config set`` would write instead of touching the real file."""
     saved: dict[str, Any] = {}
-    monkeypatch.setattr(cli_module, "load_config", lambda: {"icon_style": "emoji"})
+    monkeypatch.setattr(cli_module, "read_config_file", lambda: {"icon_style": "emoji"})
     monkeypatch.setattr(cli_module, "save_config", saved.update)
     return saved
 
@@ -1915,7 +1916,7 @@ def test_visualize_github_input_skips_project_config(
 def test_export_ignores_project_icon_style(
     runner: CliRunner, sample_directory: str, output_dir: str
 ) -> None:
-    """Exports stay on emoji so the files render anywhere, as with the user config."""
+    """Exports use emoji whatever the project sets, so the files render anywhere."""
     _write_project_config(sample_directory, "nerd")
     result = runner.invoke(
         app, ["export", sample_directory, "-f", "txt", "-o", output_dir]
@@ -1948,3 +1949,221 @@ def test_compare_saved_html_ignores_project_icon_style(
         result = runner.invoke(app, ["compare", dir1, dir2, "--save", "-o", output_dir])
     assert result.exit_code == 0
     assert export_comparison.call_args.kwargs["icon_style"] == "emoji"
+
+
+def _user_config_path() -> Path:
+    """Path of the user configuration file the test session is isolated to."""
+    from recursivist import config as config_module
+
+    return config_module.get_config_path()
+
+
+def _write_user_config(text: str) -> Path:
+    """Write *text* as the user configuration file, as a hand edit would."""
+    path = _user_config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
+    return path
+
+
+@pytest.mark.parametrize("stored", ['"bogus"', '"Nerd"', "3", "null", '["nerd"]'])
+def test_invalid_user_icon_style_does_not_reach_the_renderer(
+    runner: CliRunner, sample_directory: str, stored: str
+) -> None:
+    """A hand-edited bad value is reported and the default style is rendered."""
+    _write_user_config(f'{{"icon_style": {stored}}}')
+    result = runner.invoke(app, ["visualize", sample_directory])
+    assert result.exit_code == 0
+    assert "Ignoring invalid value for 'icon_style'" in result.output
+    assert "📄" in result.output
+
+
+def test_invalid_user_icon_style_does_not_reach_compare(
+    runner: CliRunner, comparison_directories: tuple[str, str]
+) -> None:
+    _write_user_config('{"icon_style": "bogus"}')
+    dir1, dir2 = comparison_directories
+    with mock.patch("recursivist.cli.display_comparison") as display:
+        result = runner.invoke(app, ["compare", dir1, dir2])
+    assert result.exit_code == 0
+    assert display.call_args.kwargs["icon_style"] == "emoji"
+
+
+def test_malformed_user_config_warns_and_uses_defaults(
+    runner: CliRunner, sample_directory: str
+) -> None:
+    _write_user_config('{"icon_style": ')
+    result = runner.invoke(app, ["visualize", sample_directory])
+    assert result.exit_code == 0
+    assert "Ignoring user configuration" in result.output
+    assert "📄" in result.output
+
+
+def test_explicit_icon_style_does_not_read_user_config(
+    runner: CliRunner, sample_directory: str
+) -> None:
+    """A flag settles the style, so a bad saved value is not even reported."""
+    _write_user_config('{"icon_style": "bogus"}')
+    result = runner.invoke(
+        app, ["visualize", sample_directory, "--icon-style", "emoji"]
+    )
+    assert result.exit_code == 0
+    assert "Ignoring" not in result.output
+
+
+def test_config_set_repairs_invalid_value(runner: CliRunner) -> None:
+    path = _write_user_config('{"icon_style": "bogus"}')
+    result = runner.invoke(app, ["config", "set", "icon-style", "nerd"])
+    assert result.exit_code == 0
+    assert json.loads(path.read_text(encoding="utf-8")) == {"icon_style": "nerd"}
+
+
+def test_config_set_keeps_entries_it_does_not_recognize(runner: CliRunner) -> None:
+    path = _write_user_config('{"colour": "blue", "icon_style": "emoji"}')
+    result = runner.invoke(app, ["config", "set", "icon-style", "nerd"])
+    assert result.exit_code == 0
+    assert json.loads(path.read_text(encoding="utf-8")) == {
+        "colour": "blue",
+        "icon_style": "nerd",
+    }
+
+
+@pytest.mark.parametrize(
+    "stored",
+    ['{"icon-style": "emoji"}', '{"icon_style": "emoji", "icon-style": "emoji"}'],
+    ids=["dashed", "both-spellings"],
+)
+def test_config_set_replaces_dashed_spelling(
+    runner: CliRunner, sample_directory: str, stored: str
+) -> None:
+    """A hand-written ``icon-style`` entry must not shadow the saved value."""
+    path = _write_user_config(stored)
+    result = runner.invoke(app, ["config", "set", "icon-style", "nerd"])
+    assert result.exit_code == 0
+    assert json.loads(path.read_text(encoding="utf-8")) == {"icon_style": "nerd"}
+    with mock.patch.object(cli_module, "display_tree") as display_tree:
+        runner.invoke(app, ["visualize", sample_directory])
+    assert display_tree.call_args.kwargs["icon_style"] == "nerd"
+
+
+def test_config_set_replaces_malformed_file(runner: CliRunner) -> None:
+    path = _write_user_config('{"icon_style": ')
+    result = runner.invoke(app, ["config", "set", "icon-style", "nerd"])
+    assert result.exit_code == 0
+    assert "Ignoring user configuration" in result.output
+    assert json.loads(path.read_text(encoding="utf-8")) == {"icon_style": "nerd"}
+
+
+@pytest.mark.parametrize("key", ["icon-style", "icon_style"])
+@pytest.mark.parametrize(
+    "stored",
+    ['{"icon_style": "nerd"}', '{"icon-style": "nerd"}', '{"icon_style": 3}'],
+    ids=["underscored", "dashed", "invalid-value"],
+)
+def test_config_unset_removes_saved_value(
+    runner: CliRunner, sample_directory: str, key: str, stored: str
+) -> None:
+    path = _write_user_config(stored)
+    result = runner.invoke(app, ["config", "unset", key])
+    assert result.exit_code == 0
+    assert f"Configuration updated: {key} unset" in result.output
+    assert json.loads(path.read_text(encoding="utf-8")) == {}
+    with mock.patch.object(cli_module, "display_tree") as display_tree:
+        visualized = runner.invoke(app, ["visualize", sample_directory])
+    assert "Ignoring" not in visualized.output
+    assert display_tree.call_args.kwargs["icon_style"] == "emoji"
+
+
+def test_config_unset_removes_both_spellings(runner: CliRunner) -> None:
+    path = _write_user_config('{"icon_style": "nerd", "icon-style": "emoji"}')
+    result = runner.invoke(app, ["config", "unset", "icon-style"])
+    assert result.exit_code == 0
+    assert json.loads(path.read_text(encoding="utf-8")) == {}
+
+
+def test_config_unset_removes_unrecognized_key_and_its_warning(
+    runner: CliRunner, sample_directory: str
+) -> None:
+    """``unset`` takes keys ``set`` would reject, to clear an unrecognized entry."""
+    path = _write_user_config('{"colour": "blue", "icon_style": "nerd"}')
+    before = runner.invoke(app, ["visualize", sample_directory])
+    assert "Ignoring unknown configuration key 'colour'" in before.output
+
+    result = runner.invoke(app, ["config", "unset", "colour"])
+    assert result.exit_code == 0
+    assert json.loads(path.read_text(encoding="utf-8")) == {"icon_style": "nerd"}
+    after = runner.invoke(app, ["visualize", sample_directory])
+    assert "Ignoring" not in after.output
+
+
+def test_config_unset_falls_back_to_project_config(
+    runner: CliRunner, sample_directory: str
+) -> None:
+    _write_user_config('{"icon_style": "emoji"}')
+    _write_project_config(sample_directory, "nerd")
+    assert runner.invoke(app, ["config", "unset", "icon-style"]).exit_code == 0
+    with mock.patch.object(cli_module, "display_tree") as display_tree:
+        runner.invoke(app, ["visualize", sample_directory])
+    assert display_tree.call_args.kwargs["icon_style"] == "nerd"
+
+
+def test_config_unset_key_that_is_not_saved_changes_nothing(
+    runner: CliRunner,
+) -> None:
+    text = '{"colour": "blue",   "icon_style": "nerd"}'
+    path = _write_user_config(text)
+    result = runner.invoke(app, ["config", "unset", "colur"])
+    assert result.exit_code == 0
+    assert "Nothing to unset: colur is not saved" in result.output
+    assert "saved keys: colour, icon_style" in result.output
+    assert path.read_text(encoding="utf-8") == text
+
+
+def test_config_unset_without_a_config_file_creates_nothing(
+    runner: CliRunner,
+) -> None:
+    path = _user_config_path()
+    result = runner.invoke(app, ["config", "unset", "icon-style"])
+    assert result.exit_code == 0
+    assert result.output.strip() == "Nothing to unset: icon-style is not saved"
+    assert not path.exists()
+
+
+def test_config_unset_leaves_an_unusable_file_alone(runner: CliRunner) -> None:
+    text = '{"icon_style": '
+    path = _write_user_config(text)
+    result = runner.invoke(app, ["config", "unset", "icon-style"])
+    assert result.exit_code == 0
+    assert "Ignoring user configuration" in result.output
+    assert "Nothing to unset" in result.output
+    assert path.read_text(encoding="utf-8") == text
+
+
+def test_config_unset_requires_a_key(runner: CliRunner) -> None:
+    result = runner.invoke(app, ["config", "unset"])
+    assert result.exit_code == 2
+
+
+@pytest.mark.parametrize(
+    "key", ["colour", "two words", "it's", "--depth", "-x", "a;b", ""]
+)
+def test_unknown_key_warning_gives_a_working_unset_command(
+    runner: CliRunner, key: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Running the command from the warning removes the entry and the warning."""
+    from recursivist.config import load_config
+
+    path = _write_user_config(json.dumps({key: "blue", "icon_style": "nerd"}))
+    with caplog.at_level(logging.WARNING, logger="recursivist"):
+        load_config()
+    command = caplog.messages[0].split("To remove it, run: ")[1]
+    program, *args = shlex.split(command)
+    assert program == "recursivist"
+
+    result = runner.invoke(app, args)
+    assert result.exit_code == 0
+    assert json.loads(path.read_text(encoding="utf-8")) == {"icon_style": "nerd"}
+    caplog.clear()
+    with caplog.at_level(logging.WARNING, logger="recursivist"):
+        assert load_config() == {"icon_style": "nerd"}
+    assert caplog.messages == []
