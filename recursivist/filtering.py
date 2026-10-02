@@ -86,7 +86,7 @@ def compile_regex_patterns(
         try:
             compiled_patterns.append(re.compile(pattern))
         except re.error as e:
-            logger.warning(f"Invalid regex pattern '{pattern}': {e}")
+            logger.warning("Invalid regex pattern '%s': %s", pattern, e)
             compiled_patterns.append(pattern)
     return compiled_patterns
 
@@ -275,7 +275,9 @@ class PatternMatchTracker:
         if self.depth_limited:
             suffix += " within the scanned depth"
         for flag, value in self.unmatched():
-            logger.warning(f"No files or directories matched {flag} '{value}'{suffix}")
+            logger.warning(
+                "No files or directories matched %s '%s'%s", flag, value, suffix
+            )
 
 
 def should_exclude(

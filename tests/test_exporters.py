@@ -62,24 +62,23 @@ def file_tuples_for_sorting(draw: st.DrawFn) -> Any:
     tuple_type = draw(st.integers(min_value=0, max_value=4))
     if tuple_type == 0:
         return filename
-    elif tuple_type == 1:
+    if tuple_type == 1:
         path = draw(st.text(min_size=1, max_size=100))
         return (filename, path)
-    elif tuple_type == 2:
+    if tuple_type == 2:
         path = draw(st.text(min_size=1, max_size=100))
         loc = draw(st.integers(min_value=0, max_value=1000))
         return (filename, path, loc)
-    elif tuple_type == 3:
+    if tuple_type == 3:
         path = draw(st.text(min_size=1, max_size=100))
         loc = draw(st.integers(min_value=0, max_value=1000))
         size = draw(st.integers(min_value=0, max_value=10 * 1024 * 1024))
         return (filename, path, loc, size)
-    else:
-        path = draw(st.text(min_size=1, max_size=100))
-        loc = draw(st.integers(min_value=0, max_value=1000))
-        size = draw(st.integers(min_value=0, max_value=10 * 1024 * 1024))
-        mtime = draw(st.floats(min_value=0, max_value=1672531200))
-        return (filename, path, loc, size, mtime)
+    path = draw(st.text(min_size=1, max_size=100))
+    loc = draw(st.integers(min_value=0, max_value=1000))
+    size = draw(st.integers(min_value=0, max_value=10 * 1024 * 1024))
+    mtime = draw(st.floats(min_value=0, max_value=1672531200))
+    return (filename, path, loc, size, mtime)
 
 
 file_tuple_list = st.lists(
@@ -869,8 +868,7 @@ def test_export_with_excessive_loc(temp_dir: str, output_dir: str) -> None:
     """Test exporting files with very large line counts."""
     test_file = os.path.join(temp_dir, "many_lines.py")
     with open(test_file, "w") as f:
-        for i in range(10000):
-            f.write(f"print('Line {i}')\n")
+        f.writelines(f"print('Line {i}')\n" for i in range(10000))
 
     structure, _ = get_directory_structure(temp_dir, sort_by_loc=True)
 

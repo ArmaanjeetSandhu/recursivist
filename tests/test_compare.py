@@ -55,14 +55,13 @@ def get_file_names(
     """Extract file names from a structure, optionally at a specific path."""
     if path is None:
         return [f.name for f in structure.get("_files", [])]
-    else:
-        current = structure
-        for segment in path:
-            if segment in current:
-                current = current[segment]
-            else:
-                return []
-        return [f.name for f in current.get("_files", [])]
+    current = structure
+    for segment in path:
+        if segment in current:
+            current = current[segment]
+        else:
+            return []
+    return [f.name for f in current.get("_files", [])]
 
 
 @st.composite
@@ -344,7 +343,7 @@ def test_compare_directory_structures_with_statistics(
         assert "_loc" in structure
         assert "_size" in structure
         assert "_mtime" in structure
-    if "_files" in structure1 and structure1["_files"]:
+    if structure1.get("_files"):
         assert structure1["_files"][0].mtime is not None
 
 

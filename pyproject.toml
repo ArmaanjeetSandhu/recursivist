@@ -96,6 +96,7 @@ select = [
     "F",   # pyflakes
     "I",   # isort
     "B",   # flake8-bugbear
+    "G",   # flake8-logging-format
     "UP",  # pyupgrade
 ]
 

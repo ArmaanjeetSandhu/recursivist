@@ -254,13 +254,13 @@ def config_set(
 
     if config_key not in CONFIG_KEYS:
         valid_keys = ", ".join(k.replace("_", "-") for k in CONFIG_KEYS)
-        logger.error(f"Unknown configuration key: {key}. Valid keys: {valid_keys}.")
+        logger.error("Unknown configuration key: %s. Valid keys: %s.", key, valid_keys)
         raise typer.Exit(1)
 
     allowed_values = CONFIG_KEYS[config_key]
     if value not in allowed_values:
         choices = " or ".join(f"'{v}'" for v in allowed_values)
-        logger.error(f"Invalid value for {key}: '{value}'. Use {choices}.")
+        logger.error("Invalid value for %s: '%s'. Use %s.", key, value, choices)
         raise typer.Exit(1)
 
     config = load_config()
@@ -377,7 +377,7 @@ def _log_display_options(
     """
     if max_depth > 0:
         level_word = "level" if max_depth == 1 else "levels"
-        logger.info(f"Limiting depth to {max_depth} {level_word}")
+        logger.info("Limiting depth to %d %s", max_depth, level_word)
     if show_full_path:
         logger.info(MSG_FULL_PATH)
     if spec.sort_key and spec.sort_key in MSG_SORT_BY:
@@ -424,15 +424,15 @@ def _parse_filter_options(
             ext.lower() if ext.startswith(".") else f".{ext.lower()}"
             for ext in parsed_exclude_exts
         }
-        logger.debug(f"Excluding extensions: {exclude_exts_set}")
+        logger.debug("Excluding extensions: %s", exclude_exts_set)
     if parsed_exclude_dirs:
-        logger.debug(f"Excluding directories: {parsed_exclude_dirs}")
+        logger.debug("Excluding directories: %s", parsed_exclude_dirs)
     if parsed_exclude_patterns:
         pattern_type = "regex" if use_regex else "glob"
-        logger.debug(f"Excluding {pattern_type} patterns: {parsed_exclude_patterns}")
+        logger.debug("Excluding %s patterns: %s", pattern_type, parsed_exclude_patterns)
     if parsed_include_patterns:
         pattern_type = "regex" if use_regex else "glob"
-        logger.debug(f"Including {pattern_type} patterns: {parsed_include_patterns}")
+        logger.debug("Including %s patterns: %s", pattern_type, parsed_include_patterns)
     return (
         parsed_exclude_dirs,
         exclude_exts_set,
@@ -476,7 +476,7 @@ def _resolve_and_validate_directory(directory: Path) -> Path:
     """
     directory = directory.resolve()
     if not directory.is_dir():
-        logger.error(f"Error: {directory} is not a valid directory")
+        logger.error("Error: %s is not a valid directory", directory)
         raise typer.Exit(1)
     return directory
 
@@ -530,9 +530,9 @@ def _warn_if_ignore_file_missing(directory: Path, ignore_file: str | None) -> No
         return
     ignore_path = directory / ignore_file
     if ignore_path.exists():
-        logger.debug(f"Using ignore file: {ignore_path}")
+        logger.debug("Using ignore file: %s", ignore_path)
     else:
-        logger.warning(f"Ignore file not found: {ignore_path}")
+        logger.warning("Ignore file not found: %s", ignore_path)
 
 
 def _compile_patterns_for_scan(
@@ -635,7 +635,7 @@ def _scan_directory(
             git_status_map=git_status_map,
         )
         progress.update(task_scan, completed=True)
-        logger.debug(f"Found {len(extensions)} unique file extensions")
+        logger.debug("Found %d unique file extensions", len(extensions))
     return structure, extensions
 
 
@@ -673,9 +673,8 @@ def _log_ignored_remote_flags(
         ignored.append("--mtime")
     if ignored:
         logger.info(
-            "Ignoring "
-            + ", ".join(ignored)
-            + " for GitHub repository (not applicable to hosted repositories)"
+            "Ignoring %s for GitHub repository (not applicable to hosted repositories)",
+            ", ".join(ignored),
         )
 
 
@@ -987,7 +986,7 @@ def visualize(
                 root_name=root_name,
             )
     except Exception as e:
-        logger.error(f"Error: {e}", exc_info=verbose)
+        logger.error("Error: %s", e, exc_info=verbose)
         raise typer.Exit(1) from None
 
 
@@ -1141,8 +1140,8 @@ def export(
         fmt for fmt in parsed_formats if fmt.lower() not in valid_formats
     ]
     if invalid_formats:
-        logger.error(f"Unsupported export format(s): {', '.join(invalid_formats)}")
-        logger.info(f"Supported formats: {', '.join(valid_formats)}")
+        logger.error("Unsupported export format(s): %s", ", ".join(invalid_formats))
+        logger.info("Supported formats: %s", ", ".join(valid_formats))
         raise typer.Exit(1)
 
     resolved_style = icon_style or "emoji"
@@ -1229,7 +1228,7 @@ def export(
 
             num_formats = len(parsed_formats)
             format_word = "format" if num_formats == 1 else "formats"
-            logger.info(f"Exporting to {num_formats} {format_word}")
+            logger.info("Exporting to %d %s", num_formats, format_word)
             for fmt in parsed_formats:
                 output_path = output_dir / f"{output_prefix}.{canonical_extension(fmt)}"
                 try:
@@ -1242,12 +1241,12 @@ def export(
                         icon_style=resolved_style,
                     )
                     exporter.export(str(output_path))
-                    logger.info(f"Successfully exported to {output_path}")
+                    logger.info("Successfully exported to %s", output_path)
                 except Exception as e:
-                    logger.error(f"Failed to export to {fmt}: {e}", exc_info=verbose)
+                    logger.error("Failed to export to %s: %s", fmt, e, exc_info=verbose)
                     failed_formats.append(fmt)
     except Exception as e:
-        logger.error(f"Error: {e}", exc_info=verbose)
+        logger.error("Error: %s", e, exc_info=verbose)
         raise typer.Exit(1) from None
     if failed_formats:
         raise typer.Exit(1)
@@ -1440,7 +1439,7 @@ def compare(
     display_dir1 = Path(dir1).resolve().name if dir1 == "." else dir1
     display_dir2 = Path(dir2).resolve().name if dir2 == "." else dir2
 
-    logger.info(f"Comparing: {display_dir1} and {display_dir2}")
+    logger.info("Comparing: %s and %s", display_dir1, display_dir2)
 
     target1 = parse_github_url(dir1)
     target2 = parse_github_url(dir2)
@@ -1455,13 +1454,14 @@ def compare(
     for raw in local_inputs:
         local_dir = Path(raw)
         if not local_dir.is_dir():
-            logger.error(f"Error: {raw} is not a valid directory or GitHub URL")
+            logger.error("Error: %s is not a valid directory or GitHub URL", raw)
             raise typer.Exit(1)
 
     if _compare_inputs_are_same(dir1, dir2, target1, target2):
         logger.error(
-            f"Error: cannot compare {display_dir1} with itself; "
-            "please provide two different directories or repositories"
+            "Error: cannot compare %s with itself; "
+            "please provide two different directories or repositories",
+            display_dir1,
         )
         raise typer.Exit(1)
 
@@ -1526,9 +1526,9 @@ def compare(
         for d in local_paths:
             ignore_path = d / ignore_file
             if ignore_path.exists():
-                logger.debug(f"Using ignore file from {d}: {ignore_path}")
+                logger.debug("Using ignore file from %s: %s", d, ignore_path)
             else:
-                logger.warning(f"Ignore file not found in {d}: {ignore_path}")
+                logger.warning("Ignore file not found in %s: %s", d, ignore_path)
     try:
         actual_ignore_file = "" if ignore_file is None else ignore_file
         if save_as_html:
@@ -1554,7 +1554,7 @@ def compare(
                 icon_style=resolved_style,
                 targets=(target1, target2),
             )
-            logger.info(f"Successfully exported to {output_path}")
+            logger.info("Successfully exported to %s", output_path)
         else:
             display_comparison(
                 dir1,
@@ -1572,7 +1572,7 @@ def compare(
                 targets=(target1, target2),
             )
     except Exception as e:
-        logger.error(f"Error: {e}", exc_info=verbose)
+        logger.error("Error: %s", e, exc_info=verbose)
         raise typer.Exit(1) from None
 
 

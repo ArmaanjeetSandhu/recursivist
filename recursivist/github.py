@@ -385,7 +385,7 @@ def resolve_commit_shas(
     * ``None`` resolves to the commit the default branch (``HEAD``) points at.
     * A branch or tag name resolves to its tip commit; annotated tags resolve to the
       commit they dereference to.
-    * A value that is not an advertised ref but looks like a commit SHA (7–40 hex
+    * A value that is not an advertised ref but looks like a commit SHA (7-40 hex
       characters) is returned as-is, lowercased, so explicit commit pins are supported.
     * Anything else resolves to ``None``.
 

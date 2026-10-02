@@ -36,14 +36,13 @@ def get_file_names(
     """
     if path is None:
         return [f.name for f in structure.get("_files", [])]
-    else:
-        current = structure
-        for segment in path:
-            if segment in current:
-                current = current[segment]
-            else:
-                return []
-        return [f.name for f in current.get("_files", [])]
+    current = structure
+    for segment in path:
+        if segment in current:
+            current = current[segment]
+        else:
+            return []
+    return [f.name for f in current.get("_files", [])]
 
 
 def test_cli_with_complex_structure(

@@ -210,4 +210,3 @@ Recursivist supports shell completion for easier command entry. See the [shell c
     This project is licensed under the MIT License.
   </div>
 </div>
-<div style="height: 60vh;"></div>

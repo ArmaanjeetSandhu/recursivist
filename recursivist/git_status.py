@@ -89,5 +89,5 @@ def get_git_status(directory: str) -> dict[str, str]:
 
         return status_map
     except Exception as e:
-        logger.debug(f"Could not get git status for {directory}: {e}")
+        logger.debug("Could not get git status for %s: %s", directory, e)
         return {}

@@ -42,7 +42,7 @@ def count_lines_of_code(file_path: str) -> int:
             ) as text_file:
                 return sum(1 for _ in text_file)
     except (OSError, ValueError) as e:
-        logger.debug(f"Could not read file: {file_path}: {e}")
+        logger.debug("Could not read file: %s: %s", file_path, e)
         return 0
 
 
@@ -88,7 +88,7 @@ def get_file_size(file_path: str) -> int:
     try:
         return os.path.getsize(file_path)
     except Exception as e:
-        logger.debug(f"Could not get size for {file_path}: {e}")
+        logger.debug("Could not get size for %s: %s", file_path, e)
         return 0
 
 
@@ -129,7 +129,7 @@ def get_file_mtime(file_path: str) -> float:
     try:
         return os.path.getmtime(file_path)
     except Exception as e:
-        logger.debug(f"Could not get modification time for {file_path}: {e}")
+        logger.debug("Could not get modification time for %s: %s", file_path, e)
         return 0.0
 
 
@@ -161,14 +161,13 @@ def format_timestamp(timestamp: float) -> str:
     current_date = current_dt.date()
     if dt_object.date() == current_date:
         return f"Today {dt_object.strftime('%H:%M')}"
-    elif dt_object.date() == current_date - timedelta(days=1):
+    if dt_object.date() == current_date - timedelta(days=1):
         return f"Yesterday {dt_object.strftime('%H:%M')}"
-    elif current_date - dt_object.date() < timedelta(days=7):
+    if current_date - dt_object.date() < timedelta(days=7):
         return dt_object.strftime("%a %H:%M")
-    elif dt_object.year == current_dt.year:
+    if dt_object.year == current_dt.year:
         return dt_object.strftime("%b %d")
-    else:
-        return dt_object.strftime("%Y-%m-%d")
+    return dt_object.strftime("%Y-%m-%d")
 
 
 def format_metrics(

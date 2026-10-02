@@ -132,7 +132,7 @@ class TestCountLinesOfCode:
             line_count: int = count_lines_of_code(file_path)
             assert line_count == expected_lines, (
                 f"Expected {expected_lines} lines, got {line_count} "
-                f"for content: {repr(content)}"
+                f"for content: {content!r}"
             )
         finally:
             os.unlink(file_path)
@@ -389,8 +389,7 @@ class TestCountLines:
         test_file_path = os.path.join(temp_dir, "large_test.txt")
         expected_lines = 1000
         with open(test_file_path, "w") as f:
-            for i in range(expected_lines):
-                f.write(f"Line {i}\n")
+            f.writelines(f"Line {i}\n" for i in range(expected_lines))
         line_count = count_lines_of_code(test_file_path)
         assert line_count == expected_lines
 

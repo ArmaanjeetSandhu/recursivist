@@ -71,7 +71,7 @@ def subdirectory_key(name: str) -> str:
 
 def _subdirectory_name(key: str) -> str:
     """Invert [`subdirectory_key`][recursivist.scanner.subdirectory_key]."""
-    return key[len(_ESCAPE_PREFIX) :] if key.startswith(_ESCAPE_PREFIX) else key
+    return key.removeprefix(_ESCAPE_PREFIX)
 
 
 def get_subdirectory(structure: dict[str, Any], name: str) -> Any | None:
@@ -123,10 +123,10 @@ def _has_visible_entries(
     try:
         items = os.listdir(root_dir)
     except PermissionError:
-        logger.warning(f"Permission denied: {root_dir}")
+        logger.warning("Permission denied: %s", root_dir)
         return False
     except Exception as e:
-        logger.exception(f"Error reading directory {root_dir}: {e}")
+        logger.exception("Error reading directory %s: %s", root_dir, e)
         return False
     for item in items:
         item_path = os.path.join(root_dir, item)
@@ -384,10 +384,10 @@ def _scan_level(
     try:
         items = os.listdir(root_dir)
     except PermissionError:
-        logger.warning(f"Permission denied: {root_dir}")
+        logger.warning("Permission denied: %s", root_dir)
         return structure, extensions_set
     except Exception as e:
-        logger.exception(f"Error reading directory {root_dir}: {e}")
+        logger.exception("Error reading directory %s: %s", root_dir, e)
         return structure, extensions_set
     subdirectories: list[tuple[str, str]] = []
     for item in items:
@@ -450,7 +450,7 @@ def _scan_level(
             item_id = None
         if item_id is not None and item_id in child_ancestor_ids:
             logger.warning(
-                f"Skipping symlink cycle: {item_path} resolves to an ancestor"
+                "Skipping symlink cycle: %s resolves to an ancestor", item_path
             )
             structure[subdirectory_key(item)] = {"_symlink_loop": True}
             continue

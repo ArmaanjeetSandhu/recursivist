@@ -351,7 +351,6 @@ class TestShouldExcludeProperties:
         self, path: str, patterns: list[str], current_dir: str
     ) -> None:
         """Test that should_exclude correctly applies patterns."""
-        pass
 
     def test_should_exclude_extensions_basic(self) -> None:
         """Test that should_exclude applies extension exclusions in basic cases."""

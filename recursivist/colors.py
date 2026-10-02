@@ -32,9 +32,9 @@ def color_distance(color1: tuple[int, int, int], color2: tuple[int, int, int]) -
 
     Args:
         color1: First color as an ``(r, g, b)`` tuple with component values in the range
-            ``0``–``255``.
+            ``0``-``255``.
         color2: Second color as an ``(r, g, b)`` tuple with component values in the
-            range ``0``–``255``.
+            range ``0``-``255``.
 
     Returns:
         A non-negative float representing the perceptual distance; ``0.0`` means the
@@ -59,7 +59,7 @@ def hex_to_rgb(hex_color: str) -> tuple[int, int, int]:
             ``"#FF5733"`` or ``"FF5733"``).
 
     Returns:
-        A three-tuple of integers ``(red, green, blue)`` in the range ``0``–``255``.
+        A three-tuple of integers ``(red, green, blue)`` in the range ``0``-``255``.
     """
     hex_color = hex_color.lstrip("#")
     return cast(
@@ -71,7 +71,7 @@ def rgb_to_hex(color: tuple[int, int, int]) -> str:
     """Convert an ``(r, g, b)`` tuple to a CSS hex color string.
 
     Args:
-        color: Three-tuple of integers ``(red, green, blue)`` in the range ``0``–``255``
+        color: Three-tuple of integers ``(red, green, blue)`` in the range ``0``-``255``
 
     Returns:
         A lowercase six-digit hex color string prefixed with ``'#'``.
@@ -83,12 +83,12 @@ def relative_luminance(color: tuple[int, int, int]) -> float:
     """Calculate the WCAG relative luminance of an sRGB color.
 
     Implements the definition given in WCAG 2.1: each channel is normalised to
-    ``0``–``1``, linearised to remove the sRGB transfer function, and then combined with
+    ``0``-``1``, linearised to remove the sRGB transfer function, and then combined with
     the standard luminance coefficients.
 
     Args:
         color: Color as an ``(r, g, b)`` tuple with component values in the range
-            ``0``–``255``.
+            ``0``-``255``.
 
     Returns:
         The relative luminance, from ``0.0`` (black) to ``1.0`` (white).
@@ -109,9 +109,9 @@ def contrast_ratio(color1: tuple[int, int, int], color2: tuple[int, int, int]) -
 
     Args:
         color1: First color as an ``(r, g, b)`` tuple with component values in the range
-            ``0``–``255``.
+            ``0``-``255``.
         color2: Second color as an ``(r, g, b)`` tuple with component values in the
-            range ``0``–``255``.
+            range ``0``-``255``.
 
     Returns:
         The contrast ratio, from ``1.0`` (identical luminance) to ``21.0`` (black
