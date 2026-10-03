@@ -77,7 +77,8 @@ recursivist export --format md --icon-style nerd
 All filtering options, plus depth limiting and full paths, work exactly as they do for `visualize`:
 
 ```bash
-recursivist export --format md \
+recursivist export \
+  --format md \
   --exclude node_modules --exclude .git \
   --exclude-ext .pyc \
   --exclude-pattern "*.test.js" \
@@ -266,7 +267,8 @@ recursivist export --format md --depth 2 --exclude node_modules --exclude .git -
 recursivist export src --format json --full-path --sort-by-loc --size --prefix source-structure
 
 # A filtered SVG focused on source files
-recursivist export --format svg \
+recursivist export \
+  --format svg \
   --include-pattern "*.py" --include-pattern "*.md" \
   --output-dir ./assets \
   --prefix directory-structure \

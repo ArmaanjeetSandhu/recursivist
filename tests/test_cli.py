@@ -891,7 +891,7 @@ def test_compare_github_default_branch_matches_explicit_ref_rejected(
     runner: CliRunner, caplog: pytest.LogCaptureFixture
 ) -> None:
     with mock.patch(
-        "recursivist.cli.resolve_commit_shas", return_value=["a" * 40, "a" * 40]
+        "recursivist.github.resolve_commit_shas", return_value=["a" * 40, "a" * 40]
     ):
         result = runner.invoke(
             app,
@@ -909,7 +909,7 @@ def test_compare_github_distinct_refs_same_commit_rejected(
     runner: CliRunner, caplog: pytest.LogCaptureFixture
 ) -> None:
     with mock.patch(
-        "recursivist.cli.resolve_commit_shas",
+        "recursivist.github.resolve_commit_shas",
         return_value=["abc1234" * 5 + "def12", "abc1234" * 5 + "def12"],
     ):
         result = runner.invoke(
@@ -928,7 +928,7 @@ def test_compare_github_explicit_ref_differs_from_default_allowed(
     runner: CliRunner,
 ) -> None:
     with mock.patch(
-        "recursivist.cli.resolve_commit_shas", return_value=["a" * 40, "b" * 40]
+        "recursivist.github.resolve_commit_shas", return_value=["a" * 40, "b" * 40]
     ):
         with mock.patch("recursivist.cli.display_comparison") as display:
             result = runner.invoke(
@@ -947,7 +947,7 @@ def test_compare_github_different_refs_different_commits_allowed(
     runner: CliRunner,
 ) -> None:
     with mock.patch(
-        "recursivist.cli.resolve_commit_shas", return_value=["a" * 40, "b" * 40]
+        "recursivist.github.resolve_commit_shas", return_value=["a" * 40, "b" * 40]
     ):
         with mock.patch("recursivist.cli.display_comparison") as display:
             result = runner.invoke(
@@ -963,7 +963,7 @@ def test_compare_github_different_refs_different_commits_allowed(
 
 
 def test_compare_github_identical_refs_no_resolution(runner: CliRunner) -> None:
-    with mock.patch("recursivist.cli.resolve_commit_shas") as resolve:
+    with mock.patch("recursivist.github.resolve_commit_shas") as resolve:
         result = runner.invoke(
             app,
             [

@@ -141,7 +141,8 @@ recursivist visualize --exclude node_modules --exclude .git --sort-by-mtime
 Every filtering option works the same way with `export` and `compare`:
 
 ```bash
-recursivist export --format md \
+recursivist export \
+  --format md \
   --exclude node_modules --exclude .git \
   --exclude-ext ".log" \
   --include-pattern "*.py" --include-pattern "*.md"

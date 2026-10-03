@@ -7,7 +7,8 @@ More involved workflows that combine Recursivist with other tools. For everyday 
 Export a detailed JSON tree, then mine it with [jq](https://jqlang.org). With a detail flag enabled, every file is an object carrying `path`, `loc`, and/or `size`:
 
 ```bash
-recursivist export --format json --full-path \
+recursivist export \
+  --format json --full-path \
   --exclude node_modules --exclude .git \
   --prefix structure --sort-by-loc --size
 ```
@@ -115,7 +116,8 @@ jobs:
             - run: pip install recursivist
             - run: |
                   mkdir -p docs
-                  recursivist export --format md \
+                  recursivist export \
+                    --format md \
                     --exclude node_modules --exclude .git \
                     --output-dir ./docs --prefix structure --sort-by-loc
             - run: |

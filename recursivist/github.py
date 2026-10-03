@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import logging
 import os
+import posixpath
 import re
 import shutil
 import tarfile
@@ -39,7 +40,7 @@ import urllib.parse
 import urllib.request
 from collections.abc import Iterator
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, cast
 
 from recursivist._models import FileEntry
@@ -149,13 +150,15 @@ class RepoCheckout:
 
     Attributes:
         target: The [`GitHubTarget`][recursivist.github.GitHubTarget] that was checked
-            out.
+            out. Its ``subpath`` always names the scanned directory: when the requested
+            subpath pointed at a file, it is that file's parent directory.
         local_root: Absolute path to the directory to scan — the extracted repository
-            root, or the requested subpath within it.
+            root, or the requested subpath within it (the containing directory, when the
+            subpath pointed at a file).
         ref: The concrete ref that was downloaded (the pinned ref, or the resolved
             default branch).
         root_name: The display name for the scanned root (the repository name, or the
-            last segment of the subpath).
+            last segment of the scanned subpath).
     """
 
     target: GitHubTarget
@@ -198,6 +201,12 @@ def parse_github_url(text: str) -> GitHubTarget | None:
     from ``src``. When such an argument names an existing local file or directory, it is
     treated as that local path and ``None`` is returned. A URL with an explicit
     ``http(s)://`` scheme, or the SSH form, is always treated as GitHub.
+
+    The subpath is returned as written, whether it names a directory or a file: the two
+    cannot be told apart from the URL alone. A subpath that turns out to be a file — as
+    in the ``/blob/<ref>/<file>`` URL of a GitHub file page — is resolved to its
+    containing directory by
+    [`checkout_repository`][recursivist.github.checkout_repository].
 
     When a ``/tree`` or ``/blob`` selector is present, the segment immediately after it
     is taken as the ref and everything beyond it as the subpath. Refs that themselves
@@ -441,6 +450,56 @@ def commit_shas_equal(sha1: str | None, sha2: str | None) -> bool:
     return len(shorter) >= 7 and longer.startswith(shorter)
 
 
+def same_github_target(
+    target1: GitHubTarget,
+    target2: GitHubTarget,
+    token: str | None = None,
+) -> bool:
+    """Return whether two GitHub targets refer to the same scanned tree.
+
+    Owner and repository names are compared case-insensitively because GitHub treats
+    them that way, while the subpath is compared case-sensitively because file paths are
+    case-sensitive.
+
+    When both sides pin the same ref (or neither does, so both use the default branch),
+    no network access is needed. Otherwise the two refs are resolved to the commits they
+    point at and compared, so that distinct refs that name the same commit — a branch
+    and a tag on the same tip, a branch and the default branch, or a branch and an
+    explicit commit SHA — are recognized as the same. If either ref cannot be resolved
+    (repository missing, private, unreachable, or the ref does not exist), the targets
+    are treated as *not* the same so the normal comparison flow can surface the real
+    error rather than a misleading "compare with itself" message.
+
+    Subpaths are compared as given. A subpath that names a file is only resolved to its
+    containing directory by
+    [`checkout_repository`][recursivist.github.checkout_repository], so two URLs for
+    different files in one directory are recognized as the same tree only when the
+    targets passed here are the checked-out ones (`RepoCheckout.target`).
+
+    Args:
+        target1: The first GitHub target.
+        target2: The second GitHub target.
+        token: Optional GitHub token used for the ref lookups.
+
+    Returns:
+        ``True`` if both targets resolve to the same repository, commit and subtree,
+        else ``False``.
+    """
+    if (
+        target1.owner.lower() != target2.owner.lower()
+        or target1.repo.lower() != target2.repo.lower()
+        or target1.subpath != target2.subpath
+    ):
+        return False
+    if target1.ref == target2.ref:
+        return True
+    try:
+        sha1, sha2 = resolve_commit_shas(target1, [target1.ref, target2.ref], token)
+    except GitHubError:
+        return False
+    return commit_shas_equal(sha1, sha2)
+
+
 def _download_archive(
     target: GitHubTarget, ref: str, token: str | None, dest: str
 ) -> None:
@@ -510,16 +569,24 @@ def _safe_extract(archive_path: str, dest_dir: str) -> None:
         raise GitHubError(f"Could not extract repository archive: {exc}") from exc
 
 
-def _locate_root(extract_dir: str, target: GitHubTarget) -> str:
+def _locate_root(extract_dir: str, target: GitHubTarget) -> tuple[str, str]:
     """Return the directory to scan within a freshly extracted archive.
 
     GitHub archives contain a single top-level directory (``<repo>-<ref>``); this
     returns that directory, descending into `GitHubTarget.subpath` when one was
-    requested.
+    requested. A subpath that names a file rather than a directory — as in the
+    ``/blob/<ref>/<file>`` URL of a GitHub file page — resolves to the directory that
+    contains the file.
+
+    Returns:
+        A ``(directory, subpath)`` tuple: the absolute path of the directory to scan,
+        and that directory's forward-slashed path within the repository (``""`` for the
+        repository root). The subpath differs from `GitHubTarget.subpath` only when the
+        latter named a file.
 
     Raises:
         GitHubError: If the archive layout is unexpected or the requested subpath does
-            not exist or is not a directory.
+            not exist.
     """
     entries = [e for e in os.listdir(extract_dir) if not e.startswith(".")]
     if len(entries) != 1:
@@ -527,14 +594,15 @@ def _locate_root(extract_dir: str, target: GitHubTarget) -> str:
         if len(entries) != 1:
             raise GitHubError(f"Unexpected archive layout for '{target.slug}'.")
     root = os.path.join(extract_dir, entries[0])
-    if target.subpath:
-        candidate = os.path.join(root, target.subpath.replace("/", os.sep))
-        if not _is_within(root, candidate) or not os.path.isdir(candidate):
-            raise GitHubError(
-                f"Path '{target.subpath}' was not found in '{target.slug}'."
-            )
-        return candidate
-    return root
+    if not target.subpath:
+        return root, ""
+    candidate = os.path.join(root, target.subpath.replace("/", os.sep))
+    if _is_within(root, candidate):
+        if os.path.isdir(candidate):
+            return candidate, target.subpath
+        if os.path.isfile(candidate):
+            return os.path.dirname(candidate), posixpath.dirname(target.subpath)
+    raise GitHubError(f"Path '{target.subpath}' was not found in '{target.slug}'.")
 
 
 @contextmanager
@@ -547,6 +615,10 @@ def checkout_repository(
     downloads the source archive, and safely extracts it. The extracted files are
     removed when the context exits.
 
+    When the target's subpath names a file rather than a directory, the directory
+    containing that file is checked out instead, and the yielded checkout's ``target``
+    carries that directory as its subpath.
+
     Args:
         target: The repository (and optional subtree) to check out.
         token: Optional GitHub token; defaults to
@@ -557,7 +629,8 @@ def checkout_repository(
         extraction.
 
     Raises:
-        GitHubError: If the repository cannot be resolved, downloaded, or extracted.
+        GitHubError: If the repository cannot be resolved, downloaded, or extracted, or
+            the requested subpath does not exist in it.
     """
     if token is None:
         token = get_github_token()
@@ -571,7 +644,14 @@ def checkout_repository(
         os.makedirs(extract_dir, exist_ok=True)
         _safe_extract(archive_path, extract_dir)
         os.remove(archive_path)
-        local_root = _locate_root(extract_dir, target)
+        local_root, subpath = _locate_root(extract_dir, target)
+        if subpath != target.subpath:
+            logger.info(
+                "'%s' is a file in '%s'; scanning its containing directory instead",
+                target.subpath,
+                target.slug,
+            )
+            target = replace(target, subpath=subpath)
         yield RepoCheckout(
             target=target,
             local_root=local_root,

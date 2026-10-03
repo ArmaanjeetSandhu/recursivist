@@ -59,14 +59,12 @@ from recursivist.filtering import compile_regex_patterns
 from recursivist.flags import DisplayOptions, resolve_display_options
 from recursivist.git_status import get_git_status
 from recursivist.github import (
-    GitHubError,
     GitHubTarget,
     apply_github_urls,
     checkout_repository,
-    commit_shas_equal,
     get_github_token,
     parse_github_url,
-    resolve_commit_shas,
+    same_github_target,
 )
 from recursivist.scanner import get_directory_structure
 from recursivist.tree import display_tree
@@ -744,50 +742,6 @@ def _log_ignored_remote_flags(
         )
 
 
-def _same_github_target(
-    target1: GitHubTarget,
-    target2: GitHubTarget,
-    token: str | None,
-) -> bool:
-    """Return whether two GitHub targets refer to the same scanned tree.
-
-    Owner and repository names are compared case-insensitively because GitHub treats
-    them that way, while the subpath is compared case-sensitively because file paths are
-    case-sensitive.
-
-    When both sides pin the same ref (or neither does, so both use the default branch),
-    no network access is needed. Otherwise the two refs are resolved to the commits they
-    point at and compared, so that distinct refs that name the same commit — a branch
-    and a tag on the same tip, a branch and the default branch, or a branch and an
-    explicit commit SHA — are recognized as the same. If either ref cannot be resolved
-    (repository missing, private, unreachable, or the ref does not exist), the targets
-    are treated as *not* the same so the normal comparison flow can surface the real
-    error rather than a misleading "compare with itself" message.
-
-    Args:
-        target1: The first parsed GitHub target.
-        target2: The second parsed GitHub target.
-        token: Optional GitHub token used for the ref lookups.
-
-    Returns:
-        ``True`` if both targets resolve to the same repository, commit and subtree,
-        else ``False``.
-    """
-    if (
-        target1.owner.lower() != target2.owner.lower()
-        or target1.repo.lower() != target2.repo.lower()
-        or target1.subpath != target2.subpath
-    ):
-        return False
-    if target1.ref == target2.ref:
-        return True
-    try:
-        sha1, sha2 = resolve_commit_shas(target1, [target1.ref, target2.ref], token)
-    except GitHubError:
-        return False
-    return commit_shas_equal(sha1, sha2)
-
-
 def _compare_inputs_are_same(
     dir1: str,
     dir2: str,
@@ -803,8 +757,8 @@ def _compare_inputs_are_same(
     The two inputs are considered the same when:
 
     * both are GitHub repositories that resolve to the same repository, ref and subtree
-      — see `_same_github_target` for how owner/repo case-insensitivity and the default
-      branch are handled; or
+      — see [`same_github_target`][recursivist.github.same_github_target] for how
+      owner/repo case-insensitivity and the default branch are handled; or
     * both are local directories whose resolved absolute paths are equal, so that
       ``dir`` and ``dir/``, relative and absolute spellings, and symlinks pointing at
       the same location are all recognized as identical.
@@ -821,7 +775,7 @@ def _compare_inputs_are_same(
         ``True`` if the two inputs refer to the same target, else ``False``.
     """
     if target1 is not None and target2 is not None:
-        return _same_github_target(target1, target2, get_github_token())
+        return same_github_target(target1, target2, get_github_token())
     if target1 is None and target2 is None:
         try:
             return Path(dir1).resolve() == Path(dir2).resolve()

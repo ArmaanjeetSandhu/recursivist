@@ -175,7 +175,8 @@ jobs:
             - run: pip install recursivist
             - run: |
                   mkdir -p docs
-                  recursivist export --format md \
+                  recursivist export \
+                    --format md \
                     --exclude node_modules --exclude .git \
                     --output-dir ./docs --prefix structure --sort-by-loc
             - run: |

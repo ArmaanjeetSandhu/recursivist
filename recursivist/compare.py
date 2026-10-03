@@ -27,9 +27,12 @@ from recursivist.flags import METRIC_GIT, METRIC_MTIME, DisplayOptions
 from recursivist.git_status import get_git_status
 from recursivist.github import (
     GitHubTarget,
+    RepoCheckout,
     apply_github_urls,
     checkout_repository,
+    get_github_token,
     parse_github_url,
+    same_github_target,
 )
 from recursivist.icons import get_icon
 from recursivist.metrics import (
@@ -191,6 +194,60 @@ def compare_directory_structures(
 
     Any exclude/include filter that matched no entry on *either* side is logged as a
     warning once both scans finish.
+
+    Raises:
+        ValueError: If two GitHub URLs that point at files resolve to the same
+            directory of the same commit, leaving nothing to compare.
+    """
+    structure1, structure2, _ = _scan_sides(
+        dir1,
+        dir2,
+        exclude_dirs,
+        ignore_file,
+        exclude_extensions,
+        exclude_patterns=exclude_patterns,
+        include_patterns=include_patterns,
+        max_depth=max_depth,
+        show_full_path=show_full_path,
+        spec=spec,
+        targets=targets,
+    )
+    return structure1, structure2
+
+
+def _scan_sides(
+    dir1: str,
+    dir2: str,
+    exclude_dirs: Sequence[str] | None = None,
+    ignore_file: str | None = None,
+    exclude_extensions: set[str] | None = None,
+    exclude_patterns: Sequence[str | Pattern[str]] | None = None,
+    include_patterns: Sequence[str | Pattern[str]] | None = None,
+    max_depth: int = 0,
+    show_full_path: bool = False,
+    spec: DisplayOptions | None = None,
+    *,
+    targets: _Targets | None = None,
+) -> tuple[dict[str, Any], dict[str, Any], _Targets]:
+    """Scan both comparison inputs and report what each GitHub side resolved to.
+
+    Does the work of
+    [`compare_directory_structures`][recursivist.compare.compare_directory_structures],
+    whose arguments it shares, and additionally returns the targets as checked out. A
+    GitHub URL that points at a file is scanned from the directory containing that file,
+    which is only known once the repository has been downloaded; the returned targets
+    carry that directory as their subpath, so callers can label each side after the
+    directory actually scanned.
+
+    Returns:
+        A ``(structure1, structure2, targets)`` tuple: each input's structure, and the
+        ``(target1, target2)`` pair as resolved by
+        [`checkout_repository`][recursivist.github.checkout_repository] (``None`` for a
+        local side).
+
+    Raises:
+        ValueError: If two GitHub URLs that point at files resolve to the same
+            directory of the same commit, leaving nothing to compare.
     """
     if spec is None:
         spec = DisplayOptions()
@@ -201,12 +258,15 @@ def compare_directory_structures(
         exclude_dirs, exclude_extensions, exclude_patterns, include_patterns
     )
 
-    def _side(
-        stack: contextlib.ExitStack,
-        raw: str,
-        target: GitHubTarget | None,
-    ) -> dict[str, Any]:
+    def _checkout(
+        stack: contextlib.ExitStack, target: GitHubTarget | None
+    ) -> RepoCheckout | None:
         if target is None:
+            return None
+        return stack.enter_context(checkout_repository(target))
+
+    def _side(raw: str, checkout: RepoCheckout | None) -> dict[str, Any]:
+        if checkout is None:
             return _scan_one_side(
                 raw,
                 exclude_dirs,
@@ -219,7 +279,6 @@ def compare_directory_structures(
                 spec,
                 tracker,
             )
-        checkout = stack.enter_context(checkout_repository(target))
         structure = _scan_one_side(
             checkout.local_root,
             exclude_dirs,
@@ -237,10 +296,49 @@ def compare_directory_structures(
         return structure
 
     with contextlib.ExitStack() as stack:
-        structure1 = _side(stack, dir1, target1)
-        structure2 = _side(stack, dir2, target2)
+        checkout1 = _checkout(stack, target1)
+        checkout2 = _checkout(stack, target2)
+        resolved: _Targets = (
+            checkout1.target if checkout1 is not None else None,
+            checkout2.target if checkout2 is not None else None,
+        )
+        _reject_same_resolved_target((target1, target2), resolved)
+        structure1 = _side(dir1, checkout1)
+        structure2 = _side(dir2, checkout2)
     tracker.report("in either directory")
-    return structure1, structure2
+    return structure1, structure2, resolved
+
+
+def _reject_same_resolved_target(parsed: _Targets, resolved: _Targets) -> None:
+    """Raise if two GitHub inputs turned out to name the same directory.
+
+    Two URLs that point at different files in one directory look like different targets
+    until they are checked out, at which point each resolves to that shared directory.
+    Comparing it against itself yields a diff in which everything is shared, so it is
+    rejected here, before either side is scanned.
+
+    Targets that the checkout left as parsed are not re-examined: it revealed nothing
+    further about them, and whether such inputs are the same is the caller's call.
+
+    Args:
+        parsed: The ``(target1, target2)`` pair as parsed from the inputs.
+        resolved: The same pair as checked out.
+
+    Raises:
+        ValueError: If both sides are GitHub targets, at least one was resolved from a
+            file to its containing directory, and the resolved targets refer to the same
+            repository, commit and directory.
+    """
+    resolved1, resolved2 = resolved
+    if resolved1 is None or resolved2 is None or resolved == parsed:
+        return
+    if same_github_target(resolved1, resolved2, get_github_token()):
+        where = f"'{resolved1.subpath}' in" if resolved1.subpath else "the root of"
+        raise ValueError(
+            f"cannot compare {where} '{resolved1.slug}' with itself (both URLs "
+            "resolve to that directory); please provide two different directories "
+            "or repositories"
+        )
 
 
 _GIT_BADGE_MARKERS = frozenset({"U", "M", "A", "D"})
@@ -731,7 +829,9 @@ def _side_display_name(raw: str, target: GitHubTarget | None) -> str:
 
     Args:
         raw: The raw input for one side of the comparison.
-        target: The GitHub target parsed from *raw*, or ``None`` for a local path.
+        target: The GitHub target for *raw* as checked out — so that a URL pointing at a
+            file is named after the directory scanned in its place — or ``None`` for a
+            local path.
 
     Returns:
         A short display name for the side.
@@ -862,8 +962,7 @@ def display_comparison(
     compiled_exclude = compile_regex_patterns(exclude_patterns, use_regex)
     compiled_include = compile_regex_patterns(include_patterns, use_regex)
     targets = _resolve_targets(dir1, dir2, targets)
-    target1, target2 = targets
-    structure1, structure2 = compare_directory_structures(
+    structure1, structure2, (target1, target2) = _scan_sides(
         dir1,
         dir2,
         exclude_dirs,
@@ -1086,8 +1185,7 @@ def export_comparison(
     compiled_exclude = compile_regex_patterns(exclude_patterns, use_regex)
     compiled_include = compile_regex_patterns(include_patterns, use_regex)
     targets = _resolve_targets(dir1, dir2, targets)
-    target1, target2 = targets
-    structure1, structure2 = compare_directory_structures(
+    structure1, structure2, (target1, target2) = _scan_sides(
         dir1,
         dir2,
         exclude_dirs,

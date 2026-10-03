@@ -796,13 +796,13 @@ class TestDisplayComparison:
     def test_display_comparison(self, dir1: str, dir2: str) -> None:
         """Test that display_comparison calls the necessary functions."""
         with (
-            patch("recursivist.compare.compare_directory_structures") as mock_compare,
+            patch("recursivist.compare._scan_sides") as mock_compare,
             patch("recursivist.compare.Console") as mock_console,
             patch("recursivist.compare.build_comparison_tree") as mock_build_tree,
             patch("recursivist.compare.Tree") as mock_tree,
         ):
             mock_console.return_value.width = 100
-            mock_compare.return_value = ({"_files": []}, {"_files": []})
+            mock_compare.return_value = ({"_files": []}, {"_files": []}, (None, None))
             display_comparison(dir1, dir2)
             mock_compare.assert_called_once()
             mock_tree.assert_called()
@@ -814,9 +814,9 @@ class TestDisplayComparison:
     def test_display_comparison_with_options(self, dir1: str, dir2: str) -> None:
         """Test display_comparison with various options."""
         with (
-            patch("recursivist.compare.compare_directory_structures") as mock_compare,
+            patch("recursivist.compare._scan_sides") as mock_compare,
         ):
-            mock_compare.return_value = ({"_files": []}, {"_files": []})
+            mock_compare.return_value = ({"_files": []}, {"_files": []}, (None, None))
             display_comparison(
                 dir1,
                 dir2,
@@ -857,10 +857,10 @@ class TestExportComparison:
     def test_export_comparison(self, dir1: str, dir2: str, output_path: str) -> None:
         """Test that export_comparison exports to HTML."""
         with (
-            patch("recursivist.compare.compare_directory_structures") as mock_compare,
+            patch("recursivist.compare._scan_sides") as mock_compare,
             patch("recursivist.compare._export_comparison_to_html") as mock_export_html,
         ):
-            mock_compare.return_value = ({"_files": []}, {"_files": []})
+            mock_compare.return_value = ({"_files": []}, {"_files": []}, (None, None))
             export_comparison(dir1, dir2, "html", output_path)
             mock_export_html.assert_called_once()
 
@@ -889,10 +889,10 @@ class TestExportComparison:
     ) -> None:
         """Test export_comparison with various options."""
         with (
-            patch("recursivist.compare.compare_directory_structures") as mock_compare,
+            patch("recursivist.compare._scan_sides") as mock_compare,
             patch("recursivist.compare._export_comparison_to_html") as _,
         ):
-            mock_compare.return_value = ({"_files": []}, {"_files": []})
+            mock_compare.return_value = ({"_files": []}, {"_files": []}, (None, None))
             export_comparison(
                 dir1,
                 dir2,
@@ -1691,8 +1691,8 @@ class TestCompareRemoteIdentity:
     ) -> None:
         """The terminal entry point passes the reduced identity spec downstream."""
         mocker.patch(
-            "recursivist.compare.compare_directory_structures",
-            return_value=({"_files": []}, {"_files": []}),
+            "recursivist.compare._scan_sides",
+            return_value=({"_files": []}, {"_files": []}, (None, _GITHUB_TARGET)),
         )
         mock_console = MagicMock()
         mock_console.width = 100
@@ -1728,8 +1728,8 @@ class TestCompareRemoteIdentity:
         local = {"_files": [FileEntry(name="a.py", path="a.py", loc=5, mtime=1.6e9)]}
         remote = {"_files": [FileEntry(name="a.py", path="a.py", loc=5, mtime=0.0)]}
         mocker.patch(
-            "recursivist.compare.compare_directory_structures",
-            return_value=(local, remote),
+            "recursivist.compare._scan_sides",
+            return_value=(local, remote, (None, _GITHUB_TARGET)),
         )
         out = str(tmp_path / "cmp.html")
         export_comparison(
@@ -1756,8 +1756,8 @@ class TestCompareRemoteIdentity:
         left = {"_files": [FileEntry(name="a.py", path="a.py", loc=5, mtime=1.6e9)]}
         right = {"_files": [FileEntry(name="a.py", path="a.py", loc=5, mtime=0.0)]}
         mocker.patch(
-            "recursivist.compare.compare_directory_structures",
-            return_value=(left, right),
+            "recursivist.compare._scan_sides",
+            return_value=(left, right, (None, None)),
         )
         out = str(tmp_path / "cmp.html")
         export_comparison(
