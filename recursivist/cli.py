@@ -46,6 +46,7 @@ from recursivist.compare import (
 from recursivist.config import (
     CONFIG_KEYS,
     IconStyle,
+    get_config_path,
     read_config_file,
     resolve_config,
     save_config,
@@ -331,6 +332,26 @@ def config_unset(
 
     save_config(remaining)
     typer.echo(f"Configuration updated: {key} unset")
+
+
+@config_app.command("path")
+def config_path() -> None:
+    """Print the path of the user configuration file.
+
+    This is the global file that `config set` and `config unset` edit. Its location
+    follows each platform's convention for application data, so it differs between
+    operating systems. The path is the only output, on a line of its own, which makes
+    the command usable in a shell substitution.
+
+    Nothing is read, created, or changed: the path is printed whether or not the file
+    exists, and the file is absent until `config set` saves a value. Project
+    configuration files are not reported.
+
+    Examples:
+        >>> recursivist config path
+        >>> cat "$(recursivist config path)"
+    """
+    typer.echo(get_config_path())
 
 
 def _configure_logging(ctx: typer.Context) -> None:

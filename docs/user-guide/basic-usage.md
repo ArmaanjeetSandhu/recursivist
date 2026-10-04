@@ -52,7 +52,7 @@ recursivist config set icon-style nerd
 recursivist config set icon-style emoji
 ```
 
-The preference is stored in a JSON config file in your platform's application-data directory (for example, `~/.config/recursivist/config.json` on Linux). Remove it with `recursivist config unset icon-style`. Override it for a single run with `--icon-style`:
+The preference is stored in a JSON config file in your platform's application-data directory (for example, `~/.config/recursivist/config.json` on Linux); `recursivist config path` prints its exact location. Remove the preference with `recursivist config unset icon-style`. Override it for a single run with `--icon-style`:
 
 ```bash
 recursivist visualize --icon-style nerd

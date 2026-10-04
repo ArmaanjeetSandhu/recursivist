@@ -28,9 +28,13 @@ def isolated_user_config(
     would otherwise get Nerd Font glyphs where the tests expect emoji. Pointing the
     configuration path at an empty temporary directory makes the suite see the built-in
     defaults on any machine, and keeps a test from ever writing to the real file.
+
+    The CLI module holds its own reference to the path function, for ``config path``,
+    so it is redirected as well and reports the same temporary file.
     """
     config_path = tmp_path_factory.mktemp("config") / "config.json"
-    monkeypatch.setattr("recursivist.config.get_config_path", lambda: config_path)
+    for module in ("recursivist.config", "recursivist.cli"):
+        monkeypatch.setattr(f"{module}.get_config_path", lambda: config_path)
 
 
 @pytest.fixture
