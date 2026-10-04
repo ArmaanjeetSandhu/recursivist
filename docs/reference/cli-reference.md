@@ -237,6 +237,7 @@ Manage persistent user preferences, stored as JSON in your platform's applicatio
 ```bash
 recursivist config set KEY VALUE
 recursivist config unset KEY
+recursivist config get KEY
 recursivist config path
 ```
 
@@ -247,6 +248,8 @@ recursivist config path
 
 `config set` saves a value. `config unset` removes a saved value, so the setting falls back to its default. `unset` accepts any key, including one Recursivist does not recognize, which makes it the way to clear an entry that is reported with a warning. Both commands change only the key they are given and leave the rest of the file untouched.
 
+`config get` prints the value of a setting: the one saved in the file, or the built-in default when none is saved or the saved one is invalid. The value is the only thing written to standard output, so it can be captured in a script; warnings about the file, and the error for a key Recursivist does not recognize, go to standard error. It reads only your user preferences, so a [project configuration](#project-configuration) or a command-line flag can still override the printed value for a run. Nothing is created or changed.
+
 `config path` prints where the file is on your system. The path is the only output, so it can be passed straight to another command. It takes no arguments and never reads or creates the file: the path is printed whether or not the file exists, and the file is absent until `config set` saves a value. A [project configuration](#project-configuration) file is not reported.
 
 ### Examples
@@ -255,6 +258,8 @@ recursivist config path
 recursivist config set icon-style nerd
 recursivist config set icon-style emoji
 recursivist config unset icon-style
+recursivist config get icon-style
+recursivist export --icon-style "$(recursivist config get icon-style)"   # export with your saved style
 recursivist config path
 cat "$(recursivist config path)"   # show your saved preferences
 ```

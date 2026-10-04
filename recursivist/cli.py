@@ -78,6 +78,7 @@ app = typer.Typer(
 console = Console()
 
 _RAW_ARGS_KEY = "recursivist.raw_args"
+_LOG_HANDLER_KEY = "recursivist.log_handler"
 
 
 class _ArgsRecordingCommand(TyperCommand):
@@ -254,6 +255,27 @@ def _without_setting(stored: dict[str, Any], config_key: str) -> dict[str, Any]:
     }
 
 
+def _known_config_key(key: str) -> str:
+    """Return a recognized configuration key in its stored, underscored form.
+
+    Args:
+        key: The key as given on the command line, written with dashes or underscores.
+
+    Returns:
+        The key as it appears in `CONFIG_KEYS`.
+
+    Raises:
+        typer.Exit: With exit code ``1``, after logging the valid keys, if *key* is not
+            a recognized configuration key.
+    """
+    config_key = key.replace("-", "_")
+    if config_key not in CONFIG_KEYS:
+        valid_keys = ", ".join(k.replace("_", "-") for k in CONFIG_KEYS)
+        logger.error("Unknown configuration key: %s. Valid keys: %s.", key, valid_keys)
+        raise typer.Exit(1)
+    return config_key
+
+
 @config_app.command("set")
 def config_set(
     key: Annotated[str, typer.Argument(help="Configuration key (e.g., icon-style)")],
@@ -279,12 +301,7 @@ def config_set(
         >>> recursivist config set icon-style nerd
         >>> recursivist config set icon-style emoji
     """
-    config_key = key.replace("-", "_")
-
-    if config_key not in CONFIG_KEYS:
-        valid_keys = ", ".join(k.replace("_", "-") for k in CONFIG_KEYS)
-        logger.error("Unknown configuration key: %s. Valid keys: %s.", key, valid_keys)
-        raise typer.Exit(1)
+    config_key = _known_config_key(key)
 
     allowed_values = CONFIG_KEYS[config_key]
     if value not in allowed_values:
@@ -334,6 +351,44 @@ def config_unset(
     typer.echo(f"Configuration updated: {key} unset")
 
 
+@config_app.command("get")
+def config_get(
+    ctx: typer.Context,
+    key: Annotated[
+        str, typer.Argument(help="Configuration key to print (e.g., icon-style)")
+    ],
+) -> None:
+    """Print the value of a user configuration setting.
+
+    Prints the value saved in the global configuration file, the one `config set`
+    writes. When the key is not saved, or its saved value is not one the key accepts,
+    the built-in default is printed instead, so the output is always a valid value. The
+    key may be written with dashes or underscores (`icon-style` or `icon_style`).
+
+    Project configuration files are not consulted. A project file, or a command-line
+    flag such as `--icon-style`, can still override the printed value for a run.
+
+    The value is the only thing written to standard output, on a line of its own, which
+    makes the command usable in a shell substitution. Warnings about the configuration
+    file and the error for an unknown key go to standard error. Nothing is created or
+    changed.
+
+    Args:
+        ctx: The context of the running command.
+        key: The configuration key to print (e.g., "icon-style").
+
+    Raises:
+        typer.Exit: With exit code ``1`` if the key is not a recognized one.
+
+    Examples:
+        >>> recursivist config get icon-style
+        >>> recursivist export --icon-style "$(recursivist config get icon-style)"
+    """
+    _send_logs_to_stderr(ctx)
+    config_key = _known_config_key(key)
+    typer.echo(resolve_config()[config_key])
+
+
 @config_app.command("path")
 def config_path() -> None:
     """Print the path of the user configuration file.
@@ -363,6 +418,10 @@ def _configure_logging(ctx: typer.Context) -> None:
     command is running: importing this module configures nothing, the root logger is
     never touched, and a ``--verbose`` run leaves no DEBUG level behind in the process.
 
+    The handler writes to standard output. It is recorded on ``ctx`` so that a command
+    whose standard output is meant to be captured can redirect it with
+    `_send_logs_to_stderr`.
+
     Args:
         ctx: The context of the running application; the logging setup lives exactly as
             long as it does.
@@ -372,12 +431,31 @@ def _configure_logging(ctx: typer.Context) -> None:
     previous_level = logger.level
     logger.addHandler(handler)
     logger.setLevel(logging.INFO)
+    ctx.meta[_LOG_HANDLER_KEY] = handler
 
     def restore() -> None:
         logger.removeHandler(handler)
         logger.setLevel(previous_level)
 
     ctx.call_on_close(restore)
+
+
+def _send_logs_to_stderr(ctx: typer.Context) -> None:
+    """Write this invocation's log records to standard error.
+
+    Log records go to standard output by default, alongside whatever a command prints. A
+    command whose output is meant to be captured calls this first, so that a warning or
+    an error is still shown in the terminal without becoming part of the captured value.
+    Only the handler attached by `_configure_logging` is affected, and it is discarded
+    when the invocation finishes.
+
+    Args:
+        ctx: The context of the running command. It shares the application context's
+            metadata, where the handler is recorded.
+    """
+    handler: RichHandler | None = ctx.meta.get(_LOG_HANDLER_KEY)
+    if handler is not None:
+        handler.console = Console(stderr=True)
 
 
 @app.callback()

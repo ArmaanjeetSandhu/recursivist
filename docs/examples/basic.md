@@ -133,6 +133,9 @@ Set `GITHUB_TOKEN` (or `GH_TOKEN`) to raise rate limits and reach private reposi
 # Make Nerd Font icons the default
 recursivist config set icon-style nerd
 
+# Print your saved icon style
+recursivist config get icon-style
+
 # Print the location of your saved preferences
 recursivist config path
 
