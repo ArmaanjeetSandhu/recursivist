@@ -48,6 +48,7 @@ from recursivist.compare import (
 )
 from recursivist.config import (
     CONFIG_KEYS,
+    LIST_KEYS,
     ConfigLayer,
     IconStyle,
     accepts_value,
@@ -130,7 +131,8 @@ def _flag_order_inputs(ctx: typer.Context) -> tuple[list[str], set[str]]:
 
 
 HELP_EXCLUDE_DIRS = (
-    "Directory to exclude; repeat the flag for several (values may contain spaces)"
+    "Directory to exclude; repeat the flag for several (values may contain spaces). "
+    "Defaults to the project config, then the user config."
 )
 HELP_EXCLUDE_EXTS = "File extension to exclude; repeat the flag for several"
 HELP_EXCLUDE_PATTERNS = (
@@ -287,51 +289,91 @@ def _known_config_key(key: str) -> str:
     return config_key
 
 
+def _quoted(value: str | list[str]) -> str:
+    """Return a configuration value for a message, each string in single quotes.
+
+    A list is shown as its quoted strings separated by commas, so that names holding
+    spaces stay distinguishable.
+    """
+    strings = value if isinstance(value, list) else [value]
+    return ", ".join(f"'{string}'" for string in strings)
+
+
 @config_app.command("set")
 def config_set(
     key: Annotated[
-        str, typer.Argument(help="Configuration key (icon-style or ignore-file)")
+        str,
+        typer.Argument(help="Configuration key (icon-style, ignore-file, or exclude)"),
     ],
     value: Annotated[
-        str, typer.Argument(help="Configuration value (e.g., nerd or .gitignore)")
+        list[str],
+        typer.Argument(
+            help=(
+                "Configuration value (e.g., nerd or .gitignore); "
+                "exclude takes one or more directory names"
+            ),
+        ),
     ],
 ) -> None:
     """Set a persistent configuration value.
 
-    Writes a user preference to the global configuration file. Two keys are supported:
-    `icon-style`, which is either `emoji` or `nerd`, and `ignore-file`, which is the
-    name of the ignore file to honor (e.g. `.gitignore`) and can be any name that is
-    not blank. A project configuration file (`.recursivist.toml`, or
-    `[tool.recursivist]` in `pyproject.toml`) overrides the value saved here for the
-    directories it applies to.
+    Writes a user preference to the global configuration file. Three keys are supported:
+    `icon-style`, which is either `emoji` or `nerd`; `ignore-file`, which is the name of
+    the ignore file to honor (e.g. `.gitignore`) and can be any name that is not blank;
+    and `exclude`, which is the directories to exclude. A project configuration file
+    (`.recursivist.toml`, or `[tool.recursivist]` in `pyproject.toml`) overrides the
+    value saved here for the directories it applies to.
+
+    `exclude` takes one directory name per argument, so a name may contain spaces when
+    it is quoted. The names are normalized as those of `--exclude` are: surrounding
+    whitespace is trimmed and blank names are dropped, and a name given twice is kept
+    once. The names given replace the saved ones as a whole. Every other key takes
+    exactly one value.
 
     Args:
         key: The configuration key to set (e.g., "icon-style").
-        value: The value to assign to the key.
+        value: The value to assign to the key, as one argument, or one argument per
+            directory name for `exclude`.
 
     Raises:
-        typer.Exit: With exit code ``1`` if an invalid key or value is provided.
+        typer.Exit: With exit code ``1`` if an invalid key or value is provided, or
+            more than one value is given for a key that takes a single one.
 
     Examples:
         >>> recursivist config set icon-style nerd
         >>> recursivist config set icon-style emoji
         >>> recursivist config set ignore-file .gitignore
+        >>> recursivist config set exclude node_modules .git "Application Support"
     """
     config_key = _known_config_key(key)
 
-    if not accepts_value(config_key, value):
+    setting: str | list[str]
+    if config_key in LIST_KEYS:
+        setting = list(dict.fromkeys(parse_list_option(value)))
+    elif len(value) > 1:
         logger.error(
-            "Invalid value for %s: '%s'. Use %s.",
+            "%s takes a single value, but %d were given. "
+            "Quote a value that contains spaces.",
             key,
-            value,
+            len(value),
+        )
+        raise typer.Exit(1)
+    else:
+        setting = value[0]
+
+    if not accepts_value(config_key, setting):
+        logger.error(
+            "Invalid value for %s: %s. Use %s.",
+            key,
+            _quoted(value),
             describe_accepted_values(config_key),
         )
         raise typer.Exit(1)
 
     config = _without_setting(read_config_file(), config_key)
-    config[config_key] = value
+    config[config_key] = setting
     save_config(config)
-    typer.echo(f"Configuration updated: {key} = '{value}'")
+    typer.echo(f"Configuration updated: {key} = {_quoted(setting)}")
 
 
 @config_app.command("unset")
@@ -443,16 +485,18 @@ def config_get(
     writes. When the key is not saved, or its saved value is not one the key accepts,
     the built-in default is printed instead, so the output is always a valid value. The
     default of `ignore-file` is to honor no ignore file, which prints as an empty line;
-    passed to `--ignore-file`, an empty value likewise means no ignore file. The key may
-    be written with dashes or underscores (`icon-style` or `icon_style`).
+    passed to `--ignore-file`, an empty value likewise means no ignore file. The value
+    of `exclude` is printed one directory name per line, and its default, to exclude no
+    directory, prints nothing. The key may be written with dashes or underscores
+    (`icon-style` or `icon_style`).
 
     Project configuration files are not consulted. A project file, or a command-line
     flag such as `--icon-style`, can still override the printed value for a run.
 
-    The value is the only thing written to standard output, on a line of its own, which
-    makes the command usable in a shell substitution. Warnings about the configuration
-    file and the error for an unknown key go to standard error. Nothing is created or
-    changed.
+    The value is the only thing written to standard output, on a line of its own, or on
+    one line per directory name for `exclude`, which makes the command usable in a
+    shell substitution or a pipeline. Warnings about the configuration file and the
+    error for an unknown key go to standard error. Nothing is created or changed.
 
     Args:
         ctx: The context of the running command.
@@ -464,11 +508,17 @@ def config_get(
     Examples:
         >>> recursivist config get icon-style
         >>> recursivist config get ignore-file
+        >>> recursivist config get exclude
         >>> recursivist export --icon-style "$(recursivist config get icon-style)"
     """
     _send_logs_to_stderr(ctx)
     config_key = _known_config_key(key)
-    typer.echo(resolve_config()[config_key] or "")
+    value = resolve_config()[config_key]
+    if config_key in LIST_KEYS:
+        for item in value or []:
+            typer.echo(item)
+    else:
+        typer.echo(value or "")
 
 
 _NOT_SET = "(not set)"
@@ -484,8 +534,15 @@ def _effective_layer(layers: list[ConfigLayer]) -> ConfigLayer:
 
 
 def _shown_value(layer: ConfigLayer) -> str:
-    """Return a layer's value as plain text, ``(not set)`` when it has none."""
-    return _NOT_SET if layer.value is None else layer.value
+    """Return a layer's value as plain text, ``(not set)`` when it has none.
+
+    The strings of a list value are joined with commas.
+    """
+    if layer.value is None:
+        return _NOT_SET
+    if isinstance(layer.value, list):
+        return ", ".join(layer.value)
+    return layer.value
 
 
 def _layer_record(layer: ConfigLayer) -> dict[str, Any]:
@@ -600,11 +657,14 @@ def config_list(
     first layer that sets a valid value wins, and the listing names that layer and the
     file the value comes from:
 
-        icon-style  = nerd        (project: /path/to/project/.recursivist.toml)
-        ignore-file = .gitignore  (user: /home/user/.config/recursivist/config.json)
+        icon-style  = nerd         (project: /path/to/project/.recursivist.toml)
+        ignore-file = .gitignore   (user: /home/user/.config/recursivist/config.json)
+        exclude     = build, dist  (user: /home/user/.config/recursivist/config.json)
 
-    The built-in default of `ignore-file` is to honor no ignore file, so when no file
-    sets it, it is listed as `(not set)` with the origin `default`.
+    The built-in default of `ignore-file` is to honor no ignore file, and that of
+    `exclude` is to exclude no directory, so when no file sets one of them, it is
+    listed as `(not set)` with the origin `default`. The directory names of `exclude`
+    are listed on one line, separated by commas.
 
     With `--all`, the value of every layer is listed under the setting, from the
     highest precedence to the lowest. The winning layer is marked with `*`, and a layer
@@ -612,29 +672,33 @@ def config_list(
     exists, even when it does not set the value:
 
         icon-style = nerd
-          * project  nerd        /path/to/project/.recursivist.toml
-            user     emoji       /home/user/.config/recursivist/config.json
+          * project  nerd         /path/to/project/.recursivist.toml
+            user     emoji        /home/user/.config/recursivist/config.json
             default  emoji
         ignore-file = .gitignore
-            project  (not set)   /path/to/project/.recursivist.toml
-          * user     .gitignore  /home/user/.config/recursivist/config.json
+            project  (not set)    /path/to/project/.recursivist.toml
+          * user     .gitignore   /home/user/.config/recursivist/config.json
+            default  (not set)
+        exclude = build, dist
+            project  (not set)    /path/to/project/.recursivist.toml
+          * user     build, dist  /home/user/.config/recursivist/config.json
             default  (not set)
 
     With `--json`, the listing is a JSON object keyed by setting. Each entry holds the
     winning `value`, the `layer` it comes from (`project`, `user`, or `default`), and
     its `source` file, which is `null` for a built-in default. The `value` is `null`
-    for a setting that no layer sets. With `--all` as well, each entry also has a
-    `layers` array holding the same three fields for every layer; there, `value` is
-    `null` for a layer that does not set it and `source` is `null` for a layer that has
-    no file.
+    for a setting that no layer sets, and an array of directory names for `exclude`.
+    With `--all` as well, each entry also has a `layers` array holding the same three
+    fields for every layer; there, `value` is `null` for a layer that does not set it
+    and `source` is `null` for a layer that has no file.
 
     The listing is the only thing written to standard output, which makes the command
     usable in a pipeline. Warnings about a configuration file and the error for an
     invalid directory go to standard error. Nothing is created or changed.
 
-    A command-line flag such as `--icon-style` or `--ignore-file` still overrides the
-    listed value for a run, and file exports use the `emoji` icon style unless that flag
-    is given.
+    A command-line flag such as `--icon-style`, `--ignore-file`, or `--exclude` still
+    overrides the listed value for a run, and file exports use the `emoji` icon style
+    unless `--icon-style` is given.
 
     Args:
         ctx: The context of the running command.
@@ -1000,6 +1064,30 @@ def _choose_ignore_file(
     return _resolve_ignore_file(directories, ignore_file)
 
 
+def _choose_exclude_dirs(
+    exclude_dirs: list[str] | None,
+    configured: Callable[[], dict[str, Any]],
+) -> list[str] | None:
+    """Choose the directories to exclude from a scan.
+
+    The ``--exclude`` option wins whenever it is given: its values are used on their
+    own, without the configured ones, and an empty value there means that no directory
+    is excluded. Without the option, the ``exclude`` configuration setting is used.
+
+    Args:
+        exclude_dirs: Values of the ``--exclude`` option, or ``None`` when the option
+            was not supplied.
+        configured: Function giving the configuration in effect, as returned by
+            `_config_reader`. It is only called when the option was not supplied.
+
+    Returns:
+        The directory names to exclude, not yet normalized, or ``None`` for none.
+    """
+    if exclude_dirs is None:
+        return configured().get("exclude")
+    return exclude_dirs
+
+
 def _warn_if_ignore_file_missing(
     directory: Path, ignore_file: str | None, *, configured: bool = False
 ) -> None:
@@ -1279,7 +1367,12 @@ def visualize(
         directory: Root directory to visualize, or a GitHub repository URL. Must exist
             and be a directory when local. Defaults to the current working directory.
         exclude_dirs: Directory names to omit from the tree entirely (e.g.
-            ``["node_modules", ".git"]``).
+            ``["node_modules", ".git"]``). If not provided, falls back to the
+            ``exclude`` setting of the project configuration that applies to
+            *directory*, then to that of the persistent user config; with neither, no
+            directory is excluded. The names given replace the configured ones, and an
+            empty name alone excludes no directory for the run. A GitHub input has no
+            project configuration.
         exclude_extensions: File extensions to hide. Values are normalized so both
             ``"pyc"`` and ``".pyc"`` are accepted.
         exclude_patterns: Glob or regex patterns for file/directory names to exclude.
@@ -1399,7 +1492,7 @@ def visualize(
         parsed_exclude_patterns,
         parsed_include_patterns,
     ) = _parse_filter_options(
-        exclude_dirs,
+        _choose_exclude_dirs(exclude_dirs, configured),
         exclude_extensions,
         exclude_patterns,
         include_patterns,
@@ -1540,7 +1633,12 @@ def export(
             it does not exist. Defaults to the current working directory.
         output_prefix: Filename prefix shared by all exported files. Defaults to
             ``"structure"``.
-        exclude_dirs: Directory names to omit from the exported tree.
+        exclude_dirs: Directory names to omit from the exported tree. If not provided,
+            falls back to the ``exclude`` setting of the project configuration that
+            applies to *directory*, then to that of the persistent user config; with
+            neither, no directory is excluded. The names given replace the configured
+            ones, and an empty name alone excludes no directory for the run. A GitHub
+            input has no project configuration.
         exclude_extensions: File extensions to hide. Values are normalized so both
             ``"pyc"`` and ``".pyc"`` are accepted.
         exclude_patterns: Glob or regex patterns for file/directory names to exclude.
@@ -1635,6 +1733,10 @@ def export(
     )
 
     validated: Path = Path(directory)
+    if not is_remote:
+        validated = _resolve_and_validate_directory(Path(directory))
+    configured = _config_reader(None if is_remote else validated)
+
     ignore_file_configured = ignore_file is None
     if is_remote:
         _log_ignored_remote_flags(
@@ -1642,10 +1744,7 @@ def export(
         )
         ignore_file = None
     else:
-        validated = _resolve_and_validate_directory(Path(directory))
-        ignore_file = _choose_ignore_file(
-            [validated], ignore_file, _config_reader(validated)
-        )
+        ignore_file = _choose_ignore_file([validated], ignore_file, configured)
 
     _log_display_options(max_depth, show_full_path, spec)
     (
@@ -1654,7 +1753,7 @@ def export(
         parsed_exclude_patterns,
         parsed_include_patterns,
     ) = _parse_filter_options(
-        exclude_dirs,
+        _choose_exclude_dirs(exclude_dirs, configured),
         exclude_extensions,
         exclude_patterns,
         include_patterns,
@@ -1822,15 +1921,20 @@ def compare(
     By default, uses the project configuration of the first local directory, then the
     persistent user configuration, for icon styling in the terminal.
     If exported to HTML, strictly falls back to the 'emoji' style to ensure
-    cross-platform compatibility. The ignore file comes from the same configuration
-    whenever ``--ignore-file`` is not given, in the terminal and in HTML alike.
+    cross-platform compatibility. The ignore file and the excluded directories come from
+    the same configuration whenever ``--ignore-file`` or ``--exclude`` is not given, in
+    the terminal and in HTML alike.
 
     Args:
         dir1: First input to compare — a local directory path or a GitHub repository
             URL.
         dir2: Second input to compare — a local directory path or a GitHub repository
             URL.
-        exclude_dirs: Directory names to omit from both trees.
+        exclude_dirs: Directory names to omit from both trees. If not provided, falls
+            back to the ``exclude`` setting of the project configuration of the first
+            local directory, then to that of the user configuration; with neither, no
+            directory is excluded. The names given replace the configured ones, and an
+            empty name alone excludes no directory for the run.
         exclude_extensions: File extensions to hide from both trees. Values are
             normalized so both ``"pyc"`` and ``".pyc"`` are accepted.
         exclude_patterns: Glob or regex patterns for file/directory names to exclude
@@ -2003,7 +2107,7 @@ def compare(
         parsed_exclude_patterns,
         parsed_include_patterns,
     ) = _parse_filter_options(
-        exclude_dirs,
+        _choose_exclude_dirs(exclude_dirs, configured),
         exclude_extensions,
         exclude_patterns,
         include_patterns,

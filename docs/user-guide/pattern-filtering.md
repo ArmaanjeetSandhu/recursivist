@@ -21,6 +21,19 @@ Exclude directories by name. Matching directories are pruned entirely and never 
 recursivist visualize --exclude node_modules --exclude .git --exclude venv
 ```
 
+To exclude the same directories on every run without passing the option, save their names as a preference, or set them for a project in a `.recursivist.toml` file or a `[tool.recursivist]` table in `pyproject.toml`:
+
+```bash
+recursivist config set exclude node_modules .git venv
+```
+
+```toml
+# .recursivist.toml
+exclude = ["node_modules", ".git", "venv"]
+```
+
+The names are used by `visualize`, `export`, and `compare`. A list is used whole rather than merged with another: a project setting replaces your saved preference, `--exclude` replaces both for a run, and `--exclude ""` runs without excluding any directory. See [Settings](../reference/cli-reference.md#settings) for the details.
+
 ## Extension Exclusion
 
 Exclude files by extension. The leading dot is optional:

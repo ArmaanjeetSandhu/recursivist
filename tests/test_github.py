@@ -688,6 +688,19 @@ def _rendered_tree(stdout: str) -> str:
     return stdout[stdout.index("📂 r") :]
 
 
+def test_cli_visualize_github_uses_saved_exclude(
+    runner: CliRunner, patch_network: None
+) -> None:
+    """Saved directory exclusions apply to a GitHub input as ``--exclude`` does."""
+    baseline = runner.invoke(app, ["visualize", "https://github.com/o/r"])
+    saved = runner.invoke(app, ["config", "set", "exclude", "pkg"])
+    excluded = runner.invoke(app, ["visualize", "https://github.com/o/r"])
+    assert baseline.exit_code == saved.exit_code == excluded.exit_code == 0
+    assert "core.py" in _rendered_tree(baseline.stdout)
+    assert "core.py" not in _rendered_tree(excluded.stdout)
+    assert "README.md" in _rendered_tree(excluded.stdout)
+
+
 def test_cli_visualize_github_mtime_not_annotated(
     runner: CliRunner, patch_network: None
 ) -> None:

@@ -12,6 +12,9 @@ Practical recipes for narrowing what Recursivist shows. For the rules behind the
 # Directories
 recursivist visualize --exclude node_modules --exclude .git --exclude venv
 
+# Save the names once to exclude them on every run
+recursivist config set exclude node_modules .git venv
+
 # Extensions (leading dot optional)
 recursivist visualize --exclude-ext .pyc --exclude-ext .log --exclude-ext .cache
 ```

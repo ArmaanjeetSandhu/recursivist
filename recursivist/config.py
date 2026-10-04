@@ -8,8 +8,8 @@ the directory being scanned: either a dedicated ``.recursivist.toml`` or a
 
 [`resolve_config`][recursivist.config.resolve_config] merges them, each layer overriding
 the ones before it: built-in defaults, then the user file, then the project file. A
-command-line flag overrides all three. The preferences are the icon style and the name
-of the ignore file to honor.
+command-line flag overrides all three. The preferences are the icon style, the name of
+the ignore file to honor, and the directories to exclude.
 
 [`resolve_config_layers`][recursivist.config.resolve_config_layers] gives the same
 resolution layer by layer, naming the file each value comes from. It is what
@@ -56,14 +56,23 @@ ICON_STYLES: tuple[str, ...] = get_args(IconStyle)
 CONFIG_KEYS: dict[str, tuple[str, ...] | None] = {
     "icon_style": ICON_STYLES,
     "ignore_file": None,
+    "exclude": None,
 }
 """Recognized configuration keys (in their stored, underscored form) mapped to the
-values each one accepts: a tuple of choices, or ``None`` for a key that accepts any
-string that is not blank."""
+strings each one accepts: a tuple of choices, or ``None`` for a key that accepts any
+string that is not blank. A key in `LIST_KEYS` holds a list of such strings."""
 
-DEFAULT_CONFIG: dict[str, Any] = {"icon_style": "emoji", "ignore_file": None}
+LIST_KEYS: frozenset[str] = frozenset({"exclude"})
+"""Configuration keys whose value is a list of strings rather than a single string."""
+
+DEFAULT_CONFIG: dict[str, Any] = {
+    "icon_style": "emoji",
+    "ignore_file": None,
+    "exclude": None,
+}
 """Built-in value of every configuration key, used when no layer sets it. A value of
-``None`` leaves the setting without a value: by default, no ignore file is honored."""
+``None`` leaves the setting without a value: by default, no ignore file is honored and
+no directory is excluded."""
 
 LAYER_PROJECT = "project"
 """Name of the layer read from the project configuration file."""
@@ -91,15 +100,16 @@ class ConfigLayer:
     """
 
     name: str
-    value: str | None
+    value: str | list[str] | None
     source: Path | None
 
 
 def accepts_value(key: str, value: Any) -> bool:
     """Return whether *value* is one the configuration *key* accepts.
 
-    Every value is a string. A key with a set of choices accepts exactly those; any
-    other key accepts a string that is not empty or made of whitespace only.
+    A key with a set of choices accepts exactly those strings; any other key accepts a
+    string that is not empty or made of whitespace only. A key in `LIST_KEYS` accepts a
+    list of one or more such strings, and every other key a single one.
 
     Args:
         key: A key of `CONFIG_KEYS`, in its underscored form.
@@ -108,12 +118,20 @@ def accepts_value(key: str, value: Any) -> bool:
     Returns:
         ``True`` if *key* accepts *value*, ``False`` otherwise.
     """
-    if not isinstance(value, str):
-        return False
     choices = CONFIG_KEYS[key]
-    if choices is None:
-        return bool(value.strip())
-    return value in choices
+
+    def accepts_string(item: Any) -> bool:
+        if not isinstance(item, str):
+            return False
+        return bool(item.strip()) if choices is None else item in choices
+
+    if key in LIST_KEYS:
+        return (
+            isinstance(value, list)
+            and bool(value)
+            and all(accepts_string(item) for item in value)
+        )
+    return accepts_string(value)
 
 
 def describe_accepted_values(key: str) -> str:
@@ -124,13 +142,16 @@ def describe_accepted_values(key: str) -> str:
 
     Returns:
         A phrase that completes the sentence "Use ...": the quoted choices of a key
-        that has them (``'emoji' or 'nerd'``), and ``a non-empty string`` for any other
+        that has them (``'emoji' or 'nerd'``), ``a list of one or more non-empty
+        strings`` for a key in `LIST_KEYS`, and ``a non-empty string`` for any other
         key.
     """
     choices = CONFIG_KEYS[key]
-    if choices is None:
-        return "a non-empty string"
-    return " or ".join(f"'{v}'" for v in choices)
+    if choices is not None:
+        return " or ".join(f"'{v}'" for v in choices)
+    if key in LIST_KEYS:
+        return "a list of one or more non-empty strings"
+    return "a non-empty string"
 
 
 def get_config_path() -> Path:

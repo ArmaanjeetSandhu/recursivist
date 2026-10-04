@@ -136,6 +136,9 @@ recursivist config set icon-style nerd
 # Honor .gitignore on every run
 recursivist config set ignore-file .gitignore
 
+# Leave node_modules and .git out of every run
+recursivist config set exclude node_modules .git
+
 # Print your saved icon style
 recursivist config get icon-style
 

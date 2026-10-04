@@ -1816,19 +1816,34 @@ def test_flags_for_every_setting_skip_config(
     runner: CliRunner, sample_directory: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     resolve_config = mock.Mock(
-        return_value={"icon_style": "emoji", "ignore_file": None}
+        return_value={"icon_style": "emoji", "ignore_file": None, "exclude": None}
     )
     monkeypatch.setattr(cli_module, "resolve_config", resolve_config)
     result = runner.invoke(
         app,
-        ["visualize", sample_directory, "--icon-style", "nerd", "-g", ".gitignore"],
+        [
+            "visualize",
+            sample_directory,
+            "--icon-style",
+            "nerd",
+            "-g",
+            ".gitignore",
+            "-e",
+            "subdir",
+        ],
     )
     assert result.exit_code == 0
     resolve_config.assert_not_called()
 
 
 @pytest.mark.parametrize(
-    "flags", [[], ["--icon-style", "nerd"], ["--ignore-file", ".gitignore"]]
+    "flags",
+    [
+        [],
+        ["--icon-style", "nerd"],
+        ["--ignore-file", ".gitignore"],
+        ["--exclude", "subdir"],
+    ],
 )
 def test_config_resolved_once_per_run(
     runner: CliRunner, sample_directory: str, flags: list[str]
@@ -2025,10 +2040,19 @@ def test_flags_for_every_setting_do_not_read_user_config(
     runner: CliRunner, sample_directory: str
 ) -> None:
     """Flags settle every setting, so a bad saved value is not even reported."""
-    _write_user_config('{"icon_style": "bogus", "ignore_file": 3}')
+    _write_user_config('{"icon_style": "bogus", "ignore_file": 3, "exclude": 3}')
     result = runner.invoke(
         app,
-        ["visualize", sample_directory, "--icon-style", "emoji", "-g", ".gitignore"],
+        [
+            "visualize",
+            sample_directory,
+            "--icon-style",
+            "emoji",
+            "-g",
+            ".gitignore",
+            "-e",
+            "subdir",
+        ],
     )
     assert result.exit_code == 0
     assert "Ignoring" not in result.output
