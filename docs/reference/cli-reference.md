@@ -237,6 +237,7 @@ Manage persistent user preferences, stored as JSON in your platform's applicatio
 ```bash
 recursivist config set KEY VALUE
 recursivist config unset KEY
+recursivist config reset [OPTIONS]
 recursivist config get KEY
 recursivist config list [OPTIONS] [DIRECTORY]
 recursivist config path
@@ -255,7 +256,15 @@ recursivist config path
 | `--all`  | `-a`  | Show the value of every layer, not only the winner |
 | `--json` |       | Print the listing as JSON                          |
 
+`config reset` supports:
+
+| Option  | Short | Description                            |
+| ------- | ----- | -------------------------------------- |
+| `--yes` | `-y`  | Remove without asking for confirmation |
+
 `config set` saves a value. `config unset` removes a saved value, so the setting falls back to its default. `unset` accepts any key, including one Recursivist does not recognize, which makes it the way to clear an entry that is reported with a warning. Both commands change only the key they are given and leave the rest of the file untouched.
+
+`config reset` removes every saved value at once by deleting the file, so each setting falls back to its default. The whole file is removed, including entries Recursivist does not recognize and a file it cannot read, which makes it the way to clear a file that is reported with a warning. It asks for confirmation first, in a question that names the entries about to be removed, and removes nothing unless the answer is yes: declining, or having no answer to read, as in a script, exits with status 1. `--yes` removes without asking. The removed entries are printed with their values, so a value can be saved again with `config set`. When there is no file, nothing is asked or done and the command still succeeds. A [project configuration](#project-configuration) file is left as it is.
 
 `config get` prints the value of a setting: the one saved in the file, or the built-in default when none is saved or the saved one is invalid. The value is the only thing written to standard output, so it can be captured in a script; warnings about the file, and the error for a key Recursivist does not recognize, go to standard error. It reads only your user preferences, so a [project configuration](#project-configuration) or a command-line flag can still override the printed value for a run; `config list` shows the value in effect for a directory. Nothing is created or changed.
 
@@ -269,6 +278,8 @@ recursivist config path
 recursivist config set icon-style nerd
 recursivist config set icon-style emoji
 recursivist config unset icon-style
+recursivist config reset                     # remove every saved preference, after confirming
+recursivist config reset --yes               # the same without being asked, for scripts
 recursivist config get icon-style
 recursivist export --icon-style "$(recursivist config get icon-style)"   # export with your saved style
 recursivist config list                      # settings in effect for the current directory
@@ -302,7 +313,7 @@ Each setting is resolved in this order, the first one found winning:
 3. Your user configuration (`config set`)
 4. The built-in default
 
-An unknown key or an invalid value is reported with a warning and ignored, so that setting falls through to the next layer. This applies to project files and to your user configuration file alike, so a mistake made while editing either by hand cannot change what is rendered. Remove an entry from your user configuration file with `config unset`. Run `config list` to see which layer and file each setting comes from, or a command with `--verbose` to see which project file was used.
+An unknown key or an invalid value is reported with a warning and ignored, so that setting falls through to the next layer. This applies to project files and to your user configuration file alike, so a mistake made while editing either by hand cannot change what is rendered. Remove an entry from your user configuration file with `config unset`, or the whole file with `config reset`. Run `config list` to see which layer and file each setting comes from, or a command with `--verbose` to see which project file was used.
 
 `compare` uses the project configuration of the first local directory given. A [GitHub repository](#github-repositories) input has no project configuration.
 

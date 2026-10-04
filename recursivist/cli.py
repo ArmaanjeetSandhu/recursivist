@@ -48,6 +48,7 @@ from recursivist.config import (
     CONFIG_KEYS,
     ConfigLayer,
     IconStyle,
+    delete_config_file,
     get_config_path,
     read_config_file,
     resolve_config,
@@ -352,6 +353,66 @@ def config_unset(
 
     save_config(remaining)
     typer.echo(f"Configuration updated: {key} unset")
+
+
+@config_app.command("reset")
+def config_reset(
+    yes: Annotated[
+        bool,
+        typer.Option("--yes", "-y", help="Remove without asking for confirmation"),
+    ] = False,
+) -> None:
+    """Remove every saved configuration value.
+
+    Deletes the global configuration file, the one `config set` writes, so every
+    setting falls back to its built-in default (or to the project configuration, where
+    one applies). The whole file is removed, including entries recursivist does not
+    recognize and a file it cannot read, which makes this the way to clear a file that
+    is reported with a warning. Project configuration files are left as they are.
+
+    Confirmation is asked for first, in a question that names the entries about to be
+    removed. Nothing is removed unless the answer is yes: declining, or having no answer
+    to read, as in a script, ends the command with exit code 1. Pass `--yes` to remove
+    without being asked.
+
+    The removed entries are printed with their values, so a value can be saved again
+    with `config set`. When no file is saved there is nothing to do: no question is
+    asked and the command still succeeds.
+
+    Args:
+        yes: When ``True``, remove the file without asking for confirmation.
+
+    Raises:
+        typer.Abort: If confirmation is asked for and not given.
+        typer.Exit: With exit code ``1`` if the file cannot be removed.
+
+    Examples:
+        >>> recursivist config reset
+        >>> recursivist config reset --yes
+    """
+    config_file = get_config_path()
+    if not os.path.isfile(config_file):
+        typer.echo("Nothing to reset: no configuration is saved")
+        return
+
+    stored = read_config_file()
+    entries = ", ".join(f"{key} = {value!r}" for key, value in stored.items())
+    if not yes:
+        question = (
+            f"Remove every saved preference ({entries})?"
+            if entries
+            else f"Remove the configuration file {config_file}?"
+        )
+        typer.confirm(question, abort=True)
+
+    try:
+        delete_config_file()
+    except OSError as e:
+        logger.exception("Could not remove the configuration file: %s", e)
+        raise typer.Exit(1) from None
+    typer.echo(
+        f"Configuration reset: removed {entries}" if entries else "Configuration reset"
+    )
 
 
 @config_app.command("get")

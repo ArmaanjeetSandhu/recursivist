@@ -142,6 +142,9 @@ recursivist config list
 # Print the location of your saved preferences
 recursivist config path
 
+# Remove every saved preference
+recursivist config reset
+
 # Check the installed version
 recursivist version
 ```

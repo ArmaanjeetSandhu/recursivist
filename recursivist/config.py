@@ -165,6 +165,26 @@ def save_config(config: dict[str, Any]) -> None:
         json.dump(config, f, indent=4)
 
 
+def delete_config_file() -> bool:
+    """Delete the user configuration file.
+
+    The file is removed whatever it holds, including one that cannot be read as
+    configuration, so every setting falls back to the layers below. The directory that
+    holds the file is left in place, and nothing is created.
+
+    Returns:
+        ``True`` if the file is removed, ``False`` if there is no file to remove.
+
+    Raises:
+        OSError: If the file exists but cannot be removed.
+    """
+    config_path = get_config_path()
+    if not os.path.isfile(config_path):
+        return False
+    os.remove(config_path)
+    return True
+
+
 def _read_toml(path: Path) -> dict[str, Any]:
     """Parse the TOML file at *path*.
 
