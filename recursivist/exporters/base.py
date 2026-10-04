@@ -66,10 +66,7 @@ class BaseExporter:
     def export(self, output_path: str) -> None:
         """Write the export to *output_path*.
 
-        Args:
-            output_path: Path the output file is written to.
-
-        Raises:
-            NotImplementedError: Always; subclasses must override this method.
+        Subclasses must override this method; the base implementation always raises
+        `NotImplementedError`.
         """
         raise NotImplementedError("Subclasses must implement the export method.")

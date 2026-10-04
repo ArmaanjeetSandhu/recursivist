@@ -65,15 +65,8 @@ def _resolve_targets(dir1: str, dir2: str, targets: _Targets | None) -> _Targets
 
     Every stage of a comparison needs to know which inputs are GitHub repositories. The
     inputs are parsed once, by whichever entry point is called first, and the result is
-    handed down from there rather than being re-derived at each stage.
-
-    Args:
-        dir1: First input — a local directory path or a GitHub repository URL.
-        dir2: Second input — a local directory path or a GitHub repository URL.
-        targets: The already-parsed targets, or ``None`` to parse the inputs now.
-
-    Returns:
-        *targets* unchanged when given, otherwise the freshly parsed pair.
+    handed down from there rather than being re-derived at each stage: *targets* is
+    returned unchanged when given, and the inputs are parsed only when it is ``None``.
     """
     if targets is not None:
         return targets
@@ -315,14 +308,8 @@ def _side_metrics(metrics: Sequence[str], is_remote: bool) -> tuple[str, ...]:
     """Return the metrics displayable for one side of a comparison.
 
     A hosted repository has no meaningful modification times, so ``mtime`` is dropped
-    for a remote side; a local side displays every requested metric.
-
-    Args:
-        metrics: The requested numeric metrics, in display order.
-        is_remote: Whether the side originates from a hosted repository.
-
-    Returns:
-        The metrics to display for that side, in display order.
+    for a remote side; a local side displays every requested metric. The display order
+    of *metrics* is kept.
     """
     if is_remote:
         return tuple(m for m in metrics if m != METRIC_MTIME)
@@ -332,15 +319,10 @@ def _side_metrics(metrics: Sequence[str], is_remote: bool) -> tuple[str, ...]:
 def _git_badge_marker(markers: Mapping[str, str], name: str) -> str:
     """Return the badge-worthy Git status for *name*, or ``""``.
 
+    That is the status character *markers* (the ``{filename: status_char}`` map for the
+    file's side) holds for the bare filename, when it is one of `_GIT_BADGE_MARKERS`.
     Both renderers and the cross-side identity go through this one filter, so a marker
     never affects highlighting unless it would also be shown as a badge.
-
-    Args:
-        markers: The ``{filename: status_char}`` map for the file's side.
-        name: The bare filename.
-
-    Returns:
-        The status character if it is one of `_GIT_BADGE_MARKERS`, otherwise ``""``.
     """
     marker = markers.get(name, "")
     return marker if marker in _GIT_BADGE_MARKERS else ""
@@ -783,16 +765,9 @@ def _side_display_name(raw: str, target: GitHubTarget | None) -> str:
     """Return the label for one comparison side, local path or GitHub URL.
 
     For a GitHub URL this is the repository name (or the subpath's last segment); for a
-    local path it is the directory's own name.
-
-    Args:
-        raw: The raw input for one side of the comparison.
-        target: The GitHub target for *raw* as checked out — so that a URL pointing at a
-            file is named after the directory scanned in its place — or ``None`` for a
-            local path.
-
-    Returns:
-        A short display name for the side.
+    local path it is the directory's own name. *target* is the GitHub target for *raw*
+    as checked out, so that a URL pointing at a file is named after the directory
+    scanned in its place; it is ``None`` for a local path.
     """
     if target is not None:
         return target.display_name
@@ -804,26 +779,12 @@ def _identity_spec_for(
 ) -> DisplayOptions:
     """Return the spec governing cross-side file identity for two inputs.
 
-    When both inputs are local directories the full *spec* is used, so every displayed
-    annotation contributes to whether two identically named files are treated as the
-    same entry. When either input is a GitHub repository, the annotations a hosted side
-    cannot provide — modification time and Git status — are dropped from the identity
-    via
-    [`without_remote_unsupported`][recursivist.flags.DisplayOptions.without_remote_unsupported],
-    so they do not split otherwise-matching files across the two sides. Those
-    annotations are still *displayed* according to *spec*; they are left out of
-    difference highlighting only.
-
-    Args:
-        target1: The GitHub target parsed from the first input, or ``None`` if it is a
-            local directory.
-        target2: The GitHub target parsed from the second input, or ``None`` if it is a
-            local directory.
-        spec: The resolved display directives for the run.
-
-    Returns:
-        *spec* unchanged for a local-vs-local comparison, or its remote-adjusted form
-        when either side is a GitHub repository.
+    This is the *identity_spec* passed to
+    [`build_comparison_tree`][recursivist.compare.build_comparison_tree], which
+    explains how it is applied. It is *spec* unchanged when both targets are ``None``
+    (two local directories), or its
+    [`without_remote_unsupported`][recursivist.flags.DisplayOptions.without_remote_unsupported]
+    form when either side is a GitHub repository.
     """
     involves_remote = target1 is not None or target2 is not None
     return spec.without_remote_unsupported() if involves_remote else spec

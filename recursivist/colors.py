@@ -71,11 +71,8 @@ def hex_to_rgb(hex_color: str) -> tuple[int, int, int]:
 def rgb_to_hex(color: tuple[int, int, int]) -> str:
     """Convert an ``(r, g, b)`` tuple to a CSS hex color string.
 
-    Args:
-        color: Three-tuple of integers ``(red, green, blue)`` in the range ``0``-``255``
-
-    Returns:
-        A lowercase six-digit hex color string prefixed with ``'#'``.
+    Each component is an integer in the range ``0``-``255``. The result is lowercase,
+    six digits long, and prefixed with ``'#'``.
     """
     return _HEX_FORMAT.format(*color)
 

@@ -57,12 +57,6 @@ def subdirectory_key(name: str) -> str:
     other name is stored as-is. Read subdirectories back by their real names with
     [`iter_subdirectories`][recursivist.scanner.iter_subdirectories] and
     [`get_subdirectory`][recursivist.scanner.get_subdirectory].
-
-    Args:
-        name: The directory's real name.
-
-    Returns:
-        The key to store the directory under.
     """
     if name in RESERVED_KEYS or name.startswith(_ESCAPE_PREFIX):
         return _ESCAPE_PREFIX + name
@@ -77,17 +71,10 @@ def _subdirectory_name(key: str) -> str:
 def get_subdirectory(structure: dict[str, Any], name: str) -> Any | None:
     """Return the content of the subdirectory called *name*, or ``None`` if absent.
 
-    Looks the directory up by its real name, so it never mistakes a reserved bookkeeping
-    entry (such as the ``_files`` list) for a subdirectory of the same name.
-
-    Args:
-        structure: A directory-structure dict as produced by
-            [`get_directory_structure`][recursivist.scanner.get_directory_structure].
-        name: The subdirectory's real name.
-
-    Returns:
-        The subdirectory's structure, or ``None`` when *structure* has no such
-        subdirectory.
+    *structure* is a directory-structure dict as produced by
+    [`get_directory_structure`][recursivist.scanner.get_directory_structure]. The
+    directory is looked up by its real name, so a reserved bookkeeping entry (such as
+    the ``_files`` list) is never mistaken for a subdirectory of the same name.
     """
     return structure.get(subdirectory_key(name))
 

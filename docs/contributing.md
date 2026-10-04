@@ -192,6 +192,10 @@ def function(arg1: str, arg2: int) -> bool:
    """
 ```
 
+!!! note "Command docstrings are help text"
+
+    The docstring of a CLI command in `recursivist/cli.py` is printed as that command's `--help` text, exactly as written, so it does not follow the example above. Keep it to what a user of the command needs: leave out the `Args:`, `Returns:`, and `Raises:` sections, and name flags (`--exclude`) rather than parameters (`exclude_dirs`). Wrap the paragraphs after the first at 76 characters, not counting indentation, so that they fit an 80-column terminal. Rich reads a lowercase word in square brackets as markup and drops it, so avoid text such as `[tool.recursivist]`.
+
 ### Type Annotations
 
 All code must pass both **mypy** (strict mode) and **pyright** type checks. Use standard type hints:

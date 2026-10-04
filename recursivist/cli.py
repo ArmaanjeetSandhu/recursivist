@@ -118,12 +118,8 @@ def _records_order(flag_id: str) -> Callable[[typer.Context, bool], bool]:
 def _flag_order(ctx: typer.Context) -> list[str]:
     """Return the ids of the order-sensitive flags, in the order they were given.
 
-    Args:
-        ctx: The context of the running command.
-
-    Returns:
-        The flag ids recorded by the `_records_order` callbacks while this command's
-        arguments were parsed.
+    These are the ids recorded by the `_records_order` callbacks while this command's
+    arguments were parsed.
     """
     return list(ctx.meta.get(_FLAG_ORDER_KEY, []))
 
@@ -354,31 +350,15 @@ def config_set(
 ) -> None:
     """Set a persistent configuration value.
 
-    Writes a user preference to the global configuration file. Three keys are supported:
-    `icon-style`, which is either `emoji` or `nerd`; `ignore-file`, which is the name of
-    the ignore file to honor (e.g. `.gitignore`) and can be any name that is not blank;
-    and `exclude`, which is the directories to exclude. A project configuration file
-    (`.recursivist.toml`, or `[tool.recursivist]` in `pyproject.toml`) overrides the
-    value saved here for the directories it applies to.
-
-    `exclude` takes one directory name per argument, so a name may contain spaces when
-    it is quoted. The names are normalized as those of `--exclude` are: surrounding
-    whitespace is trimmed and blank names are dropped, and a name given twice is kept
-    once. The names given replace the saved ones as a whole. Every other key takes
-    exactly one value.
-
-    Args:
-        key: The configuration key to set (e.g., "icon-style").
-        value: The value to assign to the key, as one argument, or one argument per
-            directory name for `exclude`.
-
-    Raises:
-        typer.Exit: With exit code ``1`` if an invalid key or value is provided, or
-            more than one value is given for a key that takes a single one.
+    Saves a user preference to the global configuration file. The keys are
+    `icon-style` (`emoji` or `nerd`), `ignore-file` (the name of an ignore
+    file to honor, such as `.gitignore`), and `exclude` (directory names to
+    exclude). `exclude` takes one name per argument and replaces the saved
+    names as a whole; every other key takes exactly one value. A project
+    configuration file overrides the value saved here.
 
     Examples:
         >>> recursivist config set icon-style nerd
-        >>> recursivist config set icon-style emoji
         >>> recursivist config set ignore-file .gitignore
         >>> recursivist config set exclude node_modules .git "Application Support"
     """
@@ -421,17 +401,11 @@ def config_unset(
 ) -> None:
     """Remove a saved configuration value.
 
-    Deletes one entry from the global configuration file, so the setting falls back to
-    its built-in default (or to the project configuration, where one applies). Unlike
-    `config set`, any key is accepted: this is also how to remove an entry that
-    recursivist does not recognize and reports with a warning.
-
-    The key matches under either spelling (`icon-style` or `icon_style`), and every
-    other entry in the file is left as it is. When the key is not saved there is nothing
-    to do: the file is not written and the command still succeeds.
-
-    Args:
-        key: The configuration key to remove (e.g., "icon-style").
+    Deletes one entry from the global configuration file, so the setting
+    falls back to the project configuration or the built-in default. Any key
+    is accepted, written with dashes or underscores, which makes this the way
+    to remove an entry that recursivist does not recognize and reports with a
+    warning. A key that is not saved is not an error.
 
     Examples:
         >>> recursivist config unset icon-style
@@ -458,27 +432,12 @@ def config_reset(
 ) -> None:
     """Remove every saved configuration value.
 
-    Deletes the global configuration file, the one `config set` writes, so every
-    setting falls back to its built-in default (or to the project configuration, where
-    one applies). The whole file is removed, including entries recursivist does not
-    recognize and a file it cannot read, which makes this the way to clear a file that
-    is reported with a warning. Project configuration files are left as they are.
-
-    Confirmation is asked for first, in a question that names the entries about to be
-    removed. Nothing is removed unless the answer is yes: declining, or having no answer
-    to read, as in a script, ends the command with exit code 1. Pass `--yes` to remove
-    without being asked.
-
-    The removed entries are printed with their values, so a value can be saved again
-    with `config set`. When no file is saved there is nothing to do: no question is
-    asked and the command still succeeds.
-
-    Args:
-        yes: When ``True``, remove the file without asking for confirmation.
-
-    Raises:
-        typer.Abort: If confirmation is asked for and not given.
-        typer.Exit: With exit code ``1`` if the file cannot be removed.
+    Deletes the global configuration file, so every setting falls back to the
+    project configuration or the built-in default. Confirmation is asked for
+    first, and declining, or having no answer to read, as in a script, exits
+    with code 1; pass `--yes` to skip the question. The removed entries are
+    printed with their values. Project configuration files are left as they
+    are.
 
     Examples:
         >>> recursivist config reset
@@ -518,33 +477,16 @@ def config_get(
 ) -> None:
     """Print the value of a user configuration setting.
 
-    Prints the value saved in the global configuration file, the one `config set`
-    writes. When the key is not saved, or its saved value is not one the key accepts,
-    the built-in default is printed instead, so the output is always a valid value. The
-    default of `ignore-file` is to honor no ignore file, which prints as an empty line;
-    passed to `--ignore-file`, an empty value likewise means no ignore file. The value
-    of `exclude` is printed one directory name per line, and its default, to exclude no
-    directory, prints nothing. The key may be written with dashes or underscores
-    (`icon-style` or `icon_style`).
-
-    Project configuration files are not consulted. A project file, or a command-line
-    flag such as `--icon-style`, can still override the printed value for a run.
-
-    The value is the only thing written to standard output, on a line of its own, or on
-    one line per directory name for `exclude`, which makes the command usable in a
-    shell substitution or a pipeline. Warnings about the configuration file and the
-    error for an unknown key go to standard error. Nothing is created or changed.
-
-    Args:
-        ctx: The context of the running command.
-        key: The configuration key to print (e.g., "icon-style").
-
-    Raises:
-        typer.Exit: With exit code ``1`` if the key is not a recognized one.
+    Prints the value saved in the global configuration file, or the built-in
+    default when the key is not saved or its saved value is invalid. The key
+    may be written with dashes or underscores. The value is the only thing
+    written to standard output, one directory name per line for `exclude`, so
+    the command is usable in a shell substitution. Project configuration
+    files are not consulted; `config list` shows the value in effect for a
+    directory.
 
     Examples:
         >>> recursivist config get icon-style
-        >>> recursivist config get ignore-file
         >>> recursivist config get exclude
         >>> recursivist export --icon-style "$(recursivist config get icon-style)"
     """
@@ -687,72 +629,16 @@ def config_list(
 ) -> None:
     """List every configuration setting with the value in effect and its origin.
 
-    Each setting is resolved the way a command run on *directory* resolves it: the
-    project configuration that applies to the directory (a `.recursivist.toml`, or a
-    `tool.recursivist` table in `pyproject.toml`, in the directory or its nearest parent
-    that has one), then the user configuration file, then the built-in default. The
-    first layer that sets a valid value wins, and the listing names that layer and the
-    file the value comes from:
-
-        icon-style  = nerd         (project: /path/to/project/.recursivist.toml)
-        ignore-file = .gitignore   (user: /home/user/.config/recursivist/config.json)
-        exclude     = build, dist  (user: /home/user/.config/recursivist/config.json)
-
-    The built-in default of `ignore-file` is to honor no ignore file, and that of
-    `exclude` is to exclude no directory, so when no file sets one of them, it is
-    listed as `(not set)` with the origin `default`. The directory names of `exclude`
-    are listed on one line, separated by commas.
-
-    With `--all`, the value of every layer is listed under the setting, from the
-    highest precedence to the lowest. The winning layer is marked with `*`, and a layer
-    that does not set the value shows `(not set)`. A layer's file is named whenever it
-    exists, even when it does not set the value:
-
-        icon-style = nerd
-          * project  nerd         /path/to/project/.recursivist.toml
-            user     emoji        /home/user/.config/recursivist/config.json
-            default  emoji
-        ignore-file = .gitignore
-            project  (not set)    /path/to/project/.recursivist.toml
-          * user     .gitignore   /home/user/.config/recursivist/config.json
-            default  (not set)
-        exclude = build, dist
-            project  (not set)    /path/to/project/.recursivist.toml
-          * user     build, dist  /home/user/.config/recursivist/config.json
-            default  (not set)
-
-    With `--json`, the listing is a JSON object keyed by setting. Each entry holds the
-    winning `value`, the `layer` it comes from (`project`, `user`, or `default`), and
-    its `source` file, which is `null` for a built-in default. The `value` is `null`
-    for a setting that no layer sets, and an array of directory names for `exclude`.
-    With `--all` as well, each entry also has a `layers` array holding the same three
-    fields for every layer; there, `value` is `null` for a layer that does not set it
-    and `source` is `null` for a layer that has no file.
-
-    The listing is the only thing written to standard output, which makes the command
-    usable in a pipeline. Warnings about a configuration file and the error for an
-    invalid directory go to standard error. Nothing is created or changed.
-
-    A command-line flag such as `--icon-style`, `--ignore-file`, or `--exclude` still
-    overrides the listed value for a run, and file exports use the `emoji` icon style
-    unless `--icon-style` is given.
-
-    Args:
-        ctx: The context of the running command.
-        directory: Directory whose project configuration applies. Must exist and be a
-            directory. Defaults to the current working directory.
-        show_all: When ``True``, list the value of every layer for each setting instead
-            of only the winning one.
-        as_json: When ``True``, print the listing as JSON instead of plain text.
-
-    Raises:
-        typer.Exit: With exit code ``1`` if *directory* does not exist or is not a
-            directory.
+    Each setting is resolved the way a command run on the directory resolves
+    it: the project configuration that applies to the directory, then the
+    user configuration file, then the built-in default. The listing names the
+    layer and the file each value comes from. `--all` adds the value of every
+    layer, marking the winning one with `*`, and `--json` prints the listing
+    as JSON. Nothing is created or changed.
 
     Examples:
         >>> recursivist config list
-        >>> recursivist config list /path/to/project
-        >>> recursivist config list --all
+        >>> recursivist config list /path/to/project --all
         >>> recursivist config list --json
     """
     _send_logs_to_stderr(ctx)
@@ -772,14 +658,10 @@ def config_list(
 def config_path() -> None:
     """Print the path of the user configuration file.
 
-    This is the global file that `config set` and `config unset` edit. Its location
-    follows each platform's convention for application data, so it differs between
-    operating systems. The path is the only output, on a line of its own, which makes
-    the command usable in a shell substitution.
-
-    Nothing is read, created, or changed: the path is printed whether or not the file
-    exists, and the file is absent until `config set` saves a value. Project
-    configuration files are not reported.
+    This is the global file that `config set` and `config unset` edit; its
+    location follows each platform's convention for application data. The
+    path is the only output, and it is printed whether or not the file
+    exists.
 
     Examples:
         >>> recursivist config path
@@ -842,14 +724,7 @@ def callback(ctx: typer.Context) -> None:
     """Recursivist CLI tool for directory visualization and export.
 
     Entry-point callback invoked by Typer before any subcommand is dispatched. It sets
-    up logging for the invocation and makes top-level help text available.
-
-    Available commands:
-        visualize: Display a directory structure in the terminal.
-        export: Export a directory structure to various file formats.
-        compare: Compare two directory structures side by side.
-        config: Manage user preferences.
-        version: Display the current version.
+    up logging for the invocation.
     """
     _configure_logging(ctx)
 
@@ -985,11 +860,6 @@ def _enable_verbose_if_requested(verbose: bool) -> None:
     Shared by the visualize, export, and compare commands so the verbose preamble is
     defined in exactly one place. The level lasts only for the current invocation:
     `_configure_logging` restores the previous one when the command finishes.
-
-    Args:
-        verbose: When ``True``, set the logger level to DEBUG and emit
-            the standard "verbose mode enabled" debug message. When
-            ``False``, do nothing.
     """
     if verbose:
         logger.setLevel(logging.DEBUG)
@@ -1057,15 +927,10 @@ def _config_reader(project_dir: Path | None) -> Callable[[], dict[str, Any]]:
 
     The configuration is resolved on the first call and reused on later ones, so a
     command reads the configuration files at most once, and not at all when
-    command-line options settle every setting it would look up.
-
-    Args:
-        project_dir: Directory whose project configuration should apply, or ``None``
-            to leave the project layer out.
-
-    Returns:
-        A function taking no arguments and returning the mapping of
-        [`resolve_config`][recursivist.config.resolve_config].
+    command-line options settle every setting it would look up. The function takes no
+    arguments and returns the mapping of
+    [`resolve_config`][recursivist.config.resolve_config]; a *project_dir* of ``None``
+    leaves the project layer out.
     """
     return functools.cache(lambda: resolve_config(project_dir))
 
@@ -1082,15 +947,8 @@ def _choose_ignore_file(
     configuration setting is used. Either way the name goes through
     `_resolve_ignore_file`, so its leading dot is optional.
 
-    Args:
-        directories: List of resolved directory paths to be scanned.
-        ignore_file: Value of the ``--ignore-file`` option, or ``None`` when the option
-            was not supplied.
-        configured: Function giving the configuration in effect, as returned by
-            `_config_reader`. It is only called when the option was not supplied.
-
-    Returns:
-        The filename of the ignore file to honor, or ``None`` for no ignore file.
+    *configured* is the function returned by `_config_reader`; it is only called when
+    the option was not supplied. The result is ``None`` when no ignore file is honored.
     """
     if ignore_file is None:
         ignore_file = configured().get("ignore_file")
@@ -1107,14 +965,9 @@ def _choose_exclude_dirs(
     own, without the configured ones, and an empty value there means that no directory
     is excluded. Without the option, the ``exclude`` configuration setting is used.
 
-    Args:
-        exclude_dirs: Values of the ``--exclude`` option, or ``None`` when the option
-            was not supplied.
-        configured: Function giving the configuration in effect, as returned by
-            `_config_reader`. It is only called when the option was not supplied.
-
-    Returns:
-        The directory names to exclude, not yet normalized, or ``None`` for none.
+    *configured* is the function returned by `_config_reader`; it is only called when
+    the option was not supplied. The names are returned as given, not yet normalized,
+    and the result is ``None`` when there are none.
     """
     if exclude_dirs is None:
         return configured().get("exclude")
@@ -1592,109 +1445,23 @@ def visualize(
 ) -> None:
     """Visualize a directory structure as a tree in the terminal.
 
-    Scans *directory* and renders a rich, color-coded tree to stdout. File-extension
-    colors, optional statistics, and Git status markers can be enabled through the
-    available options. An animated progress indicator is shown while scanning large
-    directories.
+    Scans the directory and renders a color-coded tree, optionally annotated
+    with lines of code, sizes, modification times, and Git status. The
+    directory may also be a GitHub repository URL, which is downloaded and
+    scanned like a local directory; options that need a local checkout
+    (`--ignore-file`, `--git-status`, `--mtime` and their sorting forms) are
+    skipped for it.
 
-    *directory* may also be a GitHub repository URL (optionally pinning a branch/tag and
-    subtree via ``/tree/<ref>`` or ``/tree/<ref>/<subpath>``), in which case the
-    repository is downloaded and scanned like a local directory. For a GitHub input the
-    ``--ignore-file``, ``--git-status``, ``--sort-by-git-status``, ``--mtime`` and
-    ``--sort-by-mtime`` options do not apply and are skipped, while ``--full-path``
-    shows each file's GitHub blob URL instead of a filesystem path.
-
-    Sorting and annotation flags are resolved strictly by their left-to-right order on
-    the command line: only the first sorting flag (``--sort-by-*``) takes effect, while
-    every display-only flag (``--loc``, ``--size``, ``--mtime``, ``--git-status``)
-    always annotates, in the order given. See [`recursivist.flags`][recursivist.flags]
-    for the full resolution rules.
-
-    Args:
-        directory: Root directory to visualize, or a GitHub repository URL. Must exist
-            and be a directory when local. Defaults to the current working directory.
-        exclude_dirs: Directory names to omit from the tree entirely (e.g.
-            ``["node_modules", ".git"]``). If not provided, falls back to the
-            ``exclude`` setting of the project configuration that applies to
-            *directory*, then to that of the persistent user config; with neither, no
-            directory is excluded. The names given replace the configured ones, and an
-            empty name alone excludes no directory for the run. A GitHub input has no
-            project configuration.
-        exclude_extensions: File extensions to hide. Values are normalized so both
-            ``"pyc"`` and ``".pyc"`` are accepted.
-        exclude_patterns: Glob or regex patterns for file/directory names to exclude.
-            Interpretation depends on *use_regex*.
-        include_patterns: Patterns restricting the output to files whose names match at
-            least one. A match overrides ignore-file rules for that file, but not
-            *exclude_dirs*, *exclude_extensions*, or *exclude_patterns*.
-        use_regex: When ``True``, treat *exclude_patterns* and *include_patterns* as
-            Python regular expressions instead of glob patterns.
-        ignore_file: Filename of an ignore file located inside *directory* (e.g.
-            ``".gitignore"``). Entries in that file are treated as additional
-            exclusions. If not provided, falls back to the ``ignore-file`` setting of
-            the project configuration that applies to *directory*, then to that of the
-            persistent user config; with neither, no ignore file is used. An empty
-            value turns the configured ignore file off for the run. A GitHub input
-            uses no ignore file.
-        max_depth: Maximum directory depth to display. ``0`` means unlimited.
-        show_full_path: When ``True``, display absolute paths instead of bare filenames.
-        sort_by_loc: When ``True``, sort files by lines-of-code count (descending) and
-            annotate each file with its LOC count. Ignored entirely if an earlier
-            sorting flag was given.
-        sort_by_size: When ``True``, sort files by size (descending) and annotate each
-            file with its size. Ignored entirely if an earlier sorting flag was given.
-        sort_by_mtime: When ``True``, sort files by last-modification time (newest
-            first) and annotate each file with its timestamp. Ignored entirely if an
-            earlier sorting flag was given.
-        sort_by_git_status: When ``True``, sort files by Git status and annotate each
-            file with its status marker. Ignored entirely if an earlier sorting flag was
-            given.
-        sort_by_similarity: When ``True``, group files with similar names next to each
-            other. Ignored entirely if an earlier sorting flag was given.
-        loc: When ``True``, display each file's lines-of-code count without affecting
-            the sort order.
-        size: When ``True``, display each file's size without affecting the sort order.
-        mtime: When ``True``, display each file's modification time without affecting
-            the sort order.
-        show_git_status: When ``True``, annotate files with their Git status without
-            affecting the sort order: ``[U]`` untracked, ``[M]`` modified, ``[A]``
-            added, ``[D]`` deleted.
-        icon_style: Icon style to use for file/folder markers. If not provided, falls
-            back to the project configuration that applies to *directory* (a
-            ``.recursivist.toml`` or ``[tool.recursivist]`` in ``pyproject.toml``, in
-            *directory* or the nearest parent that has one), then to the persistent user
-            config. A GitHub input has no project configuration.
-        verbose: When ``True``, lower the log level to DEBUG so that internal processing
-            steps are printed to the terminal.
-
-    Raises:
-        typer.Exit: With exit code ``1`` if *directory* does not exist or is not a
-            directory, or if any unhandled exception occurs during scanning or
-            rendering.
+    Only the first `--sort-by-*` flag on the command line takes effect, while
+    every display flag (`--loc`, `--size`, `--mtime`, `--git-status`)
+    annotates, in the order given.
 
     Examples:
-        >>> # Display current directory
         >>> recursivist visualize
-        >>> # Display a specific directory
-        >>> recursivist visualize /path/to/project
-        >>> # Exclude directories
-        >>> recursivist visualize -e node_modules -e .git
-        >>> # Exclude file extensions
-        >>> recursivist visualize -x .pyc -x .log
-        >>> # Exclude glob patterns
-        >>> recursivist visualize -p "*.test.js" -p "*.spec.js"
-        >>> # Exclude regex patterns
-        >>> recursivist visualize -p ".*test.*" -r
-        >>> # Include overrides
-        >>> recursivist visualize -i "*.py" -i "*.md"
-        >>> # Limit depth to 2
-        >>> recursivist visualize -d 2
-        >>> # Override icon style for this run
-        >>> recursivist visualize --icon-style nerd
-        >>> # Visualize a GitHub repository
-        >>> recursivist visualize https://github.com/ArmaanjeetSandhu/recursivist
-        >>> # Visualize a subtree on a specific branch, showing blob URLs
-        >>> recursivist visualize https://github.com/owner/repo/tree/main/src -l
+        >>> recursivist visualize /path/to/project -e node_modules -e .git
+        >>> recursivist visualize -p "*.test.js" -d 2
+        >>> recursivist visualize --sort-by-loc --size
+        >>> recursivist visualize https://github.com/owner/repo/tree/main/src
     """
     _enable_verbose_if_requested(verbose)
 
@@ -1799,99 +1566,22 @@ def export(
 ) -> None:
     """Export a directory structure to one or more file formats.
 
-    Scans *directory*, builds the internal tree representation, and writes output files
-    without rendering anything to the terminal. Multiple formats can be requested in a
-    single invocation; each format produces a separate file named ``<prefix>.<format>``
-    inside *output_dir*. By default, this forces the `emoji` icon style to ensure
-    cross-platform compatibility in external viewers, unless explicitly overridden.
+    Scans the directory and writes one file per requested format, named
+    `<prefix>.<format>`, to the output directory, without printing the tree.
+    Exports use the `emoji` icon style unless `--icon-style` is given. The
+    directory may also be a GitHub repository URL, which is downloaded and
+    scanned like a local directory; options that need a local checkout
+    (`--ignore-file`, `--git-status`, `--mtime` and their sorting forms) are
+    skipped for it.
 
-    *directory* may also be a GitHub repository URL (optionally pinning a branch/tag and
-    subtree via ``/tree/<ref>`` or ``/tree/<ref>/<subpath>``), in which case the
-    repository is downloaded and scanned like a local directory. For a GitHub input the
-    ``--ignore-file``, ``--git-status``, ``--sort-by-git-status``, ``--mtime`` and
-    ``--sort-by-mtime`` options do not apply and are skipped, while ``--full-path``
-    writes each file's GitHub blob URL instead of a filesystem path.
-
-    Sorting and annotation flags are resolved strictly by their left-to-right order on
-    the command line: only the first sorting flag (``--sort-by-*``) takes effect, while
-    every display-only flag (``--loc``, ``--size``, ``--mtime``, ``--git-status``)
-    always annotates, in the order given. See [`recursivist.flags`][recursivist.flags]
-    for the full resolution rules.
-
-    Args:
-        directory: Root directory to export, or a GitHub repository URL. Must exist and
-            be a directory when local. Defaults to the current working directory.
-        formats: Export format identifiers. Supported values are ``"txt"``, ``"json"``,
-            ``"html"``, ``"md"``, ``"svg"``, and ``"rst"``. Multiple formats may be
-            given as separate flags or as a single space-separated string.
-        output_dir: Directory where exported files are written. Created automatically if
-            it does not exist. Defaults to the current working directory.
-        output_prefix: Filename prefix shared by all exported files. Defaults to
-            ``"structure"``.
-        exclude_dirs: Directory names to omit from the exported tree. If not provided,
-            falls back to the ``exclude`` setting of the project configuration that
-            applies to *directory*, then to that of the persistent user config; with
-            neither, no directory is excluded. The names given replace the configured
-            ones, and an empty name alone excludes no directory for the run. A GitHub
-            input has no project configuration.
-        exclude_extensions: File extensions to hide. Values are normalized so both
-            ``"pyc"`` and ``".pyc"`` are accepted.
-        exclude_patterns: Glob or regex patterns for file/directory names to exclude.
-            Interpretation depends on *use_regex*.
-        include_patterns: Patterns restricting the output to files whose names match at
-            least one. A match overrides ignore-file rules for that file, but not
-            *exclude_dirs*, *exclude_extensions*, or *exclude_patterns*.
-        use_regex: When ``True``, treat *exclude_patterns* and *include_patterns* as
-            Python regular expressions instead of glob patterns.
-        ignore_file: Filename of an ignore file inside *directory* (e.g.
-            ``".gitignore"``). Entries are treated as additional exclusions. If not
-            provided, falls back to the ``ignore-file`` setting of the project
-            configuration that applies to *directory*, then to that of the persistent
-            user config; with neither, no ignore file is used. An empty value turns the
-            configured ignore file off for the run. A GitHub input uses no ignore file.
-        max_depth: Maximum directory depth to include in the export. ``0`` means
-            unlimited.
-        show_full_path: When ``True``, write absolute paths instead of bare filenames.
-        sort_by_loc: When ``True``, sort files by lines-of-code count (descending) and
-            annotate each file with its LOC count. Ignored entirely if an earlier
-            sorting flag was given.
-        sort_by_size: When ``True``, sort files by size (descending) and annotate each
-            file with its size. Ignored entirely if an earlier sorting flag was given.
-        sort_by_mtime: When ``True``, sort files by last-modification time (newest
-            first) and annotate each file with its timestamp. Ignored entirely if an
-            earlier sorting flag was given.
-        sort_by_git_status: When ``True``, sort files by Git status and annotate each
-            file with its status marker. Ignored entirely if an earlier sorting flag was
-            given.
-        sort_by_similarity: When ``True``, group files with similar names next to each
-            other. Ignored entirely if an earlier sorting flag was given.
-        loc: When ``True``, display each file's lines-of-code count without affecting
-            the sort order.
-        size: When ``True``, display each file's size without affecting the sort order.
-        mtime: When ``True``, display each file's modification time without affecting
-            the sort order.
-        show_git_status: When ``True``, annotate files with their Git status markers
-            without affecting the sort order.
-        icon_style: Icon style to enforce on the export. Defaults to 'emoji' for
-            external compatibility unless provided.
-        verbose: When ``True``, lower the log level to DEBUG so that internal processing
-            steps are printed to the terminal.
-
-    Raises:
-        typer.Exit: With exit code ``1`` if *directory* is invalid, an unsupported
-            format is requested, or an unhandled exception occurs during scanning or
-            file writing.
+    Only the first `--sort-by-*` flag on the command line takes effect, while
+    every display flag (`--loc`, `--size`, `--mtime`, `--git-status`)
+    annotates, in the order given.
 
     Examples:
-        >>> # Export current directory to Markdown
         >>> recursivist export
-        >>> # Export a specific directory
-        >>> recursivist export /path/to/project
-        >>> # Multiple formats (space-separated)
+        >>> recursivist export /path/to/project -f html -o ./exports
         >>> recursivist export -f "json md html"
-        >>> # Force export with nerd fonts
-        >>> recursivist export --icon-style nerd
-        >>> # Export a GitHub repository to Markdown with blob URLs
         >>> recursivist export https://github.com/owner/repo -f md -l
     """
     _enable_verbose_if_requested(verbose)
@@ -1967,11 +1657,7 @@ def export(
 
 @app.command()
 def version() -> None:
-    """Display the current version of recursivist.
-
-    Prints ``recursivist.__version__`` to stdout in the format ``"Recursivist version:
-    <version>"``.
-    """
+    """Display the current version of recursivist."""
     from recursivist import __version__
 
     typer.echo(f"Recursivist version: {__version__}")
@@ -2031,133 +1717,23 @@ def compare(
 ) -> None:
     """Compare two directory structures side by side.
 
-    Builds the tree for each input using identical filtering options, then renders a
-    color-highlighted side-by-side diff. Items present only in *dir1* are highlighted in
-    one color; items present only in *dir2* in another; shared items are shown normally.
-    A legend is included in the output. When *save_as_html* is ``True`` the comparison
-    is written to an HTML file instead.
+    Builds the tree of each input with the same filtering options and shows
+    the two next to each other, highlighting the items found on one side
+    only; a legend explains the colors. With `--save`, the comparison is
+    written to an HTML file instead. Either input may be a local directory or
+    a GitHub repository URL; `--ignore-file`, `--git-status` and `--mtime`
+    are skipped for a GitHub side, and `--sort-by-git-status` and
+    `--sort-by-mtime` whenever either side is one.
 
-    Either input may be a local directory or a GitHub repository URL (optionally pinning
-    a branch/tag and subtree via ``/tree/<ref>`` or ``/tree/<ref>/<subpath>``), allowing
-    a local directory to be compared against a GitHub repository, two GitHub
-    repositories, or two local directories. A GitHub side is downloaded and scanned like
-    a local directory, and ``--full-path`` shows its files' GitHub blob URLs. The
-    ``--ignore-file``, ``--git-status`` and ``--mtime`` options do not apply to a GitHub
-    side and are skipped for it; when *both* inputs are GitHub repositories they are
-    skipped entirely, but when either input is a local directory those options are still
-    honored for the local side. The ``--sort-by-git-status`` and ``--sort-by-mtime``
-    flags are skipped whenever either input is a GitHub repository, because both sides
-    share one ordering.
-
-    Sorting and annotation flags are resolved strictly by their left-to-right order on
-    the command line: only the first sorting flag (``--sort-by-*``) takes effect, while
-    every display-only flag (``--loc``, ``--size``, ``--mtime``, ``--git-status``)
-    always annotates, in the order given. See [`recursivist.flags`][recursivist.flags]
-    for the full resolution rules. Git status is read independently for each directory,
-    so each side is annotated against its own repository.
-
-    By default, uses the project configuration of the first local directory, then the
-    persistent user configuration, for icon styling in the terminal.
-    If exported to HTML, strictly falls back to the 'emoji' style to ensure
-    cross-platform compatibility. The ignore file and the excluded directories come from
-    the same configuration whenever ``--ignore-file`` or ``--exclude`` is not given, in
-    the terminal and in HTML alike.
-
-    Args:
-        dir1: First input to compare — a local directory path or a GitHub repository
-            URL.
-        dir2: Second input to compare — a local directory path or a GitHub repository
-            URL.
-        exclude_dirs: Directory names to omit from both trees. If not provided, falls
-            back to the ``exclude`` setting of the project configuration of the first
-            local directory, then to that of the user configuration; with neither, no
-            directory is excluded. The names given replace the configured ones, and an
-            empty name alone excludes no directory for the run.
-        exclude_extensions: File extensions to hide from both trees. Values are
-            normalized so both ``"pyc"`` and ``".pyc"`` are accepted.
-        exclude_patterns: Glob or regex patterns for file/directory names to exclude
-            from both trees. Interpretation depends on *use_regex*.
-        include_patterns: Patterns restricting the output to files whose names match at
-            least one. A match overrides ignore-file rules for that file, but not
-            *exclude_dirs*, *exclude_extensions*, or *exclude_patterns*.
-        use_regex: When ``True``, treat *exclude_patterns* and *include_patterns* as
-            Python regular expressions instead of glob patterns.
-        ignore_file: Filename of an ignore file to look for inside each directory (e.g.
-            ``".gitignore"``). If not provided, falls back to the ``ignore-file``
-            setting of the project configuration of the first local directory, then to
-            that of the user configuration; with neither, no ignore file is used. An
-            empty value turns the configured ignore file off for the run. A GitHub side
-            uses no ignore file.
-        max_depth: Maximum directory depth to display. ``0`` means unlimited.
-        save_as_html: When ``True``, write the comparison to an HTML file rather than
-            printing to the terminal.
-        output_dir: Directory where the HTML file is written when *save_as_html* is
-            ``True``. Created if it does not exist. Defaults to the current working
-            directory.
-        output_prefix: Filename prefix for the exported HTML file. Defaults to
-            ``"comparison"``.
-        show_full_path: When ``True``, display absolute paths instead of bare filenames.
-        sort_by_loc: When ``True``, sort files by lines-of-code count (descending) and
-            annotate each file with its LOC count. Ignored entirely if an earlier
-            sorting flag was given.
-        sort_by_size: When ``True``, sort files by size (descending) and annotate each
-            file with its size. Ignored entirely if an earlier sorting flag was given.
-        sort_by_mtime: When ``True``, sort files by last-modification time (newest
-            first) and annotate each file with its timestamp. Ignored entirely if an
-            earlier sorting flag was given.
-        sort_by_git_status: When ``True``, sort files by Git status and annotate each
-            file with its status marker. Ignored entirely if an earlier sorting flag was
-            given.
-        sort_by_similarity: When ``True``, group files with similar names next to each
-            other. Ignored entirely if an earlier sorting flag was given.
-        loc: When ``True``, display each file's lines-of-code count without affecting
-            the sort order.
-        size: When ``True``, display each file's size without affecting the sort order.
-        mtime: When ``True``, display each file's modification time without affecting
-            the sort order.
-        show_git_status: When ``True``, annotate files with their Git status without
-            affecting the sort order: ``[U]`` untracked, ``[M]`` modified, ``[A]``
-            added, ``[D]`` deleted. Read independently for each directory.
-        icon_style: Style to use for folder and file icons. Will use the project
-            configuration of the first local directory, then the user configuration,
-            when visualizing in terminal, and default to 'emoji' when outputting to
-            HTML.
-        verbose: When ``True``, lower the log level to DEBUG so that internal processing
-            steps are printed to the terminal.
-
-    Raises:
-        typer.Exit: With exit code ``1`` if an unhandled exception occurs during
-            comparison or export.
+    Only the first `--sort-by-*` flag on the command line takes effect, while
+    every display flag (`--loc`, `--size`, `--mtime`, `--git-status`)
+    annotates, in the order given.
 
     Examples:
-        >>> # Basic comparison
         >>> recursivist compare dir1 dir2
-        >>> # Exclude a directory
-        >>> recursivist compare dir1 dir2 -e node_modules
-        >>> # Exclude extensions
-        >>> recursivist compare dir1 dir2 -x .pyc -x .log
-        >>> # Exclude glob patterns
-        >>> recursivist compare dir1 dir2 -p "*.test.js"
-        >>> # Exclude regex patterns
-        >>> recursivist compare dir1 dir2 -p ".*test.*" -r
-        >>> # Include overrides
-        >>> recursivist compare dir1 dir2 -i "*.py"
-        >>> # Limit depth to 2
-        >>> recursivist compare dir1 dir2 -d 2
-        >>> # Show full paths
-        >>> recursivist compare dir1 dir2 -l
-        >>> # Annotate files with Git status markers
-        >>> recursivist compare dir1 dir2 -G
-        >>> # Sort files by Git status
-        >>> recursivist compare dir1 dir2 --sort-by-git-status
-        >>> # Export to HTML
-        >>> recursivist compare dir1 dir2 -f
-        >>> # Override icon styling
-        >>> recursivist compare dir1 dir2 --icon-style nerd
-        >>> # Compare a local directory against a GitHub repository
+        >>> recursivist compare dir1 dir2 -e node_modules -d 2
+        >>> recursivist compare dir1 dir2 --save -o ./reports
         >>> recursivist compare ./my-fork https://github.com/owner/repo
-        >>> # Compare two GitHub repositories
-        >>> recursivist compare https://github.com/owner/repo-a https://github.com/owner/repo-b
     """
     _enable_verbose_if_requested(verbose)
 

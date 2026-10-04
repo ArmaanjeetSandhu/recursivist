@@ -157,12 +157,10 @@ def describe_accepted_values(key: str) -> str:
 def get_config_path() -> Path:
     """Return the path to the configuration file.
 
-    The location is resolved with `typer.get_app_dir`, so it follows each platform's
-    convention for application data. Nothing is created on disk: the file and its
-    directory may not exist until `save_config` writes them.
-
-    Returns:
-        Path to ``config.json`` inside the application directory.
+    The file is ``config.json`` inside the directory given by `typer.get_app_dir`, so
+    its location follows each platform's convention for application data. Nothing is
+    created on disk: the file and its directory may not exist until `save_config`
+    writes them.
     """
     return Path(typer.get_app_dir(APP_NAME)) / "config.json"
 

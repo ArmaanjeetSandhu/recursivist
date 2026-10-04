@@ -67,13 +67,8 @@ def normalize_extensions(extensions: Iterable[str]) -> set[str]:
     An extension may be written with or without its leading dot and in any case, so
     ``"pyc"``, ``".pyc"`` and ``".PYC"`` all become ``".pyc"``. The result is the form
     expected wherever an ``exclude_extensions`` argument is described as normalized.
-    Normalizing an already-normalized set returns an equal set.
-
-    Args:
-        extensions: Extensions as given by the caller.
-
-    Returns:
-        The distinct normalized extensions.
+    Duplicates collapse, and normalizing an already-normalized set returns an equal
+    set.
     """
     return {
         ext.lower() if ext.startswith(".") else f".{ext.lower()}" for ext in extensions
