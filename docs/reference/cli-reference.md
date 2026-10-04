@@ -38,7 +38,7 @@ The following options are common to `visualize`, `export`, and `compare`. Repeat
 | `--icon-style`         |       | Icon style: `emoji` or `nerd`                                                  |
 | `--verbose`            | `-v`  | Enable verbose (DEBUG) logging                                                 |
 
-The `--ignore-file` name is matched with or without a leading dot, so `--ignore-file gitignore` and `--ignore-file .gitignore` behave the same when a `.gitignore` is present.
+The `--ignore-file` name is matched with or without a leading dot, so `--ignore-file gitignore` and `--ignore-file .gitignore` behave the same when a `.gitignore` is present. Without the option, the ignore file named by the `ignore-file` [setting](#settings) is used, if one is set; `--ignore-file ""` honors no ignore file for that run.
 
 The sorting and annotation flags (`--sort-by-*`, `--loc`, `--size`, `--mtime`, `--git-status`) follow a specific resolution model when several are combined; that model is described in the [Sorting and Display Flags](#sorting-and-display-flags) section below.
 
@@ -114,6 +114,8 @@ A hosted repository already reflects its own ignore rules, and every file in a c
 | `--size`, `--sort-by-size`             | Applied, since sizes come from the file contents                                                                             |
 | `--full-path`                          | Applied; shows each file's GitHub blob URL (`https://github.com/owner/repo/blob/<ref>/<path>`) in place of a filesystem path |
 
+The `ignore-file` [setting](#settings) is not applied to a GitHub input either, and no message is shown for it.
+
 In `compare`, `--ignore-file`, `--git-status`, and `--mtime` are skipped for a given side only when that side is a GitHub repository. When both inputs are GitHub repositories they are skipped entirely; in a mixed comparison — one local directory and one GitHub repository — they still apply to the local side. The sorting flags `--sort-by-git-status` and `--sort-by-mtime` are skipped whenever either input is a GitHub repository, because both sides share one ordering.
 
 ## `visualize`
@@ -173,7 +175,7 @@ In addition to the [shared options](#shared-options) and the [sorting and displa
 | `--output-dir` | `-o`  | Output directory (created if missing; defaults to current directory)     |
 | `--prefix`     | `-n`  | Filename prefix for exports (default `structure`)                        |
 
-Exports default to the `emoji` icon style for cross-platform consistency, regardless of saved or project configuration. `DIRECTORY` may also be a [GitHub repository URL](#github-repositories), in which case the repository is downloaded and scanned in place of a local directory.
+Exports default to the `emoji` icon style for cross-platform consistency, regardless of saved or project configuration; the `ignore-file` [setting](#settings) applies to exports as it does to the other commands. `DIRECTORY` may also be a [GitHub repository URL](#github-repositories), in which case the repository is downloaded and scanned in place of a local directory.
 
 ### Examples
 
@@ -245,8 +247,8 @@ recursivist config path
 
 | Argument    | Description                                                                                          |
 | ----------- | ---------------------------------------------------------------------------------------------------- |
-| `KEY`       | Configuration key (currently `icon-style`)                                                           |
-| `VALUE`     | Value to set (`emoji` or `nerd` for `icon-style`)                                                    |
+| `KEY`       | Configuration key: `icon-style` or `ignore-file`                                                     |
+| `VALUE`     | Value to set: `emoji` or `nerd` for `icon-style`, a file name such as `.gitignore` for `ignore-file` |
 | `DIRECTORY` | Directory whose project configuration applies, for `config list` (defaults to the current directory) |
 
 `config list` supports:
@@ -262,11 +264,11 @@ recursivist config path
 | ------- | ----- | -------------------------------------- |
 | `--yes` | `-y`  | Remove without asking for confirmation |
 
-`config set` saves a value. `config unset` removes a saved value, so the setting falls back to its default. `unset` accepts any key, including one Recursivist does not recognize, which makes it the way to clear an entry that is reported with a warning. Both commands change only the key they are given and leave the rest of the file untouched.
+`config set` saves a value for one of the [settings](#settings). `config unset` removes a saved value, so the setting falls back to its default. `unset` accepts any key, including one Recursivist does not recognize, which makes it the way to clear an entry that is reported with a warning. Both commands change only the key they are given and leave the rest of the file untouched.
 
 `config reset` removes every saved value at once by deleting the file, so each setting falls back to its default. The whole file is removed, including entries Recursivist does not recognize and a file it cannot read, which makes it the way to clear a file that is reported with a warning. It asks for confirmation first, in a question that names the entries about to be removed, and removes nothing unless the answer is yes: declining, or having no answer to read, as in a script, exits with status 1. `--yes` removes without asking. The removed entries are printed with their values, so a value can be saved again with `config set`. When there is no file, nothing is asked or done and the command still succeeds. A [project configuration](#project-configuration) file is left as it is.
 
-`config get` prints the value of a setting: the one saved in the file, or the built-in default when none is saved or the saved one is invalid. The value is the only thing written to standard output, so it can be captured in a script; warnings about the file, and the error for a key Recursivist does not recognize, go to standard error. It reads only your user preferences, so a [project configuration](#project-configuration) or a command-line flag can still override the printed value for a run; `config list` shows the value in effect for a directory. Nothing is created or changed.
+`config get` prints the value of a setting: the one saved in the file, or the built-in default when none is saved or the saved one is invalid. For `ignore-file`, whose default is to honor no ignore file, that is an empty line. The value is the only thing written to standard output, so it can be captured in a script; warnings about the file, and the error for a key Recursivist does not recognize, go to standard error. It reads only your user preferences, so a [project configuration](#project-configuration) or a command-line flag can still override the printed value for a run; `config list` shows the value in effect for a directory. Nothing is created or changed.
 
 `config list` prints every setting with the value in effect for a directory and the layer and file that value comes from, taking the [project configuration](#project-configuration) into account. `--all` adds the value of every layer, and `--json` prints the listing as JSON. See [Listing Settings](#listing-settings) for the output. Nothing is created or changed.
 
@@ -277,10 +279,12 @@ recursivist config path
 ```bash
 recursivist config set icon-style nerd
 recursivist config set icon-style emoji
+recursivist config set ignore-file .gitignore   # honor .gitignore on every run
 recursivist config unset icon-style
 recursivist config reset                     # remove every saved preference, after confirming
 recursivist config reset --yes               # the same without being asked, for scripts
 recursivist config get icon-style
+recursivist config get ignore-file
 recursivist export --icon-style "$(recursivist config get icon-style)"   # export with your saved style
 recursivist config list                      # settings in effect for the current directory
 recursivist config list ./my-project --all   # every layer's value for a project
@@ -289,6 +293,15 @@ recursivist config path
 cat "$(recursivist config path)"   # show your saved preferences
 ```
 
+### Settings
+
+| Key           | Values                            | Default | What it sets                                                                                      |
+| ------------- | --------------------------------- | ------- | ------------------------------------------------------------------------------------------------- |
+| `icon-style`  | `emoji` or `nerd`                 | `emoji` | The icons of `visualize`, and of `compare` in the terminal                                        |
+| `ignore-file` | A file name, such as `.gitignore` | Not set | The ignore file honored by `visualize`, `export`, and `compare` when `--ignore-file` is not given |
+
+`ignore-file` names a gitignore-style [ignore file](../user-guide/pattern-filtering.md#ignore-files), exactly as `--ignore-file` does: the leading dot is optional, and the file is looked up in the directory being scanned and at every level below it. Any name that is not blank is accepted. A directory that has no file of that name is scanned without one, and no warning is shown, so the setting can be saved once and left on. It is not applied to a [GitHub repository](#github-repositories) input. `--ignore-file NAME` overrides the setting for a run, and `--ignore-file ""` turns it off for a run.
+
 ### Project Configuration
 
 A project can carry its own settings in a TOML file, which override your user preferences for that project. Recursivist reads either of two files:
@@ -296,12 +309,14 @@ A project can carry its own settings in a TOML file, which override your user pr
 ```toml
 # .recursivist.toml
 icon-style = "nerd"
+ignore-file = ".gitignore"
 ```
 
 ```toml
 # pyproject.toml
 [tool.recursivist]
 icon-style = "nerd"
+ignore-file = ".gitignore"
 ```
 
 The file is looked up in the directory being scanned, then in each parent directory; the nearest one is used and files further up are not merged in. When a directory holds both files, `.recursivist.toml` is used. A `pyproject.toml` without a `[tool.recursivist]` table is skipped. Project files accept the same keys and values as `config set`, and are edited by hand: `config set` only writes your user preferences.
@@ -315,7 +330,7 @@ Each setting is resolved in this order, the first one found winning:
 
 An unknown key or an invalid value is reported with a warning and ignored, so that setting falls through to the next layer. This applies to project files and to your user configuration file alike, so a mistake made while editing either by hand cannot change what is rendered. Remove an entry from your user configuration file with `config unset`, or the whole file with `config reset`. Run `config list` to see which layer and file each setting comes from, or a command with `--verbose` to see which project file was used.
 
-`compare` uses the project configuration of the first local directory given. A [GitHub repository](#github-repositories) input has no project configuration.
+`compare` uses the project configuration of the first local directory given, and looks for the ignore file it names in each local directory. A [GitHub repository](#github-repositories) input has no project configuration.
 
 ### Listing Settings
 
@@ -323,22 +338,27 @@ An unknown key or an invalid value is reported with a warning and ignored, so th
 
 ```text
 $ recursivist config list ./my-project
-icon-style = nerd  (project: /home/me/my-project/.recursivist.toml)
+icon-style  = nerd        (project: /home/me/my-project/.recursivist.toml)
+ignore-file = .gitignore  (user: /home/me/.config/recursivist/config.json)
 ```
 
-The origin is `project` or `user` followed by the file that sets the value, or `default` when no file sets it.
+The origin is `project` or `user` followed by the file that sets the value, or `default` when no file sets it. `ignore-file` has no built-in value, so when no file sets it, it is listed as `(not set)` with the origin `default`.
 
 `--all` lists the value of every layer under the setting, from the highest precedence to the lowest. The winning layer is marked with `*`, and a layer that does not set the value shows `(not set)`. A layer's file is named whenever it exists, even when it does not set the value, so the listing shows every file that is consulted:
 
 ```text
 $ recursivist config list ./my-project --all
 icon-style = nerd
-  * project  nerd   /home/me/my-project/.recursivist.toml
-    user     emoji  /home/me/.config/recursivist/config.json
+  * project  nerd        /home/me/my-project/.recursivist.toml
+    user     emoji       /home/me/.config/recursivist/config.json
     default  emoji
+ignore-file = .gitignore
+    project  (not set)   /home/me/my-project/.recursivist.toml
+  * user     .gitignore  /home/me/.config/recursivist/config.json
+    default  (not set)
 ```
 
-`--json` prints the listing as a JSON object keyed by setting. Each entry holds the winning `value`, the `layer` it comes from (`project`, `user`, or `default`), and its `source` file, which is `null` for a built-in default:
+`--json` prints the listing as a JSON object keyed by setting. Each entry holds the winning `value`, the `layer` it comes from (`project`, `user`, or `default`), and its `source` file, which is `null` for a built-in default. The `value` is `null` for a setting that no layer sets:
 
 ```json
 {
@@ -346,6 +366,11 @@ icon-style = nerd
         "value": "nerd",
         "layer": "project",
         "source": "/home/me/my-project/.recursivist.toml"
+    },
+    "ignore-file": {
+        "value": ".gitignore",
+        "layer": "user",
+        "source": "/home/me/.config/recursivist/config.json"
     }
 }
 ```
@@ -354,7 +379,7 @@ With `--all` as well, each entry also has a `layers` array holding the same thre
 
 The listing is the only thing written to standard output, so it can be piped to another program; warnings about a configuration file, and the error for a `DIRECTORY` that is not a directory, go to standard error. An invalid value is reported with a warning and counts as not set, as it does for a run.
 
-A command-line flag such as `--icon-style` still overrides the listed value for a run, and exports use the `emoji` icon style unless that flag is given.
+A command-line flag such as `--icon-style` or `--ignore-file` still overrides the listed value for a run, and exports use the `emoji` icon style unless that flag is given.
 
 ## `version`
 

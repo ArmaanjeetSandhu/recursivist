@@ -58,6 +58,9 @@ For path-aware, gitignore-style filtering, use an ignore file:
 ```bash
 recursivist visualize --ignore-file .gitignore
 recursivist visualize --ignore-file .recursivist-ignore
+
+# Save the name once to honor it on every run
+recursivist config set ignore-file .gitignore
 ```
 
 Example `.recursivist-ignore`:

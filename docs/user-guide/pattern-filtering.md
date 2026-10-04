@@ -66,6 +66,19 @@ recursivist visualize --ignore-file .recursivist-ignore
 
 The leading dot in the name is optional: `--ignore-file gitignore` resolves to `.gitignore` when that file is present, so both spellings work.
 
+To honor an ignore file on every run without passing the option, save its name as a preference, or set it for a project in a `.recursivist.toml` file or a `[tool.recursivist]` table in `pyproject.toml`:
+
+```bash
+recursivist config set ignore-file .gitignore
+```
+
+```toml
+# .recursivist.toml
+ignore-file = ".gitignore"
+```
+
+The name is used by `visualize`, `export`, and `compare` wherever a file of that name exists; where none does, the scan goes ahead without an ignore file, and no warning is shown. A project setting overrides your saved preference, `--ignore-file` overrides both for a run, and `--ignore-file ""` runs without any ignore file. See [Settings](../reference/cli-reference.md#settings) for the details.
+
 Like Git, ignore files are discovered at **every level** of the tree, and **each is evaluated relative to the directory that contains it** rather than to the scan root. So an anchored pattern such as `/build` in a nested `.gitignore` matches only inside that subdirectory; a deeper ignore file's verdict overrides a shallower one for the same path.
 
 An example `.recursivist-ignore`:

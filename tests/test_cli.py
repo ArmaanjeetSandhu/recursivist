@@ -1812,14 +1812,36 @@ def test_icon_style_config_read_when_command_runs(
     assert seen == ["emoji", "nerd"]
 
 
-def test_explicit_icon_style_skips_config(
+def test_flags_for_every_setting_skip_config(
     runner: CliRunner, sample_directory: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    resolve_config = mock.Mock(return_value={"icon_style": "emoji"})
+    resolve_config = mock.Mock(
+        return_value={"icon_style": "emoji", "ignore_file": None}
+    )
     monkeypatch.setattr(cli_module, "resolve_config", resolve_config)
-    result = runner.invoke(app, ["visualize", sample_directory, "--icon-style", "nerd"])
+    result = runner.invoke(
+        app,
+        ["visualize", sample_directory, "--icon-style", "nerd", "-g", ".gitignore"],
+    )
     assert result.exit_code == 0
     resolve_config.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "flags", [[], ["--icon-style", "nerd"], ["--ignore-file", ".gitignore"]]
+)
+def test_config_resolved_once_per_run(
+    runner: CliRunner, sample_directory: str, flags: list[str]
+) -> None:
+    """A setting left to the configuration is looked up without re-reading the files."""
+    from recursivist.config import resolve_config
+
+    with mock.patch.object(
+        cli_module, "resolve_config", wraps=resolve_config
+    ) as resolved:
+        result = runner.invoke(app, ["visualize", sample_directory, *flags])
+    assert result.exit_code == 0
+    resolved.assert_called_once()
 
 
 def _write_project_config(directory: str, style: str, pyproject: bool = False) -> None:
@@ -1999,13 +2021,14 @@ def test_malformed_user_config_warns_and_uses_defaults(
     assert "📄" in result.output
 
 
-def test_explicit_icon_style_does_not_read_user_config(
+def test_flags_for_every_setting_do_not_read_user_config(
     runner: CliRunner, sample_directory: str
 ) -> None:
-    """A flag settles the style, so a bad saved value is not even reported."""
-    _write_user_config('{"icon_style": "bogus"}')
+    """Flags settle every setting, so a bad saved value is not even reported."""
+    _write_user_config('{"icon_style": "bogus", "ignore_file": 3}')
     result = runner.invoke(
-        app, ["visualize", sample_directory, "--icon-style", "emoji"]
+        app,
+        ["visualize", sample_directory, "--icon-style", "emoji", "-g", ".gitignore"],
     )
     assert result.exit_code == 0
     assert "Ignoring" not in result.output

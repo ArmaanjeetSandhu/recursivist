@@ -8,7 +8,8 @@ the directory being scanned: either a dedicated ``.recursivist.toml`` or a
 
 [`resolve_config`][recursivist.config.resolve_config] merges them, each layer overriding
 the ones before it: built-in defaults, then the user file, then the project file. A
-command-line flag overrides all three. The only preference is currently the icon style.
+command-line flag overrides all three. The preferences are the icon style and the name
+of the ignore file to honor.
 
 [`resolve_config_layers`][recursivist.config.resolve_config_layers] gives the same
 resolution layer by layer, naming the file each value comes from. It is what
@@ -52,12 +53,17 @@ IconStyle = Literal["emoji", "nerd"]
 
 ICON_STYLES: tuple[str, ...] = get_args(IconStyle)
 
-CONFIG_KEYS: dict[str, tuple[str, ...]] = {"icon_style": ICON_STYLES}
+CONFIG_KEYS: dict[str, tuple[str, ...] | None] = {
+    "icon_style": ICON_STYLES,
+    "ignore_file": None,
+}
 """Recognized configuration keys (in their stored, underscored form) mapped to the
-values each one accepts."""
+values each one accepts: a tuple of choices, or ``None`` for a key that accepts any
+string that is not blank."""
 
-DEFAULT_CONFIG: dict[str, Any] = {"icon_style": "emoji"}
-"""Built-in value of every configuration key, used when no layer sets it."""
+DEFAULT_CONFIG: dict[str, Any] = {"icon_style": "emoji", "ignore_file": None}
+"""Built-in value of every configuration key, used when no layer sets it. A value of
+``None`` leaves the setting without a value: by default, no ignore file is honored."""
 
 LAYER_PROJECT = "project"
 """Name of the layer read from the project configuration file."""
@@ -77,7 +83,8 @@ class ConfigLayer:
         name: The layer: `LAYER_PROJECT`, `LAYER_USER`, or `LAYER_DEFAULT`.
         value: The layer's value for the setting, or ``None`` when the layer does not
             set it. A value the setting does not accept counts as not set. The default
-            layer always has a value.
+            layer has a value for every setting whose entry in `DEFAULT_CONFIG` is not
+            ``None``.
         source: The file the layer is read from, or ``None`` when there is none: no
             project configuration applies, the user configuration file does not exist,
             or the layer is the built-in defaults.
@@ -86,6 +93,44 @@ class ConfigLayer:
     name: str
     value: str | None
     source: Path | None
+
+
+def accepts_value(key: str, value: Any) -> bool:
+    """Return whether *value* is one the configuration *key* accepts.
+
+    Every value is a string. A key with a set of choices accepts exactly those; any
+    other key accepts a string that is not empty or made of whitespace only.
+
+    Args:
+        key: A key of `CONFIG_KEYS`, in its underscored form.
+        value: The value to check, of any type.
+
+    Returns:
+        ``True`` if *key* accepts *value*, ``False`` otherwise.
+    """
+    if not isinstance(value, str):
+        return False
+    choices = CONFIG_KEYS[key]
+    if choices is None:
+        return bool(value.strip())
+    return value in choices
+
+
+def describe_accepted_values(key: str) -> str:
+    """Return a phrase naming the values the configuration *key* accepts.
+
+    Args:
+        key: A key of `CONFIG_KEYS`, in its underscored form.
+
+    Returns:
+        A phrase that completes the sentence "Use ...": the quoted choices of a key
+        that has them (``'emoji' or 'nerd'``), and ``a non-empty string`` for any other
+        key.
+    """
+    choices = CONFIG_KEYS[key]
+    if choices is None:
+        return "a non-empty string"
+    return " or ".join(f"'{v}'" for v in choices)
 
 
 def get_config_path() -> Path:
@@ -265,8 +310,7 @@ def _validate_settings(
     settings: dict[str, Any] = {}
     for raw_key, value in table.items():
         key = raw_key.replace("-", "_")
-        allowed_values = CONFIG_KEYS.get(key)
-        if allowed_values is None:
+        if key not in CONFIG_KEYS:
             valid_keys = ", ".join(k.replace("_", "-") for k in CONFIG_KEYS)
             hint = (
                 f" To remove it, run: {_unset_command(raw_key)}" if unset_hint else ""
@@ -278,14 +322,13 @@ def _validate_settings(
                 valid_keys,
                 hint,
             )
-        elif not isinstance(value, str) or value not in allowed_values:
-            choices = " or ".join(f"'{v}'" for v in allowed_values)
+        elif not accepts_value(key, value):
             logger.warning(
                 "Ignoring invalid value for '%s' in %s: %r. Use %s.",
                 raw_key,
                 source,
                 value,
-                choices,
+                describe_accepted_values(key),
             )
         else:
             settings[key] = value
@@ -370,10 +413,11 @@ def resolve_config_layers(
 
     The layers of a setting are listed from the highest precedence to the lowest: the
     project configuration that applies to *project_dir*, the user configuration file,
-    then the built-in default. The first layer that has a value is the one in effect,
-    and the default layer always has one. Both files are validated as they are loaded,
-    so every value is one its key accepts, and a layer whose file sets a key wrongly
-    counts as not setting it. Reading never writes.
+    then the built-in default. The first layer that has a value is the one in effect;
+    a setting whose built-in default is ``None`` has no value when neither file sets
+    it. Both files are validated as they are loaded, so every value is one its key
+    accepts, and a layer whose file sets a key wrongly counts as not setting it. Reading
+    never writes.
 
     Args:
         project_dir: Directory whose project configuration should apply, normally the
@@ -406,7 +450,8 @@ def resolve_config(project_dir: Path | None = None) -> dict[str, Any]:
     Layers are applied in order, each overriding the previous one: the built-in
     defaults, the user configuration file, then the project configuration that applies
     to *project_dir*. Both files are validated as they are loaded, so every value in the
-    result is one its key accepts.
+    result is one its key accepts, or ``None`` for a setting that no layer gives a
+    value.
 
     Args:
         project_dir: Directory whose project configuration should apply, normally the
@@ -417,6 +462,6 @@ def resolve_config(project_dir: Path | None = None) -> dict[str, Any]:
         The merged configuration mapping, with every key in `CONFIG_KEYS` present.
     """
     return {
-        key: next(layer.value for layer in layers if layer.value is not None)
+        key: next((layer.value for layer in layers if layer.value is not None), None)
         for key, layers in resolve_config_layers(project_dir).items()
     }

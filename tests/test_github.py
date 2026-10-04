@@ -15,6 +15,7 @@ from collections.abc import Callable, Mapping
 from email.message import Message
 from pathlib import Path
 from typing import Any
+from unittest import mock
 from urllib.error import HTTPError, URLError
 
 import pytest
@@ -660,6 +661,28 @@ def test_cli_visualize_github_ignores_flags(
         assert flag in caplog.text
 
 
+def test_cli_visualize_github_does_not_use_configured_ignore_file(
+    runner: CliRunner, patch_network: None, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A saved ignore file is left out for a GitHub input, without a message."""
+    import logging
+
+    from recursivist import cli as cli_module
+
+    saved = runner.invoke(app, ["config", "set", "ignore-file", ".gitignore"])
+    assert saved.exit_code == 0
+    with (
+        caplog.at_level(logging.INFO, logger="recursivist"),
+        mock.patch.object(
+            cli_module, "_scan_directory", wraps=cli_module._scan_directory
+        ) as scan,
+    ):
+        result = runner.invoke(app, ["visualize", "https://github.com/o/r"])
+    assert result.exit_code == 0
+    assert scan.call_args.args[2] is None
+    assert "Ignoring" not in caplog.text
+
+
 def _rendered_tree(stdout: str) -> str:
     """Return the tree from ``visualize`` output, without the log lines above it."""
     return stdout[stdout.index("📂 r") :]
@@ -772,6 +795,31 @@ def test_cli_compare_mixed_honors_local_flags(
         )
     assert result.exit_code == 0
     assert "still apply to the local directory" in caplog.text
+
+
+def test_cli_compare_mixed_applies_configured_ignore_file_to_local_side(
+    runner: CliRunner,
+    patch_network: None,
+    tmp_path: Any,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    import logging
+
+    local = tmp_path / "local"
+    local.mkdir()
+    (local / "kept.py").write_text("print('x')\n")
+    (local / "app.log").write_text("x\n")
+    (local / ".gitignore").write_text("*.log\n")
+    saved = runner.invoke(app, ["config", "set", "ignore-file", ".gitignore"])
+    assert saved.exit_code == 0
+    with caplog.at_level(logging.INFO, logger="recursivist"):
+        result = runner.invoke(
+            app, ["compare", str(local), "https://github.com/o/r/tree/main/pkg"]
+        )
+    assert result.exit_code == 0
+    assert "kept.py" in result.stdout
+    assert "app.log" not in result.stdout
+    assert "still apply to the local directory" not in caplog.text
 
 
 def test_cli_compare_invalid_local_side(runner: CliRunner, patch_network: None) -> None:

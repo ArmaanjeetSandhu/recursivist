@@ -10,7 +10,7 @@ Main commands:
         optional statistics.
     export: Export a directory structure to TXT, JSON, HTML, MD, SVG, or RST.
     compare: Compare two directory structures with highlighted differences.
-    config: Manage persistent user preferences like icon styles.
+    config: Manage persistent user preferences like the icon style and the ignore file.
     version: Display the current version information.
 
 The visualize, export, and compare commands accept a GitHub repository URL anywhere they
@@ -27,9 +27,11 @@ All commands share a consistent set of filtering and display options:
 """
 
 import contextlib
+import functools
 import json
 import logging
 import os
+from collections.abc import Callable
 from pathlib import Path
 from re import Pattern
 from typing import Annotated, Any
@@ -48,7 +50,9 @@ from recursivist.config import (
     CONFIG_KEYS,
     ConfigLayer,
     IconStyle,
+    accepts_value,
     delete_config_file,
+    describe_accepted_values,
     get_config_path,
     read_config_file,
     resolve_config,
@@ -137,7 +141,10 @@ HELP_INCLUDE_PATTERNS = (
     "repeat the flag for several"
 )
 HELP_USE_REGEX = "Treat patterns as regex instead of glob patterns"
-HELP_IGNORE_FILE = "Ignore file to use (e.g., .gitignore)"
+HELP_IGNORE_FILE = (
+    "Ignore file to use (e.g., .gitignore). Defaults to the project config, then the "
+    "user config."
+)
 HELP_SHOW_FULL_PATH = (
     "Show full paths instead of just filenames "
     "(GitHub blob URLs for GitHub repositories)"
@@ -282,17 +289,21 @@ def _known_config_key(key: str) -> str:
 
 @config_app.command("set")
 def config_set(
-    key: Annotated[str, typer.Argument(help="Configuration key (e.g., icon-style)")],
+    key: Annotated[
+        str, typer.Argument(help="Configuration key (icon-style or ignore-file)")
+    ],
     value: Annotated[
-        str, typer.Argument(help="Configuration value (e.g., nerd or emoji)")
+        str, typer.Argument(help="Configuration value (e.g., nerd or .gitignore)")
     ],
 ) -> None:
     """Set a persistent configuration value.
 
-    Writes a user preference to the global configuration file. Currently supports
-    setting the `icon-style` to either `emoji` or `nerd`. A project configuration file
-    (`.recursivist.toml`, or `[tool.recursivist]` in `pyproject.toml`) overrides the
-    value saved here for the directories it applies to.
+    Writes a user preference to the global configuration file. Two keys are supported:
+    `icon-style`, which is either `emoji` or `nerd`, and `ignore-file`, which is the
+    name of the ignore file to honor (e.g. `.gitignore`) and can be any name that is
+    not blank. A project configuration file (`.recursivist.toml`, or
+    `[tool.recursivist]` in `pyproject.toml`) overrides the value saved here for the
+    directories it applies to.
 
     Args:
         key: The configuration key to set (e.g., "icon-style").
@@ -304,13 +315,17 @@ def config_set(
     Examples:
         >>> recursivist config set icon-style nerd
         >>> recursivist config set icon-style emoji
+        >>> recursivist config set ignore-file .gitignore
     """
     config_key = _known_config_key(key)
 
-    allowed_values = CONFIG_KEYS[config_key]
-    if value not in allowed_values:
-        choices = " or ".join(f"'{v}'" for v in allowed_values)
-        logger.error("Invalid value for %s: '%s'. Use %s.", key, value, choices)
+    if not accepts_value(config_key, value):
+        logger.error(
+            "Invalid value for %s: '%s'. Use %s.",
+            key,
+            value,
+            describe_accepted_values(config_key),
+        )
         raise typer.Exit(1)
 
     config = _without_setting(read_config_file(), config_key)
@@ -427,7 +442,9 @@ def config_get(
     Prints the value saved in the global configuration file, the one `config set`
     writes. When the key is not saved, or its saved value is not one the key accepts,
     the built-in default is printed instead, so the output is always a valid value. The
-    key may be written with dashes or underscores (`icon-style` or `icon_style`).
+    default of `ignore-file` is to honor no ignore file, which prints as an empty line;
+    passed to `--ignore-file`, an empty value likewise means no ignore file. The key may
+    be written with dashes or underscores (`icon-style` or `icon_style`).
 
     Project configuration files are not consulted. A project file, or a command-line
     flag such as `--icon-style`, can still override the printed value for a run.
@@ -446,19 +463,24 @@ def config_get(
 
     Examples:
         >>> recursivist config get icon-style
+        >>> recursivist config get ignore-file
         >>> recursivist export --icon-style "$(recursivist config get icon-style)"
     """
     _send_logs_to_stderr(ctx)
     config_key = _known_config_key(key)
-    typer.echo(resolve_config()[config_key])
+    typer.echo(resolve_config()[config_key] or "")
 
 
 _NOT_SET = "(not set)"
 
 
 def _effective_layer(layers: list[ConfigLayer]) -> ConfigLayer:
-    """Return the layer whose value is in effect: the first one that sets a value."""
-    return next(layer for layer in layers if layer.value is not None)
+    """Return the layer whose value is in effect.
+
+    That is the first layer that sets a value, or the last one, the built-in default,
+    when no layer does.
+    """
+    return next((layer for layer in layers if layer.value is not None), layers[-1])
 
 
 def _shown_value(layer: ConfigLayer) -> str:
@@ -578,7 +600,11 @@ def config_list(
     first layer that sets a valid value wins, and the listing names that layer and the
     file the value comes from:
 
-        icon-style = nerd  (project: /path/to/project/.recursivist.toml)
+        icon-style  = nerd        (project: /path/to/project/.recursivist.toml)
+        ignore-file = .gitignore  (user: /home/user/.config/recursivist/config.json)
+
+    The built-in default of `ignore-file` is to honor no ignore file, so when no file
+    sets it, it is listed as `(not set)` with the origin `default`.
 
     With `--all`, the value of every layer is listed under the setting, from the
     highest precedence to the lowest. The winning layer is marked with `*`, and a layer
@@ -586,23 +612,29 @@ def config_list(
     exists, even when it does not set the value:
 
         icon-style = nerd
-          * project  nerd   /path/to/project/.recursivist.toml
-            user     emoji  /home/user/.config/recursivist/config.json
+          * project  nerd        /path/to/project/.recursivist.toml
+            user     emoji       /home/user/.config/recursivist/config.json
             default  emoji
+        ignore-file = .gitignore
+            project  (not set)   /path/to/project/.recursivist.toml
+          * user     .gitignore  /home/user/.config/recursivist/config.json
+            default  (not set)
 
     With `--json`, the listing is a JSON object keyed by setting. Each entry holds the
     winning `value`, the `layer` it comes from (`project`, `user`, or `default`), and
-    its `source` file, which is `null` for a built-in default. With `--all` as well,
-    each entry also has a `layers` array holding the same three fields for every layer;
-    there, `value` is `null` for a layer that does not set it and `source` is `null`
-    for a layer that has no file.
+    its `source` file, which is `null` for a built-in default. The `value` is `null`
+    for a setting that no layer sets. With `--all` as well, each entry also has a
+    `layers` array holding the same three fields for every layer; there, `value` is
+    `null` for a layer that does not set it and `source` is `null` for a layer that has
+    no file.
 
     The listing is the only thing written to standard output, which makes the command
     usable in a pipeline. Warnings about a configuration file and the error for an
     invalid directory go to standard error. Nothing is created or changed.
 
-    A command-line flag such as `--icon-style` still overrides the listed value for a
-    run, and file exports use the `emoji` icon style unless that flag is given.
+    A command-line flag such as `--icon-style` or `--ignore-file` still overrides the
+    listed value for a run, and file exports use the `emoji` icon style unless that flag
+    is given.
 
     Args:
         ctx: The context of the running command.
@@ -901,13 +933,13 @@ def _resolve_ignore_file(
 
     Args:
         directories: List of resolved directory paths to check for the ignore file.
-        ignore_file: Filename of the ignore file to look for, or ``None`` when the
-            option was not supplied.
+        ignore_file: Filename of the ignore file to look for, or ``None`` when there is
+            none.
 
     Returns:
         The resolved filename string (potentially with an added dot), or the original
         filename if no dotted version is found. Returns ``None`` if *ignore_file* is
-        ``None``.
+        ``None`` or empty.
     """
     if not ignore_file:
         return None
@@ -923,23 +955,76 @@ def _resolve_ignore_file(
     return ignore_file
 
 
-def _warn_if_ignore_file_missing(directory: Path, ignore_file: str | None) -> None:
-    """Log whether the requested ignore file exists inside *directory*.
+def _config_reader(project_dir: Path | None) -> Callable[[], dict[str, Any]]:
+    """Return a function that gives the configuration in effect for *project_dir*.
 
-    Emits a debug message when the ignore file is found and a warning when it is
-    requested but absent. Does nothing when no ignore file was requested. Shared by the
-    visualize and export commands.
+    The configuration is resolved on the first call and reused on later ones, so a
+    command reads the configuration files at most once, and not at all when
+    command-line options settle every setting it would look up.
+
+    Args:
+        project_dir: Directory whose project configuration should apply, or ``None``
+            to leave the project layer out.
+
+    Returns:
+        A function taking no arguments and returning the mapping of
+        [`resolve_config`][recursivist.config.resolve_config].
+    """
+    return functools.cache(lambda: resolve_config(project_dir))
+
+
+def _choose_ignore_file(
+    directories: list[Path],
+    ignore_file: str | None,
+    configured: Callable[[], dict[str, Any]],
+) -> str | None:
+    """Choose the ignore file for a scan of local directories.
+
+    The ``--ignore-file`` option wins whenever it is given, and an empty value there
+    means that no ignore file is honored. Without the option, the ``ignore-file``
+    configuration setting is used. Either way the name goes through
+    `_resolve_ignore_file`, so its leading dot is optional.
+
+    Args:
+        directories: List of resolved directory paths to be scanned.
+        ignore_file: Value of the ``--ignore-file`` option, or ``None`` when the option
+            was not supplied.
+        configured: Function giving the configuration in effect, as returned by
+            `_config_reader`. It is only called when the option was not supplied.
+
+    Returns:
+        The filename of the ignore file to honor, or ``None`` for no ignore file.
+    """
+    if ignore_file is None:
+        ignore_file = configured().get("ignore_file")
+    return _resolve_ignore_file(directories, ignore_file)
+
+
+def _warn_if_ignore_file_missing(
+    directory: Path, ignore_file: str | None, *, configured: bool = False
+) -> None:
+    """Log whether the ignore file in use exists inside *directory*.
+
+    Emits a debug message when the ignore file is found. When it is absent, a file
+    named with ``--ignore-file`` is reported with a warning, since it was asked for on
+    this run. One that comes from the configuration is a standing preference that
+    applies wherever the file exists, so its absence is only a debug message. Does
+    nothing when no ignore file is in use. Shared by the visualize and export commands.
 
     Args:
         directory: Directory in which to look for the ignore file.
-        ignore_file: Filename of the ignore file to look for, or ``None`` when the
-            option was not supplied.
+        ignore_file: Filename of the ignore file to look for, or ``None`` when there is
+            none.
+        configured: Whether the filename comes from the configuration rather than from
+            the ``--ignore-file`` option.
     """
     if not ignore_file:
         return
     ignore_path = directory / ignore_file
     if ignore_path.exists():
         logger.debug("Using ignore file: %s", ignore_path)
+    elif configured:
+        logger.debug("Configured ignore file not found: %s", ignore_path)
     else:
         logger.warning("Ignore file not found: %s", ignore_path)
 
@@ -1206,7 +1291,11 @@ def visualize(
             Python regular expressions instead of glob patterns.
         ignore_file: Filename of an ignore file located inside *directory* (e.g.
             ``".gitignore"``). Entries in that file are treated as additional
-            exclusions.
+            exclusions. If not provided, falls back to the ``ignore-file`` setting of
+            the project configuration that applies to *directory*, then to that of the
+            persistent user config; with neither, no ignore file is used. An empty
+            value turns the configured ignore file off for the run. A GitHub input
+            uses no ignore file.
         max_depth: Maximum directory depth to display. ``0`` means unlimited.
         show_full_path: When ``True``, display absolute paths instead of bare filenames.
         sort_by_loc: When ``True``, sort files by lines-of-code count (descending) and
@@ -1288,18 +1377,20 @@ def visualize(
     )
 
     validated: Path = Path(directory)
+    if not is_remote:
+        validated = _resolve_and_validate_directory(Path(directory))
+    configured = _config_reader(None if is_remote else validated)
+
+    ignore_file_configured = ignore_file is None
     if is_remote:
         _log_ignored_remote_flags(
             ignore_file, sort_by_git_status, show_git_status, sort_by_mtime, mtime
         )
         ignore_file = None
     else:
-        validated = _resolve_and_validate_directory(Path(directory))
-        ignore_file = _resolve_ignore_file([validated], ignore_file)
+        ignore_file = _choose_ignore_file([validated], ignore_file, configured)
 
-    resolved_style = icon_style or resolve_config(None if is_remote else validated).get(
-        "icon_style", "emoji"
-    )
+    resolved_style = icon_style or configured().get("icon_style", "emoji")
 
     _log_display_options(max_depth, show_full_path, spec)
     (
@@ -1324,7 +1415,9 @@ def visualize(
                 checkout = None
                 scan_dir = str(validated)
                 root_name = os.path.basename(scan_dir)
-                _warn_if_ignore_file_missing(Path(scan_dir), ignore_file)
+                _warn_if_ignore_file_missing(
+                    Path(scan_dir), ignore_file, configured=ignore_file_configured
+                )
             structure, extensions = _scan_directory(
                 Path(scan_dir),
                 parsed_exclude_dirs,
@@ -1458,7 +1551,11 @@ def export(
         use_regex: When ``True``, treat *exclude_patterns* and *include_patterns* as
             Python regular expressions instead of glob patterns.
         ignore_file: Filename of an ignore file inside *directory* (e.g.
-            ``".gitignore"``). Entries are treated as additional exclusions.
+            ``".gitignore"``). Entries are treated as additional exclusions. If not
+            provided, falls back to the ``ignore-file`` setting of the project
+            configuration that applies to *directory*, then to that of the persistent
+            user config; with neither, no ignore file is used. An empty value turns the
+            configured ignore file off for the run. A GitHub input uses no ignore file.
         max_depth: Maximum directory depth to include in the export. ``0`` means
             unlimited.
         show_full_path: When ``True``, write absolute paths instead of bare filenames.
@@ -1538,6 +1635,7 @@ def export(
     )
 
     validated: Path = Path(directory)
+    ignore_file_configured = ignore_file is None
     if is_remote:
         _log_ignored_remote_flags(
             ignore_file, sort_by_git_status, show_git_status, sort_by_mtime, mtime
@@ -1545,7 +1643,9 @@ def export(
         ignore_file = None
     else:
         validated = _resolve_and_validate_directory(Path(directory))
-        ignore_file = _resolve_ignore_file([validated], ignore_file)
+        ignore_file = _choose_ignore_file(
+            [validated], ignore_file, _config_reader(validated)
+        )
 
     _log_display_options(max_depth, show_full_path, spec)
     (
@@ -1577,7 +1677,9 @@ def export(
                 scan_dir = str(validated)
                 root_name = os.path.basename(scan_dir)
                 full_path_base = scan_dir if show_full_path else None
-                _warn_if_ignore_file_missing(Path(scan_dir), ignore_file)
+                _warn_if_ignore_file_missing(
+                    Path(scan_dir), ignore_file, configured=ignore_file_configured
+                )
             structure, _ = _scan_directory(
                 Path(scan_dir),
                 parsed_exclude_dirs,
@@ -1720,7 +1822,8 @@ def compare(
     By default, uses the project configuration of the first local directory, then the
     persistent user configuration, for icon styling in the terminal.
     If exported to HTML, strictly falls back to the 'emoji' style to ensure
-    cross-platform compatibility.
+    cross-platform compatibility. The ignore file comes from the same configuration
+    whenever ``--ignore-file`` is not given, in the terminal and in HTML alike.
 
     Args:
         dir1: First input to compare — a local directory path or a GitHub repository
@@ -1738,7 +1841,11 @@ def compare(
         use_regex: When ``True``, treat *exclude_patterns* and *include_patterns* as
             Python regular expressions instead of glob patterns.
         ignore_file: Filename of an ignore file to look for inside each directory (e.g.
-            ``".gitignore"``).
+            ``".gitignore"``). If not provided, falls back to the ``ignore-file``
+            setting of the project configuration of the first local directory, then to
+            that of the user configuration; with neither, no ignore file is used. An
+            empty value turns the configured ignore file off for the run. A GitHub side
+            uses no ignore file.
         max_depth: Maximum directory depth to display. ``0`` means unlimited.
         save_as_html: When ``True``, write the comparison to an HTML file rather than
             printing to the terminal.
@@ -1842,7 +1949,7 @@ def compare(
         raise typer.Exit(1)
 
     local_paths = [Path(raw) for raw in local_inputs]
-    ignore_file = _resolve_ignore_file(local_paths, ignore_file)
+    configured = _config_reader(local_paths[0] if local_paths else None)
 
     tokens, value_options = _flag_order_inputs(ctx)
     spec = resolve_display_options(
@@ -1859,6 +1966,7 @@ def compare(
         value_options=value_options,
     )
 
+    ignore_file_configured = ignore_file is None
     if both_remote:
         _log_ignored_remote_flags(
             ignore_file, sort_by_git_status, show_git_status, sort_by_mtime, mtime
@@ -1877,6 +1985,9 @@ def compare(
                 "has no per-file Git status or modification time to sort on"
             )
 
+    if local_paths:
+        ignore_file = _choose_ignore_file(local_paths, ignore_file, configured)
+
     _log_display_options(max_depth, show_full_path, spec)
 
     if icon_style:
@@ -1884,8 +1995,7 @@ def compare(
     elif save_as_html:
         resolved_style = "emoji"
     else:
-        project_dir = local_paths[0] if local_paths else None
-        resolved_style = resolve_config(project_dir).get("icon_style", "emoji")
+        resolved_style = configured().get("icon_style", "emoji")
 
     (
         parsed_exclude_dirs,
@@ -1904,6 +2014,10 @@ def compare(
             ignore_path = d / ignore_file
             if ignore_path.exists():
                 logger.debug("Using ignore file from %s: %s", d, ignore_path)
+            elif ignore_file_configured:
+                logger.debug(
+                    "Configured ignore file not found in %s: %s", d, ignore_path
+                )
             else:
                 logger.warning("Ignore file not found in %s: %s", d, ignore_path)
     try:
