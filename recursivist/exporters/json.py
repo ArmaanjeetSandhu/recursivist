@@ -125,7 +125,7 @@ class JsonExporter(BaseExporter):
             """Copy ``structure``, collapsing ``_files`` to bare names.
 
             Used when no detail flags are active: each file is reduced to its name while
-            every other key (including ``_git_markers``) is left intact.
+            the remaining bookkeeping keys (including ``_git_markers``) are left intact.
             """
             result: dict[str, Any] = {}
             git_markers_here = structure.get("_git_markers", {})
@@ -137,9 +137,6 @@ class JsonExporter(BaseExporter):
                 result["_files"] = [entry.name for entry in sorted_files]
 
             for k in (
-                "_loc",
-                "_size",
-                "_mtime",
                 "_max_depth_reached",
                 "_hidden_contents",
                 "_symlink_loop",

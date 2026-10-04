@@ -31,7 +31,8 @@ import functools
 import json
 import logging
 import os
-from collections.abc import Callable
+from collections.abc import Callable, Generator
+from dataclasses import dataclass
 from pathlib import Path
 from re import Pattern
 from typing import Annotated, Any
@@ -65,7 +66,7 @@ from recursivist.exporters import (
     get_exporter,
     supported_formats,
 )
-from recursivist.filtering import compile_regex_patterns
+from recursivist.filtering import compile_regex_patterns, normalize_extensions
 from recursivist.flags import DisplayOptions, resolve_display_options
 from recursivist.git_status import get_git_status
 from recursivist.github import (
@@ -923,12 +924,8 @@ def _parse_filter_options(
     parsed_exclude_exts = parse_list_option(exclude_extensions)
     parsed_exclude_patterns = parse_list_option(exclude_patterns)
     parsed_include_patterns = parse_list_option(include_patterns)
-    exclude_exts_set: set[str] = set()
-    if parsed_exclude_exts:
-        exclude_exts_set = {
-            ext.lower() if ext.startswith(".") else f".{ext.lower()}"
-            for ext in parsed_exclude_exts
-        }
+    exclude_exts_set = normalize_extensions(parsed_exclude_exts)
+    if exclude_exts_set:
         logger.debug("Excluding extensions: %s", exclude_exts_set)
     if parsed_exclude_dirs:
         logger.debug("Excluding directories: %s", parsed_exclude_dirs)
@@ -1193,9 +1190,7 @@ def _scan_directory(
                 "directory may not be inside a Git repository, or there are no changes."
             )
     with Progress() as progress:
-        task_scan = progress.add_task(
-            "[cyan]Scanning directory structure...", total=None
-        )
+        progress.add_task("[cyan]Scanning directory structure...", total=None)
         compiled_exclude, compiled_include = _compile_patterns_for_scan(
             parsed_exclude_patterns,
             parsed_include_patterns,
@@ -1216,7 +1211,6 @@ def _scan_directory(
             show_git_status=show_git_status,
             git_status_map=git_status_map,
         )
-        progress.update(task_scan, completed=True)
         logger.debug("Found %d unique file extensions", len(extensions))
     return structure, extensions
 
@@ -1300,6 +1294,225 @@ def _compare_inputs_are_same(
         except OSError:
             return Path(dir1).absolute() == Path(dir2).absolute()
     return False
+
+
+@dataclass(frozen=True)
+class _TreeScanPlan:
+    """How the visualize or export command is to scan its input, fully resolved.
+
+    Built by `_plan_tree_scan` and consumed by `_scanned_tree`.
+
+    Attributes:
+        target: The parsed GitHub target, or ``None`` for a local directory.
+        directory: The resolved local directory to scan. Only meaningful when *target*
+            is ``None``.
+        ignore_file: Ignore filename to honor, or ``None``. Always ``None`` for a GitHub
+            input.
+        ignore_file_configured: Whether *ignore_file* comes from the configuration
+            rather than from the ``--ignore-file`` option.
+        spec: The resolved sorting and annotation directives.
+        icon_style: The icon style to render with.
+        exclude_dirs: Parsed directory names to exclude.
+        exclude_extensions: Normalized set of excluded extensions.
+        exclude_patterns: Parsed exclude patterns.
+        include_patterns: Parsed include patterns.
+        use_regex: Whether the patterns are regular expressions.
+        max_depth: Maximum directory depth (``0`` for unlimited).
+        show_full_path: Whether full paths are requested.
+    """
+
+    target: GitHubTarget | None
+    directory: Path
+    ignore_file: str | None
+    ignore_file_configured: bool
+    spec: DisplayOptions
+    icon_style: str
+    exclude_dirs: list[str]
+    exclude_extensions: set[str]
+    exclude_patterns: list[str]
+    include_patterns: list[str]
+    use_regex: bool
+    max_depth: int
+    show_full_path: bool
+
+
+@dataclass(frozen=True)
+class _ScannedTree:
+    """A scanned input, as yielded by `_scanned_tree`.
+
+    Attributes:
+        scan_dir: The directory that was scanned: the local directory itself, or the
+            temporary checkout of a GitHub repository.
+        root_name: Display name for the root of the tree.
+        structure: The scanned structure, with file paths already rewritten to GitHub
+            blob URLs when full paths were requested for a GitHub input.
+        extensions: The file extensions found by the scan.
+    """
+
+    scan_dir: str
+    root_name: str
+    structure: dict[str, Any]
+    extensions: set[str]
+
+
+def _plan_tree_scan(
+    ctx: typer.Context,
+    directory: str,
+    *,
+    exclude_dirs: list[str] | None,
+    exclude_extensions: list[str] | None,
+    exclude_patterns: list[str] | None,
+    include_patterns: list[str] | None,
+    use_regex: bool,
+    ignore_file: str | None,
+    max_depth: int,
+    show_full_path: bool,
+    sort_by_loc: bool,
+    sort_by_size: bool,
+    sort_by_mtime: bool,
+    sort_by_git_status: bool,
+    sort_by_similarity: bool,
+    loc: bool,
+    size: bool,
+    mtime: bool,
+    show_git_status: bool,
+    icon_style: IconStyle | None,
+    use_configured_icon_style: bool,
+) -> _TreeScanPlan:
+    """Resolve the options shared by visualize and export into a scan plan.
+
+    Runs the option handling both commands have in common, in the order its messages
+    are logged: recognizing a GitHub input, resolving the sorting and annotation flags,
+    validating a local directory, choosing the ignore file and the icon style, logging
+    the display options, and parsing the filters. For a GitHub input the options that
+    do not apply to a hosted repository are dropped, and reported when they were given.
+
+    Apart from the two below, the arguments are the command options of the same name,
+    as received from Typer and documented on `visualize`.
+
+    Args:
+        ctx: The command's Typer context, giving the order the flags were written in.
+        use_configured_icon_style: Whether the ``icon_style`` configuration setting
+            applies when *icon_style* is ``None``. When ``False`` the style falls back
+            to ``"emoji"`` regardless of the configuration.
+
+    Returns:
+        The resolved plan.
+
+    Raises:
+        typer.Exit: With exit code ``1`` if *directory* is a local path that does not
+            exist or is not a directory.
+    """
+    target = parse_github_url(directory)
+    is_remote = target is not None
+
+    tokens, value_options = _flag_order_inputs(ctx)
+    spec = resolve_display_options(
+        sort_loc=sort_by_loc,
+        sort_size=sort_by_size,
+        sort_mtime=sort_by_mtime and not is_remote,
+        sort_similarity=sort_by_similarity,
+        sort_git=sort_by_git_status and not is_remote,
+        disp_loc=loc,
+        disp_size=size,
+        disp_mtime=mtime and not is_remote,
+        disp_git=show_git_status and not is_remote,
+        tokens=tokens,
+        value_options=value_options,
+    )
+
+    validated: Path = Path(directory)
+    if not is_remote:
+        validated = _resolve_and_validate_directory(Path(directory))
+    configured = _config_reader(None if is_remote else validated)
+
+    ignore_file_configured = ignore_file is None
+    if is_remote:
+        _log_ignored_remote_flags(
+            ignore_file, sort_by_git_status, show_git_status, sort_by_mtime, mtime
+        )
+        ignore_file = None
+    else:
+        ignore_file = _choose_ignore_file([validated], ignore_file, configured)
+
+    resolved_style: str = icon_style or (
+        configured().get("icon_style", "emoji")
+        if use_configured_icon_style
+        else "emoji"
+    )
+
+    _log_display_options(max_depth, show_full_path, spec)
+    dirs, extensions, excludes, includes = _parse_filter_options(
+        _choose_exclude_dirs(exclude_dirs, configured),
+        exclude_extensions,
+        exclude_patterns,
+        include_patterns,
+        use_regex,
+    )
+    return _TreeScanPlan(
+        target=target,
+        directory=validated,
+        ignore_file=ignore_file,
+        ignore_file_configured=ignore_file_configured,
+        spec=spec,
+        icon_style=resolved_style,
+        exclude_dirs=dirs,
+        exclude_extensions=extensions,
+        exclude_patterns=excludes,
+        include_patterns=includes,
+        use_regex=use_regex,
+        max_depth=max_depth,
+        show_full_path=show_full_path,
+    )
+
+
+@contextlib.contextmanager
+def _scanned_tree(plan: _TreeScanPlan) -> Generator[_ScannedTree]:
+    """Scan the input described by *plan* and yield the result.
+
+    A local directory is scanned in place, after reporting whether its ignore file
+    exists. A GitHub repository is downloaded and scanned from a temporary checkout,
+    which is removed when the ``with`` block exits, so anything that reads
+    ``scan_dir`` must run inside the block.
+
+    Args:
+        plan: The resolved plan, as returned by `_plan_tree_scan`.
+
+    Yields:
+        The scanned structure with what is needed to render it.
+    """
+    with contextlib.ExitStack() as stack:
+        if plan.target is not None:
+            checkout = stack.enter_context(checkout_repository(plan.target))
+            scan_dir = checkout.local_root
+            root_name = checkout.root_name
+        else:
+            checkout = None
+            scan_dir = str(plan.directory)
+            root_name = os.path.basename(scan_dir)
+            _warn_if_ignore_file_missing(
+                Path(scan_dir),
+                plan.ignore_file,
+                configured=plan.ignore_file_configured,
+            )
+        structure, extensions = _scan_directory(
+            Path(scan_dir),
+            plan.exclude_dirs,
+            plan.ignore_file,
+            plan.exclude_extensions,
+            plan.exclude_patterns,
+            plan.include_patterns,
+            plan.use_regex,
+            plan.max_depth,
+            plan.show_full_path,
+            plan.spec.show_loc,
+            plan.spec.show_size,
+            plan.spec.show_mtime,
+            plan.spec.show_git_status,
+        )
+        if checkout is not None and plan.show_full_path:
+            apply_github_urls(structure, checkout)
+        yield _ScannedTree(scan_dir, root_name, structure, extensions)
 
 
 @app.command(cls=_ArgsRecordingCommand)
@@ -1451,99 +1664,47 @@ def visualize(
     """
     _enable_verbose_if_requested(verbose)
 
-    target = parse_github_url(directory)
-    is_remote = target is not None
-
-    tokens, value_options = _flag_order_inputs(ctx)
-    spec = resolve_display_options(
-        sort_loc=sort_by_loc,
-        sort_size=sort_by_size,
-        sort_mtime=sort_by_mtime and not is_remote,
-        sort_similarity=sort_by_similarity,
-        sort_git=sort_by_git_status and not is_remote,
-        disp_loc=loc,
-        disp_size=size,
-        disp_mtime=mtime and not is_remote,
-        disp_git=show_git_status and not is_remote,
-        tokens=tokens,
-        value_options=value_options,
-    )
-
-    validated: Path = Path(directory)
-    if not is_remote:
-        validated = _resolve_and_validate_directory(Path(directory))
-    configured = _config_reader(None if is_remote else validated)
-
-    ignore_file_configured = ignore_file is None
-    if is_remote:
-        _log_ignored_remote_flags(
-            ignore_file, sort_by_git_status, show_git_status, sort_by_mtime, mtime
-        )
-        ignore_file = None
-    else:
-        ignore_file = _choose_ignore_file([validated], ignore_file, configured)
-
-    resolved_style = icon_style or configured().get("icon_style", "emoji")
-
-    _log_display_options(max_depth, show_full_path, spec)
-    (
-        parsed_exclude_dirs,
-        exclude_exts_set,
-        parsed_exclude_patterns,
-        parsed_include_patterns,
-    ) = _parse_filter_options(
-        _choose_exclude_dirs(exclude_dirs, configured),
-        exclude_extensions,
-        exclude_patterns,
-        include_patterns,
-        use_regex,
+    plan = _plan_tree_scan(
+        ctx,
+        directory,
+        exclude_dirs=exclude_dirs,
+        exclude_extensions=exclude_extensions,
+        exclude_patterns=exclude_patterns,
+        include_patterns=include_patterns,
+        use_regex=use_regex,
+        ignore_file=ignore_file,
+        max_depth=max_depth,
+        show_full_path=show_full_path,
+        sort_by_loc=sort_by_loc,
+        sort_by_size=sort_by_size,
+        sort_by_mtime=sort_by_mtime,
+        sort_by_git_status=sort_by_git_status,
+        sort_by_similarity=sort_by_similarity,
+        loc=loc,
+        size=size,
+        mtime=mtime,
+        show_git_status=show_git_status,
+        icon_style=icon_style,
+        use_configured_icon_style=True,
     )
     try:
-        with contextlib.ExitStack() as stack:
-            if target is not None:
-                checkout = stack.enter_context(checkout_repository(target))
-                scan_dir = checkout.local_root
-                root_name = checkout.root_name
-            else:
-                checkout = None
-                scan_dir = str(validated)
-                root_name = os.path.basename(scan_dir)
-                _warn_if_ignore_file_missing(
-                    Path(scan_dir), ignore_file, configured=ignore_file_configured
-                )
-            structure, extensions = _scan_directory(
-                Path(scan_dir),
-                parsed_exclude_dirs,
-                ignore_file,
-                exclude_exts_set,
-                parsed_exclude_patterns,
-                parsed_include_patterns,
-                use_regex,
-                max_depth,
-                show_full_path,
-                spec.show_loc,
-                spec.show_size,
-                spec.show_mtime,
-                spec.show_git_status,
-            )
-            if checkout is not None and show_full_path:
-                apply_github_urls(structure, checkout)
+        with _scanned_tree(plan) as scanned:
             logger.info("Displaying directory tree:")
             display_tree(
-                scan_dir,
-                parsed_exclude_dirs,
-                ignore_file,
-                exclude_exts_set,
-                parsed_exclude_patterns,
-                parsed_include_patterns,
-                use_regex,
-                max_depth,
-                show_full_path,
-                spec,
-                icon_style=resolved_style,
-                structure=structure,
-                extensions=extensions,
-                root_name=root_name,
+                scanned.scan_dir,
+                plan.exclude_dirs,
+                plan.ignore_file,
+                plan.exclude_extensions,
+                plan.exclude_patterns,
+                plan.include_patterns,
+                plan.use_regex,
+                plan.max_depth,
+                plan.show_full_path,
+                plan.spec,
+                icon_style=plan.icon_style,
+                structure=scanned.structure,
+                extensions=scanned.extensions,
+                root_name=scanned.root_name,
             )
     except Exception as e:
         logger.error(MSG_ERROR, e, exc_info=verbose)
@@ -1713,89 +1874,32 @@ def export(
         logger.info("Supported formats: %s", ", ".join(valid_formats))
         raise typer.Exit(1)
 
-    resolved_style = icon_style or "emoji"
-    target = parse_github_url(directory)
-    is_remote = target is not None
-
-    tokens, value_options = _flag_order_inputs(ctx)
-    spec = resolve_display_options(
-        sort_loc=sort_by_loc,
-        sort_size=sort_by_size,
-        sort_mtime=sort_by_mtime and not is_remote,
-        sort_similarity=sort_by_similarity,
-        sort_git=sort_by_git_status and not is_remote,
-        disp_loc=loc,
-        disp_size=size,
-        disp_mtime=mtime and not is_remote,
-        disp_git=show_git_status and not is_remote,
-        tokens=tokens,
-        value_options=value_options,
-    )
-
-    validated: Path = Path(directory)
-    if not is_remote:
-        validated = _resolve_and_validate_directory(Path(directory))
-    configured = _config_reader(None if is_remote else validated)
-
-    ignore_file_configured = ignore_file is None
-    if is_remote:
-        _log_ignored_remote_flags(
-            ignore_file, sort_by_git_status, show_git_status, sort_by_mtime, mtime
-        )
-        ignore_file = None
-    else:
-        ignore_file = _choose_ignore_file([validated], ignore_file, configured)
-
-    _log_display_options(max_depth, show_full_path, spec)
-    (
-        parsed_exclude_dirs,
-        exclude_exts_set,
-        parsed_exclude_patterns,
-        parsed_include_patterns,
-    ) = _parse_filter_options(
-        _choose_exclude_dirs(exclude_dirs, configured),
-        exclude_extensions,
-        exclude_patterns,
-        include_patterns,
-        use_regex,
+    plan = _plan_tree_scan(
+        ctx,
+        directory,
+        exclude_dirs=exclude_dirs,
+        exclude_extensions=exclude_extensions,
+        exclude_patterns=exclude_patterns,
+        include_patterns=include_patterns,
+        use_regex=use_regex,
+        ignore_file=ignore_file,
+        max_depth=max_depth,
+        show_full_path=show_full_path,
+        sort_by_loc=sort_by_loc,
+        sort_by_size=sort_by_size,
+        sort_by_mtime=sort_by_mtime,
+        sort_by_git_status=sort_by_git_status,
+        sort_by_similarity=sort_by_similarity,
+        loc=loc,
+        size=size,
+        mtime=mtime,
+        show_git_status=show_git_status,
+        icon_style=icon_style,
+        use_configured_icon_style=False,
     )
     failed_formats: list[str] = []
     try:
-        with contextlib.ExitStack() as stack:
-            if target is not None:
-                checkout = stack.enter_context(checkout_repository(target))
-                scan_dir = checkout.local_root
-                root_name = checkout.root_name
-                full_path_base: str | None = (
-                    f"https://github.com/{target.owner}/{target.repo}"
-                    if show_full_path
-                    else None
-                )
-            else:
-                checkout = None
-                scan_dir = str(validated)
-                root_name = os.path.basename(scan_dir)
-                full_path_base = scan_dir if show_full_path else None
-                _warn_if_ignore_file_missing(
-                    Path(scan_dir), ignore_file, configured=ignore_file_configured
-                )
-            structure, _ = _scan_directory(
-                Path(scan_dir),
-                parsed_exclude_dirs,
-                ignore_file,
-                exclude_exts_set,
-                parsed_exclude_patterns,
-                parsed_include_patterns,
-                use_regex,
-                max_depth,
-                show_full_path,
-                spec.show_loc,
-                spec.show_size,
-                spec.show_mtime,
-                spec.show_git_status,
-            )
-            if checkout is not None and show_full_path:
-                apply_github_urls(structure, checkout)
+        with _scanned_tree(plan) as scanned:
             if output_dir:
                 output_dir.mkdir(parents=True, exist_ok=True)
             else:
@@ -1809,11 +1913,11 @@ def export(
                 try:
                     exporter = get_exporter(
                         format_type=fmt.lower(),
-                        structure=structure,
-                        root_name=root_name,
-                        base_path=full_path_base,
-                        spec=spec,
-                        icon_style=resolved_style,
+                        structure=scanned.structure,
+                        root_name=scanned.root_name,
+                        show_full_path=show_full_path,
+                        spec=plan.spec,
+                        icon_style=plan.icon_style,
                     )
                     exporter.export(str(output_path))
                     logger.info("Successfully exported to %s", output_path)
@@ -2125,7 +2229,6 @@ def compare(
             else:
                 logger.warning("Ignore file not found in %s: %s", d, ignore_path)
     try:
-        actual_ignore_file = "" if ignore_file is None else ignore_file
         if save_as_html:
             if output_dir:
                 output_dir.mkdir(parents=True, exist_ok=True)
@@ -2138,7 +2241,7 @@ def compare(
                 "html",
                 str(output_path),
                 parsed_exclude_dirs,
-                actual_ignore_file,
+                ignore_file,
                 exclude_exts_set,
                 exclude_patterns=parsed_exclude_patterns,
                 include_patterns=parsed_include_patterns,
@@ -2155,7 +2258,7 @@ def compare(
                 dir1,
                 dir2,
                 parsed_exclude_dirs,
-                actual_ignore_file,
+                ignore_file,
                 exclude_exts_set,
                 exclude_patterns=parsed_exclude_patterns,
                 include_patterns=parsed_include_patterns,

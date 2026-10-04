@@ -1,12 +1,13 @@
 """Tests for recursivist.filtering.
 
-Covers should_exclude, compile_regex_patterns, and parse_ignore_file.
+Covers should_exclude, compile_regex_patterns, normalize_extensions, and
+parse_ignore_file.
 """
 
 import os
 import re
 import tempfile
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from typing import Any
 from unittest.mock import patch
 
@@ -17,6 +18,7 @@ from pytest_mock import MockerFixture
 
 from recursivist.filtering import (
     compile_regex_patterns,
+    normalize_extensions,
     parse_ignore_file,
     should_exclude,
 )
@@ -277,6 +279,31 @@ def test_compile_regex_patterns(
     assert len(compiled) == expected_count
     for i, pattern_type in enumerate(expected_types):
         assert isinstance(compiled[i], pattern_type)
+
+
+@pytest.mark.parametrize(
+    "extensions,expected",
+    [
+        (["py"], {".py"}),
+        ([".py"], {".py"}),
+        (["PY", ".Md"], {".py", ".md"}),
+        (["pyc", ".pyc", ".PYC"], {".pyc"}),
+        (["tar.gz"], {".tar.gz"}),
+        ({".log", "tmp"}, {".log", ".tmp"}),
+        ([], set()),
+    ],
+)
+def test_normalize_extensions(extensions: Iterable[str], expected: set[str]) -> None:
+    """Extensions are lowercased and dot-prefixed, and duplicates collapse."""
+    assert normalize_extensions(extensions) == expected
+
+
+@given(st.lists(st.text(min_size=1)))
+def test_normalize_extensions_is_idempotent(extensions: list[str]) -> None:
+    """Normalizing an already-normalized set changes nothing."""
+    normalized = normalize_extensions(extensions)
+    assert normalize_extensions(normalized) == normalized
+    assert all(ext.startswith(".") for ext in normalized)
 
 
 @pytest.mark.parametrize(

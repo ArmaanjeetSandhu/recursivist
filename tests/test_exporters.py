@@ -22,7 +22,6 @@ from recursivist.colors import (
     build_color_map,
     contrast_ratio,
     ensure_contrast,
-    generate_color_for_extension,
     hex_to_rgb,
 )
 from recursivist.exporters import get_exporter
@@ -224,7 +223,7 @@ def test_export_structure_with_options(
 
     kwargs: dict[str, Any] = {}
     if option_name == "show_full_path":
-        kwargs["base_path"] = sample_directory if option_value else None
+        kwargs["show_full_path"] = option_value
     elif option_name in _METRIC_SPECS:
         kwargs["spec"] = _METRIC_SPECS[option_name]
 
@@ -360,7 +359,7 @@ class TestExporterFileOutput:
             "txt",
             structure=structure_with_stats,
             root_name="test_root",
-            base_path="/path/to",
+            show_full_path=True,
         ).export(output_path)
 
         with open(output_path, encoding="utf-8") as f:
@@ -427,7 +426,6 @@ class TestExporters:
         exporter = get_exporter("txt", structure=structure, root_name="test_root")
         assert exporter.structure == structure
         assert exporter.root_name == "test_root"
-        assert exporter.base_path is None
         assert not exporter.show_full_path
 
     def test_init_with_full_path(self) -> None:
@@ -437,11 +435,10 @@ class TestExporters:
             "dir1": {"_files": [FileEntry("file2.py", "/path/to/dir1/file2.py")]},
         }
         exporter = get_exporter(
-            "txt", structure=structure, root_name="test_root", base_path="/path/to"
+            "txt", structure=structure, root_name="test_root", show_full_path=True
         )
         assert exporter.structure == structure
         assert exporter.root_name == "test_root"
-        assert exporter.base_path == "/path/to"
         assert exporter.show_full_path
 
     def test_init_with_statistics(self) -> None:
@@ -465,7 +462,7 @@ class TestExporters:
             "txt",
             structure=structure,
             root_name="test_root",
-            base_path="/path/to",
+            show_full_path=True,
             spec=_ALL_METRICS_SPEC,
         )
         assert exporter.show_loc
@@ -614,7 +611,7 @@ def test_export_with_options(
 
     kwargs: dict[str, Any] = {}
     if option_name == "show_full_path":
-        kwargs["base_path"] = sample_directory if option_value else None
+        kwargs["show_full_path"] = option_value
     elif option_name in _METRIC_SPECS:
         kwargs["spec"] = _METRIC_SPECS[option_name]
 
@@ -1003,7 +1000,7 @@ def test_combined_export_options(output_dir: str) -> None:
             fmt,
             structure=complex_structure,
             root_name="complex_root",
-            base_path="/path/to/complex_root",
+            show_full_path=True,
             spec=_ALL_METRICS_SPEC,
         ).export(output_path)
 
@@ -1311,14 +1308,14 @@ class TestRstExporter:
         assert "(50 lines)" in content
 
     def test_full_path_uses_absolute_paths(self, tmp_path: Path) -> None:
-        """When a base path is set, file literals contain the full path."""
+        """With full paths enabled, file literals contain the full path."""
         structure = {
             "_files": [FileEntry("a.py", "/abs/root/a.py")],
             "sub": {"_files": [FileEntry("b.py", "/abs/root/sub/b.py")]},
         }
         output_path = os.path.join(tmp_path, "structure.rst")
         get_exporter(
-            "rst", structure=structure, root_name="root", base_path="/abs/root"
+            "rst", structure=structure, root_name="root", show_full_path=True
         ).export(output_path)
         with open(output_path, encoding="utf-8") as f:
             content = f.read()
@@ -1725,19 +1722,6 @@ class TestExportColors:
             assert color == ensure_contrast(
                 color_map[ext], "#ffffff", WCAG_AAA_NORMAL_TEXT
             )
-
-    def test_html_is_unaffected_by_colors_generated_earlier(
-        self, nested_structure: dict[str, Any], tmp_path: Path
-    ) -> None:
-        exporter = get_exporter("html", structure=nested_structure, root_name="root")
-        first = os.path.join(tmp_path, "first.html")
-        second = os.path.join(tmp_path, "second.html")
-        exporter.export(first)
-        for ext in (".rs", ".go", ".toml", ".yaml", ".sh"):
-            generate_color_for_extension(ext)
-        exporter.export(second)
-        with open(first, encoding="utf-8") as f1, open(second, encoding="utf-8") as f2:
-            assert f1.read() == f2.read()
 
     def test_svg_uses_the_shared_color_map(
         self, mocker: MockerFixture, nested_structure: dict[str, Any], tmp_path: Path

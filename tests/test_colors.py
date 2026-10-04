@@ -17,55 +17,9 @@ from recursivist.colors import (
     build_color_map,
     contrast_ratio,
     ensure_contrast,
-    generate_color_for_extension,
     hex_to_rgb,
     relative_luminance,
 )
-
-
-class TestGenerateColorForExtension:
-    def test_color_format(self) -> None:
-        color = generate_color_for_extension(".py")
-        assert re.match(r"^#[0-9A-Fa-f]{6}$", color)
-
-    def test_consistency(self) -> None:
-        """Test that the same extension always gets the same color."""
-        color1 = generate_color_for_extension(".py")
-        color2 = generate_color_for_extension(".py")
-        color3 = generate_color_for_extension(".py")
-        assert color1 == color2 == color3
-
-    def test_different_extensions(self) -> None:
-        """Test that different extensions get different colors."""
-        extensions = [".py", ".js", ".txt", ".md", ".html", ".css", ".json", ".xml"]
-        colors = [generate_color_for_extension(ext) for ext in extensions]
-        assert len(set(colors)) == len(extensions)
-
-    @pytest.mark.parametrize(
-        "test_case,extension1,extension2",
-        [
-            ("case_sensitivity", ".py", ".PY"),
-            ("with_without_dot", ".py", "py"),
-        ],
-    )
-    def test_extension_variants(
-        self, test_case: str, extension1: str, extension2: str
-    ) -> None:
-        """Test behavior with different variants of extensions."""
-        color1 = generate_color_for_extension(extension1)
-        color2 = generate_color_for_extension(extension2)
-        assert isinstance(color1, str)
-        assert isinstance(color2, str)
-        assert color1.startswith("#")
-        assert color2.startswith("#")
-        if test_case == "case_sensitivity":
-            assert color1 != color2
-        else:
-            assert color1 == color2
-
-    def test_empty_extension(self) -> None:
-        color = generate_color_for_extension("")
-        assert color == "#FFFFFF"
 
 
 class TestBuildColorMap:
@@ -87,19 +41,21 @@ class TestBuildColorMap:
     def test_independent_of_iteration_order(self, order: list[str]) -> None:
         assert build_color_map(order) == build_color_map(self.EXTENSIONS)
 
-    def test_independent_of_colors_generated_earlier(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """Colors handed out one at a time must not leak into the mapping."""
-        others = (".rs", ".go", ".toml", ".yaml", ".sh")
-        monkeypatch.setattr("recursivist.colors._EXTENSION_COLORS", {})
+    def test_independent_of_maps_built_earlier(self) -> None:
+        """Building one mapping must not leak colors into the next."""
         expected = build_color_map(self.EXTENSIONS)
-        session_colors: dict[str, str] = {}
-        monkeypatch.setattr("recursivist.colors._EXTENSION_COLORS", session_colors)
-        for ext in others:
-            generate_color_for_extension(ext)
+        build_color_map((".rs", ".go", ".toml", ".yaml", ".sh"))
         assert build_color_map(self.EXTENSIONS) == expected
-        assert set(session_colors) == set(others)
+
+    def test_extensions_differing_in_case_get_different_colors(self) -> None:
+        color_map = build_color_map((".py", ".PY"))
+        assert color_map[".py"] != color_map[".PY"]
+
+    @pytest.mark.parametrize("bare", ["py", "+x"])
+    def test_leading_dot_is_optional(self, bare: str) -> None:
+        """Both spellings share a color whichever sorts first ("+" precedes ".")."""
+        color_map = build_color_map((bare, f".{bare}"))
+        assert color_map[bare] == color_map[f".{bare}"]
 
     def test_same_mapping_under_every_hash_seed(self) -> None:
         """String-set iteration order varies per process; the colors must not."""
@@ -222,10 +178,8 @@ class TestEnsureContrast:
         extensions = [
             f".{a}{b}" for a in string.ascii_lowercase for b in string.ascii_lowercase
         ]
-        for ext in extensions:
-            adjusted = ensure_contrast(
-                generate_color_for_extension(ext), "#ffffff", WCAG_AAA_NORMAL_TEXT
-            )
+        for color in build_color_map(extensions).values():
+            adjusted = ensure_contrast(color, "#ffffff", WCAG_AAA_NORMAL_TEXT)
             assert (
                 contrast_ratio(hex_to_rgb(adjusted), hex_to_rgb("#ffffff"))
                 >= WCAG_AAA_NORMAL_TEXT

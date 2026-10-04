@@ -86,9 +86,7 @@ class TestBuildTree:
                 "_files": [FileEntry("subfile.py", "/path/to/subdir/subfile.py")]
             },
         }
-        build_tree(
-            structure, mock_tree, color_map, DisplayOptions(), show_full_path=True
-        )
+        build_tree(structure, mock_tree, color_map, DisplayOptions())
         file_texts = _text_plains(mock_tree)
         assert any("/path/to/file1.txt" in text for text in file_texts)
         assert any("/path/to/file2.py" in text for text in file_texts)
@@ -438,13 +436,7 @@ class TestBuildTreeStructures:
                 FileEntry("file3.md", "/path/to/file3.md"),
             ],
         }
-        build_tree(
-            full_path_structure,
-            mock_tree,
-            color_map,
-            DisplayOptions(),
-            show_full_path=True,
-        )
+        build_tree(full_path_structure, mock_tree, color_map, DisplayOptions())
         texts = _text_plains(mock_tree)
         assert "📄 /path/to/file1.txt" in texts
         assert "📄 /path/to/file2.py" in texts
@@ -523,16 +515,6 @@ class TestBuildTreeStructures:
             "file5.js",
         ]:
             assert any(file_name in text for text in texts)
-        assert not any("/path/to/" in text for text in texts)
-        mock_tree.reset_mock()
-        build_tree(
-            mixed_structure,
-            mock_tree,
-            color_map,
-            ALL_METRICS_SPEC,
-            show_full_path=True,
-        )
-        texts = _text_plains(mock_tree)
         assert any("/path/to/file2.py" in text for text in texts)
         assert any("/path/to/file3.md" in text for text in texts)
         assert any("/path/to/file4.json" in text for text in texts)

@@ -778,13 +778,7 @@ class TestBuildComparisonTree:
         structure1, structure2 = structures
         mock_tree = MagicMock()
         mock_tree.add.return_value = mock_tree
-        build_comparison_tree(
-            structure1,
-            structure2,
-            mock_tree,
-            _ALL_METRICS_SPEC,
-            show_full_path=True,
-        )
+        build_comparison_tree(structure1, structure2, mock_tree, _ALL_METRICS_SPEC)
         assert mock_tree.add.call_count > 0, "Tree.add should have been called"
 
 

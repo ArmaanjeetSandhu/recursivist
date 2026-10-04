@@ -202,7 +202,7 @@ def test_full_path_display_with_complex_directory(
         "json",
         structure=structure,
         root_name=os.path.basename(complex_directory),
-        base_path=complex_directory,
+        show_full_path=True,
     ).export(output_path)
 
     with open(output_path, encoding="utf-8") as f:

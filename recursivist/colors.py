@@ -15,8 +15,6 @@ from collections.abc import Iterable
 from functools import lru_cache
 from typing import cast
 
-_EXTENSION_COLORS: dict[str, str] = {}
-
 _HEX_FORMAT = "#{:02x}{:02x}{:02x}"
 """Format string for a CSS hex color built from an ``(r, g, b)`` tuple."""
 
@@ -260,29 +258,6 @@ def _assign_color(extension: str, assigned: dict[str, str]) -> str:
     if extension != normalized_ext:
         assigned[normalized_ext] = hex_color
     return hex_color
-
-
-def generate_color_for_extension(extension: str) -> str:
-    """Generate a visually distinct color for a single file extension.
-
-    The color starts from a hash of the extension and is nudged through
-    hue/saturation/value variations until it is far enough from every color this
-    function has already handed out, keeping distinct extensions visually separable.
-    Each result is remembered, so a given extension maps to the same color for the rest
-    of the session — but which color that is depends on the extensions requested before
-    it. To color a set of extensions independently of call order, use
-    [`build_color_map`][recursivist.colors.build_color_map].
-
-    The leading dot is optional and ignored, so ``"py"`` and ``".py"`` share a color. An
-    empty extension maps to white.
-
-    Args:
-        extension: File extension, with or without a leading dot.
-
-    Returns:
-        A CSS hex color string (e.g., ``"#FF5733"``).
-    """
-    return _assign_color(extension, _EXTENSION_COLORS)
 
 
 def build_color_map(extensions: Iterable[str]) -> dict[str, str]:

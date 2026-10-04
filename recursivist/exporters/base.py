@@ -35,7 +35,7 @@ class BaseExporter:
         self,
         structure: dict[str, Any],
         root_name: str,
-        base_path: str | None = None,
+        show_full_path: bool = False,
         spec: DisplayOptions | None = None,
         icon_style: str = "emoji",
     ) -> None:
@@ -44,8 +44,8 @@ class BaseExporter:
         Args:
             structure: Scanned directory structure to export.
             root_name: Display name of the root directory.
-            base_path: Base path for full-path display. When provided (not ``None``),
-                absolute paths are shown instead of bare filenames.
+            show_full_path: Whether *structure* holds absolute paths (or GitHub blob
+                URLs) to display instead of bare filenames.
             spec: Resolved sorting and annotation directives. Defaults to a plain
                 [`DisplayOptions`][recursivist.flags.DisplayOptions] (no sorting, no
                 annotations).
@@ -53,8 +53,7 @@ class BaseExporter:
         """
         self.structure = structure
         self.root_name = root_name
-        self.base_path = base_path
-        self.show_full_path = base_path is not None
+        self.show_full_path = show_full_path
         self.spec = spec if spec is not None else DisplayOptions()
         self.metrics = self.spec.metrics
         self.sort_key = self.spec.sort_key

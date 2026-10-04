@@ -35,7 +35,7 @@ _MUTED = "#595959"
 """Lowest-contrast grey that still meets WCAG AAA (7.01:1) on ``_BACKGROUND``."""
 
 _GIT_STATUS_STYLES: dict[str, tuple[str, str]] = {
-    "U": ("#999999", "dim"),
+    "U": ("#999999", ""),
     "M": ("#d4a017", ""),
     "A": ("#28a745", ""),
     "D": ("#dc3545", "line-through"),

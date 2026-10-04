@@ -22,7 +22,11 @@ from rich.text import Text
 from rich.tree import Tree
 
 from recursivist._models import FileEntry
-from recursivist.filtering import PatternMatchTracker, compile_regex_patterns
+from recursivist.filtering import (
+    PatternMatchTracker,
+    compile_regex_patterns,
+    normalize_extensions,
+)
 from recursivist.flags import METRIC_GIT, METRIC_MTIME, DisplayOptions
 from recursivist.git_status import get_git_status
 from recursivist.github import (
@@ -764,7 +768,6 @@ def build_comparison_tree(
     other_structure: dict[str, Any],
     tree: Tree,
     spec: DisplayOptions,
-    show_full_path: bool = False,
     icon_style: str = "emoji",
     identity_spec: DisplayOptions | None = None,
     *,
@@ -804,8 +807,6 @@ def build_comparison_tree(
         other_structure: Structure of the directory being compared against.
         tree: ``rich`` tree to add nodes to. Modified in place.
         spec: Resolved sorting and annotation directives.
-        show_full_path: Has no effect here. Each file's stored ``path`` already holds
-            the full path when full-path display was requested.
         icon_style: Icon style to use, either ``"emoji"`` or ``"nerd"``.
         identity_spec: Directives governing which annotations contribute to cross-side
             file identity. Defaults to *spec*.
@@ -814,7 +815,6 @@ def build_comparison_tree(
         other_is_remote: Whether the compared structure originates from a hosted
             repository.
     """
-    del show_full_path
     walker = _ComparisonWalker.for_sides(
         spec, identity_spec, this_is_remote, other_is_remote, icon_style
     )
@@ -955,10 +955,7 @@ def display_comparison(
         exclude_patterns = []
     if include_patterns is None:
         include_patterns = []
-    exclude_extensions = {
-        ext.lower() if ext.startswith(".") else f".{ext.lower()}"
-        for ext in exclude_extensions
-    }
+    exclude_extensions = normalize_extensions(exclude_extensions)
     compiled_exclude = compile_regex_patterns(exclude_patterns, use_regex)
     compiled_include = compile_regex_patterns(include_patterns, use_regex)
     targets = _resolve_targets(dir1, dir2, targets)
@@ -1019,7 +1016,6 @@ def display_comparison(
         structure2,
         tree1,
         spec,
-        show_full_path=show_full_path,
         icon_style=icon_style,
         identity_spec=identity_spec,
         this_is_remote=is_remote1,
@@ -1030,7 +1026,6 @@ def display_comparison(
         structure1,
         tree2,
         spec,
-        show_full_path=show_full_path,
         icon_style=icon_style,
         identity_spec=identity_spec,
         this_is_remote=is_remote2,
@@ -1178,10 +1173,7 @@ def export_comparison(
         exclude_patterns = []
     if include_patterns is None:
         include_patterns = []
-    exclude_extensions = {
-        ext.lower() if ext.startswith(".") else f".{ext.lower()}"
-        for ext in exclude_extensions
-    }
+    exclude_extensions = normalize_extensions(exclude_extensions)
     compiled_exclude = compile_regex_patterns(exclude_patterns, use_regex)
     compiled_include = compile_regex_patterns(include_patterns, use_regex)
     targets = _resolve_targets(dir1, dir2, targets)

@@ -53,7 +53,6 @@ class SvgExporter(BaseExporter):
             tree=tree,
             color_map=color_map,
             spec=self.spec,
-            show_full_path=self.show_full_path,
             icon_style=self.icon_style,
         )
 

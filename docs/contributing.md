@@ -239,19 +239,20 @@ Example test:
 
 ```python
 # tests/test_colors.py
-from recursivist.colors import generate_color_for_extension
+from recursivist.colors import build_color_map
 
-def test_generate_color_for_extension():
+def test_build_color_map():
    # Given
-   extension = ".py"
+   extensions = [".py", ".md"]
 
    # When
-   color = generate_color_for_extension(extension)
+   color_map = build_color_map(extensions)
 
    # Then
-   assert isinstance(color, str)
-   assert color.startswith("#")
-   assert len(color) == 7
+   assert set(color_map) == set(extensions)
+   for color in color_map.values():
+       assert color.startswith("#")
+       assert len(color) == 7
 ```
 
 ## Bug Reports and Feature Requests

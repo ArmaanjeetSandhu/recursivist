@@ -38,7 +38,7 @@ import tempfile
 import urllib.error
 import urllib.parse
 import urllib.request
-from collections.abc import Iterator
+from collections.abc import Generator, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, replace
 from typing import Any, cast
@@ -588,11 +588,9 @@ def _locate_root(extract_dir: str, target: GitHubTarget) -> tuple[str, str]:
         GitHubError: If the archive layout is unexpected or the requested subpath does
             not exist.
     """
-    entries = [e for e in os.listdir(extract_dir) if not e.startswith(".")]
+    entries = os.listdir(extract_dir)
     if len(entries) != 1:
-        entries = os.listdir(extract_dir)
-        if len(entries) != 1:
-            raise GitHubError(f"Unexpected archive layout for '{target.slug}'.")
+        raise GitHubError(f"Unexpected archive layout for '{target.slug}'.")
     root = os.path.join(extract_dir, entries[0])
     if not target.subpath:
         return root, ""
@@ -608,7 +606,7 @@ def _locate_root(extract_dir: str, target: GitHubTarget) -> tuple[str, str]:
 @contextmanager
 def checkout_repository(
     target: GitHubTarget, token: str | None = None
-) -> Iterator[RepoCheckout]:
+) -> Generator[RepoCheckout]:
     """Download and extract a GitHub repository into a temporary directory.
 
     Resolves the ref (using the default branch when the target does not pin one),

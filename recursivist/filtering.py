@@ -61,6 +61,25 @@ def parse_ignore_file(ignore_file_path: str) -> list[str]:
         return f.read().splitlines()
 
 
+def normalize_extensions(extensions: Iterable[str]) -> set[str]:
+    """Return *extensions* in the lowercase, dot-prefixed form the scanner matches on.
+
+    An extension may be written with or without its leading dot and in any case, so
+    ``"pyc"``, ``".pyc"`` and ``".PYC"`` all become ``".pyc"``. The result is the form
+    expected wherever an ``exclude_extensions`` argument is described as normalized.
+    Normalizing an already-normalized set returns an equal set.
+
+    Args:
+        extensions: Extensions as given by the caller.
+
+    Returns:
+        The distinct normalized extensions.
+    """
+    return {
+        ext.lower() if ext.startswith(".") else f".{ext.lower()}" for ext in extensions
+    }
+
+
 def compile_regex_patterns(
     patterns: Sequence[str], is_regex: bool = False
 ) -> list[str | Pattern[str]]:
@@ -132,9 +151,7 @@ def _resolve_ignore_levels(
     context without one carries no ignore rules.
     """
     stack = ignore_context.get("pattern_stack") or ()
-    return tuple(
-        (base, tuple(p for p in pats if isinstance(p, str))) for base, pats in stack
-    )
+    return tuple((base, tuple(pats)) for base, pats in stack)
 
 
 def _is_ignored_by_stack(

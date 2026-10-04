@@ -14,7 +14,7 @@ from rich.text import Text
 from rich.tree import Tree
 
 from recursivist.colors import build_color_map
-from recursivist.filtering import compile_regex_patterns
+from recursivist.filtering import compile_regex_patterns, normalize_extensions
 from recursivist.flags import METRIC_GIT, DisplayOptions
 from recursivist.git_status import get_git_status
 from recursivist.icons import get_icon
@@ -41,13 +41,14 @@ def build_tree(
     tree: Tree,
     color_map: dict[str, str],
     spec: DisplayOptions,
-    show_full_path: bool = False,
     icon_style: str = "emoji",
 ) -> None:
     """Populate a ``rich`` tree from a scanned directory structure.
 
     Recursively adds each file and subdirectory of *structure* to *tree*, with filenames
-    colored by extension. Files are ordered by ``spec.sort_key`` via
+    colored by extension. Each file is labeled with its stored ``path``, which already
+    holds the full path when the scan requested one. Files are ordered by
+    ``spec.sort_key`` via
     [`recursivist.sorting.sort_files_by_type`][recursivist.sorting.sort_files_by_type].
     A subtree that hit the depth limit is simply left unexpanded; its folder icon still
     shows whether anything was cut off.
@@ -66,7 +67,6 @@ def build_tree(
         tree: ``rich`` tree to add nodes to. Modified in place.
         color_map: Mapping of lowercase file extension to hex color.
         spec: Resolved sorting and annotation directives.
-        show_full_path: Whether to display absolute paths instead of bare filenames.
         icon_style: Icon style to use, either ``"emoji"`` or ``"nerd"``.
     """
     need_git = spec.show_git_status or spec.sort_key == METRIC_GIT
@@ -77,7 +77,6 @@ def build_tree(
         for entry in sort_files_by_type(
             structure["_files"], spec.sort_key, git_markers_dict
         ):
-            display_path = entry.path if show_full_path else entry.name
             ext = os.path.splitext(entry.name)[1].lower()
             color = color_map.get(ext, "#FFFFFF")
 
@@ -90,7 +89,7 @@ def build_tree(
             icon = get_icon(entry.name, is_dir=False, style=icon_style)
             colored_text.append(f"{icon} ", style=color)
             colored_text.append(
-                display_path
+                entry.path
                 + format_metrics_suffix(
                     entry.loc, entry.size, entry.mtime, spec.metrics
                 ),
@@ -117,7 +116,7 @@ def build_tree(
         if isinstance(content, dict) and content.get("_symlink_loop"):
             subtree.add(Text("↩ (symlink loop)", style="dim"))
         elif not (isinstance(content, dict) and content.get("_max_depth_reached")):
-            build_tree(content, subtree, color_map, spec, show_full_path, icon_style)
+            build_tree(content, subtree, color_map, spec, icon_style)
 
 
 def display_tree(
@@ -158,6 +157,8 @@ def display_tree(
             patterns.
         max_depth: Maximum depth to display, or ``0`` for unlimited.
         show_full_path: Whether to display absolute paths instead of bare filenames.
+            Applied when scanning; a pre-computed *structure* is rendered with the paths
+            it already carries.
         spec: Resolved sorting and annotation directives. Defaults to a plain
             [`DisplayOptions`][recursivist.flags.DisplayOptions] (no sorting, no
             annotations).
@@ -181,10 +182,7 @@ def display_tree(
         spec = DisplayOptions()
 
     if structure is None or extensions is None:
-        exclude_extensions = {
-            ext.lower() if ext.startswith(".") else f".{ext.lower()}"
-            for ext in exclude_extensions
-        }
+        exclude_extensions = normalize_extensions(exclude_extensions)
         compiled_exclude = compile_regex_patterns(exclude_patterns, use_regex)
         compiled_include = compile_regex_patterns(include_patterns, use_regex)
 
@@ -233,7 +231,6 @@ def display_tree(
         tree,
         color_map,
         spec,
-        show_full_path=show_full_path,
         icon_style=icon_style,
     )
     console.print(tree)
