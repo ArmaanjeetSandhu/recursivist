@@ -140,7 +140,7 @@ def _scan_one_side(
     return structure
 
 
-def compare_directory_structures(
+def _scan_sides(
     dir1: str,
     dir2: str,
     exclude_dirs: Sequence[str] | None = None,
@@ -153,7 +153,7 @@ def compare_directory_structures(
     spec: DisplayOptions | None = None,
     *,
     targets: _Targets | None = None,
-) -> tuple[dict[str, Any], dict[str, Any]]:
+) -> tuple[dict[str, Any], dict[str, Any], _Targets]:
     """Scan two inputs for comparison, each a local directory or GitHub URL.
 
     Each side is scanned with the same filtering and metric settings. A side may be a
@@ -169,6 +169,11 @@ def compare_directory_structures(
     while still being honored for a local side. When *both* sides are GitHub
     repositories the caller is expected to have already cleared these from *spec* as
     well.
+
+    A GitHub URL that points at a file is scanned from the directory containing that
+    file, which is only known once the repository has been downloaded; the returned
+    targets carry that directory as their subpath, so callers can label each side after
+    the directory actually scanned.
 
     Args:
         dir1: First input — a local directory path or a GitHub repository URL.
@@ -194,60 +199,13 @@ def compare_directory_structures(
             parsed here.
 
     Returns:
-        A ``(structure1, structure2)`` tuple holding each input's structure.
-
-    Any exclude/include filter that matched no entry on *either* side is logged as a
-    warning once both scans finish.
-
-    Raises:
-        ValueError: If two GitHub URLs that point at files resolve to the same
-            directory of the same commit, leaving nothing to compare.
-    """
-    structure1, structure2, _ = _scan_sides(
-        dir1,
-        dir2,
-        exclude_dirs,
-        ignore_file,
-        exclude_extensions,
-        exclude_patterns=exclude_patterns,
-        include_patterns=include_patterns,
-        max_depth=max_depth,
-        show_full_path=show_full_path,
-        spec=spec,
-        targets=targets,
-    )
-    return structure1, structure2
-
-
-def _scan_sides(
-    dir1: str,
-    dir2: str,
-    exclude_dirs: Sequence[str] | None = None,
-    ignore_file: str | None = None,
-    exclude_extensions: set[str] | None = None,
-    exclude_patterns: Sequence[str | Pattern[str]] | None = None,
-    include_patterns: Sequence[str | Pattern[str]] | None = None,
-    max_depth: int = 0,
-    show_full_path: bool = False,
-    spec: DisplayOptions | None = None,
-    *,
-    targets: _Targets | None = None,
-) -> tuple[dict[str, Any], dict[str, Any], _Targets]:
-    """Scan both comparison inputs and report what each GitHub side resolved to.
-
-    Does the work of
-    [`compare_directory_structures`][recursivist.compare.compare_directory_structures],
-    whose arguments it shares, and additionally returns the targets as checked out. A
-    GitHub URL that points at a file is scanned from the directory containing that file,
-    which is only known once the repository has been downloaded; the returned targets
-    carry that directory as their subpath, so callers can label each side after the
-    directory actually scanned.
-
-    Returns:
         A ``(structure1, structure2, targets)`` tuple: each input's structure, and the
         ``(target1, target2)`` pair as resolved by
         [`checkout_repository`][recursivist.github.checkout_repository] (``None`` for a
         local side).
+
+    Any exclude/include filter that matched no entry on *either* side is logged as a
+    warning once both scans finish.
 
     Raises:
         ValueError: If two GitHub URLs that point at files resolve to the same

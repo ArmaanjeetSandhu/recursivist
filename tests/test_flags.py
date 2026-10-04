@@ -12,7 +12,6 @@ import dataclasses
 import pytest
 
 from recursivist.flags import (
-    _SPEC_BY_ID,
     FLAG_SPECS,
     METRIC_GIT,
     METRIC_LOC,
@@ -24,15 +23,9 @@ from recursivist.flags import (
     MODE_SORT_ONLY,
     NUMERIC_METRICS,
     DisplayOptions,
-    FlagSpec,
-    _cli_order_key,
     resolve_display_options,
     resolve_flags,
 )
-
-
-def _spec(flag_id: str) -> FlagSpec:
-    return _SPEC_BY_ID[flag_id]
 
 
 class TestDisplayOptions:
@@ -44,27 +37,12 @@ class TestDisplayOptions:
         assert opts.show_loc is False
         assert opts.show_size is False
         assert opts.show_mtime is False
-        assert opts.sorts_by_metric is False
 
     def test_show_properties_track_metrics(self) -> None:
         opts = DisplayOptions(metrics=(METRIC_SIZE, METRIC_LOC))
         assert opts.show_loc is True
         assert opts.show_size is True
         assert opts.show_mtime is False
-
-    @pytest.mark.parametrize(
-        "sort_key,expected",
-        [
-            (METRIC_LOC, True),
-            (METRIC_SIZE, True),
-            (METRIC_MTIME, True),
-            (METRIC_GIT, False),
-            (METRIC_SIMILARITY, False),
-            (None, False),
-        ],
-    )
-    def test_sorts_by_metric(self, sort_key: str | None, expected: bool) -> None:
-        assert DisplayOptions(sort_key=sort_key).sorts_by_metric is expected
 
     def test_is_frozen(self) -> None:
         opts = DisplayOptions()
@@ -89,14 +67,6 @@ class TestRegistry:
     def test_all_specs_have_unique_ids(self) -> None:
         ids = [spec.id for spec in FLAG_SPECS]
         assert len(ids) == len(set(ids))
-
-    def test_short_flags_are_unique_where_present(self) -> None:
-        shorts = [spec.short for spec in FLAG_SPECS if spec.short is not None]
-        assert len(shorts) == len(set(shorts))
-
-    def test_long_flags_are_unique(self) -> None:
-        longs = [spec.long for spec in FLAG_SPECS]
-        assert len(longs) == len(set(longs))
 
     def test_modes_are_valid(self) -> None:
         valid = {MODE_SORT_ONLY, MODE_COMBINED, MODE_DISPLAY_ONLY}
@@ -225,139 +195,75 @@ class TestResolveFlags:
         assert opts.show_git_status is True
 
 
-class TestCliOrderKey:
-    def test_long_option_match(self) -> None:
-        assert _cli_order_key(_spec("sort_loc"), ["--sort-by-loc"]) == (0, 0)
-
-    def test_long_option_with_value_suffix(self) -> None:
-        assert _cli_order_key(_spec("sort_loc"), ["--sort-by-loc=x"]) == (0, 0)
-
-    def test_long_option_absent(self) -> None:
-        assert _cli_order_key(_spec("sort_loc"), ["--size", "foo"]) is None
-
-    def test_short_flag_standalone(self) -> None:
-        assert _cli_order_key(_spec("sort_loc"), ["-s"]) == (0, 0)
-
-    def test_short_flag_in_bundle_preserves_char_index(self) -> None:
-        assert _cli_order_key(_spec("sort_size"), ["-zs"]) == (0, 0)
-        assert _cli_order_key(_spec("sort_loc"), ["-zs"]) == (0, 1)
-
-    def test_earliest_position_wins_across_tokens(self) -> None:
-        tokens = ["-z", "-s", "-s"]
-        assert _cli_order_key(_spec("sort_loc"), tokens) == (1, 0)
-
-    def test_double_dash_terminates_scan(self) -> None:
-        assert _cli_order_key(_spec("sort_size"), ["--", "-z"]) is None
-
-    def test_flag_without_short_never_matches_bundle(self) -> None:
-        assert _cli_order_key(_spec("disp_size"), ["-sz"]) is None
-        assert _cli_order_key(_spec("disp_size"), ["--size"]) == (0, 0)
-
-    def test_attached_short_value_is_not_scanned_for_flags(self) -> None:
-        """``-xmd`` is ``-x md``: the ``m`` is part of -x's value, not ``-m``."""
-        tokens = ["-xmd", "--sort-by-size", "-m"]
-        value_options = {"-x", "--exclude-ext"}
-        assert _cli_order_key(_spec("sort_mtime"), tokens, value_options) == (2, 0)
-        assert _cli_order_key(_spec("sort_size"), tokens, value_options) == (1, 0)
-
-    def test_flags_before_value_option_in_bundle_are_found(self) -> None:
-        tokens = ["-sxmd", "-m"]
-        assert _cli_order_key(_spec("sort_loc"), tokens, {"-x"}) == (0, 0)
-        assert _cli_order_key(_spec("sort_mtime"), tokens, {"-x"}) == (1, 0)
-
-    def test_detached_short_value_is_skipped_even_if_dashed(self) -> None:
-        tokens = ["-p", "-m", "--sort-by-size", "-m"]
-        assert _cli_order_key(_spec("sort_mtime"), tokens, {"-p"}) == (3, 0)
-
-    def test_value_option_ending_bundle_consumes_next_token(self) -> None:
-        tokens = ["-sx", "-m", "-m"]
-        assert _cli_order_key(_spec("sort_mtime"), tokens, {"-x"}) == (2, 0)
-
-    def test_long_value_option_consumes_next_token(self) -> None:
-        tokens = ["--exclude-pattern", "--sort-by-loc", "--sort-by-loc"]
-        value_options = {"--exclude-pattern"}
-        assert _cli_order_key(_spec("sort_loc"), tokens, value_options) == (2, 0)
-
-    def test_long_value_option_with_equals_does_not_consume(self) -> None:
-        tokens = ["--exclude-pattern=x", "--sort-by-loc"]
-        value_options = {"--exclude-pattern"}
-        assert _cli_order_key(_spec("sort_loc"), tokens, value_options) == (1, 0)
-
-    def test_without_value_options_bundles_scan_as_flags(self) -> None:
-        assert _cli_order_key(_spec("sort_mtime"), ["-xmd"]) == (0, 1)
-
-
 class TestResolveDisplayOptions:
     def test_no_flags(self) -> None:
-        assert resolve_display_options(tokens=[]) == DisplayOptions()
+        assert resolve_display_options() == DisplayOptions()
 
     def test_combined_plus_display(self) -> None:
         opts = resolve_display_options(
-            sort_loc=True, disp_size=True, tokens=["--sort-by-loc", "--size"]
+            sort_loc=True, disp_size=True, order=["sort_loc", "disp_size"]
         )
         assert opts.sort_key == METRIC_LOC
         assert opts.metrics == (METRIC_LOC, METRIC_SIZE)
 
-    def test_display_only_order_follows_tokens(self) -> None:
+    def test_display_only_order_follows_order(self) -> None:
         forward = resolve_display_options(
-            disp_loc=True, disp_size=True, tokens=["--loc", "--size"]
+            disp_loc=True, disp_size=True, order=["disp_loc", "disp_size"]
         )
         assert forward.metrics == (METRIC_LOC, METRIC_SIZE)
         reverse = resolve_display_options(
-            disp_loc=True, disp_size=True, tokens=["--size", "--loc"]
+            disp_loc=True, disp_size=True, order=["disp_size", "disp_loc"]
         )
         assert reverse.metrics == (METRIC_SIZE, METRIC_LOC)
 
-    def test_first_sorting_flag_by_token_order(self) -> None:
+    def test_first_sorting_flag_by_order(self) -> None:
         loc_first = resolve_display_options(
-            sort_loc=True,
-            sort_size=True,
-            tokens=["--sort-by-loc", "--sort-by-size"],
+            sort_loc=True, sort_size=True, order=["sort_loc", "sort_size"]
         )
         assert loc_first.sort_key == METRIC_LOC
         assert loc_first.metrics == (METRIC_LOC,)
         size_first = resolve_display_options(
-            sort_loc=True,
-            sort_size=True,
-            tokens=["--sort-by-size", "--sort-by-loc"],
+            sort_loc=True, sort_size=True, order=["sort_size", "sort_loc"]
         )
         assert size_first.sort_key == METRIC_SIZE
         assert size_first.metrics == (METRIC_SIZE,)
 
-    def test_short_flag_bundle_ordering(self) -> None:
-        sz = resolve_display_options(sort_loc=True, sort_size=True, tokens=["-sz"])
-        assert sz.sort_key == METRIC_LOC
-        zs = resolve_display_options(sort_loc=True, sort_size=True, tokens=["-zs"])
-        assert zs.sort_key == METRIC_SIZE
+    def test_repeated_flag_counts_at_first_position(self) -> None:
+        opts = resolve_display_options(
+            sort_loc=True,
+            sort_size=True,
+            order=["sort_size", "sort_loc", "sort_size"],
+        )
+        assert opts.sort_key == METRIC_SIZE
 
-    def test_missing_tokens_fall_back_to_registry_order(self) -> None:
-        """Active flags absent from the tokens use their registry order."""
-        opts = resolve_display_options(disp_size=True, disp_loc=True, tokens=[])
+    def test_without_order_falls_back_to_registry_order(self) -> None:
+        opts = resolve_display_options(disp_size=True, disp_loc=True)
         assert opts.metrics == (METRIC_LOC, METRIC_SIZE)
 
-    def test_double_dash_pushes_later_flag_last(self) -> None:
+    def test_active_flag_missing_from_order_goes_last(self) -> None:
+        """Flags the order does not mention follow the ones it does."""
         opts = resolve_display_options(
-            disp_loc=True,
-            disp_size=True,
-            tokens=["--size", "--", "--loc"],
+            disp_loc=True, disp_size=True, disp_mtime=True, order=["disp_mtime"]
         )
-        assert opts.metrics == (METRIC_SIZE, METRIC_LOC)
+        assert opts.metrics == (METRIC_MTIME, METRIC_LOC, METRIC_SIZE)
+
+    def test_inactive_flag_in_order_is_ignored(self) -> None:
+        """The booleans decide what is active; the order only arranges that set."""
+        opts = resolve_display_options(
+            sort_size=True, order=["sort_mtime", "sort_size"]
+        )
+        assert opts.sort_key == METRIC_SIZE
+        assert opts.metrics == (METRIC_SIZE,)
+
+    def test_unknown_flag_id_is_rejected(self) -> None:
+        with pytest.raises(ValueError, match="sort_lines"):
+            resolve_display_options(sort_loc=True, order=["sort_lines"])
 
     def test_ignores_sys_argv(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """The host process's argv is unrelated to the call and must not be read."""
         monkeypatch.setattr("sys.argv", ["recursivist", "--size", "--loc"])
         opts = resolve_display_options(disp_loc=True, disp_size=True)
         assert opts.metrics == (METRIC_LOC, METRIC_SIZE)
-
-    def test_attached_value_does_not_reorder_sorts(self) -> None:
-        opts = resolve_display_options(
-            sort_size=True,
-            sort_mtime=True,
-            tokens=["-xmd", "--sort-by-size", "-m"],
-            value_options={"-x"},
-        )
-        assert opts.sort_key == METRIC_SIZE
-        assert opts.metrics == (METRIC_SIZE,)
 
     def test_full_mix_resolves_by_order(self) -> None:
         """A realistic mix: git sort wins, display-only trio annotates in order."""
@@ -366,12 +272,7 @@ class TestResolveDisplayOptions:
             sort_loc=True,
             disp_mtime=True,
             disp_size=True,
-            tokens=[
-                "--sort-by-git-status",
-                "--sort-by-loc",
-                "--mtime",
-                "--size",
-            ],
+            order=["sort_git", "sort_loc", "disp_mtime", "disp_size"],
         )
         assert opts.sort_key == METRIC_GIT
         assert opts.metrics == (METRIC_MTIME, METRIC_SIZE)
@@ -379,9 +280,7 @@ class TestResolveDisplayOptions:
 
     def test_git_display_and_numeric_sort(self) -> None:
         opts = resolve_display_options(
-            sort_size=True,
-            disp_git=True,
-            tokens=["--sort-by-size", "--git-status"],
+            sort_size=True, disp_git=True, order=["sort_size", "disp_git"]
         )
         assert opts.sort_key == METRIC_SIZE
         assert opts.metrics == (METRIC_SIZE,)

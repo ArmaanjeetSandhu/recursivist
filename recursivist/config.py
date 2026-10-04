@@ -408,25 +408,6 @@ def _find_project_config(start_dir: Path) -> tuple[Path, dict[str, Any]] | None:
     return None
 
 
-def load_project_config(start_dir: Path) -> dict[str, Any]:
-    """Load the project configuration that applies to *start_dir*.
-
-    Looks in *start_dir* and then in each of its parents, and uses the first directory
-    that holds a project configuration: a ``.recursivist.toml``, or a ``pyproject.toml``
-    with a ``[tool.recursivist]`` table. The nearest file wins outright; files further
-    up are not merged in. Reading never writes.
-
-    Args:
-        start_dir: Directory the search starts from, normally the one being scanned.
-
-    Returns:
-        The valid settings of the nearest project configuration, keyed in their
-        underscored form, or an empty mapping when there is none.
-    """
-    found = _find_project_config(start_dir)
-    return found[1] if found is not None else {}
-
-
 def resolve_config_layers(
     project_dir: Path | None = None,
 ) -> dict[str, list[ConfigLayer]]:

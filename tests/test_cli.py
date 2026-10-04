@@ -1635,6 +1635,45 @@ def test_flag_order_comes_from_invocation_not_process_argv(
     assert data["sort_key"] == "size"
 
 
+@pytest.mark.parametrize(
+    "args,expected",
+    [
+        (["-sz"], "loc"),
+        (["-zs"], "size"),
+        (["-z", "-s", "-z"], "size"),
+        (["-s", "-z", "-s"], "loc"),
+        (["--exclude-ext=s", "-m", "-z"], "mtime"),
+        (["--sort-by-size", "-d", "2", "--sort-by-loc"], "size"),
+    ],
+)
+def test_first_sort_flag_wins_in_parser_order(
+    runner: CliRunner,
+    sample_directory: str,
+    mocker: Any,
+    args: list[str],
+    expected: str,
+) -> None:
+    """Bundles, repeats and interleaved options are ordered as the parser read them."""
+    spy = mocker.spy(cli_module, "resolve_display_options")
+    result = runner.invoke(app, ["visualize", sample_directory, *args])
+    assert result.exit_code == 0
+    assert spy.spy_return.sort_key == expected
+
+
+def test_flag_order_is_not_carried_between_invocations(
+    runner: CliRunner, sample_directory: str, mocker: Any
+) -> None:
+    spy = mocker.spy(cli_module, "resolve_display_options")
+    for args, expected in (
+        (["--size", "--loc"], ("size", "loc")),
+        (["--loc", "--size"], ("loc", "size")),
+        (["--mtime"], ("mtime",)),
+    ):
+        result = runner.invoke(app, ["visualize", sample_directory, *args])
+        assert result.exit_code == 0
+        assert spy.spy_return.metrics == expected
+
+
 def test_visualize_short_value_consumes_next_token(
     runner: CliRunner, sample_directory: str, mocker: Any
 ) -> None:

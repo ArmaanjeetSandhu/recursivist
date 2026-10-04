@@ -1,6 +1,6 @@
 """Tests for recursivist.compare.
 
-Covers compare_directory_structures, build_comparison_tree, and display/export
+Covers _scan_sides, build_comparison_tree, and display/export
 comparison.
 """
 
@@ -23,8 +23,8 @@ from rich.tree import Tree
 from recursivist._models import FileEntry
 from recursivist.compare import (
     _identity_spec_for,
+    _scan_sides,
     build_comparison_tree,
-    compare_directory_structures,
     display_comparison,
     export_comparison,
 )
@@ -234,9 +234,9 @@ safe_path = st.text(
 ).filter(lambda p: p.strip(". ") != "")
 
 
-def test_compare_directory_structures(comparison_directories: tuple[str, str]) -> None:
+def test_scan_sides(comparison_directories: tuple[str, str]) -> None:
     dir1, dir2 = comparison_directories
-    structure1, structure2 = compare_directory_structures(dir1, dir2)
+    structure1, structure2, _ = _scan_sides(dir1, dir2)
     assert "_files" in structure1
     assert "_files" in structure2
     assert "common_dir" in structure1
@@ -266,7 +266,7 @@ def test_compare_directory_structures(comparison_directories: tuple[str, str]) -
         ("include_patterns", ["*.txt"], ".py"),
     ],
 )
-def test_compare_directory_structures_with_options(
+def test_scan_sides_with_options(
     comparison_directories: tuple[str, str],
     option_name: str,
     option_value: Any,
@@ -297,7 +297,7 @@ def test_compare_directory_structures_with_options(
         with open(os.path.join(dir2, "exclude_me_too.log"), "w") as f:
             f.write("This should be excluded too")
     kwargs = {option_name: option_value}
-    structure1, structure2 = compare_directory_structures(dir1, dir2, **kwargs)
+    structure1, structure2, _ = _scan_sides(dir1, dir2, **kwargs)
     if option_name == "show_full_path":
         assert "_files" in structure1
         assert "_files" in structure2
@@ -332,13 +332,11 @@ def test_compare_directory_structures_with_options(
         assert "exclude_me.log" not in [f.name for f in structure1.get("_files", [])]
 
 
-def test_compare_directory_structures_with_statistics(
+def test_scan_sides_with_statistics(
     comparison_directories: tuple[str, str],
 ) -> None:
     dir1, dir2 = comparison_directories
-    structure1, structure2 = compare_directory_structures(
-        dir1, dir2, spec=_ALL_METRICS_SPEC
-    )
+    structure1, structure2, _ = _scan_sides(dir1, dir2, spec=_ALL_METRICS_SPEC)
     for structure in [structure1, structure2]:
         assert "_loc" in structure
         assert "_size" in structure
@@ -574,9 +572,7 @@ def test_export_comparison_unsupported_format(
 def test_complex_comparison(
     complex_directory: str, complex_directory_clone: str, output_dir: str
 ) -> None:
-    structure1, structure2 = compare_directory_structures(
-        complex_directory, complex_directory_clone
-    )
+    structure1, structure2, _ = _scan_sides(complex_directory, complex_directory_clone)
     assert "src" in structure1
     assert "src" in structure2
     assert "docs" in structure1
@@ -603,7 +599,7 @@ def test_build_comparison_tree(
     mocker: MockerFixture,
 ) -> None:
     dir1, dir2 = comparison_directories
-    structure1, structure2 = compare_directory_structures(dir1, dir2)
+    structure1, structure2, _ = _scan_sides(dir1, dir2)
     mock_tree = mocker.MagicMock()
     build_comparison_tree(structure1, structure2, mock_tree, DisplayOptions())
     assert mock_tree.add.called
@@ -642,19 +638,19 @@ def test_comparison_with_statistics(
     assert has_time_indicator, "No time indicators found in the comparison"
 
 
-class TestCompareDirectoryStructures:
-    """Property-based tests for compare_directory_structures function."""
+class TestScanSides:
+    """Property-based tests for _scan_sides function."""
 
     @given(dir1=safe_path, dir2=safe_path)
     @settings(max_examples=10)
     def test_comparison_returns_structures(self, dir1: str, dir2: str) -> None:
-        """Test that compare_directory_structures returns valid structures."""
+        """Test that _scan_sides returns valid structures."""
         with patch("recursivist.compare.get_directory_structure") as mock_get_structure:
             mock_get_structure.side_effect = [
                 ({"_files": [FileEntry("file1.txt", "file1.txt")]}, {".txt"}),
                 ({"_files": [FileEntry("file2.txt", "file2.txt")]}, {".txt"}),
             ]
-            structure1, structure2 = compare_directory_structures(dir1, dir2)
+            structure1, structure2, _ = _scan_sides(dir1, dir2)
             assert structure1 == {"_files": [FileEntry("file1.txt", "file1.txt")]}, (
                 "Should return structure1 from get_directory_structure"
             )
@@ -707,7 +703,7 @@ class TestCompareDirectoryStructures:
     @given(dir1=safe_path, dir2=safe_path)
     @settings(max_examples=5)
     def test_comparison_with_options(self, dir1: str, dir2: str) -> None:
-        """Test compare_directory_structures with various options."""
+        """Test _scan_sides with various options."""
         with patch("recursivist.compare.get_directory_structure") as mock_get_structure:
             mock_get_structure.side_effect = [
                 ({"_files": [FileEntry("file1.txt", "file1.txt")]}, {".txt"}),
@@ -718,7 +714,7 @@ class TestCompareDirectoryStructures:
             exclude_patterns = [r"\.tmp$", r"^test_"]
             include_patterns = [r"\.py$"]
             max_depth = 2
-            compare_directory_structures(
+            _scan_sides(
                 dir1,
                 dir2,
                 exclude_dirs,
@@ -1267,9 +1263,7 @@ def _plain_texts(mock_tree: MagicMock) -> list[str]:
 class TestCompareGitStatus:
     """Git-status support for the compare command (display, sort, export)."""
 
-    def test_compare_directory_structures_fetches_git_per_directory(
-        self, mocker: MockerFixture
-    ) -> None:
+    def test_scan_sides_fetches_git_per_directory(self, mocker: MockerFixture) -> None:
         """With git enabled, get_git_status is called once per directory and
         each map is threaded into the matching scan."""
         gs = mocker.patch(
@@ -1280,7 +1274,7 @@ class TestCompareGitStatus:
             "recursivist.compare.get_directory_structure",
             side_effect=[({"_files": []}, set()), ({"_files": []}, set())],
         )
-        compare_directory_structures("d1", "d2", spec=_GIT_SPEC_DISPLAY)
+        _scan_sides("d1", "d2", spec=_GIT_SPEC_DISPLAY)
 
         assert gs.call_count == 2
         gs.assert_any_call("d1")
@@ -1290,9 +1284,7 @@ class TestCompareGitStatus:
         assert first.kwargs["git_status_map"] == {"a.py": "M"}
         assert second.kwargs["git_status_map"] == {"b.py": "U"}
 
-    def test_compare_directory_structures_no_git_when_not_requested(
-        self, mocker: MockerFixture
-    ) -> None:
+    def test_scan_sides_no_git_when_not_requested(self, mocker: MockerFixture) -> None:
         """Without git flags, git status is never looked up and scans are told
         not to compute it."""
         gs = mocker.patch("recursivist.compare.get_git_status")
@@ -1300,7 +1292,7 @@ class TestCompareGitStatus:
             "recursivist.compare.get_directory_structure",
             side_effect=[({"_files": []}, set()), ({"_files": []}, set())],
         )
-        compare_directory_structures("d1", "d2", spec=DisplayOptions())
+        _scan_sides("d1", "d2", spec=DisplayOptions())
 
         gs.assert_not_called()
         for call in scan.call_args_list:
@@ -1319,9 +1311,7 @@ class TestCompareGitStatus:
             "recursivist.compare.get_directory_structure",
             side_effect=[({"_files": []}, set()), ({"_files": []}, set())],
         )
-        compare_directory_structures(
-            "d1", "d2", spec=DisplayOptions(sort_key=METRIC_GIT)
-        )
+        _scan_sides("d1", "d2", spec=DisplayOptions(sort_key=METRIC_GIT))
         assert gs.call_count == 2
 
     def test_build_comparison_tree_renders_git_badges(self) -> None:
@@ -1778,7 +1768,7 @@ def test_compare_reports_filters_unmatched_on_both_sides(
     open(os.path.join(left, "a.log"), "w").close()
     open(os.path.join(right, "b.txt"), "w").close()
     caplog.set_level(logging.INFO, logger="recursivist")
-    compare_directory_structures(left, right, exclude_extensions={".log", ".xyz"})
+    _scan_sides(left, right, exclude_extensions={".log", ".xyz"})
     messages = [
         r.getMessage()
         for r in caplog.records

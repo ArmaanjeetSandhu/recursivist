@@ -41,7 +41,7 @@ from recursivist.flags import DisplayOptions
 spec = DisplayOptions(sort_key="loc", metrics=("loc", "size"))
 ```
 
-`sort_key` is one of `"loc"`, `"size"`, `"mtime"`, `"git_status"`, `"similarity"`, or `None` (the default extension/name order). `metrics` is the ordered tuple of numeric metrics to display, and `show_git_status` toggles the Git-status marker. To build a `DisplayOptions` from raw CLI flags — recovering their left-to-right order from `argv` — use `recursivist.flags.resolve_display_options`.
+`sort_key` is one of `"loc"`, `"size"`, `"mtime"`, `"git_status"`, `"similarity"`, or `None` (the default extension/name order). `metrics` is the ordered tuple of numeric metrics to display, and `show_git_status` toggles the Git-status marker. To build a `DisplayOptions` from raw CLI flags, use `recursivist.flags.resolve_display_options`, passing the flag ids in the order they were given as `order`.
 
 ### FileEntry
 

@@ -28,7 +28,7 @@ the single value the renderers and exporters consult to decide how to sort and w
 annotate.
 """
 
-from collections.abc import Collection, Sequence
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 MODE_SORT_ONLY = "sort_only"
@@ -52,37 +52,24 @@ class FlagSpec:
         id: Stable identifier used as a dictionary key by the CLI layer.
         mode: One of `MODE_SORT_ONLY`, `MODE_COMBINED`, or `MODE_DISPLAY_ONLY`.
         metric: The metric the flag relates to (e.g. `METRIC_LOC`).
-        long: The long option string, including the leading dashes.
-        short: The single-letter short option (without the dash), or ``None`` when the
-            flag has no short form.
     """
 
     id: str
     mode: str
     metric: str
-    long: str
-    short: str | None = None
 
 
 FLAG_SPECS: tuple[FlagSpec, ...] = (
-    FlagSpec(
-        "sort_similarity",
-        MODE_SORT_ONLY,
-        METRIC_SIMILARITY,
-        "--sort-by-similarity",
-        "S",
-    ),
-    FlagSpec("sort_loc", MODE_COMBINED, METRIC_LOC, "--sort-by-loc", "s"),
-    FlagSpec("sort_size", MODE_COMBINED, METRIC_SIZE, "--sort-by-size", "z"),
-    FlagSpec("sort_mtime", MODE_COMBINED, METRIC_MTIME, "--sort-by-mtime", "m"),
-    FlagSpec("sort_git", MODE_COMBINED, METRIC_GIT, "--sort-by-git-status", None),
-    FlagSpec("disp_loc", MODE_DISPLAY_ONLY, METRIC_LOC, "--loc", None),
-    FlagSpec("disp_size", MODE_DISPLAY_ONLY, METRIC_SIZE, "--size", None),
-    FlagSpec("disp_mtime", MODE_DISPLAY_ONLY, METRIC_MTIME, "--mtime", None),
-    FlagSpec("disp_git", MODE_DISPLAY_ONLY, METRIC_GIT, "--git-status", "G"),
+    FlagSpec("sort_similarity", MODE_SORT_ONLY, METRIC_SIMILARITY),
+    FlagSpec("sort_loc", MODE_COMBINED, METRIC_LOC),
+    FlagSpec("sort_size", MODE_COMBINED, METRIC_SIZE),
+    FlagSpec("sort_mtime", MODE_COMBINED, METRIC_MTIME),
+    FlagSpec("sort_git", MODE_COMBINED, METRIC_GIT),
+    FlagSpec("disp_loc", MODE_DISPLAY_ONLY, METRIC_LOC),
+    FlagSpec("disp_size", MODE_DISPLAY_ONLY, METRIC_SIZE),
+    FlagSpec("disp_mtime", MODE_DISPLAY_ONLY, METRIC_MTIME),
+    FlagSpec("disp_git", MODE_DISPLAY_ONLY, METRIC_GIT),
 )
-_SPEC_BY_ID: dict[str, FlagSpec] = {spec.id: spec for spec in FLAG_SPECS}
-_REGISTRY_INDEX: dict[str, int] = {spec.id: i for i, spec in enumerate(FLAG_SPECS)}
 
 
 @dataclass(frozen=True)
@@ -122,11 +109,6 @@ class DisplayOptions:
     def show_mtime(self) -> bool:
         """Whether the modification-time annotation is shown."""
         return METRIC_MTIME in self.metrics
-
-    @property
-    def sorts_by_metric(self) -> bool:
-        """Whether ordering is driven by a numeric metric (LOC, size, mtime)."""
-        return self.sort_key in NUMERIC_METRICS
 
     def without_remote_unsupported(self) -> "DisplayOptions":
         """Return a copy with annotations that don't apply to a hosted repo.
@@ -199,56 +181,6 @@ def resolve_flags(events: Sequence[tuple[str, str]]) -> DisplayOptions:
     )
 
 
-def _cli_order_key(
-    spec: FlagSpec,
-    tokens: Sequence[str],
-    value_options: Collection[str] = (),
-) -> tuple[int, int] | None:
-    """Return the earliest ``(token_index, char_index)`` position of *spec*.
-
-    Long options match a whole token (ignoring any ``=value`` suffix). Short options are
-    searched for within short-option bundles such as ``-sz``, so the character position
-    inside the bundle preserves the user's ordering. Returns ``None`` when the flag does
-    not appear in *tokens*.
-
-    Option values are never mistaken for flags. Every option string in *value_options*
-    (e.g. ``"-x"`` or ``"--exclude-ext"``) consumes a value: inside a short bundle the
-    rest of the bundle is that value (``-xmd`` is ``-x md``, not ``-x -m -d``), and when
-    nothing follows the option in its own token the next token is the value, even if it
-    starts with a dash.
-
-    Args:
-        spec: The flag to locate.
-        tokens: The raw command-line tokens to search.
-        value_options: Option strings, with their dashes, that take a value.
-
-    Returns:
-        The earliest position as a sortable tuple, or ``None`` if not found.
-    """
-    skip_next = False
-    for index, token in enumerate(tokens):
-        if skip_next:
-            skip_next = False
-            continue
-        if token == "--":
-            break
-        if token.startswith("--"):
-            name = token.split("=", 1)[0]
-            if name == spec.long:
-                return (index, 0)
-            if name in value_options and "=" not in token:
-                skip_next = True
-        elif len(token) >= 2 and token[0] == "-":
-            body = token[1:]
-            for char_index, char in enumerate(body):
-                if char == spec.short:
-                    return (index, char_index)
-                if f"-{char}" in value_options:
-                    skip_next = char_index == len(body) - 1
-                    break
-    return None
-
-
 def resolve_display_options(
     *,
     sort_loc: bool = False,
@@ -260,18 +192,15 @@ def resolve_display_options(
     disp_size: bool = False,
     disp_mtime: bool = False,
     disp_git: bool = False,
-    tokens: Sequence[str] | None = None,
-    value_options: Collection[str] = (),
+    order: Sequence[str] = (),
 ) -> DisplayOptions:
     """Resolve the raw per-flag booleans into
     [`DisplayOptions`][recursivist.flags.DisplayOptions].
 
-    The set of active flags comes from the boolean arguments (which the CLI parser has
-    already validated), while their relative order is recovered from *tokens* — the raw
-    command-line arguments. This split keeps resolution robust: the parser is the source
-    of truth for *which* flags are present, and the token scan only orders that known
-    set. A flag that cannot be located in *tokens* falls back to its registry position
-    so ordering stays deterministic.
+    The boolean arguments say *which* flags are active and *order* says in what order
+    they were given; the CLI parser supplies both. *order* only arranges the active set
+    — a flag listed in it but not active is ignored, and an active flag missing from it
+    is placed after the listed ones, in registry order, so resolution is deterministic.
 
     Args:
         sort_loc: Whether ``--sort-by-loc`` was given.
@@ -283,21 +212,17 @@ def resolve_display_options(
         disp_size: Whether ``--size`` was given.
         disp_mtime: Whether ``--mtime`` was given.
         disp_git: Whether ``--git-status`` was given.
-        tokens: The raw command-line tokens used to order the active flags. The caller
-            must supply the arguments of the invocation being resolved; ``sys.argv`` is
-            deliberately never consulted, because it belongs to the host process and is
-            unrelated to the arguments when the CLI is invoked from code. When omitted,
-            every active flag falls back to its registry position.
-        value_options: Option strings, with their dashes (e.g. ``"-x"``,
-            ``"--exclude-ext"``), that take a value on the command being resolved, so
-            their values are skipped rather than scanned for flags.
+        order: The ids of the flags (see `FLAG_SPECS`) in the order the parser
+            encountered them on the command line. A repeated id counts at its first
+            position. When omitted, every active flag falls back to its registry
+            position.
 
     Returns:
         The resolved [`DisplayOptions`][recursivist.flags.DisplayOptions].
-    """
-    if tokens is None:
-        tokens = ()
 
+    Raises:
+        ValueError: If *order* contains an id that is not in the registry.
+    """
     active = {
         "sort_similarity": sort_similarity,
         "sort_loc": sort_loc,
@@ -309,14 +234,13 @@ def resolve_display_options(
         "disp_mtime": disp_mtime,
         "disp_git": disp_git,
     }
-    active_specs = [_SPEC_BY_ID[flag_id] for flag_id, on in active.items() if on]
+    position: dict[str, int] = {}
+    for index, flag_id in enumerate(order):
+        if flag_id not in active:
+            raise ValueError(f"Unknown flag id in order: {flag_id!r}")
+        position.setdefault(flag_id, index)
 
-    def sort_key(spec: FlagSpec) -> tuple[int, int]:
-        position = _cli_order_key(spec, tokens, value_options)
-        if position is None:
-            return (len(tokens) + 1, _REGISTRY_INDEX[spec.id])
-        return position
-
-    ordered = sorted(active_specs, key=sort_key)
+    active_specs = [spec for spec in FLAG_SPECS if active[spec.id]]
+    ordered = sorted(active_specs, key=lambda spec: position.get(spec.id, len(order)))
     events = [(spec.mode, spec.metric) for spec in ordered]
     return resolve_flags(events)

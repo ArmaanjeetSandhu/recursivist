@@ -171,7 +171,7 @@ To add a metric beyond lines of code, size, and mtime:
 2. Thread it through `FileEntry` in `_models.py` and the formatting helpers in `metrics.py`.
 3. Register the metric and its flags in `flags.py` so they resolve into `DisplayOptions` (a sorting flag, a display-only flag, or both).
 4. Surface it in `build_tree` (`tree.py`), the exporters, and `compare.py`.
-5. Add the CLI options in `cli.py` and wire them into `resolve_display_options`.
+5. Add the CLI options in `cli.py`, giving each a `_records_order` callback with its flag id, and wire them into `resolve_display_options`.
 
 ### Extend Pattern Matching
 

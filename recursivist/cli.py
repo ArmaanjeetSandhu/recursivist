@@ -41,7 +41,6 @@ import typer
 from rich.console import Console
 from rich.logging import RichHandler
 from rich.progress import Progress
-from typer.core import TyperCommand
 
 from recursivist.compare import (
     display_comparison,
@@ -87,48 +86,46 @@ app = typer.Typer(
 )
 console = Console()
 
-_RAW_ARGS_KEY = "recursivist.raw_args"
+_FLAG_ORDER_KEY = "recursivist.flag_order"
 _LOG_HANDLER_KEY = "recursivist.log_handler"
 
 
-class _ArgsRecordingCommand(TyperCommand):
-    """A command that records the raw arguments of its own invocation.
+def _records_order(flag_id: str) -> Callable[[typer.Context, bool], bool]:
+    """Build an option callback that notes when the parser reaches a flag.
 
-    Flag order matters for sorting and annotation, but the parser only reports *which*
-    flags were given. The arguments are stashed on the context so the order can be
-    recovered from what this command actually received, whether it was launched from a
-    shell or called from code, rather than from the host process's ``sys.argv``.
+    Flag order matters for sorting and annotation, but a command only receives *which*
+    flags were given. The parser knows the order: it runs the callbacks of the options
+    present on the command line in the order they appeared, ahead of those of the
+    options that were left out. Each order-sensitive flag carries one of these
+    callbacks, so the order is the one the parser read the flags in.
+
+    Args:
+        flag_id: The flag's id in the [`recursivist.flags`][recursivist.flags] registry.
+
+    Returns:
+        A callback for `typer.Option` that appends *flag_id* to the invocation's flag
+        order when the flag is set, and passes the option's value through unchanged.
     """
 
-    def parse_args(self, ctx: Any, args: list[str]) -> list[str]:
-        ctx.meta[_RAW_ARGS_KEY] = list(args)
-        return super().parse_args(ctx, args)
+    def record(ctx: typer.Context, value: bool) -> bool:
+        if value:
+            ctx.meta.setdefault(_FLAG_ORDER_KEY, []).append(flag_id)
+        return value
+
+    return record
 
 
-def _flag_order_inputs(ctx: typer.Context) -> tuple[list[str], set[str]]:
-    """Return the invocation's raw arguments and its value-taking option strings.
+def _flag_order(ctx: typer.Context) -> list[str]:
+    """Return the ids of the order-sensitive flags, in the order they were given.
 
     Args:
         ctx: The context of the running command.
 
     Returns:
-        The raw arguments this command was invoked with, and every option string (e.g.
-        ``"-x"``, ``"--exclude-ext"``) that consumes a value on this command. The latter
-        comes from the command's own parameter definitions, since the same short option
-        can mean different things on different commands (``-f`` takes a value on
-        ``export`` but is a flag on ``compare``).
+        The flag ids recorded by the `_records_order` callbacks while this command's
+        arguments were parsed.
     """
-    value_options: set[str] = set()
-    for param in ctx.command.params:
-        if getattr(param, "param_type_name", None) != "option":
-            continue
-        if getattr(param, "is_flag", False) or getattr(param, "count", False):
-            continue
-        if param.nargs == 0:
-            continue
-        value_options.update(param.opts)
-        value_options.update(param.secondary_opts)
-    return list(ctx.meta.get(_RAW_ARGS_KEY, [])), value_options
+    return list(ctx.meta.get(_FLAG_ORDER_KEY, []))
 
 
 HELP_EXCLUDE_DIRS = (
@@ -210,25 +207,64 @@ ShowFullPathOption = Annotated[
     bool, typer.Option("--full-path", "-l", help=HELP_SHOW_FULL_PATH)
 ]
 SortByLocOption = Annotated[
-    bool, typer.Option("--sort-by-loc", "-s", help=HELP_SORT_BY_LOC)
+    bool,
+    typer.Option(
+        "--sort-by-loc",
+        "-s",
+        help=HELP_SORT_BY_LOC,
+        callback=_records_order("sort_loc"),
+    ),
 ]
 SortBySizeOption = Annotated[
-    bool, typer.Option("--sort-by-size", "-z", help=HELP_SORT_BY_SIZE)
+    bool,
+    typer.Option(
+        "--sort-by-size",
+        "-z",
+        help=HELP_SORT_BY_SIZE,
+        callback=_records_order("sort_size"),
+    ),
 ]
 SortByMtimeOption = Annotated[
-    bool, typer.Option("--sort-by-mtime", "-m", help=HELP_SORT_BY_MTIME)
+    bool,
+    typer.Option(
+        "--sort-by-mtime",
+        "-m",
+        help=HELP_SORT_BY_MTIME,
+        callback=_records_order("sort_mtime"),
+    ),
 ]
 SortBySimilarityOption = Annotated[
-    bool, typer.Option("--sort-by-similarity", "-S", help=HELP_SORT_BY_SIMILARITY)
+    bool,
+    typer.Option(
+        "--sort-by-similarity",
+        "-S",
+        help=HELP_SORT_BY_SIMILARITY,
+        callback=_records_order("sort_similarity"),
+    ),
 ]
 SortByGitStatusOption = Annotated[
-    bool, typer.Option("--sort-by-git-status", help=HELP_SORT_BY_GIT_STATUS)
+    bool,
+    typer.Option(
+        "--sort-by-git-status",
+        help=HELP_SORT_BY_GIT_STATUS,
+        callback=_records_order("sort_git"),
+    ),
 ]
-LocOption = Annotated[bool, typer.Option("--loc", help=HELP_LOC)]
-SizeOption = Annotated[bool, typer.Option("--size", help=HELP_SIZE)]
-MtimeOption = Annotated[bool, typer.Option("--mtime", help=HELP_MTIME)]
+LocOption = Annotated[
+    bool, typer.Option("--loc", help=HELP_LOC, callback=_records_order("disp_loc"))
+]
+SizeOption = Annotated[
+    bool, typer.Option("--size", help=HELP_SIZE, callback=_records_order("disp_size"))
+]
+MtimeOption = Annotated[
+    bool,
+    typer.Option("--mtime", help=HELP_MTIME, callback=_records_order("disp_mtime")),
+]
 ShowGitStatusOption = Annotated[
-    bool, typer.Option("--git-status", "-G", help=HELP_GIT_STATUS)
+    bool,
+    typer.Option(
+        "--git-status", "-G", help=HELP_GIT_STATUS, callback=_records_order("disp_git")
+    ),
 ]
 OutputDirOption = Annotated[
     Path | None,
@@ -1406,7 +1442,6 @@ def _plan_tree_scan(
     target = parse_github_url(directory)
     is_remote = target is not None
 
-    tokens, value_options = _flag_order_inputs(ctx)
     spec = resolve_display_options(
         sort_loc=sort_by_loc,
         sort_size=sort_by_size,
@@ -1417,8 +1452,7 @@ def _plan_tree_scan(
         disp_size=size,
         disp_mtime=mtime and not is_remote,
         disp_git=show_git_status and not is_remote,
-        tokens=tokens,
-        value_options=value_options,
+        order=_flag_order(ctx),
     )
 
     validated: Path = Path(directory)
@@ -1515,7 +1549,7 @@ def _scanned_tree(plan: _TreeScanPlan) -> Generator[_ScannedTree]:
         yield _ScannedTree(scan_dir, root_name, structure, extensions)
 
 
-@app.command(cls=_ArgsRecordingCommand)
+@app.command()
 def visualize(
     ctx: typer.Context,
     directory: Annotated[
@@ -1711,7 +1745,7 @@ def visualize(
         raise typer.Exit(1) from None
 
 
-@app.command(cls=_ArgsRecordingCommand)
+@app.command()
 def export(
     ctx: typer.Context,
     directory: Annotated[
@@ -1943,7 +1977,7 @@ def version() -> None:
     typer.echo(f"Recursivist version: {__version__}")
 
 
-@app.command(cls=_ArgsRecordingCommand)
+@app.command()
 def compare(
     ctx: typer.Context,
     dir1: Annotated[
@@ -2159,7 +2193,6 @@ def compare(
     local_paths = [Path(raw) for raw in local_inputs]
     configured = _config_reader(local_paths[0] if local_paths else None)
 
-    tokens, value_options = _flag_order_inputs(ctx)
     spec = resolve_display_options(
         sort_loc=sort_by_loc,
         sort_size=sort_by_size,
@@ -2170,8 +2203,7 @@ def compare(
         disp_size=size,
         disp_mtime=mtime and not both_remote,
         disp_git=show_git_status and not both_remote,
-        tokens=tokens,
-        value_options=value_options,
+        order=_flag_order(ctx),
     )
 
     ignore_file_configured = ignore_file is None
