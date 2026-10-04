@@ -238,17 +238,28 @@ Manage persistent user preferences, stored as JSON in your platform's applicatio
 recursivist config set KEY VALUE
 recursivist config unset KEY
 recursivist config get KEY
+recursivist config list [OPTIONS] [DIRECTORY]
 recursivist config path
 ```
 
-| Argument | Description                                       |
-| -------- | ------------------------------------------------- |
-| `KEY`    | Configuration key (currently `icon-style`)        |
-| `VALUE`  | Value to set (`emoji` or `nerd` for `icon-style`) |
+| Argument    | Description                                                                                          |
+| ----------- | ---------------------------------------------------------------------------------------------------- |
+| `KEY`       | Configuration key (currently `icon-style`)                                                           |
+| `VALUE`     | Value to set (`emoji` or `nerd` for `icon-style`)                                                    |
+| `DIRECTORY` | Directory whose project configuration applies, for `config list` (defaults to the current directory) |
+
+`config list` supports:
+
+| Option   | Short | Description                                        |
+| -------- | ----- | -------------------------------------------------- |
+| `--all`  | `-a`  | Show the value of every layer, not only the winner |
+| `--json` |       | Print the listing as JSON                          |
 
 `config set` saves a value. `config unset` removes a saved value, so the setting falls back to its default. `unset` accepts any key, including one Recursivist does not recognize, which makes it the way to clear an entry that is reported with a warning. Both commands change only the key they are given and leave the rest of the file untouched.
 
-`config get` prints the value of a setting: the one saved in the file, or the built-in default when none is saved or the saved one is invalid. The value is the only thing written to standard output, so it can be captured in a script; warnings about the file, and the error for a key Recursivist does not recognize, go to standard error. It reads only your user preferences, so a [project configuration](#project-configuration) or a command-line flag can still override the printed value for a run. Nothing is created or changed.
+`config get` prints the value of a setting: the one saved in the file, or the built-in default when none is saved or the saved one is invalid. The value is the only thing written to standard output, so it can be captured in a script; warnings about the file, and the error for a key Recursivist does not recognize, go to standard error. It reads only your user preferences, so a [project configuration](#project-configuration) or a command-line flag can still override the printed value for a run; `config list` shows the value in effect for a directory. Nothing is created or changed.
+
+`config list` prints every setting with the value in effect for a directory and the layer and file that value comes from, taking the [project configuration](#project-configuration) into account. `--all` adds the value of every layer, and `--json` prints the listing as JSON. See [Listing Settings](#listing-settings) for the output. Nothing is created or changed.
 
 `config path` prints where the file is on your system. The path is the only output, so it can be passed straight to another command. It takes no arguments and never reads or creates the file: the path is printed whether or not the file exists, and the file is absent until `config set` saves a value. A [project configuration](#project-configuration) file is not reported.
 
@@ -260,6 +271,9 @@ recursivist config set icon-style emoji
 recursivist config unset icon-style
 recursivist config get icon-style
 recursivist export --icon-style "$(recursivist config get icon-style)"   # export with your saved style
+recursivist config list                      # settings in effect for the current directory
+recursivist config list ./my-project --all   # every layer's value for a project
+recursivist config list --json
 recursivist config path
 cat "$(recursivist config path)"   # show your saved preferences
 ```
@@ -288,9 +302,48 @@ Each setting is resolved in this order, the first one found winning:
 3. Your user configuration (`config set`)
 4. The built-in default
 
-An unknown key or an invalid value is reported with a warning and ignored, so that setting falls through to the next layer. This applies to project files and to your user configuration file alike, so a mistake made while editing either by hand cannot change what is rendered. Remove an entry from your user configuration file with `config unset`. Run a command with `--verbose` to see which project file was used.
+An unknown key or an invalid value is reported with a warning and ignored, so that setting falls through to the next layer. This applies to project files and to your user configuration file alike, so a mistake made while editing either by hand cannot change what is rendered. Remove an entry from your user configuration file with `config unset`. Run `config list` to see which layer and file each setting comes from, or a command with `--verbose` to see which project file was used.
 
 `compare` uses the project configuration of the first local directory given. A [GitHub repository](#github-repositories) input has no project configuration.
+
+### Listing Settings
+
+`config list` resolves each setting the way a command run on `DIRECTORY` does, through the [project configuration](#project-configuration), your user configuration, and the built-in default, and prints the winning value with the layer and file it comes from:
+
+```text
+$ recursivist config list ./my-project
+icon-style = nerd  (project: /home/me/my-project/.recursivist.toml)
+```
+
+The origin is `project` or `user` followed by the file that sets the value, or `default` when no file sets it.
+
+`--all` lists the value of every layer under the setting, from the highest precedence to the lowest. The winning layer is marked with `*`, and a layer that does not set the value shows `(not set)`. A layer's file is named whenever it exists, even when it does not set the value, so the listing shows every file that is consulted:
+
+```text
+$ recursivist config list ./my-project --all
+icon-style = nerd
+  * project  nerd   /home/me/my-project/.recursivist.toml
+    user     emoji  /home/me/.config/recursivist/config.json
+    default  emoji
+```
+
+`--json` prints the listing as a JSON object keyed by setting. Each entry holds the winning `value`, the `layer` it comes from (`project`, `user`, or `default`), and its `source` file, which is `null` for a built-in default:
+
+```json
+{
+    "icon-style": {
+        "value": "nerd",
+        "layer": "project",
+        "source": "/home/me/my-project/.recursivist.toml"
+    }
+}
+```
+
+With `--all` as well, each entry also has a `layers` array holding the same three fields for every layer, in the same order as the text listing. There, `value` is `null` for a layer that does not set it, and `source` is `null` for a layer that has no file.
+
+The listing is the only thing written to standard output, so it can be piped to another program; warnings about a configuration file, and the error for a `DIRECTORY` that is not a directory, go to standard error. An invalid value is reported with a warning and counts as not set, as it does for a run.
+
+A command-line flag such as `--icon-style` still overrides the listed value for a run, and exports use the `emoji` icon style unless that flag is given.
 
 ## `version`
 

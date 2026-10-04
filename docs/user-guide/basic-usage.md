@@ -65,7 +65,7 @@ A project can also set the style for everyone who works on it, in a `.recursivis
 icon-style = "nerd"
 ```
 
-A project setting overrides your saved preference, and `--icon-style` overrides both. See [Project Configuration](../reference/cli-reference.md#project-configuration) for how the file is found.
+A project setting overrides your saved preference, and `--icon-style` overrides both. See [Project Configuration](../reference/cli-reference.md#project-configuration) for how the file is found. `recursivist config list` prints the style in effect for the current directory and the file that sets it.
 
 Exports default to the `emoji` style regardless of your configuration, so exported files render consistently on any machine. Pass `--icon-style nerd` to override this.
 

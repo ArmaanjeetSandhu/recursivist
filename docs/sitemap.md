@@ -130,6 +130,7 @@
     - [`config`](reference/cli-reference.md#config)
         - [Examples](reference/cli-reference.md#examples_3)
         - [Project Configuration](reference/cli-reference.md#project-configuration)
+        - [Listing Settings](reference/cli-reference.md#listing-settings)
     - [`version`](reference/cli-reference.md#version)
 - [API Reference](reference/api-reference.md)
     - [Module Overview](reference/api-reference.md#module-overview)

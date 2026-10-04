@@ -136,6 +136,9 @@ recursivist config set icon-style nerd
 # Print your saved icon style
 recursivist config get icon-style
 
+# Show the settings in effect here and where each one comes from
+recursivist config list
+
 # Print the location of your saved preferences
 recursivist config path
 

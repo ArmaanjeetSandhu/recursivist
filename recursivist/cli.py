@@ -27,6 +27,7 @@ All commands share a consistent set of filtering and display options:
 """
 
 import contextlib
+import json
 import logging
 import os
 from pathlib import Path
@@ -45,10 +46,12 @@ from recursivist.compare import (
 )
 from recursivist.config import (
     CONFIG_KEYS,
+    ConfigLayer,
     IconStyle,
     get_config_path,
     read_config_file,
     resolve_config,
+    resolve_config_layers,
     save_config,
 )
 from recursivist.exporters import (
@@ -387,6 +390,188 @@ def config_get(
     _send_logs_to_stderr(ctx)
     config_key = _known_config_key(key)
     typer.echo(resolve_config()[config_key])
+
+
+_NOT_SET = "(not set)"
+
+
+def _effective_layer(layers: list[ConfigLayer]) -> ConfigLayer:
+    """Return the layer whose value is in effect: the first one that sets a value."""
+    return next(layer for layer in layers if layer.value is not None)
+
+
+def _shown_value(layer: ConfigLayer) -> str:
+    """Return a layer's value as plain text, ``(not set)`` when it has none."""
+    return _NOT_SET if layer.value is None else layer.value
+
+
+def _layer_record(layer: ConfigLayer) -> dict[str, Any]:
+    """Return one layer's value, name, and source file as JSON-ready fields."""
+    return {
+        "value": layer.value,
+        "layer": layer.name,
+        "source": None if layer.source is None else str(layer.source),
+    }
+
+
+def _config_listing_records(
+    settings: dict[str, list[ConfigLayer]], show_all: bool
+) -> dict[str, dict[str, Any]]:
+    """Build the JSON form of a configuration listing.
+
+    Args:
+        settings: Each setting's layers in precedence order, keyed by the setting's
+            dashed name.
+        show_all: Whether to add every layer of a setting under a ``layers`` entry.
+
+    Returns:
+        A mapping from each setting to the record of its effective layer, extended with
+        the records of all its layers when *show_all* is set.
+    """
+    records: dict[str, dict[str, Any]] = {}
+    for key, layers in settings.items():
+        record = _layer_record(_effective_layer(layers))
+        if show_all:
+            record["layers"] = [_layer_record(layer) for layer in layers]
+        records[key] = record
+    return records
+
+
+def _config_listing_lines(
+    settings: dict[str, list[ConfigLayer]], show_all: bool
+) -> list[str]:
+    """Build the plain-text form of a configuration listing.
+
+    Without *show_all* each setting takes one line, ``key = value  (layer: file)``,
+    with the file left out for a built-in default. With it, the line holds only the key
+    and value and is followed by one indented row per layer: the row of the effective
+    layer is marked with ``*``, and a layer without a value shows ``(not set)``. Columns
+    are padded so that they line up across settings.
+
+    Args:
+        settings: Each setting's layers in precedence order, keyed by the setting's
+            dashed name.
+        show_all: Whether to list every layer of a setting instead of only naming the
+            effective one.
+
+    Returns:
+        The lines of the listing, without line endings.
+    """
+    effective = {key: _effective_layer(layers) for key, layers in settings.items()}
+    if not show_all:
+        key_width = max(len(key) for key in effective)
+        value_width = max(len(_shown_value(layer)) for layer in effective.values())
+        lines = []
+        for key, layer in effective.items():
+            origin = layer.name
+            if layer.source is not None:
+                origin += f": {layer.source}"
+            value = _shown_value(layer)
+            lines.append(f"{key:<{key_width}} = {value:<{value_width}}  ({origin})")
+        return lines
+
+    every_layer = [layer for layers in settings.values() for layer in layers]
+    name_width = max(len(layer.name) for layer in every_layer)
+    value_width = max(len(_shown_value(layer)) for layer in every_layer)
+    lines = []
+    for key, layers in settings.items():
+        lines.append(f"{key} = {_shown_value(effective[key])}")
+        for layer in layers:
+            marker = "*" if layer is effective[key] else " "
+            row = (
+                f"  {marker} {layer.name:<{name_width}}  "
+                f"{_shown_value(layer):<{value_width}}  {layer.source or ''}"
+            )
+            lines.append(row.rstrip())
+    return lines
+
+
+@config_app.command("list")
+def config_list(
+    ctx: typer.Context,
+    directory: Annotated[
+        str,
+        typer.Argument(
+            help=(
+                "Directory whose project configuration applies "
+                "(defaults to current directory)"
+            ),
+        ),
+    ] = ".",
+    show_all: Annotated[
+        bool,
+        typer.Option(
+            "--all", "-a", help="Show the value of every layer, not only the winner"
+        ),
+    ] = False,
+    as_json: Annotated[
+        bool, typer.Option("--json", help="Print the listing as JSON")
+    ] = False,
+) -> None:
+    """List every configuration setting with the value in effect and its origin.
+
+    Each setting is resolved the way a command run on *directory* resolves it: the
+    project configuration that applies to the directory (a `.recursivist.toml`, or a
+    `tool.recursivist` table in `pyproject.toml`, in the directory or its nearest parent
+    that has one), then the user configuration file, then the built-in default. The
+    first layer that sets a valid value wins, and the listing names that layer and the
+    file the value comes from:
+
+        icon-style = nerd  (project: /path/to/project/.recursivist.toml)
+
+    With `--all`, the value of every layer is listed under the setting, from the
+    highest precedence to the lowest. The winning layer is marked with `*`, and a layer
+    that does not set the value shows `(not set)`. A layer's file is named whenever it
+    exists, even when it does not set the value:
+
+        icon-style = nerd
+          * project  nerd   /path/to/project/.recursivist.toml
+            user     emoji  /home/user/.config/recursivist/config.json
+            default  emoji
+
+    With `--json`, the listing is a JSON object keyed by setting. Each entry holds the
+    winning `value`, the `layer` it comes from (`project`, `user`, or `default`), and
+    its `source` file, which is `null` for a built-in default. With `--all` as well,
+    each entry also has a `layers` array holding the same three fields for every layer;
+    there, `value` is `null` for a layer that does not set it and `source` is `null`
+    for a layer that has no file.
+
+    The listing is the only thing written to standard output, which makes the command
+    usable in a pipeline. Warnings about a configuration file and the error for an
+    invalid directory go to standard error. Nothing is created or changed.
+
+    A command-line flag such as `--icon-style` still overrides the listed value for a
+    run, and file exports use the `emoji` icon style unless that flag is given.
+
+    Args:
+        ctx: The context of the running command.
+        directory: Directory whose project configuration applies. Must exist and be a
+            directory. Defaults to the current working directory.
+        show_all: When ``True``, list the value of every layer for each setting instead
+            of only the winning one.
+        as_json: When ``True``, print the listing as JSON instead of plain text.
+
+    Raises:
+        typer.Exit: With exit code ``1`` if *directory* does not exist or is not a
+            directory.
+
+    Examples:
+        >>> recursivist config list
+        >>> recursivist config list /path/to/project
+        >>> recursivist config list --all
+        >>> recursivist config list --json
+    """
+    _send_logs_to_stderr(ctx)
+    project_dir = _resolve_and_validate_directory(Path(directory))
+    settings = {
+        key.replace("_", "-"): layers
+        for key, layers in resolve_config_layers(project_dir).items()
+    }
+    if as_json:
+        typer.echo(json.dumps(_config_listing_records(settings, show_all), indent=2))
+    else:
+        for line in _config_listing_lines(settings, show_all):
+            typer.echo(line)
 
 
 @config_app.command("path")

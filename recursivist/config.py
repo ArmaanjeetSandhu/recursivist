@@ -10,6 +10,10 @@ the directory being scanned: either a dedicated ``.recursivist.toml`` or a
 the ones before it: built-in defaults, then the user file, then the project file. A
 command-line flag overrides all three. The only preference is currently the icon style.
 
+[`resolve_config_layers`][recursivist.config.resolve_config_layers] gives the same
+resolution layer by layer, naming the file each value comes from. It is what
+``recursivist config list`` prints.
+
 Both files can be edited by hand, so both are validated as they are loaded: an unknown
 key or an unacceptable value is reported with a warning and left out, and the setting
 falls through to the layer below.
@@ -20,6 +24,7 @@ import logging
 import os
 import shlex
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal, get_args
 
@@ -53,6 +58,34 @@ values each one accepts."""
 
 DEFAULT_CONFIG: dict[str, Any] = {"icon_style": "emoji"}
 """Built-in value of every configuration key, used when no layer sets it."""
+
+LAYER_PROJECT = "project"
+"""Name of the layer read from the project configuration file."""
+
+LAYER_USER = "user"
+"""Name of the layer read from the user configuration file."""
+
+LAYER_DEFAULT = "default"
+"""Name of the layer holding the built-in defaults."""
+
+
+@dataclass(frozen=True)
+class ConfigLayer:
+    """What one configuration layer holds for a single setting.
+
+    Attributes:
+        name: The layer: `LAYER_PROJECT`, `LAYER_USER`, or `LAYER_DEFAULT`.
+        value: The layer's value for the setting, or ``None`` when the layer does not
+            set it. A value the setting does not accept counts as not set. The default
+            layer always has a value.
+        source: The file the layer is read from, or ``None`` when there is none: no
+            project configuration applies, the user configuration file does not exist,
+            or the layer is the built-in defaults.
+    """
+
+    name: str
+    value: str | None
+    source: Path | None
 
 
 def get_config_path() -> Path:
@@ -261,6 +294,36 @@ def _validate_project_table(table: Any, source: Path) -> dict[str, Any]:
     return _validate_settings(table, source)
 
 
+def _find_project_config(start_dir: Path) -> tuple[Path, dict[str, Any]] | None:
+    """Find the project configuration that applies to *start_dir*.
+
+    Looks in *start_dir* and then in each of its parents, and uses the first directory
+    that holds a project configuration: a ``.recursivist.toml``, or a ``pyproject.toml``
+    with a ``[tool.recursivist]`` table. The nearest file wins outright; files further
+    up are not merged in. Reading never writes.
+
+    Args:
+        start_dir: Directory the search starts from, normally the one being scanned.
+
+    Returns:
+        A ``(path, settings)`` pair naming the nearest project configuration file and
+        holding its valid settings, keyed in their underscored form, or ``None`` when
+        there is no such file.
+    """
+    try:
+        start = start_dir.resolve()
+    except (OSError, RuntimeError):
+        start = start_dir.absolute()
+
+    for directory in (start, *start.parents):
+        found = _project_table_in(directory)
+        if found is not None:
+            source, table = found
+            logger.debug("Using project configuration from %s", source)
+            return source, _validate_project_table(table, source)
+    return None
+
+
 def load_project_config(start_dir: Path) -> dict[str, Any]:
     """Load the project configuration that applies to *start_dir*.
 
@@ -276,18 +339,45 @@ def load_project_config(start_dir: Path) -> dict[str, Any]:
         The valid settings of the nearest project configuration, keyed in their
         underscored form, or an empty mapping when there is none.
     """
-    try:
-        start = start_dir.resolve()
-    except (OSError, RuntimeError):
-        start = start_dir.absolute()
+    found = _find_project_config(start_dir)
+    return found[1] if found is not None else {}
 
-    for directory in (start, *start.parents):
-        found = _project_table_in(directory)
-        if found is not None:
-            source, table = found
-            logger.debug("Using project configuration from %s", source)
-            return _validate_project_table(table, source)
-    return {}
+
+def resolve_config_layers(
+    project_dir: Path | None = None,
+) -> dict[str, list[ConfigLayer]]:
+    """Return what every configuration layer holds for each setting.
+
+    The layers of a setting are listed from the highest precedence to the lowest: the
+    project configuration that applies to *project_dir*, the user configuration file,
+    then the built-in default. The first layer that has a value is the one in effect,
+    and the default layer always has one. Both files are validated as they are loaded,
+    so every value is one its key accepts, and a layer whose file sets a key wrongly
+    counts as not setting it. Reading never writes.
+
+    Args:
+        project_dir: Directory whose project configuration should apply, normally the
+            one being scanned. ``None`` leaves the project layer out altogether.
+
+    Returns:
+        A mapping from every key in `CONFIG_KEYS` to its layers, in precedence order.
+    """
+    user_path = get_config_path()
+    user_settings = load_config()
+    layers: list[tuple[str, dict[str, Any], Path | None]] = [
+        (LAYER_USER, user_settings, user_path if os.path.isfile(user_path) else None),
+        (LAYER_DEFAULT, DEFAULT_CONFIG, None),
+    ]
+    if project_dir is not None:
+        source, settings = _find_project_config(project_dir) or (None, {})
+        layers.insert(0, (LAYER_PROJECT, settings, source))
+    return {
+        key: [
+            ConfigLayer(name, settings.get(key), source)
+            for name, settings, source in layers
+        ]
+        for key in CONFIG_KEYS
+    }
 
 
 def resolve_config(project_dir: Path | None = None) -> dict[str, Any]:
@@ -306,7 +396,7 @@ def resolve_config(project_dir: Path | None = None) -> dict[str, Any]:
     Returns:
         The merged configuration mapping, with every key in `CONFIG_KEYS` present.
     """
-    config = {**DEFAULT_CONFIG, **load_config()}
-    if project_dir is not None:
-        config.update(load_project_config(project_dir))
-    return config
+    return {
+        key: next(layer.value for layer in layers if layer.value is not None)
+        for key, layers in resolve_config_layers(project_dir).items()
+    }
