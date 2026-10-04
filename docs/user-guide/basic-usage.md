@@ -34,7 +34,7 @@ By default, `visualize` and `export`:
 - Include every file and directory in the target location.
 - Apply no depth limit.
 - Show bare filenames rather than full paths.
-- Color files by extension (colors are derived deterministically, so a given extension always maps to the same color).
+- Color files by extension (colors are derived deterministically from the extensions present, so the same set of file types always gets the same colors).
 - List files before subdirectories, ordering files by extension and then name.
 - Label entries with generic emoji icons (📄 for files, 📂 for directories that have contents, and 📁 for empty ones).
 

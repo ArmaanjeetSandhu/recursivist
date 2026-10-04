@@ -13,7 +13,7 @@ from rich.console import Console
 from rich.text import Text
 from rich.tree import Tree
 
-from recursivist.colors import generate_color_for_extension
+from recursivist.colors import build_color_map
 from recursivist.filtering import compile_regex_patterns
 from recursivist.flags import METRIC_GIT, DisplayOptions
 from recursivist.git_status import get_git_status
@@ -214,7 +214,7 @@ def display_tree(
             show_git_status=spec.show_git_status,
             git_status_map=git_status_map,
         )
-    color_map = {ext: generate_color_for_extension(ext) for ext in extensions}
+    color_map = build_color_map(extensions)
     console = Console()
 
     root_base = root_name if root_name is not None else os.path.basename(root_dir)

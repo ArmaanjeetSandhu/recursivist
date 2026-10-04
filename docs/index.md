@@ -47,7 +47,7 @@
       <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 256 256" aria-hidden="true"><rect width="256" height="256" fill="none"/><path d="M200,168a40,40,0,1,1-68.93-27.73L96,48H160l-34.93,92.29A40,40,0,0,1,200,168Z" opacity="0.2" fill="currentColor"/><path d="M200,168a40,40,0,1,1-68.93-27.73L96,48H160l-34.93,92.29A40,40,0,0,1,200,168Z" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><line x1="96" y1="48" x2="160" y2="48" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><line x1="108" y1="80" x2="148" y2="80" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/></svg>
     </div>
     <div class="feature-title">Colorful Visualization</div>
-    <div class="feature-description">Each file type is assigned a unique color for easy identification, created deterministically from file extensions for consistent visual mapping.</div>
+    <div class="feature-description">Each file type is assigned a unique color for easy identification, created deterministically from the file extensions present so a directory looks the same on every run.</div>
     <a href="user-guide/visualization/" class="feature-link">See visualization <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
   </div>
 

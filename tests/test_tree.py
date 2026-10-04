@@ -20,6 +20,7 @@ from rich.text import Text
 from rich.tree import Tree
 
 from recursivist._models import FileEntry
+from recursivist.colors import build_color_map
 from recursivist.flags import (
     METRIC_LOC,
     METRIC_MTIME,
@@ -259,6 +260,17 @@ class TestDisplayTree:
         display_tree(temp_dir)
         passed_spec = mock_build_tree.call_args.args[3]
         assert passed_spec == DisplayOptions()
+
+    def test_color_map_depends_only_on_the_extension_set(
+        self, mocker: MockerFixture, temp_dir: str
+    ) -> None:
+        """build_tree receives the mapping shared by every renderer."""
+        mocker.patch("recursivist.tree.Console")
+        mocker.patch("recursivist.tree.Tree")
+        mock_build_tree = mocker.patch("recursivist.tree.build_tree")
+        extensions = {".py", ".md", ".toml", ".json", ".txt"}
+        display_tree(temp_dir, structure={}, extensions=extensions)
+        assert mock_build_tree.call_args.args[2] == build_color_map(extensions)
 
     def test_with_filtering_options(self, mocker: MockerFixture, temp_dir: str) -> None:
         mock_get_structure = mocker.patch("recursivist.tree.get_directory_structure")

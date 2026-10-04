@@ -17,7 +17,14 @@ from hypothesis import strategies as st
 from pytest_mock import MockerFixture
 
 from recursivist._models import FileEntry
-from recursivist.colors import contrast_ratio, hex_to_rgb
+from recursivist.colors import (
+    WCAG_AAA_NORMAL_TEXT,
+    build_color_map,
+    contrast_ratio,
+    ensure_contrast,
+    generate_color_for_extension,
+    hex_to_rgb,
+)
 from recursivist.exporters import get_exporter
 from recursivist.exporters.rst import (
     _rst_display_width,
@@ -1684,6 +1691,64 @@ class TestHtmlContrast:
             r'<li class="file" style="color: (#[0-9a-f]{6});', content
         )
         assert len(set(file_colors)) >= len(self.EXTENSIONS) - 2
+
+
+class TestExportColors:
+    """Exports color files from the same mapping as the terminal tree."""
+
+    EXTENSIONS = {".txt", ".py", ".js", ".md", ".json"}
+
+    @staticmethod
+    def _html_file_colors(content: str) -> dict[str, str]:
+        """Map each exported file name to the color of its list item."""
+        return {
+            name: color
+            for color, name in re.findall(
+                r'<li class="file" style="color: (#[0-9a-fA-F]{6});">\S+ ([^<]+)</li>',
+                content,
+            )
+        }
+
+    def test_html_uses_the_shared_color_map(
+        self, nested_structure: dict[str, Any], tmp_path: Path
+    ) -> None:
+        output_path = os.path.join(tmp_path, "colors.html")
+        get_exporter("html", structure=nested_structure, root_name="root").export(
+            output_path
+        )
+        with open(output_path, encoding="utf-8") as f:
+            file_colors = self._html_file_colors(f.read())
+        color_map = build_color_map(self.EXTENSIONS)
+        assert len(file_colors) == 6
+        for name, color in file_colors.items():
+            ext = os.path.splitext(name)[1]
+            assert color == ensure_contrast(
+                color_map[ext], "#ffffff", WCAG_AAA_NORMAL_TEXT
+            )
+
+    def test_html_is_unaffected_by_colors_generated_earlier(
+        self, nested_structure: dict[str, Any], tmp_path: Path
+    ) -> None:
+        exporter = get_exporter("html", structure=nested_structure, root_name="root")
+        first = os.path.join(tmp_path, "first.html")
+        second = os.path.join(tmp_path, "second.html")
+        exporter.export(first)
+        for ext in (".rs", ".go", ".toml", ".yaml", ".sh"):
+            generate_color_for_extension(ext)
+        exporter.export(second)
+        with open(first, encoding="utf-8") as f1, open(second, encoding="utf-8") as f2:
+            assert f1.read() == f2.read()
+
+    def test_svg_uses_the_shared_color_map(
+        self, mocker: MockerFixture, nested_structure: dict[str, Any], tmp_path: Path
+    ) -> None:
+        mock_build_tree = mocker.patch("recursivist.exporters.svg.build_tree")
+        get_exporter("svg", structure=nested_structure, root_name="root").export(
+            os.path.join(tmp_path, "colors.svg")
+        )
+        assert mock_build_tree.call_args.kwargs["color_map"] == build_color_map(
+            self.EXTENSIONS
+        )
 
 
 @pytest.mark.parametrize("fmt", ["txt", "json", "html", "md", "rst", "svg"])

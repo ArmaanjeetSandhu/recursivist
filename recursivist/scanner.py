@@ -541,3 +541,29 @@ def iter_subdirectories(structure: dict[str, Any]) -> Iterator[tuple[str, Any]]:
         if key not in RESERVED_KEYS
     )
     yield from sorted(entries, key=lambda entry: entry[0])
+
+
+def collect_extensions(structure: dict[str, Any]) -> set[str]:
+    """Return the lowercase file extensions of every file in *structure*.
+
+    Walks the whole structure and gathers the same set that
+    [`get_directory_structure`][recursivist.scanner.get_directory_structure] returns
+    alongside it, for callers that hold only the structure.
+
+    Args:
+        structure: A directory-structure dict as produced by
+            [`get_directory_structure`][recursivist.scanner.get_directory_structure].
+
+    Returns:
+        The set of extensions, each lowercase with its leading dot (e.g. ``".py"``).
+        Files without an extension contribute nothing.
+    """
+    extensions: set[str] = set()
+    for entry in structure.get("_files", []):
+        _, ext = os.path.splitext(entry.name)
+        if ext:
+            extensions.add(ext.lower())
+    for _, content in iter_subdirectories(structure):
+        if isinstance(content, dict):
+            extensions.update(collect_extensions(content))
+    return extensions

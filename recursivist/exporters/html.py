@@ -11,8 +11,8 @@ from typing import Any
 
 from recursivist.colors import (
     WCAG_AAA_NORMAL_TEXT,
+    build_color_map,
     ensure_contrast,
-    generate_color_for_extension,
 )
 from recursivist.icons import get_icon
 from recursivist.metrics import (
@@ -20,7 +20,7 @@ from recursivist.metrics import (
     format_metrics,
     format_metrics_suffix,
 )
-from recursivist.scanner import has_contents, iter_subdirectories
+from recursivist.scanner import collect_extensions, has_contents, iter_subdirectories
 from recursivist.sorting import sort_files_by_type
 
 from .base import BaseExporter
@@ -52,11 +52,14 @@ class HtmlExporter(BaseExporter):
 
         Produces a self-contained page with an embedded stylesheet: a nested list of
         extension-colored files and bold directory names, plus any enabled metric or
-        Git-status annotations. All names are HTML-escaped.
+        Git-status annotations. Files take the per-extension colors of the terminal
+        tree, adjusted to meet the contrast ratio against the page background. All
+        names are HTML-escaped.
 
         Args:
             output_path: Path the ``.html`` file is written to.
         """
+        color_map = build_color_map(collect_extensions(self.structure))
 
         def _build_html_tree(
             structure: dict[str, Any],
@@ -79,7 +82,7 @@ class HtmlExporter(BaseExporter):
                     file_name = entry.name
                     ext = os.path.splitext(file_name)[1].lower()
                     color = ensure_contrast(
-                        generate_color_for_extension(ext), _BACKGROUND, _MIN_CONTRAST
+                        color_map.get(ext, "#FFFFFF"), _BACKGROUND, _MIN_CONTRAST
                     )
 
                     file_icon = get_icon(file_name, is_dir=False, style=self.icon_style)

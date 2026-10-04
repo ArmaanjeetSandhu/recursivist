@@ -51,7 +51,7 @@ recursivist/
 ├── filtering.py       # should_exclude, compile_regex_patterns, parse_ignore_file
 ├── sorting.py         # sort_files_by_type, sort_files_by_similarity
 ├── metrics.py         # Lines of code, size, mtime, and formatting
-├── colors.py          # generate_color_for_extension
+├── colors.py          # build_color_map, ensure_contrast
 ├── icons.py           # get_icon (emoji and Nerd Font)
 ├── git_status.py      # get_git_status
 ├── config.py          # load_config, save_config, get_config_path
@@ -179,7 +179,7 @@ Pattern logic lives in `filtering.py`. To support a new pattern type, extend `sh
 
 ### Customize Colorization
 
-Per-extension colors come from `generate_color_for_extension` in `colors.py`. To give common extensions fixed colors, add a lookup table and consult it before falling back to the derived color:
+Per-extension colors come from `build_color_map` in `colors.py`, which colors the extensions found in a tree in sorted order so that the same set of extensions always yields the same mapping. To give common extensions fixed colors, add a lookup table and consult it before falling back to the derived color:
 
 ```python
 EXTENSION_COLORS = {

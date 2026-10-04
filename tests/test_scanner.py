@@ -14,6 +14,7 @@ from pytest_mock import MockerFixture
 
 from recursivist._models import FileEntry
 from recursivist.scanner import (
+    collect_extensions,
     get_directory_structure,
     get_subdirectory,
     has_contents,
@@ -757,3 +758,32 @@ def test_include_patterns_keep_directories_with_underscore_children(
     structure, _ = get_directory_structure(temp_dir, include_patterns=["*.py"])
     internal = structure["pkg"]["_internal"]
     assert [entry.name for entry in internal["_files"]] == ["module.py"]
+
+
+class TestCollectExtensions:
+    def test_matches_the_scanned_extension_set(self, temp_dir: str) -> None:
+        _materialize_tree(
+            temp_dir,
+            {
+                "README": "",
+                "main.py": "",
+                "Notes.TXT": "",
+                "src/app.js": "",
+                "src/deep/data.json": "",
+                "src/deep/Makefile": "",
+            },
+        )
+        structure, extensions = get_directory_structure(temp_dir)
+        assert extensions == {".py", ".txt", ".js", ".json"}
+        assert collect_extensions(structure) == extensions
+
+    def test_skips_truncated_and_looping_directories(self) -> None:
+        structure: dict[str, Any] = {
+            "_files": [FileEntry("a.py", "a.py")],
+            "deep": {"_max_depth_reached": True, "_hidden_contents": True},
+            "loop": {"_symlink_loop": True},
+        }
+        assert collect_extensions(structure) == {".py"}
+
+    def test_empty_structure(self) -> None:
+        assert collect_extensions({}) == set()

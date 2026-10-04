@@ -5,17 +5,15 @@ console and saves the captured output as an ``.svg`` file.
 """
 
 import io
-import os
-from typing import Any
 
 from rich.console import Console
 from rich.text import Text
 from rich.tree import Tree
 
-from recursivist.colors import generate_color_for_extension
+from recursivist.colors import build_color_map
 from recursivist.icons import get_icon
 from recursivist.metrics import format_dir_metrics
-from recursivist.scanner import has_contents, iter_subdirectories
+from recursivist.scanner import collect_extensions, has_contents
 from recursivist.tree import build_tree
 
 from .base import BaseExporter
@@ -36,27 +34,7 @@ class SvgExporter(BaseExporter):
         Args:
             output_path: Path the ``.svg`` file is written to.
         """
-
-        def extract_extensions(struct: dict[str, Any]) -> set[str]:
-            """Collect the lowercase file extensions in *struct*, recursively.
-
-            Args:
-                struct: Directory-structure dict to scan.
-
-            Returns:
-                The set of file extensions (including the leading dot) found in
-                this subtree.
-            """
-            exts = set()
-            for entry in struct.get("_files", []):
-                exts.add(os.path.splitext(entry.name)[1].lower())
-            for _, content in iter_subdirectories(struct):
-                if isinstance(content, dict):
-                    exts.update(extract_extensions(content))
-            return exts
-
-        extensions = extract_extensions(self.structure)
-        color_map = {ext: generate_color_for_extension(ext) for ext in extensions}
+        color_map = build_color_map(collect_extensions(self.structure))
 
         root_icon = get_icon(
             self.root_name,

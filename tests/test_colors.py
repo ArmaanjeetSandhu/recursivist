@@ -1,14 +1,20 @@
-"""Tests for recursivist.colors.generate_color_for_extension."""
+"""Tests for recursivist.colors: extension color assignment and contrast helpers."""
 
 import colorsys
+import os
 import re
 import string
+import subprocess
+import sys
 
 import pytest
+from hypothesis import given
+from hypothesis import strategies as st
 
 from recursivist.colors import (
     WCAG_AA_NORMAL_TEXT,
     WCAG_AAA_NORMAL_TEXT,
+    build_color_map,
     contrast_ratio,
     ensure_contrast,
     generate_color_for_extension,
@@ -60,6 +66,72 @@ class TestGenerateColorForExtension:
     def test_empty_extension(self) -> None:
         color = generate_color_for_extension("")
         assert color == "#FFFFFF"
+
+
+class TestBuildColorMap:
+    """A set of extensions must always produce the same colors."""
+
+    EXTENSIONS = (".py", ".js", ".txt", ".md", ".html", ".css", ".json", ".xml")
+
+    def test_maps_every_extension_to_a_hex_color(self) -> None:
+        color_map = build_color_map(self.EXTENSIONS)
+        assert set(color_map) == set(self.EXTENSIONS)
+        for color in color_map.values():
+            assert re.match(r"^#[0-9A-Fa-f]{6}$", color)
+
+    def test_colors_are_distinct(self) -> None:
+        color_map = build_color_map(self.EXTENSIONS)
+        assert len(set(color_map.values())) == len(self.EXTENSIONS)
+
+    @given(order=st.permutations(EXTENSIONS))
+    def test_independent_of_iteration_order(self, order: list[str]) -> None:
+        assert build_color_map(order) == build_color_map(self.EXTENSIONS)
+
+    def test_independent_of_colors_generated_earlier(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Colors handed out one at a time must not leak into the mapping."""
+        others = (".rs", ".go", ".toml", ".yaml", ".sh")
+        monkeypatch.setattr("recursivist.colors._EXTENSION_COLORS", {})
+        expected = build_color_map(self.EXTENSIONS)
+        session_colors: dict[str, str] = {}
+        monkeypatch.setattr("recursivist.colors._EXTENSION_COLORS", session_colors)
+        for ext in others:
+            generate_color_for_extension(ext)
+        assert build_color_map(self.EXTENSIONS) == expected
+        assert set(session_colors) == set(others)
+
+    def test_same_mapping_under_every_hash_seed(self) -> None:
+        """String-set iteration order varies per process; the colors must not."""
+        script = (
+            "from recursivist.colors import build_color_map\n"
+            f"color_map = build_color_map(set({self.EXTENSIONS!r}))\n"
+            "print(sorted(color_map.items()))"
+        )
+        outputs = {
+            subprocess.run(
+                [sys.executable, "-c", script],
+                env={
+                    **os.environ,
+                    "PYTHONHASHSEED": seed,
+                    "PYTHONPATH": os.pathsep.join(sys.path),
+                },
+                capture_output=True,
+                text=True,
+                check=True,
+            ).stdout
+            for seed in ("0", "1", "2", "3")
+        }
+        assert outputs == {f"{sorted(build_color_map(self.EXTENSIONS).items())}\n"}
+
+    def test_duplicates_are_ignored(self) -> None:
+        assert build_color_map([".py", ".md", ".py"]) == build_color_map([".md", ".py"])
+
+    def test_empty_extension_is_white(self) -> None:
+        assert build_color_map(["", ".py"])[""] == "#FFFFFF"
+
+    def test_empty_input(self) -> None:
+        assert build_color_map([]) == {}
 
 
 class TestRelativeLuminance:

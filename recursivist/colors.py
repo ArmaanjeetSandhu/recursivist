@@ -1,7 +1,9 @@
 """Deterministic color assignment for file extensions.
 
-Generates a stable, visually distinct hex color per file extension using a hash of the
-extension, with a collision-avoidance pass over already-assigned colors. Also provides
+Derives a hex color for each file extension from a hash of the extension, then nudges it
+away from the colors already assigned so distinct extensions stay visually separable.
+[`build_color_map`][recursivist.colors.build_color_map] colors a whole set of extensions
+at once, in sorted order, so a given set always produces the same mapping. Also provides
 WCAG 2.1 contrast helpers used by renderers that draw onto a known background (such as
 the HTML exporter) to guarantee legible text. Pure standard library.
 """
@@ -9,6 +11,7 @@ the HTML exporter) to guarantee legible text. Pure standard library.
 import colorsys
 import hashlib
 import math
+from collections.abc import Iterable
 from functools import lru_cache
 from typing import cast
 
@@ -190,32 +193,32 @@ def ensure_contrast(
     return rgb_to_hex(best_color)
 
 
-def generate_color_for_extension(extension: str) -> str:
-    """Generate a stable, visually distinct color for a file extension.
+def _assign_color(extension: str, assigned: dict[str, str]) -> str:
+    """Return the color for *extension*, recording it in *assigned*.
 
-    The color is derived deterministically from a hash of the extension, so a given
-    extension always maps to the same color within a session. Candidate colors are
-    nudged through hue/saturation/value variations until they are far enough from every
-    previously assigned color, keeping distinct extensions visually separable. The
-    leading dot is optional and ignored, so ``"py"`` and ``".py"`` share a color. An
-    empty extension maps to white.
+    The starting color comes from a hash of the extension. When *assigned* already holds
+    other colors, hue/saturation/value variations of that starting color are tried until
+    one is far enough from all of them, and the most distant candidate is used if none
+    is. The result therefore depends on what *assigned* held beforehand.
 
     Args:
         extension: File extension, with or without a leading dot.
+        assigned: Colors assigned so far, keyed by extension. Updated in place with the
+            color chosen for *extension*, under both its dotted and undotted spelling.
 
     Returns:
-        A CSS hex color string (e.g., ``"#FF5733"``).
+        A CSS hex color string. An empty extension maps to white and is not recorded.
     """
     if not extension:
         return "#FFFFFF"
     normalized_ext = extension
     if not extension.startswith("."):
         normalized_ext = "." + extension
-    if extension in _EXTENSION_COLORS:
-        return _EXTENSION_COLORS[extension]
-    if extension != normalized_ext and normalized_ext in _EXTENSION_COLORS:
-        color = _EXTENSION_COLORS[normalized_ext]
-        _EXTENSION_COLORS[extension] = color
+    if extension in assigned:
+        return assigned[extension]
+    if extension != normalized_ext and normalized_ext in assigned:
+        color = assigned[normalized_ext]
+        assigned[extension] = color
         return color
     hash_bytes = hashlib.md5(normalized_ext.encode(), usedforsecurity=False).digest()
     hue_int = int.from_bytes(hash_bytes[0:4], byteorder="big")
@@ -228,11 +231,11 @@ def generate_color_for_extension(extension: str) -> str:
     max_attempts = 15
     rgb = colorsys.hsv_to_rgb(hue, saturation, value)
     initial_color = (int(rgb[0] * 255), int(rgb[1] * 255), int(rgb[2] * 255))
-    if not _EXTENSION_COLORS:
+    if not assigned:
         hex_color = rgb_to_hex(initial_color)
-        _EXTENSION_COLORS[extension] = hex_color
+        assigned[extension] = hex_color
         if extension != normalized_ext:
-            _EXTENSION_COLORS[normalized_ext] = hex_color
+            assigned[normalized_ext] = hex_color
         return hex_color
     best_color = initial_color
     best_min_distance = 0.0
@@ -243,7 +246,7 @@ def generate_color_for_extension(extension: str) -> str:
         rgb = colorsys.hsv_to_rgb(test_hue, test_sat, test_val)
         test_color = (int(rgb[0] * 255), int(rgb[1] * 255), int(rgb[2] * 255))
         min_distance = float("inf")
-        for existing_color in _EXTENSION_COLORS.values():
+        for existing_color in assigned.values():
             existing_rgb = hex_to_rgb(existing_color)
             distance = color_distance(test_color, existing_rgb)
             min_distance = min(min_distance, distance)
@@ -253,7 +256,55 @@ def generate_color_for_extension(extension: str) -> str:
         if min_distance >= min_acceptable_distance:
             break
     hex_color = rgb_to_hex(best_color)
-    _EXTENSION_COLORS[extension] = hex_color
+    assigned[extension] = hex_color
     if extension != normalized_ext:
-        _EXTENSION_COLORS[normalized_ext] = hex_color
+        assigned[normalized_ext] = hex_color
     return hex_color
+
+
+def generate_color_for_extension(extension: str) -> str:
+    """Generate a visually distinct color for a single file extension.
+
+    The color starts from a hash of the extension and is nudged through
+    hue/saturation/value variations until it is far enough from every color this
+    function has already handed out, keeping distinct extensions visually separable.
+    Each result is remembered, so a given extension maps to the same color for the rest
+    of the session — but which color that is depends on the extensions requested before
+    it. To color a set of extensions independently of call order, use
+    [`build_color_map`][recursivist.colors.build_color_map].
+
+    The leading dot is optional and ignored, so ``"py"`` and ``".py"`` share a color. An
+    empty extension maps to white.
+
+    Args:
+        extension: File extension, with or without a leading dot.
+
+    Returns:
+        A CSS hex color string (e.g., ``"#FF5733"``).
+    """
+    return _assign_color(extension, _EXTENSION_COLORS)
+
+
+def build_color_map(extensions: Iterable[str]) -> dict[str, str]:
+    """Assign a visually distinct color to every extension in *extensions*.
+
+    Extensions are colored in sorted order, starting from an empty set of assigned
+    colors, so the result is a pure function of the set of extensions: it depends
+    neither on the order *extensions* is iterated in nor on any colors generated
+    earlier. The same set therefore always yields the same mapping, across runs and
+    across renderers.
+
+    Each color starts from a hash of its extension and is nudged away from the colors of
+    the extensions sorted before it. An extension's color can consequently differ
+    between two sets that contain different extensions.
+
+    Args:
+        extensions: File extensions to color, each as it should be keyed in the result
+            (e.g. ``".py"``). Duplicates are ignored.
+
+    Returns:
+        A mapping of each extension to a CSS hex color string. An empty extension maps
+        to white.
+    """
+    assigned: dict[str, str] = {}
+    return {ext: _assign_color(ext, assigned) for ext in sorted(set(extensions))}
