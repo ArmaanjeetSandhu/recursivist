@@ -1,12 +1,11 @@
 """Tests for recursivist.tree: build_tree and display_tree.
 
-Both take a resolved :class:`~recursivist.flags.DisplayOptions` (``spec``) that
-carries the sort key and metric annotations. ``spec`` is a required positional
-argument to ``build_tree`` and an optional keyword to ``display_tree``
-(defaulting to a plain ``DisplayOptions``).
+Both render a scanned ``Directory`` and take a resolved
+:class:`~recursivist.flags.DisplayOptions` (``spec``) that carries the sort key and
+metric annotations. ``spec`` is a required positional argument to ``build_tree`` and
+optional for ``display_tree`` (defaulting to a plain ``DisplayOptions``).
 """
 
-import os
 import re
 import time
 from unittest.mock import MagicMock
@@ -233,73 +232,58 @@ class TestBuildTreeGitStatus:
 
 
 class TestDisplayTree:
-    def test_basic_display(self, mocker: MockerFixture, temp_dir: str) -> None:
+    def test_basic_display(self, mocker: MockerFixture) -> None:
         mock_console = mocker.patch("recursivist.tree.Console")
         mock_tree_class = mocker.patch("recursivist.tree.Tree")
         mock_build_tree = mocker.patch("recursivist.tree.build_tree")
-        mock_get_structure = mocker.patch("recursivist.tree.get_directory_structure")
-        mock_get_structure.return_value = (Directory(), set())
-        with open(os.path.join(temp_dir, "test.txt"), "w") as f:
-            f.write("Test content")
-        display_tree(temp_dir)
+        structure = Directory(files=[FileEntry("test.txt", "test.txt")])
+        display_tree(structure, {".txt"}, "root")
         mock_tree_class.assert_called_once()
-        mock_console.return_value.print.assert_called_once()
+        mock_console.return_value.print.assert_called_once_with(
+            mock_tree_class.return_value
+        )
         mock_build_tree.assert_called_once()
+        assert mock_build_tree.call_args.args[0] is structure
 
-    def test_default_spec_is_passed_to_build_tree(
-        self, mocker: MockerFixture, temp_dir: str
-    ) -> None:
+    def test_default_spec_is_passed_to_build_tree(self, mocker: MockerFixture) -> None:
         """When no spec is given, build_tree receives a plain DisplayOptions."""
         mocker.patch("recursivist.tree.Console")
         mocker.patch("recursivist.tree.Tree")
         mock_build_tree = mocker.patch("recursivist.tree.build_tree")
-        mock_get_structure = mocker.patch("recursivist.tree.get_directory_structure")
-        mock_get_structure.return_value = (Directory(), set())
-        display_tree(temp_dir)
+        display_tree(Directory(), set(), "root")
         passed_spec = mock_build_tree.call_args.args[3]
         assert passed_spec == DisplayOptions()
 
     def test_color_map_depends_only_on_the_extension_set(
-        self, mocker: MockerFixture, temp_dir: str
+        self, mocker: MockerFixture
     ) -> None:
         """build_tree receives the mapping shared by every renderer."""
         mocker.patch("recursivist.tree.Console")
         mocker.patch("recursivist.tree.Tree")
         mock_build_tree = mocker.patch("recursivist.tree.build_tree")
         extensions = {".py", ".md", ".toml", ".json", ".txt"}
-        display_tree(temp_dir, structure=Directory(), extensions=extensions)
+        display_tree(Directory(), extensions, "root")
         assert mock_build_tree.call_args.args[2] == build_color_map(extensions)
 
-    def test_with_filtering_options(self, mocker: MockerFixture, temp_dir: str) -> None:
-        mock_get_structure = mocker.patch("recursivist.tree.get_directory_structure")
-        mock_compile_regex = mocker.patch("recursivist.tree.compile_regex_patterns")
-        mock_get_structure.return_value = (Directory(), set())
-        mock_compile_regex.return_value = []
-        exclude_extensions = {".pyc", ".log"}
-        display_tree(
-            temp_dir,
-            ["node_modules", "dist"],
-            ".gitignore",
-            exclude_extensions,
-            ["test_*"],
-            ["*.py"],
-            True,
-            2,
-        )
-        mock_get_structure.assert_called_once()
-        assert mock_compile_regex.call_count >= 1
-        _, kwargs = mock_get_structure.call_args
-        assert kwargs["exclude_dirs"] == ["node_modules", "dist"]
-        assert kwargs["ignore_file"] == ".gitignore"
-        assert kwargs["exclude_extensions"] == {".pyc", ".log"}
-        assert kwargs["max_depth"] == 2
-
-    def test_with_statistics(self, mocker: MockerFixture, temp_dir: str) -> None:
+    def test_root_name_labels_the_root(self, mocker: MockerFixture) -> None:
+        mocker.patch("recursivist.tree.Console")
         mock_tree = mocker.patch("recursivist.tree.Tree")
-        mock_get_structure = mocker.patch("recursivist.tree.get_directory_structure")
+        display_tree(Directory(), set(), "owner-repo")
+        (root_label,), _ = mock_tree.call_args
+        assert root_label.plain.endswith(" owner-repo")
+
+    def test_icon_style_is_passed_to_build_tree(self, mocker: MockerFixture) -> None:
+        mocker.patch("recursivist.tree.Console")
+        mocker.patch("recursivist.tree.Tree")
+        mock_build_tree = mocker.patch("recursivist.tree.build_tree")
+        display_tree(Directory(), set(), "root", icon_style="nerd")
+        assert mock_build_tree.call_args.kwargs["icon_style"] == "nerd"
+
+    def test_with_statistics(self, mocker: MockerFixture) -> None:
+        mocker.patch("recursivist.tree.Console")
+        mock_tree = mocker.patch("recursivist.tree.Tree")
         structure = Directory(loc=100, size=10240, mtime=1625097600.0)
-        mock_get_structure.return_value = (structure, set())
-        display_tree(temp_dir, spec=ALL_METRICS_SPEC)
+        display_tree(structure, set(), "root", spec=ALL_METRICS_SPEC)
         args, _ = mock_tree.call_args
         root_label = args[0]
         assert "100 lines" in root_label
@@ -307,23 +291,18 @@ class TestDisplayTree:
         date_formats = ["Today", "Yesterday", "Jul 1", "2021-07-01"]
         assert any(fmt in root_label for fmt in date_formats)
 
-    def test_spec_drives_scanner_metric_flags(
-        self, mocker: MockerFixture, temp_dir: str
+    def test_renders_structure_as_given(
+        self, capsys: pytest.CaptureFixture[str]
     ) -> None:
-        """display_tree maps the spec's show_* onto the scanner's sort_by_* kwargs."""
-        mocker.patch("recursivist.tree.Console")
-        mocker.patch("recursivist.tree.Tree")
-        mocker.patch("recursivist.tree.build_tree")
-        mock_get_structure = mocker.patch("recursivist.tree.get_directory_structure")
-        mock_get_structure.return_value = (Directory(), set())
-        display_tree(
-            temp_dir,
-            spec=DisplayOptions(metrics=(METRIC_LOC, METRIC_SIZE)),
+        """The root name and every entry of the structure are printed."""
+        structure = Directory(
+            files=[FileEntry("a.py", "a.py")],
+            subdirectories={"pkg": Directory(files=[FileEntry("b.md", "b.md")])},
         )
-        _, kwargs = mock_get_structure.call_args
-        assert kwargs["sort_by_loc"] is True
-        assert kwargs["sort_by_size"] is True
-        assert kwargs["sort_by_mtime"] is False
+        display_tree(structure, {".py", ".md"}, "project")
+        out = capsys.readouterr().out
+        for name in ("project", "a.py", "pkg", "b.md"):
+            assert name in out
 
 
 def test_build_tree_combined(mocker: MockerFixture) -> None:

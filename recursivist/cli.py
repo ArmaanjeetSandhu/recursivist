@@ -1227,15 +1227,12 @@ class _ScannedTree:
     """A scanned input, as yielded by `_scanned_tree`.
 
     Attributes:
-        scan_dir: The directory that was scanned: the local directory itself, or the
-            temporary checkout of a GitHub repository.
         root_name: Display name for the root of the tree.
         structure: The scanned structure, with file paths already rewritten to GitHub
             blob URLs when full paths were requested for a GitHub input.
         extensions: The file extensions found by the scan.
     """
 
-    scan_dir: str
     root_name: str
     structure: Directory
     extensions: set[str]
@@ -1359,8 +1356,7 @@ def _scanned_tree(plan: _TreeScanPlan) -> Generator[_ScannedTree]:
 
     A local directory is scanned in place, after reporting whether its ignore file
     exists. A GitHub repository is downloaded and scanned from a temporary checkout,
-    which is removed when the ``with`` block exits, so anything that reads
-    ``scan_dir`` must run inside the block.
+    which is removed when the ``with`` block exits.
 
     Args:
         plan: The resolved plan, as returned by `_plan_tree_scan`.
@@ -1399,7 +1395,7 @@ def _scanned_tree(plan: _TreeScanPlan) -> Generator[_ScannedTree]:
         )
         if checkout is not None and plan.show_full_path:
             apply_github_urls(structure, checkout)
-        yield _ScannedTree(scan_dir, root_name, structure, extensions)
+        yield _ScannedTree(root_name, structure, extensions)
 
 
 @app.command()
@@ -1493,20 +1489,11 @@ def visualize(
         with _scanned_tree(plan) as scanned:
             logger.info("Displaying directory tree:")
             display_tree(
-                scanned.scan_dir,
-                plan.exclude_dirs,
-                plan.ignore_file,
-                plan.exclude_extensions,
-                plan.exclude_patterns,
-                plan.include_patterns,
-                plan.use_regex,
-                plan.max_depth,
-                plan.show_full_path,
-                plan.spec,
+                scanned.structure,
+                scanned.extensions,
+                scanned.root_name,
+                spec=plan.spec,
                 icon_style=plan.icon_style,
-                structure=scanned.structure,
-                extensions=scanned.extensions,
-                root_name=scanned.root_name,
             )
     except Exception as e:
         logger.error(MSG_ERROR, e, exc_info=verbose)

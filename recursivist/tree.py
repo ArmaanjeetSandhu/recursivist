@@ -1,11 +1,11 @@
 """Terminal tree rendering.
 
 Builds and prints a ``rich`` tree from a scanned structure, with extension colors,
-optional metric annotations, and Git status markers. This is the top of the dependency
-stack, composing the scanner, filtering, colors, metrics, sorting, and icon modules.
+optional metric annotations, and Git status markers. The structure comes from
+[`get_directory_structure`][recursivist.scanner.get_directory_structure], which applies
+all filtering.
 """
 
-import logging
 import os
 
 from rich.console import Console
@@ -14,19 +14,11 @@ from rich.tree import Tree
 
 from recursivist._models import Directory
 from recursivist.colors import build_color_map
-from recursivist.filtering import compile_regex_patterns, normalize_extensions
 from recursivist.flags import METRIC_GIT, DisplayOptions
-from recursivist.git_status import get_git_status
 from recursivist.icons import get_icon
 from recursivist.metrics import format_dir_metrics, format_metrics_suffix
-from recursivist.scanner import (
-    get_directory_structure,
-    has_contents,
-    iter_subdirectories,
-)
+from recursivist.scanner import has_contents, iter_subdirectories
 from recursivist.sorting import sort_files_by_type
-
-logger = logging.getLogger(__name__)
 
 _GIT_MARKER_STYLES: dict[str, tuple[str, str]] = {
     "U": ("dim", "[U]"),
@@ -113,117 +105,45 @@ def build_tree(
 
 
 def display_tree(
-    root_dir: str,
-    exclude_dirs: list[str] | None = None,
-    ignore_file: str | None = None,
-    exclude_extensions: set[str] | None = None,
-    exclude_patterns: list[str] | None = None,
-    include_patterns: list[str] | None = None,
-    use_regex: bool = False,
-    max_depth: int = 0,
-    show_full_path: bool = False,
+    structure: Directory,
+    extensions: set[str],
+    root_name: str,
     spec: DisplayOptions | None = None,
     icon_style: str = "emoji",
-    structure: Directory | None = None,
-    extensions: set[str] | None = None,
-    root_name: str | None = None,
 ) -> None:
-    """Scan a directory and render it as a tree in the terminal.
+    """Render a scanned directory structure as a tree in the terminal.
 
-    Runs the full pipeline — optionally fetching Git status, scanning the directory,
-    building a color map, and printing a ``rich`` tree — unless a pre-computed
-    *structure* and *extensions* are supplied, in which case the scan is skipped and
-    those are rendered directly.
+    Builds a color map from *extensions*, populates a ``rich`` tree from *structure*
+    with [`build_tree`][recursivist.tree.build_tree], and prints it. *structure* is
+    rendered exactly as given: exclusions, depth limits, full paths, metrics, and Git
+    status are all determined by the scan that produced it.
 
     Args:
-        root_dir: Directory to display.
-        exclude_dirs: Directory names to skip entirely.
-        ignore_file: Name of an ignore file to honor (e.g. ``.gitignore``).
-        exclude_extensions: File extensions to exclude. Normalized to a lowercase,
-            dot-prefixed form before scanning.
-        exclude_patterns: Glob or regex patterns to exclude.
-        include_patterns: Glob or regex patterns to include. When given, only files
-            whose names match one are kept, and a match overrides ignore-file rules for
-            that file. They do not override *exclude_dirs*, *exclude_extensions*, or
-            *exclude_patterns*.
-        use_regex: Whether to treat the patterns as regular expressions instead of glob
-            patterns.
-        max_depth: Maximum depth to display, or ``0`` for unlimited.
-        show_full_path: Whether to display absolute paths instead of bare filenames.
-            Applied when scanning; a pre-computed *structure* is rendered with the paths
-            it already carries.
+        structure: Scanned directory structure to render, as returned by
+            [`get_directory_structure`][recursivist.scanner.get_directory_structure].
+        extensions: Set of file extensions found in *structure*, as returned alongside
+            it by the scan.
+        root_name: Display name for the root node (e.g. the directory's basename, or a
+            repository name for a GitHub input).
         spec: Resolved sorting and annotation directives. Defaults to a plain
             [`DisplayOptions`][recursivist.flags.DisplayOptions] (no sorting, no
-            annotations).
+            annotations). Metrics and Git status are only shown if the scan collected
+            them.
         icon_style: Icon style to use, either ``"emoji"`` or ``"nerd"``.
-        structure: Pre-computed directory structure. When given together with
-            *extensions*, the directory is not re-scanned.
-        extensions: Pre-computed set of file extensions matching *structure*.
-        root_name: Display name for the root node. Defaults to the basename of
-            *root_dir*; supply this to label the tree with something other than the
-            scanned path (e.g. a repository name for a GitHub input).
     """
-    if exclude_dirs is None:
-        exclude_dirs = []
-    if exclude_extensions is None:
-        exclude_extensions = set()
-    if exclude_patterns is None:
-        exclude_patterns = []
-    if include_patterns is None:
-        include_patterns = []
     if spec is None:
         spec = DisplayOptions()
 
-    if structure is None or extensions is None:
-        exclude_extensions = normalize_extensions(exclude_extensions)
-        compiled_exclude = compile_regex_patterns(exclude_patterns, use_regex)
-        compiled_include = compile_regex_patterns(include_patterns, use_regex)
-
-        git_status_map: dict[str, str] | None = None
-        if spec.show_git_status:
-            git_status_map = get_git_status(root_dir)
-            if not git_status_map:
-                logger.debug(
-                    "Git status requested but no data returned — "
-                    "directory may not be inside a Git repository, "
-                    "or there are no changes."
-                )
-
-        structure, extensions = get_directory_structure(
-            root_dir=root_dir,
-            exclude_dirs=exclude_dirs,
-            ignore_file=ignore_file,
-            exclude_extensions=exclude_extensions,
-            parent_ignore_patterns=None,
-            exclude_patterns=compiled_exclude,
-            include_patterns=compiled_include,
-            max_depth=max_depth,
-            show_full_path=show_full_path,
-            sort_by_loc=spec.show_loc,
-            sort_by_size=spec.show_size,
-            sort_by_mtime=spec.show_mtime,
-            show_git_status=spec.show_git_status,
-            git_status_map=git_status_map,
-        )
     color_map = build_color_map(extensions)
-    console = Console()
-
-    root_base = root_name if root_name is not None else os.path.basename(root_dir)
     root_icon = get_icon(
-        root_base,
+        root_name,
         is_dir=True,
         style=icon_style,
         is_empty=not has_contents(structure),
     )
-    root_label = f"{root_icon} {root_base}" + format_dir_metrics(
+    root_label = f"{root_icon} {root_name}" + format_dir_metrics(
         structure, spec.metrics
     )
     tree = Tree(Text(root_label))
-    build_tree(
-        structure,
-        tree,
-        color_map,
-        spec,
-        icon_style=icon_style,
-    )
-    console.print(tree)
+    build_tree(structure, tree, color_map, spec, icon_style=icon_style)
+    Console().print(tree)

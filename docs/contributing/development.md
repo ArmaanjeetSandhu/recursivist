@@ -235,7 +235,7 @@ Pattern logic lives in `filtering.py`. To support a new pattern type, extend `sh
 
 ### Customize Rendering or Colorization
 
-Custom rendering builds on `build_tree` and `display_tree` in `tree.py`.
+Custom rendering builds on `build_tree` and `display_tree` in `tree.py`, which both render a scanned `Directory`.
 
 Per-extension colors come from `build_color_map` in `colors.py`, which colors the extensions found in a tree in sorted order so that the same set of extensions always yields the same mapping. To give common extensions fixed colors, add a lookup table and consult it before falling back to the derived color:
 
