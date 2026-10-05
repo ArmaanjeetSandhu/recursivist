@@ -439,12 +439,8 @@ class TestSortFilesByType:
             f"Expected {expected_order}, got {sorted_names}"
         )
 
-    def test_single_key_is_a_stable_sort(self) -> None:
-        """Only the single key drives ordering; equal values keep input order.
-
-        A single key is applied, and Python's stable sort preserves the original
-        order among files that tie on that key.
-        """
+    def test_metric_ties_are_broken_by_name(self) -> None:
+        """Only the single key drives ordering; equal values fall back to name."""
         files = [
             FileEntry("a.py", "/path/to/a.py", 100, 1024, 1609459200),
             FileEntry("b.py", "/path/to/b.py", 100, 2048, 1609459200),

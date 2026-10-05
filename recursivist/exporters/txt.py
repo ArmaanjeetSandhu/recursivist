@@ -11,7 +11,7 @@ from recursivist.metrics import format_dir_metrics, format_metrics_suffix
 from recursivist.scanner import has_contents, iter_subdirectories
 from recursivist.sorting import sort_files_by_type
 
-from .base import BaseExporter
+from .base import BaseExporter, write_text
 
 
 class TxtExporter(BaseExporter):
@@ -116,5 +116,4 @@ class TxtExporter(BaseExporter):
 
         tree_lines = [root_label]
         tree_lines.extend(_build_txt_tree(self.structure))
-        with open(output_path, "w", encoding="utf-8") as f:
-            f.write("\n".join(tree_lines))
+        write_text(output_path, "\n".join(tree_lines))

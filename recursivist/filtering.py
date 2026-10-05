@@ -49,15 +49,19 @@ def parse_ignore_file(ignore_file_path: str) -> list[str]:
     entirely to the gitignore matcher, so callers must not strip or filter the returned
     lines.
 
+    A leading UTF-8 byte order mark is dropped, as Git does, so that it does not become
+    part of the first pattern and silently stop that pattern from matching.
+
     Args:
         ignore_file_path: Path to the ignore file (e.g. ``.gitignore``).
 
     Returns:
-        The list of pattern lines, or an empty list when the file does not exist.
+        The list of pattern lines, or an empty list when the path does not exist or is
+        not a regular file (a directory, or a named pipe that would block when read).
     """
-    if not os.path.exists(ignore_file_path):
+    if not os.path.isfile(ignore_file_path):
         return []
-    with open(ignore_file_path, encoding="utf-8", errors="replace") as f:
+    with open(ignore_file_path, encoding="utf-8-sig", errors="replace") as f:
         return f.read().splitlines()
 
 

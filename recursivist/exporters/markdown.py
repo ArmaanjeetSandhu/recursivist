@@ -12,7 +12,7 @@ from recursivist.metrics import format_dir_metrics, format_metrics_suffix
 from recursivist.scanner import has_contents, iter_subdirectories
 from recursivist.sorting import sort_files_by_type
 
-from .base import BaseExporter
+from .base import BaseExporter, write_text
 
 
 def _md_inline_code(text: str) -> str:
@@ -148,5 +148,4 @@ class MarkdownExporter(BaseExporter):
         ]
 
         md_content.extend(_build_md_tree(self.structure))
-        with open(output_path, "w", encoding="utf-8") as f:
-            f.write("\n".join(md_content))
+        write_text(output_path, "\n".join(md_content))

@@ -1139,7 +1139,7 @@ class TestSvgExporter:
             error = OSError(28, error_msg)
         else:
             error = error_type(error_msg)
-        with patch("recursivist.exporters.svg.Console.save_svg", side_effect=error):
+        with patch("builtins.open", side_effect=error):
             with pytest.raises(error_type) as excinfo:
                 exporter.export(output_path)
             assert error_msg in str(excinfo.value)

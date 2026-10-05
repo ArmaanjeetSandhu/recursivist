@@ -23,7 +23,7 @@ from recursivist.metrics import (
 from recursivist.scanner import collect_extensions, has_contents, iter_subdirectories
 from recursivist.sorting import sort_files_by_type
 
-from .base import BaseExporter
+from .base import BaseExporter, write_text
 
 _BACKGROUND = "#ffffff"
 """Page background the exported document sets, and the basis for all contrast checks."""
@@ -242,5 +242,4 @@ class HtmlExporter(BaseExporter):
         </html>
         """
 
-        with open(output_path, "w", encoding="utf-8") as f:
-            f.write(html_template)
+        write_text(output_path, html_template)

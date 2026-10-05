@@ -22,6 +22,7 @@ from rich.text import Text
 from rich.tree import Tree
 
 from recursivist._models import FileEntry
+from recursivist.exporters.base import write_text
 from recursivist.filtering import (
     PatternMatchTracker,
     compile_regex_patterns,
@@ -1417,5 +1418,4 @@ def _export_comparison_to_html(
     </html>
     """
 
-    with open(output_path, "w", encoding="utf-8") as f:
-        f.write(html_template)
+    write_text(output_path, html_template)

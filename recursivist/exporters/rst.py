@@ -14,7 +14,7 @@ from recursivist.metrics import format_dir_metrics, format_metrics_suffix
 from recursivist.scanner import has_contents, iter_subdirectories
 from recursivist.sorting import sort_files_by_type
 
-from .base import BaseExporter
+from .base import BaseExporter, write_text
 
 _EAST_ASIAN_WIDTHS = {"W": 2, "F": 2, "Na": 1, "H": 1, "N": 1, "A": 1}
 
@@ -169,5 +169,4 @@ class RstExporter(BaseExporter):
         ]
 
         rst_content.extend(_build_rst_tree(self.structure))
-        with open(output_path, "w", encoding="utf-8") as f:
-            f.write("\n".join(rst_content) + "\n")
+        write_text(output_path, "\n".join(rst_content) + "\n")

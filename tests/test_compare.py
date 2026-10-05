@@ -954,15 +954,12 @@ class TestExportComparisonToHTML:
                 "show_mtime": False,
             },
         }
-        with patch("builtins.open", MagicMock()) as mock_open:
-            mock_file = MagicMock()
-            mock_open.return_value.__enter__.return_value = mock_file
+        with patch("recursivist.compare.write_text") as mock_write:
             from recursivist.compare import _export_comparison_to_html
 
-            with patch.object(mock_file, "write") as mock_write:
-                _export_comparison_to_html(comparison_data, "output.html")
-                mock_open.assert_called_once_with("output.html", "w", encoding="utf-8")
-                assert mock_write.call_count > 0, "No data was written to the file"
+            _export_comparison_to_html(comparison_data, "output.html")
+            mock_write.assert_called_once_with("output.html", ANY)
+            assert mock_write.call_args.args[1], "No data was written to the file"
 
 
 class TestBuildComparisonTreeProperties:

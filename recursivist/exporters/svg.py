@@ -16,7 +16,7 @@ from recursivist.metrics import format_dir_metrics
 from recursivist.scanner import collect_extensions, has_contents
 from recursivist.tree import build_tree
 
-from .base import BaseExporter
+from .base import BaseExporter, write_text
 
 
 class SvgExporter(BaseExporter):
@@ -60,4 +60,7 @@ class SvgExporter(BaseExporter):
         console = Console(record=True, width=120, file=dummy_file, force_terminal=True)
         console.print(tree)
 
-        console.save_svg(output_path, title=f"Directory Structure - {self.root_name}")
+        write_text(
+            output_path,
+            console.export_svg(title=f"Directory Structure - {self.root_name}"),
+        )

@@ -85,9 +85,9 @@ app = typer.Typer(
     add_completion=True,
 )
 console = Console()
+err_console = Console(stderr=True)
 
 _FLAG_ORDER_KEY = "recursivist.flag_order"
-_LOG_HANDLER_KEY = "recursivist.log_handler"
 
 
 def _records_order(flag_id: str) -> Callable[[typer.Context, bool], bool]:
@@ -470,7 +470,6 @@ def config_reset(
 
 @config_app.command("get")
 def config_get(
-    ctx: typer.Context,
     key: Annotated[
         str, typer.Argument(help="Configuration key to print (e.g., icon-style)")
     ],
@@ -490,7 +489,6 @@ def config_get(
         >>> recursivist config get exclude
         >>> recursivist export --icon-style "$(recursivist config get icon-style)"
     """
-    _send_logs_to_stderr(ctx)
     config_key = _known_config_key(key)
     value = resolve_config()[config_key]
     if config_key in LIST_KEYS:
@@ -607,7 +605,6 @@ def _config_listing_lines(
 
 @config_app.command("list")
 def config_list(
-    ctx: typer.Context,
     directory: Annotated[
         str,
         typer.Argument(
@@ -641,7 +638,6 @@ def config_list(
         >>> recursivist config list /path/to/project --all
         >>> recursivist config list --json
     """
-    _send_logs_to_stderr(ctx)
     project_dir = _resolve_and_validate_directory(Path(directory))
     settings = {
         key.replace("_", "-"): layers
@@ -679,44 +675,26 @@ def _configure_logging(ctx: typer.Context) -> None:
     command is running: importing this module configures nothing, the root logger is
     never touched, and a ``--verbose`` run leaves no DEBUG level behind in the process.
 
-    The handler writes to standard output. It is recorded on ``ctx`` so that a command
-    whose standard output is meant to be captured can redirect it with
-    `_send_logs_to_stderr`.
+    The handler writes to standard error, so that standard output carries only what a
+    command prints as its result and can be piped or captured. It shares `err_console`
+    with the scanning progress bar, which keeps a record logged during a scan from
+    garbling the bar.
 
     Args:
         ctx: The context of the running application; the logging setup lives exactly as
             long as it does.
     """
-    handler = RichHandler(rich_tracebacks=True)
+    handler = RichHandler(console=err_console, rich_tracebacks=True)
     handler.setFormatter(logging.Formatter("%(message)s", datefmt="[%X]"))
     previous_level = logger.level
     logger.addHandler(handler)
     logger.setLevel(logging.INFO)
-    ctx.meta[_LOG_HANDLER_KEY] = handler
 
     def restore() -> None:
         logger.removeHandler(handler)
         logger.setLevel(previous_level)
 
     ctx.call_on_close(restore)
-
-
-def _send_logs_to_stderr(ctx: typer.Context) -> None:
-    """Write this invocation's log records to standard error.
-
-    Log records go to standard output by default, alongside whatever a command prints. A
-    command whose output is meant to be captured calls this first, so that a warning or
-    an error is still shown in the terminal without becoming part of the captured value.
-    Only the handler attached by `_configure_logging` is affected, and it is discarded
-    when the invocation finishes.
-
-    Args:
-        ctx: The context of the running command. It shares the application context's
-            metadata, where the handler is recorded.
-    """
-    handler: RichHandler | None = ctx.meta.get(_LOG_HANDLER_KEY)
-    if handler is not None:
-        handler.console = Console(stderr=True)
 
 
 @app.callback()
@@ -1078,7 +1056,7 @@ def _scan_directory(
                 "Git status requested but no data returned — "
                 "directory may not be inside a Git repository, or there are no changes."
             )
-    with Progress() as progress:
+    with Progress(console=err_console) as progress:
         progress.add_task("[cyan]Scanning directory structure...", total=None)
         compiled_exclude, compiled_include = _compile_patterns_for_scan(
             parsed_exclude_patterns,

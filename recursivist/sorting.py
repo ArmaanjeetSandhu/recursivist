@@ -21,6 +21,16 @@ _GIT_SORT_RANK: dict[str, int] = {"M": 0, "A": 1, "D": 2, "U": 3}
 _GIT_SORT_CLEAN = 4
 
 
+def _name_key(entry: FileEntry) -> tuple[str, str]:
+    """Total order on names: case-insensitive first, exact name to split case twins.
+
+    Used as the final tie-breaker of every ordering so the result never depends on the
+    order the scanner happened to list the directory in (``os.listdir`` order is
+    arbitrary and differs between filesystems).
+    """
+    return (entry.name.lower(), entry.name)
+
+
 def sort_files_by_similarity(files: Sequence[FileEntry]) -> list[FileEntry]:
     """Order files so that similarly named files sit next to each other.
 
@@ -60,7 +70,7 @@ def sort_files_by_similarity(files: Sequence[FileEntry]) -> list[FileEntry]:
     entries = list(files)
     if len(entries) < 2:
         return entries
-    remaining = sorted(entries, key=lambda e: e.name.lower())
+    remaining = sorted(entries, key=_name_key)
     ordered: list[FileEntry] = [remaining.pop(0)]
     matcher = SequenceMatcher(autojunk=False)
     while remaining:
@@ -87,12 +97,15 @@ def sort_files_by_type(
     Exactly one ordering is applied, chosen by *sort_key*:
 
     - ``None``: the default — by extension, then case-insensitive name.
-    - ``"loc"`` / ``"size"`` / ``"mtime"``: by that metric, largest/newest first (a
-      stable sort keeps the pre-existing order for equal values).
+    - ``"loc"`` / ``"size"`` / ``"mtime"``: by that metric, largest/newest first, and
+      by case-insensitive name among files with equal values.
     - ``"git_status"``: grouped by Git status (modified, added, deleted, untracked, then
       clean), and by case-insensitive name within each group. Requires *git_markers*.
     - ``"similarity"``: by name similarity, via
       [`sort_files_by_similarity`][recursivist.sorting.sort_files_by_similarity].
+
+    Every ordering ends in a name tie-breaker, so the result is independent of the
+    order of *files* (which the scanner takes from ``os.listdir``).
 
     This mirrors the resolution in [`recursivist.flags`][recursivist.flags], where only
     the first sorting flag on the command line takes effect, so there is never more than
@@ -113,23 +126,23 @@ def sort_files_by_type(
     entries = list(files)
 
     if sort_key == METRIC_LOC:
-        return sorted(entries, key=lambda e: -e.loc)
+        return sorted(entries, key=lambda e: (-e.loc, *_name_key(e)))
     if sort_key == METRIC_SIZE:
-        return sorted(entries, key=lambda e: -e.size)
+        return sorted(entries, key=lambda e: (-e.size, *_name_key(e)))
     if sort_key == METRIC_MTIME:
-        return sorted(entries, key=lambda e: -e.mtime)
+        return sorted(entries, key=lambda e: (-e.mtime, *_name_key(e)))
     if sort_key == METRIC_GIT:
         markers = git_markers or {}
         return sorted(
             entries,
             key=lambda e: (
                 _GIT_SORT_RANK.get(markers.get(e.name, ""), _GIT_SORT_CLEAN),
-                e.name.lower(),
+                *_name_key(e),
             ),
         )
     if sort_key == METRIC_SIMILARITY:
         return sort_files_by_similarity(entries)
     return sorted(
         entries,
-        key=lambda e: (os.path.splitext(e.name)[1].lower(), e.name.lower()),
+        key=lambda e: (os.path.splitext(e.name)[1].lower(), *_name_key(e)),
     )

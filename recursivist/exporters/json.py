@@ -18,7 +18,7 @@ from recursivist.metrics import format_size, format_timestamp
 from recursivist.scanner import iter_subdirectories, subdirectory_key
 from recursivist.sorting import sort_files_by_type
 
-from .base import BaseExporter
+from .base import BaseExporter, write_text
 
 
 class JsonExporter(BaseExporter):
@@ -157,8 +157,9 @@ class JsonExporter(BaseExporter):
         else:
             export_structure = names_only(self.structure)
 
-        with open(output_path, "w", encoding="utf-8") as f:
-            json.dump(
+        write_text(
+            output_path,
+            json.dumps(
                 {
                     "root": self.root_name,
                     "structure": export_structure,
@@ -169,6 +170,6 @@ class JsonExporter(BaseExporter):
                     "show_mtime": self.show_mtime,
                     "show_git_status": self.show_git_status,
                 },
-                f,
                 indent=2,
-            )
+            ),
+        )

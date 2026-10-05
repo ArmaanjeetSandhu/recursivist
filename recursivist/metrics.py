@@ -8,11 +8,22 @@ Pure standard library.
 import io
 import logging
 import os
+import stat
 from collections.abc import Sequence
 from datetime import datetime, timedelta
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+
+def _open_nonblocking(path: str, flags: int) -> int:
+    """Opener for [`open`][] that never waits for the other end of a named pipe.
+
+    ``O_NONBLOCK`` makes opening a FIFO or a device return at once instead of blocking
+    until a writer appears. It has no effect on regular files and does not exist on
+    Windows, where it is simply left out.
+    """
+    return os.open(path, flags | getattr(os, "O_NONBLOCK", 0))
 
 
 def count_lines_of_code(file_path: str) -> int:
@@ -24,14 +35,21 @@ def count_lines_of_code(file_path: str) -> int:
     as UTF-8. Undecodable bytes are replaced rather than rejected, which never changes
     the line count, so the file is opened once and read in a single pass.
 
+    Only regular files are read. Named pipes, sockets and devices are opened without
+    blocking and then skipped, because reading one can wait forever or never end.
+
     Args:
         file_path: Path to the file.
 
     Returns:
-        The number of lines, or ``0`` if the file is empty, binary, or cannot be read.
+        The number of lines, or ``0`` if the file is empty, binary, not a regular file,
+        or cannot be read.
     """
     try:
-        with open(file_path, "rb") as binary_file:
+        with open(file_path, "rb", opener=_open_nonblocking) as binary_file:
+            if not stat.S_ISREG(os.fstat(binary_file.fileno()).st_mode):
+                logger.debug("Not a regular file, skipping: %s", file_path)
+                return 0
             sample = binary_file.read(4096)
             encoding = _detect_text_encoding(sample)
             if encoding is None:
@@ -163,6 +181,8 @@ def format_timestamp(timestamp: float) -> str:
         return f"Today {dt_object.strftime('%H:%M')}"
     if dt_object.date() == current_date - timedelta(days=1):
         return f"Yesterday {dt_object.strftime('%H:%M')}"
+    if dt_object.date() > current_date:
+        return dt_object.strftime("%Y-%m-%d")
     if current_date - dt_object.date() < timedelta(days=7):
         return dt_object.strftime("%a %H:%M")
     if dt_object.year == current_dt.year:

@@ -4,11 +4,73 @@ Defines [`BaseExporter`][recursivist.exporters.base.BaseExporter], which stores 
 scanned structure and the resolved display options common to every output format.
 Concrete exporters subclass it and implement
 [`BaseExporter.export`][recursivist.exporters.base.BaseExporter.export].
+
+[`write_text`][recursivist.exporters.base.write_text] is the single place export files
+are written: it makes undecodable file names encodable and writes atomically, so every
+format behaves the same way.
 """
 
+import contextlib
+import errno
+import os
+import re
+import secrets
+import shutil
 from typing import Any
 
 from recursivist.flags import DisplayOptions
+
+_SURROGATES = re.compile("[\ud800-\udfff]")
+"""Code points that cannot be encoded as UTF-8.
+
+File names that are not valid in the filesystem encoding reach Python with their
+undecodable bytes mapped to lone surrogates (``surrogateescape``).
+"""
+
+
+def write_text(output_path: str, text: str) -> None:
+    """Atomically write *text* to *output_path* as UTF-8.
+
+    Lone surrogates, which stand in for the undecodable bytes of a non-UTF-8 file name,
+    are replaced with U+FFFD so the text always encodes.
+
+    The text is written to a temporary file in the destination directory, which is then
+    renamed over the destination. A failure at any point leaves an existing file
+    untouched and creates no partial one. Symbolic links are followed and the
+    permissions of a file being overwritten are kept, as with a plain ``open``. A
+    destination that exists but is not a regular file (such as ``/dev/stdout``) cannot
+    be replaced, so it is written to directly.
+
+    Args:
+        output_path: Path the file is written to.
+        text: Content to write.
+
+    Raises:
+        OSError: If the file cannot be written.
+    """
+    text = _SURROGATES.sub("\ufffd", text)
+    target = os.path.realpath(output_path)
+    if os.path.exists(target):
+        if not os.path.isfile(target):
+            with open(target, "w", encoding="utf-8") as f:
+                f.write(text)
+            return
+        if not os.access(target, os.W_OK):
+            raise PermissionError(errno.EACCES, os.strerror(errno.EACCES), output_path)
+
+    temp_path = os.path.join(
+        os.path.dirname(target), f".recursivist-{secrets.token_hex(8)}.tmp"
+    )
+    try:
+        with open(temp_path, "x", encoding="utf-8") as f:
+            f.write(text)
+        with contextlib.suppress(OSError):
+            shutil.copymode(target, temp_path)
+        os.replace(temp_path, target)
+    except BaseException:
+        with contextlib.suppress(OSError):
+            os.unlink(temp_path)
+        raise
 
 
 class BaseExporter:
