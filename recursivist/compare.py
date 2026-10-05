@@ -13,7 +13,6 @@ import os
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from re import Pattern
-from typing import Any
 
 from rich.console import Console
 from rich.panel import Panel
@@ -1089,103 +1088,107 @@ def export_comparison(
         spec=spec,
         targets=targets,
     )
-    identity_spec = _identity_spec_for(target1, target2, spec)
-
-    is_remote1 = target1 is not None
-    is_remote2 = target2 is not None
-
-    comparison_data = {
-        "dir1": {
-            "path": dir1,
-            "name": _side_display_name(dir1, target1),
-            "structure": structure1,
-            "is_remote": is_remote1,
-        },
-        "dir2": {
-            "path": dir2,
-            "name": _side_display_name(dir2, target2),
-            "structure": structure2,
-            "is_remote": is_remote2,
-        },
-        "metadata": {
-            "exclude_patterns": [str(p) for p in exclude_patterns],
-            "include_patterns": [str(p) for p in include_patterns],
-            "pattern_type": "regex" if use_regex else "glob",
-            "max_depth": max_depth,
-            "show_full_path": show_full_path,
-            "metrics": list(spec.metrics),
-            "sort_key": spec.sort_key,
-            "show_loc": spec.show_loc,
-            "show_size": spec.show_size,
-            "show_mtime": spec.show_mtime,
-            "show_git_status": spec.show_git_status,
-            "identity_metrics": list(identity_spec.metrics),
-            "identity_git": identity_spec.show_git_status,
-        },
-    }
-    _export_comparison_to_html(comparison_data, output_path, icon_style)
+    _export_comparison_to_html(
+        structure1,
+        structure2,
+        output_path,
+        name1=_side_display_name(dir1, target1),
+        name2=_side_display_name(dir2, target2),
+        is_remote1=target1 is not None,
+        is_remote2=target2 is not None,
+        spec=spec,
+        identity_spec=_identity_spec_for(target1, target2, spec),
+        exclude_patterns=exclude_patterns,
+        include_patterns=include_patterns,
+        use_regex=use_regex,
+        max_depth=max_depth,
+        show_full_path=show_full_path,
+        icon_style=icon_style,
+    )
 
 
 def _export_comparison_to_html(
-    comparison_data: dict[str, Any], output_path: str, icon_style: str = "emoji"
+    structure1: Directory,
+    structure2: Directory,
+    output_path: str,
+    *,
+    name1: str,
+    name2: str,
+    is_remote1: bool,
+    is_remote2: bool,
+    spec: DisplayOptions,
+    identity_spec: DisplayOptions,
+    exclude_patterns: Sequence[str],
+    include_patterns: Sequence[str],
+    use_regex: bool,
+    max_depth: int,
+    show_full_path: bool,
+    icon_style: str,
 ) -> None:
-    """Write the comparison HTML document from prepared comparison data.
+    """Write the comparison HTML document for two scanned directories.
 
     Generates a responsive, styled HTML page with the two directory trees side by side
     and their differences highlighted, including any LOC, size, modification-time, or
-    Git-status annotations enabled in the metadata.
+    Git-status annotations enabled in *spec*, preceded by a summary of the settings the
+    comparison was made with.
 
     Args:
-        comparison_data: Prepared comparison payload holding each directory's structure
-            under ``"dir1"``/``"dir2"`` and the render settings under ``"metadata"``.
+        structure1: Scanned structure of the first directory.
+        structure2: Scanned structure of the second directory.
         output_path: Path the HTML file is written to.
+        name1: Display name of the first directory.
+        name2: Display name of the second directory.
+        is_remote1: Whether the first directory is a GitHub repository.
+        is_remote2: Whether the second directory is a GitHub repository.
+        spec: Resolved sorting and annotation directives.
+        identity_spec: Directives governing which annotations contribute to cross-side
+            file identity (see `_comparison_identity`).
+        exclude_patterns: Exclusion patterns to list in the settings summary.
+        include_patterns: Inclusion patterns to list in the settings summary.
+        use_regex: Whether the patterns are regular expressions rather than globs.
+        max_depth: Depth limit to report in the settings summary, or ``0`` for
+            unlimited.
+        show_full_path: Whether the trees show absolute paths, reported in the settings
+            summary.
         icon_style: Icon style to use, either ``"emoji"`` or ``"nerd"``.
     """
+    dir1_name = html.escape(name1)
+    dir2_name = html.escape(name2)
 
-    dir1_name = html.escape(comparison_data["dir1"]["name"])
-    dir2_name = html.escape(comparison_data["dir2"]["name"])
-    dir1_structure = comparison_data["dir1"]["structure"]
-    dir2_structure = comparison_data["dir2"]["structure"]
-
-    dir1_is_remote = comparison_data["dir1"].get("is_remote", False)
-    dir2_is_remote = comparison_data["dir2"].get("is_remote", False)
-
-    metadata = comparison_data.get("metadata", {})
     max_depth_info = ""
-    max_depth_val = metadata.get("max_depth", 0)
-    if max_depth_val > 0:
-        level_word = "level" if max_depth_val == 1 else "levels"
+    if max_depth > 0:
+        level_word = "level" if max_depth == 1 else "levels"
         max_depth_info = (
             '<div class="info-block"><span class="info-label">Max Depth:</span> '
-            f"{max_depth_val} {level_word}</div>"
+            f"{max_depth} {level_word}</div>"
         )
     path_info = ""
-    if metadata.get("show_full_path"):
+    if show_full_path:
         path_info = (
             '<div class="info-block"><span class="info-label">Path Display:</span>'
             " Full paths shown</div>"
         )
     loc_info = ""
-    if metadata.get("show_loc"):
+    if spec.show_loc:
         loc_info = (
             '<div class="info-block"><span class="info-label">Lines of Code:</span>'
             " LOC counts displayed</div>"
         )
     size_info = ""
-    if metadata.get("show_size"):
+    if spec.show_size:
         size_info = (
             '<div class="info-block"><span class="info-label">File Sizes:</span>'
             " File sizes displayed</div>"
         )
     mtime_info = ""
-    if metadata.get("show_mtime"):
+    if spec.show_mtime:
         mtime_info = (
             '<div class="info-block">'
             '<span class="info-label">Modification Times:</span>'
             " Timestamps displayed</div>"
         )
     git_status_info = ""
-    if metadata.get("show_git_status"):
+    if spec.show_git_status:
         git_status_info = (
             '<div class="info-block"><span class="info-label">Git Status:</span> '
             "Status markers displayed &mdash; "
@@ -1195,23 +1198,22 @@ def _export_comparison_to_html(
             '<span class="git-badge">[D]</span> deleted</div>'
         )
     pattern_info_html = ""
-    if metadata.get("exclude_patterns") or metadata.get("include_patterns"):
-        pattern_type = metadata.get("pattern_type", "glob").capitalize()
+    if exclude_patterns or include_patterns:
+        pattern_type = "Regex" if use_regex else "Glob"
         pattern_items = []
-        if metadata.get("exclude_patterns"):
-            patterns = [html.escape(p) for p in metadata.get("exclude_patterns", [])]
+        if exclude_patterns:
+            patterns = [html.escape(p) for p in exclude_patterns]
             pattern_items.append(
                 f"<dt>Exclude {pattern_type} Patterns:</dt>"
                 f"<dd>{', '.join(patterns)}</dd>"
             )
-        if metadata.get("include_patterns"):
-            patterns = [html.escape(p) for p in metadata.get("include_patterns", [])]
+        if include_patterns:
+            patterns = [html.escape(p) for p in include_patterns]
             pattern_items.append(
                 f"<dt>Include {pattern_type} Patterns:</dt>"
                 f"<dd>{', '.join(patterns)}</dd>"
             )
-        if pattern_items:
-            pattern_info_html = f"""
+        pattern_info_html = f"""
             <div class="pattern-info">
                 <h3>Applied Patterns</h3>
                 <dl>
@@ -1220,42 +1222,33 @@ def _export_comparison_to_html(
             </div>
             """
 
-    spec = DisplayOptions(
-        sort_key=metadata.get("sort_key"),
-        metrics=tuple(metadata.get("metrics", ())),
-        show_git_status=metadata.get("show_git_status", False),
-    )
-    identity_spec = DisplayOptions(
-        metrics=tuple(metadata.get("identity_metrics", spec.metrics)),
-        show_git_status=metadata.get("identity_git", spec.show_git_status),
-    )
-    dir1_metrics = _side_metrics(spec.metrics, dir1_is_remote)
-    dir2_metrics = _side_metrics(spec.metrics, dir2_is_remote)
+    dir1_metrics = _side_metrics(spec.metrics, is_remote1)
+    dir2_metrics = _side_metrics(spec.metrics, is_remote2)
 
-    dir1_title = dir1_name + format_dir_metrics(dir1_structure, dir1_metrics)
-    dir2_title = dir2_name + format_dir_metrics(dir2_structure, dir2_metrics)
+    dir1_title = dir1_name + format_dir_metrics(structure1, dir1_metrics)
+    dir2_title = dir2_name + format_dir_metrics(structure2, dir2_metrics)
 
     root_icon1 = get_icon(
         dir1_name,
         is_dir=True,
         style=icon_style,
-        is_empty=not has_contents(dir1_structure),
+        is_empty=not has_contents(structure1),
     )
     root_icon2 = get_icon(
         dir2_name,
         is_dir=True,
         style=icon_style,
-        is_empty=not has_contents(dir2_structure),
+        is_empty=not has_contents(structure2),
     )
     dir1_tree_html = _render_html_nodes(
         _ComparisonWalker.for_sides(
-            spec, identity_spec, dir1_is_remote, dir2_is_remote, icon_style
-        ).walk(dir1_structure, dir2_structure)
+            spec, identity_spec, is_remote1, is_remote2, icon_style
+        ).walk(structure1, structure2)
     )
     dir2_tree_html = _render_html_nodes(
         _ComparisonWalker.for_sides(
-            spec, identity_spec, dir2_is_remote, dir1_is_remote, icon_style
-        ).walk(dir2_structure, dir1_structure)
+            spec, identity_spec, is_remote2, is_remote1, icon_style
+        ).walk(structure2, structure1)
     )
 
     html_template = f"""

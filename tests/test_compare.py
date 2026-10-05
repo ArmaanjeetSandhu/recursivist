@@ -906,34 +906,26 @@ class TestExportComparisonToHTML:
     ) -> None:
         """Test that _export_comparison_to_html creates a valid HTML file."""
         structure1, structure2 = structures
-        comparison_data: dict[str, Any] = {
-            "dir1": {
-                "path": f"/path/to/{dir1_name}",
-                "name": dir1_name,
-                "structure": structure1,
-            },
-            "dir2": {
-                "path": f"/path/to/{dir2_name}",
-                "name": dir2_name,
-                "structure": structure2,
-            },
-            "metadata": {
-                "exclude_patterns": [],
-                "include_patterns": [],
-                "pattern_type": "glob",
-                "max_depth": 0,
-                "show_full_path": False,
-                "metrics": [],
-                "sort_key": None,
-                "show_loc": False,
-                "show_size": False,
-                "show_mtime": False,
-            },
-        }
         with patch("recursivist.compare.write_text") as mock_write:
             from recursivist.compare import _export_comparison_to_html
 
-            _export_comparison_to_html(comparison_data, "output.html")
+            _export_comparison_to_html(
+                structure1,
+                structure2,
+                "output.html",
+                name1=dir1_name,
+                name2=dir2_name,
+                is_remote1=False,
+                is_remote2=False,
+                spec=DisplayOptions(),
+                identity_spec=DisplayOptions(),
+                exclude_patterns=[],
+                include_patterns=[],
+                use_regex=False,
+                max_depth=0,
+                show_full_path=False,
+                icon_style="emoji",
+            )
             mock_write.assert_called_once_with("output.html", ANY)
             assert mock_write.call_args.args[1], "No data was written to the file"
 
