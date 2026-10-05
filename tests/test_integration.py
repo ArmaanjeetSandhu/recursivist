@@ -4,12 +4,11 @@ import json
 import os
 import re
 from pathlib import Path
-from typing import Any
 
 import pytest
 from typer.testing import CliRunner
 
-from recursivist._models import FileEntry
+from recursivist._models import Directory, FileEntry
 from recursivist.cli import app
 from recursivist.compare import _scan_sides, export_comparison
 from recursivist.exporters import get_exporter
@@ -23,9 +22,7 @@ _ALL_METRICS_SPEC = DisplayOptions(
 pytestmark = pytest.mark.integration
 
 
-def get_file_names(
-    structure: dict[str, Any], path: list[str] | None = None
-) -> list[str]:
+def get_file_names(structure: Directory, path: list[str] | None = None) -> list[str]:
     """
     Extract file names from a structure, optionally at a specific path.
     Args:
@@ -34,15 +31,13 @@ def get_file_names(
     Returns:
         List of file names.
     """
-    if path is None:
-        return [f.name for f in structure.get("_files", [])]
     current = structure
-    for segment in path:
-        if segment in current:
-            current = current[segment]
+    for segment in path or []:
+        if segment in current.subdirectories:
+            current = current.subdirectories[segment]
         else:
             return []
-    return [f.name for f in current.get("_files", [])]
+    return [f.name for f in current.files]
 
 
 def test_cli_with_complex_structure(
@@ -102,10 +97,11 @@ def test_cli_with_complex_structure(
     with open(os.path.join(output_dir, "complex.json"), encoding="utf-8") as f:
         data = json.load(f)
         assert "structure" in data
-        assert "src" in data["structure"]
-        assert "docs" in data["structure"]
-        assert "build" not in data["structure"]
-        assert "dist" not in data["structure"]
+        subdirectories = data["structure"]["subdirectories"]
+        assert "src" in subdirectories
+        assert "docs" in subdirectories
+        assert "build" not in subdirectories
+        assert "dist" not in subdirectories
 
 
 def test_regex_filtering_with_complex_directory(complex_directory: str) -> None:
@@ -122,18 +118,16 @@ def test_regex_filtering_with_complex_directory(complex_directory: str) -> None:
     python_files_found = False
     non_python_files_found = False
 
-    def check_files(structure: dict[str, Any]) -> None:
+    def check_files(structure: Directory) -> None:
         nonlocal python_files_found, non_python_files_found
-        if "_files" in structure:
-            for file in structure["_files"]:
-                file_name = file.name
-                if file_name.endswith(".py"):
-                    python_files_found = True
-                else:
-                    non_python_files_found = True
-        for key, value in structure.items():
-            if key != "_files" and isinstance(value, dict):
-                check_files(value)
+        for file in structure.files:
+            file_name = file.name
+            if file_name.endswith(".py"):
+                python_files_found = True
+            else:
+                non_python_files_found = True
+        for subdirectory in structure.subdirectories.values():
+            check_files(subdirectory)
 
     check_files(structure)
     assert python_files_found, "No Python files found in structure"
@@ -150,21 +144,16 @@ def test_comparison_with_complex_directories(
         exclude_dirs=["build", "dist"],
         max_depth=3,
     )
-    assert "src" in structure1
-    assert "src" in structure2
-    assert "docs" in structure1
-    assert "docs" in structure2
-    assert "build" not in structure1
-    assert "dist" not in structure1
+    assert "src" in structure1.subdirectories
+    assert "src" in structure2.subdirectories
+    assert "docs" in structure1.subdirectories
+    assert "docs" in structure2.subdirectories
+    assert "build" not in structure1.subdirectories
+    assert "dist" not in structure1.subdirectories
     assert "CHANGELOG.md" not in get_file_names(structure1)
-    changelog_found = False
-    if "_files" in structure2:
-        for file_item in structure2["_files"]:
-            file_name = file_item.name
-            if file_name == "CHANGELOG.md":
-                changelog_found = True
-                break
-    assert changelog_found, "CHANGELOG.md not found in structure2"
+    assert "CHANGELOG.md" in get_file_names(structure2), (
+        "CHANGELOG.md not found in structure2"
+    )
     output_path = os.path.join(output_dir, "comparison.html")
     export_comparison(
         complex_directory,
@@ -191,8 +180,8 @@ def test_full_path_display_with_complex_directory(
         show_full_path=True,
         max_depth=3,
     )
-    assert "_files" in structure
-    for file_item in structure["_files"]:
+    assert structure.files
+    for file_item in structure.files:
         assert isinstance(file_item, FileEntry)
         assert os.path.isabs(file_item.path.replace("/", os.sep))
         assert file_item.name in os.path.basename(file_item.path)
@@ -208,8 +197,8 @@ def test_full_path_display_with_complex_directory(
     with open(output_path, encoding="utf-8") as f:
         data = json.load(f)
     assert "structure" in data
-    assert "_files" in data["structure"]
-    paths = data["structure"]["_files"]
+    paths = data["structure"]["files"]
+    assert paths
     for path in paths:
         if isinstance(path, dict) and "path" in path:
             assert os.path.isabs(path["path"].replace("/", os.sep))
@@ -229,25 +218,11 @@ def test_depth_limit_with_complex_directory(complex_directory: str, depth: int) 
         max_depth=depth,
     )
 
-    def check_depth(structure: dict[str, Any], current_depth: int = 0) -> None:
-        if current_depth == depth:
-            for key, value in structure.items():
-                if (
-                    key != "_files"
-                    and key != "_max_depth_reached"
-                    and isinstance(value, dict)
-                ):
-                    assert "_max_depth_reached" in value
-            return
-        for key, value in structure.items():
-            if (
-                key != "_files"
-                and key != "_max_depth_reached"
-                and isinstance(value, dict)
-            ):
-                if current_depth < depth - 1:
-                    assert "_max_depth_reached" not in value
-                check_depth(value, current_depth + 1)
+    def check_depth(structure: Directory, current_depth: int = 0) -> None:
+        for subdirectory in structure.subdirectories.values():
+            at_limit = current_depth + 1 == depth
+            assert subdirectory.max_depth_reached is at_limit
+            check_depth(subdirectory, current_depth + 1)
 
     check_depth(structure)
 
@@ -276,19 +251,17 @@ def test_gitignore_pattern_with_complex_directory(complex_directory: str) -> Non
         complex_directory,
         ignore_file=".gitignore",
     )
-    assert "build" not in structure
-    assert "dist" not in structure
+    assert "build" not in structure.subdirectories
+    assert "dist" not in structure.subdirectories
 
-    def check_extensions(structure: dict[str, Any]) -> None:
-        for key, value in structure.items():
-            if key == "_files":
-                for file in value:
-                    file_name = file.name
-                    assert not file_name.endswith(".pyc")
-                    assert not file_name.endswith(".so")
-                    assert not file_name.endswith(".tmp")
-            elif key != "_max_depth_reached" and isinstance(value, dict):
-                check_extensions(value)
+    def check_extensions(structure: Directory) -> None:
+        for file in structure.files:
+            file_name = file.name
+            assert not file_name.endswith(".pyc")
+            assert not file_name.endswith(".so")
+            assert not file_name.endswith(".tmp")
+        for subdirectory in structure.subdirectories.values():
+            check_extensions(subdirectory)
 
     check_extensions(structure)
 
@@ -308,17 +281,18 @@ def test_statistics_integration(temp_dir: str) -> None:
     structure, _ = get_directory_structure(
         temp_dir, sort_by_loc=True, sort_by_size=True, sort_by_mtime=True
     )
-    assert "_loc" in structure
-    assert "_size" in structure
-    assert "_mtime" in structure
-    assert "_loc" in structure["src"]
-    assert "_size" in structure["src"]
-    assert "_mtime" in structure["src"]
-    if "_files" in structure["src"]:
-        for file_item in structure["src"]["_files"]:
-            assert isinstance(file_item.loc, int)
-            assert isinstance(file_item.size, int)
-            assert isinstance(file_item.mtime, float)
+    assert structure.loc is not None
+    assert structure.size is not None
+    assert structure.mtime is not None
+    src = structure.subdirectories["src"]
+    assert src.loc is not None
+    assert src.size is not None
+    assert src.mtime is not None
+    assert src.files
+    for file_item in src.files:
+        assert isinstance(file_item.loc, int)
+        assert isinstance(file_item.size, int)
+        assert isinstance(file_item.mtime, float)
 
 
 @pytest.mark.parametrize("fmt", ["json", "txt", "md", "html"])
@@ -369,12 +343,10 @@ def test_comparison_with_statistics(temp_dir: str, output_dir: str) -> None:
     with open(os.path.join(dir2, "file1.py"), "w") as f:
         f.write("print('Dir 2 different content with more lines')\nprint('Extra line')")
     structure1, structure2, _ = _scan_sides(dir1, dir2, spec=_ALL_METRICS_SPEC)
-    assert "_loc" in structure1
-    assert "_size" in structure1
-    assert "_mtime" in structure1
-    assert "_loc" in structure2
-    assert "_size" in structure2
-    assert "_mtime" in structure2
+    for structure in (structure1, structure2):
+        assert structure.loc is not None
+        assert structure.size is not None
+        assert structure.mtime is not None
     output_path = os.path.join(output_dir, "comparison_with_stats.html")
     export_comparison(
         dir1,
@@ -401,13 +373,9 @@ def test_pathlib_compatibility(temp_dir: str, output_dir: str) -> None:
         f.write("Test content")
     path_obj = Path(temp_dir)
     structure, _ = get_directory_structure(str(path_obj))
-    assert "_files" in structure
-    file_found = False
-    for file_item in structure["_files"]:
-        file_name = file_item.name
-        if file_name == "test.txt":
-            file_found = True
-    assert file_found, "File not found when using pathlib.Path"
+    assert "test.txt" in get_file_names(structure), (
+        "File not found when using pathlib.Path"
+    )
 
     output_path = Path(output_dir) / "pathlib_test.json"
     get_exporter(
@@ -419,4 +387,4 @@ def test_pathlib_compatibility(temp_dir: str, output_dir: str) -> None:
         data = json.load(f)
     assert "root" in data
     assert "structure" in data
-    assert "_files" in data["structure"]
+    assert data["structure"]["files"] == ["test.txt"]

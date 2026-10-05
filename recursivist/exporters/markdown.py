@@ -5,8 +5,8 @@ files as inline code — and writes it to a ``.md`` file.
 """
 
 import html
-from typing import Any
 
+from recursivist._models import Directory
 from recursivist.icons import get_icon
 from recursivist.metrics import format_dir_metrics, format_metrics_suffix
 from recursivist.scanner import has_contents, iter_subdirectories
@@ -65,13 +65,13 @@ class MarkdownExporter(BaseExporter):
         """
 
         def _build_md_tree(
-            structure: dict[str, Any],
+            structure: Directory,
             level: int = 0,
         ) -> list[str]:
             """Return the Markdown lines for *structure* and its descendants.
 
             Args:
-                structure: Directory-structure dict to render.
+                structure: Directory to render.
                 level: Current nesting depth, controlling indentation.
 
             Returns:
@@ -79,40 +79,34 @@ class MarkdownExporter(BaseExporter):
             """
             lines = []
             indent = "    " * level
-            if "_files" in structure:
-                for entry in sort_files_by_type(
-                    structure["_files"],
-                    self.sort_key,
-                    structure.get("_git_markers"),
-                ):
-                    file_icon = get_icon(
-                        entry.name, is_dir=False, style=self.icon_style
-                    )
+            for entry in sort_files_by_type(
+                structure.files, self.sort_key, structure.git_markers
+            ):
+                file_icon = get_icon(entry.name, is_dir=False, style=self.icon_style)
 
-                    _git_markers_md = structure.get("_git_markers", {})
-                    _git_marker_md = (
-                        _git_markers_md.get(entry.name, "")
-                        if self.show_git_status
-                        else ""
-                    )
-                    _md_code = _md_inline_code(entry.path)
-                    if _git_marker_md == "D":
-                        _md_display = f"~~{_md_code}~~"
-                    else:
-                        _md_display = _md_code
-                    _md_git_suffix = (
-                        f" {self._GIT_MD_BADGE[_git_marker_md]}"
-                        if _git_marker_md in self._GIT_MD_BADGE
-                        else ""
-                    )
+                _git_marker_md = (
+                    structure.git_markers.get(entry.name, "")
+                    if self.show_git_status
+                    else ""
+                )
+                _md_code = _md_inline_code(entry.path)
+                if _git_marker_md == "D":
+                    _md_display = f"~~{_md_code}~~"
+                else:
+                    _md_display = _md_code
+                _md_git_suffix = (
+                    f" {self._GIT_MD_BADGE[_git_marker_md]}"
+                    if _git_marker_md in self._GIT_MD_BADGE
+                    else ""
+                )
 
-                    lines.append(
-                        f"{indent}- {file_icon} {_md_display}"
-                        + format_metrics_suffix(
-                            entry.loc, entry.size, entry.mtime, self.metrics
-                        )
-                        + _md_git_suffix
+                lines.append(
+                    f"{indent}- {file_icon} {_md_display}"
+                    + format_metrics_suffix(
+                        entry.loc, entry.size, entry.mtime, self.metrics
                     )
+                    + _md_git_suffix
+                )
             for name, content in iter_subdirectories(structure):
                 folder_icon = get_icon(
                     name,
@@ -121,17 +115,14 @@ class MarkdownExporter(BaseExporter):
                     is_empty=not has_contents(content),
                 )
 
-                metrics = ""
-                if isinstance(content, dict):
-                    metrics = format_dir_metrics(content, self.metrics)
+                metrics = format_dir_metrics(content, self.metrics)
                 lines.append(
                     f"{indent}- {folder_icon} **{_md_escape_text(name)}**{metrics}"
                 )
-                if isinstance(content, dict):
-                    if content.get("_symlink_loop"):
-                        lines.append(f"{indent}    - ↩ *(symlink loop)*")
-                    elif not content.get("_max_depth_reached"):
-                        lines.extend(_build_md_tree(content, level + 1))
+                if content.symlink_loop:
+                    lines.append(f"{indent}    - ↩ *(symlink loop)*")
+                elif not content.max_depth_reached:
+                    lines.extend(_build_md_tree(content, level + 1))
             return lines
 
         root_icon = get_icon(

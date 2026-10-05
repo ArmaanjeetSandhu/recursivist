@@ -1,6 +1,10 @@
 # Scanning and Filtering
 
-Scanning walks a directory into the nested [structure dictionary](../api-reference.md#the-structure-dictionary); filtering decides which entries are left out along the way.
+Scanning walks a directory into a tree of [`Directory`](../api-reference.md#the-directory-structure) nodes; filtering decides which entries are left out along the way.
+
+## Directory
+
+::: recursivist._models.Directory
 
 ## FileEntry
 

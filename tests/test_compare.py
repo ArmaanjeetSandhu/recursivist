@@ -20,7 +20,7 @@ from rich.console import Console
 from rich.text import Text
 from rich.tree import Tree
 
-from recursivist._models import FileEntry
+from recursivist._models import Directory, FileEntry
 from recursivist.compare import (
     _identity_spec_for,
     _scan_sides,
@@ -49,26 +49,24 @@ _ALL_METRICS_SPEC = DisplayOptions(
 
 
 def get_file_names(
-    structure: dict[str, Any],
+    structure: Directory,
     path: list[str] | None = None,
 ) -> list[str]:
     """Extract file names from a structure, optionally at a specific path."""
-    if path is None:
-        return [f.name for f in structure.get("_files", [])]
     current = structure
-    for segment in path:
-        if segment in current:
-            current = current[segment]
+    for segment in path or []:
+        if segment in current.subdirectories:
+            current = current.subdirectories[segment]
         else:
             return []
-    return [f.name for f in current.get("_files", [])]
+    return [f.name for f in current.files]
 
 
 @st.composite
-def comparison_structure(draw: st.DrawFn, ensure_files: bool = False) -> dict[str, Any]:
+def comparison_structure(draw: st.DrawFn, ensure_files: bool = False) -> Directory:
     """Generate a structure for comparison testing."""
-    structure: dict[str, Any] = {}
-    file_list: list[Any] = []
+    structure = Directory()
+    file_list: list[FileEntry] = []
     if ensure_files:
         filename = "sample.txt"
         file_path = "/path/to/sample.txt"
@@ -95,13 +93,13 @@ def comparison_structure(draw: st.DrawFn, ensure_files: bool = False) -> dict[st
             file_list.append(FileEntry(filename, file_path, loc, size, mtime))
         else:
             file_list.append(FileEntry(filename, filename))
-    structure["_files"] = file_list
+    structure.files = file_list
     if draw(st.booleans()):
-        structure["_loc"] = draw(st.integers(min_value=0, max_value=10000))
+        structure.loc = draw(st.integers(min_value=0, max_value=10000))
     if draw(st.booleans()):
-        structure["_size"] = draw(st.integers(min_value=0, max_value=100 * 1024 * 1024))
+        structure.size = draw(st.integers(min_value=0, max_value=100 * 1024 * 1024))
     if draw(st.booleans()):
-        structure["_mtime"] = draw(st.floats(min_value=1000000, max_value=1672531200))
+        structure.mtime = draw(st.floats(min_value=1000000, max_value=1672531200))
     for _ in range(draw(st.integers(min_value=0, max_value=3))):
         dir_name = draw(
             st.text(
@@ -114,10 +112,10 @@ def comparison_structure(draw: st.DrawFn, ensure_files: bool = False) -> dict[st
             )
         )
         if draw(st.booleans()) and draw(st.booleans()):
-            structure[dir_name] = {"_max_depth_reached": True}
+            structure.subdirectories[dir_name] = Directory(max_depth_reached=True)
         else:
-            sub_structure: dict[str, Any] = {}
-            sub_file_list: list[Any] = []
+            sub_structure = Directory()
+            sub_file_list: list[FileEntry] = []
             for _ in range(draw(st.integers(min_value=0, max_value=3))):
                 sub_filename = draw(
                     st.text(
@@ -130,85 +128,67 @@ def comparison_structure(draw: st.DrawFn, ensure_files: bool = False) -> dict[st
                     )
                 ) + draw(st.sampled_from([".txt", ".py", ".md"]))
                 sub_file_list.append(FileEntry(sub_filename, sub_filename))
-            sub_structure["_files"] = sub_file_list
+            sub_structure.files = sub_file_list
             if draw(st.booleans()):
-                sub_structure["_loc"] = draw(st.integers(min_value=0, max_value=5000))
+                sub_structure.loc = draw(st.integers(min_value=0, max_value=5000))
             if draw(st.booleans()):
-                sub_structure["_size"] = draw(
+                sub_structure.size = draw(
                     st.integers(min_value=0, max_value=50 * 1024 * 1024)
                 )
             if draw(st.booleans()):
-                sub_structure["_mtime"] = draw(
+                sub_structure.mtime = draw(
                     st.floats(min_value=1000000, max_value=1672531200)
                 )
-            structure[dir_name] = sub_structure
+            structure.subdirectories[dir_name] = sub_structure
     return structure
 
 
 @st.composite
 def comparison_pair(
     draw: st.DrawFn, ensure_files: bool = False
-) -> tuple[dict[str, Any], dict[str, Any]]:
+) -> tuple[Directory, Directory]:
     """Generate a pair of related structures for comparison testing."""
-    base_structure: dict[str, Any] = draw(
-        comparison_structure(ensure_files=ensure_files)
-    )
-    modified_structure: dict[str, Any] = {}
-    if "_files" in base_structure:
-        modified_files: list[Any] = []
-        for file_item in base_structure["_files"]:
-            if draw(st.booleans()):
-                modified_files.append(file_item)
-        for _ in range(draw(st.integers(min_value=0, max_value=3))):
-            new_filename = draw(
-                st.text(
-                    alphabet=st.characters(
-                        whitelist_categories=("Lu", "Ll", "Nd"),
-                        whitelist_characters="_-",
-                    ),
-                    min_size=1,
-                    max_size=15,
-                )
-            ) + draw(st.sampled_from([".txt", ".py", ".md", ".json", ".js"]))
-            if draw(st.booleans()):
-                file_path = "/path/to/" + new_filename
-                loc = draw(st.integers(min_value=1, max_value=1000))
-                size = draw(st.integers(min_value=1, max_value=10 * 1024 * 1024))
-                mtime = draw(st.floats(min_value=1000000, max_value=1672531200))
-                modified_files.append(
-                    FileEntry(new_filename, file_path, loc, size, mtime)
-                )
-            else:
-                modified_files.append(FileEntry(new_filename, new_filename))
-        modified_structure["_files"] = modified_files
-    if (
-        "_loc" in base_structure
-        and isinstance(base_structure["_loc"], int)
-        and draw(st.booleans())
-    ):
-        modified_structure["_loc"] = base_structure["_loc"] + draw(
+    base_structure: Directory = draw(comparison_structure(ensure_files=ensure_files))
+    modified_structure = Directory()
+    modified_files: list[FileEntry] = []
+    for file_item in base_structure.files:
+        if draw(st.booleans()):
+            modified_files.append(file_item)
+    for _ in range(draw(st.integers(min_value=0, max_value=3))):
+        new_filename = draw(
+            st.text(
+                alphabet=st.characters(
+                    whitelist_categories=("Lu", "Ll", "Nd"),
+                    whitelist_characters="_-",
+                ),
+                min_size=1,
+                max_size=15,
+            )
+        ) + draw(st.sampled_from([".txt", ".py", ".md", ".json", ".js"]))
+        if draw(st.booleans()):
+            file_path = "/path/to/" + new_filename
+            loc = draw(st.integers(min_value=1, max_value=1000))
+            size = draw(st.integers(min_value=1, max_value=10 * 1024 * 1024))
+            mtime = draw(st.floats(min_value=1000000, max_value=1672531200))
+            modified_files.append(FileEntry(new_filename, file_path, loc, size, mtime))
+        else:
+            modified_files.append(FileEntry(new_filename, new_filename))
+    modified_structure.files = modified_files
+    if base_structure.loc is not None and draw(st.booleans()):
+        modified_structure.loc = base_structure.loc + draw(
             st.integers(min_value=-100, max_value=100)
         )
-    if (
-        "_size" in base_structure
-        and isinstance(base_structure["_size"], int)
-        and draw(st.booleans())
-    ):
-        modified_structure["_size"] = base_structure["_size"] + draw(
+    if base_structure.size is not None and draw(st.booleans()):
+        modified_structure.size = base_structure.size + draw(
             st.integers(min_value=-1024, max_value=1024)
         )
-    if (
-        "_mtime" in base_structure
-        and isinstance(base_structure["_mtime"], (int, float))
-        and draw(st.booleans())
-    ):
-        modified_structure["_mtime"] = base_structure["_mtime"] + draw(
+    if base_structure.mtime is not None and draw(st.booleans()):
+        modified_structure.mtime = base_structure.mtime + draw(
             st.floats(min_value=-86400, max_value=86400)
         )
-    for key, value in base_structure.items():
-        if key not in ["_files", "_loc", "_size", "_mtime", "_max_depth_reached"]:
-            if draw(st.booleans()):
-                modified_structure[key] = value
+    for key, value in base_structure.subdirectories.items():
+        if draw(st.booleans()):
+            modified_structure.subdirectories[key] = value
     for _ in range(draw(st.integers(min_value=0, max_value=2))):
         dir_name = draw(
             st.text(
@@ -220,8 +200,8 @@ def comparison_pair(
                 max_size=10,
             )
         )
-        if dir_name not in modified_structure:
-            modified_structure[dir_name] = draw(comparison_structure())
+        if dir_name not in modified_structure.subdirectories:
+            modified_structure.subdirectories[dir_name] = draw(comparison_structure())
     return (base_structure, modified_structure)
 
 
@@ -237,23 +217,19 @@ safe_path = st.text(
 def test_scan_sides(comparison_directories: tuple[str, str]) -> None:
     dir1, dir2 = comparison_directories
     structure1, structure2, _ = _scan_sides(dir1, dir2)
-    assert "_files" in structure1
-    assert "_files" in structure2
-    assert "common_dir" in structure1
-    assert "common_dir" in structure2
-    assert "dir1_only" in structure1
-    assert "dir1_only" not in structure2
-    assert "dir2_only" not in structure1
-    assert "dir2_only" in structure2
-    names1 = [f.name for f in structure1["_files"]]
-    names2 = [f.name for f in structure2["_files"]]
-    names1_get = [f.name for f in structure1.get("_files", [])]
-    names2_get = [f.name for f in structure2.get("_files", [])]
+    assert "common_dir" in structure1.subdirectories
+    assert "common_dir" in structure2.subdirectories
+    assert "dir1_only" in structure1.subdirectories
+    assert "dir1_only" not in structure2.subdirectories
+    assert "dir2_only" not in structure1.subdirectories
+    assert "dir2_only" in structure2.subdirectories
+    names1 = get_file_names(structure1)
+    names2 = get_file_names(structure2)
     assert "file1.txt" in names1
     assert "file1.txt" in names2
     assert "dir1_only.txt" in names1
-    assert "dir1_only.txt" not in names2_get
-    assert "dir2_only.txt" not in names1_get
+    assert "dir1_only.txt" not in names2
+    assert "dir2_only.txt" not in names1
     assert "dir2_only.txt" in names2
 
 
@@ -299,11 +275,11 @@ def test_scan_sides_with_options(
     kwargs = {option_name: option_value}
     structure1, structure2, _ = _scan_sides(dir1, dir2, **kwargs)
     if option_name == "show_full_path":
-        assert "_files" in structure1
-        assert "_files" in structure2
-        assert isinstance(structure1["_files"][0], FileEntry)
+        assert structure1.files
+        assert structure2.files
+        assert isinstance(structure1.files[0], FileEntry)
         found = False
-        for entry in structure1["_files"]:
+        for entry in structure1.files:
             if entry.name == "file1.txt":
                 found = True
                 assert (
@@ -312,24 +288,24 @@ def test_scan_sides_with_options(
                 )
         assert found, "Could not find file1.txt with full path in structure1"
     elif option_name == "exclude_dirs":
-        assert expected_result not in structure1
-        assert expected_result not in structure2
+        assert expected_result not in structure1.subdirectories
+        assert expected_result not in structure2.subdirectories
     elif option_name == "exclude_patterns":
-        names1 = [f.name for f in structure1.get("_files", [])]
-        names2 = [f.name for f in structure2.get("_files", [])]
+        names1 = get_file_names(structure1)
+        names2 = get_file_names(structure2)
         assert not any(n.startswith(expected_result) for n in names1)
         assert not any(n.startswith(expected_result) for n in names2)
     elif option_name == "include_patterns":
-        for entry in structure1.get("_files", []):
+        for entry in structure1.files:
             assert entry.name.endswith(".txt"), (
                 f"Non-txt file {entry.name} was included"
             )
-        for entry in structure2.get("_files", []):
+        for entry in structure2.files:
             assert entry.name.endswith(".txt"), (
                 f"Non-txt file {entry.name} was included"
             )
-        assert "include_me.txt" in [f.name for f in structure1.get("_files", [])]
-        assert "exclude_me.log" not in [f.name for f in structure1.get("_files", [])]
+        assert "include_me.txt" in get_file_names(structure1)
+        assert "exclude_me.log" not in get_file_names(structure1)
 
 
 def test_scan_sides_with_statistics(
@@ -338,11 +314,11 @@ def test_scan_sides_with_statistics(
     dir1, dir2 = comparison_directories
     structure1, structure2, _ = _scan_sides(dir1, dir2, spec=_ALL_METRICS_SPEC)
     for structure in [structure1, structure2]:
-        assert "_loc" in structure
-        assert "_size" in structure
-        assert "_mtime" in structure
-    if structure1.get("_files"):
-        assert structure1["_files"][0].mtime is not None
+        assert structure.loc is not None
+        assert structure.size is not None
+        assert structure.mtime is not None
+    assert structure1.files
+    assert structure1.files[0].mtime > 0
 
 
 def test_display_comparison(
@@ -573,10 +549,10 @@ def test_complex_comparison(
     complex_directory: str, complex_directory_clone: str, output_dir: str
 ) -> None:
     structure1, structure2, _ = _scan_sides(complex_directory, complex_directory_clone)
-    assert "src" in structure1
-    assert "src" in structure2
-    assert "docs" in structure1
-    assert "docs" in structure2
+    assert "src" in structure1.subdirectories
+    assert "src" in structure2.subdirectories
+    assert "docs" in structure1.subdirectories
+    assert "docs" in structure2.subdirectories
     assert "CHANGELOG.md" not in get_file_names(structure1)
     assert "CHANGELOG.md" in get_file_names(structure2)
     assert "utils.py" in get_file_names(structure1, ["src"])
@@ -647,16 +623,16 @@ class TestScanSides:
         """Test that _scan_sides returns valid structures."""
         with patch("recursivist.compare.get_directory_structure") as mock_get_structure:
             mock_get_structure.side_effect = [
-                ({"_files": [FileEntry("file1.txt", "file1.txt")]}, {".txt"}),
-                ({"_files": [FileEntry("file2.txt", "file2.txt")]}, {".txt"}),
+                (Directory(files=[FileEntry("file1.txt", "file1.txt")]), {".txt"}),
+                (Directory(files=[FileEntry("file2.txt", "file2.txt")]), {".txt"}),
             ]
             structure1, structure2, _ = _scan_sides(dir1, dir2)
-            assert structure1 == {"_files": [FileEntry("file1.txt", "file1.txt")]}, (
-                "Should return structure1 from get_directory_structure"
-            )
-            assert structure2 == {"_files": [FileEntry("file2.txt", "file2.txt")]}, (
-                "Should return structure2 from get_directory_structure"
-            )
+            assert structure1 == Directory(
+                files=[FileEntry("file1.txt", "file1.txt")]
+            ), "Should return structure1 from get_directory_structure"
+            assert structure2 == Directory(
+                files=[FileEntry("file2.txt", "file2.txt")]
+            ), "Should return structure2 from get_directory_structure"
             assert mock_get_structure.call_count == 2, (
                 "get_directory_structure should be called twice"
             )
@@ -706,8 +682,8 @@ class TestScanSides:
         """Test _scan_sides with various options."""
         with patch("recursivist.compare.get_directory_structure") as mock_get_structure:
             mock_get_structure.side_effect = [
-                ({"_files": [FileEntry("file1.txt", "file1.txt")]}, {".txt"}),
-                ({"_files": [FileEntry("file2.txt", "file2.txt")]}, {".txt"}),
+                (Directory(files=[FileEntry("file1.txt", "file1.txt")]), {".txt"}),
+                (Directory(files=[FileEntry("file2.txt", "file2.txt")]), {".txt"}),
             ]
             exclude_dirs = ["node_modules", "dist"]
             exclude_extensions = {".pyc", ".log"}
@@ -753,7 +729,7 @@ class TestBuildComparisonTree:
     @settings(max_examples=10)
     def test_build_comparison_tree(
         self,
-        structures: tuple[dict[str, Any], dict[str, Any]],
+        structures: tuple[Directory, Directory],
     ) -> None:
         """Test that build_comparison_tree builds a valid tree."""
         structure1, structure2 = structures
@@ -768,7 +744,7 @@ class TestBuildComparisonTree:
     @settings(max_examples=5)
     def test_build_comparison_tree_with_options(
         self,
-        structures: tuple[dict[str, Any], dict[str, Any]],
+        structures: tuple[Directory, Directory],
     ) -> None:
         """Test build_comparison_tree with various options."""
         structure1, structure2 = structures
@@ -792,7 +768,7 @@ class TestDisplayComparison:
             patch("recursivist.compare.Tree") as mock_tree,
         ):
             mock_console.return_value.width = 100
-            mock_compare.return_value = ({"_files": []}, {"_files": []}, (None, None))
+            mock_compare.return_value = (Directory(), Directory(), (None, None))
             display_comparison(dir1, dir2)
             mock_compare.assert_called_once()
             mock_tree.assert_called()
@@ -806,7 +782,7 @@ class TestDisplayComparison:
         with (
             patch("recursivist.compare._scan_sides") as mock_compare,
         ):
-            mock_compare.return_value = ({"_files": []}, {"_files": []}, (None, None))
+            mock_compare.return_value = (Directory(), Directory(), (None, None))
             display_comparison(
                 dir1,
                 dir2,
@@ -850,7 +826,7 @@ class TestExportComparison:
             patch("recursivist.compare._scan_sides") as mock_compare,
             patch("recursivist.compare._export_comparison_to_html") as mock_export_html,
         ):
-            mock_compare.return_value = ({"_files": []}, {"_files": []}, (None, None))
+            mock_compare.return_value = (Directory(), Directory(), (None, None))
             export_comparison(dir1, dir2, "html", output_path)
             mock_export_html.assert_called_once()
 
@@ -882,7 +858,7 @@ class TestExportComparison:
             patch("recursivist.compare._scan_sides") as mock_compare,
             patch("recursivist.compare._export_comparison_to_html") as _,
         ):
-            mock_compare.return_value = ({"_files": []}, {"_files": []}, (None, None))
+            mock_compare.return_value = (Directory(), Directory(), (None, None))
             export_comparison(
                 dir1,
                 dir2,
@@ -924,7 +900,7 @@ class TestExportComparisonToHTML:
     @settings(max_examples=5)
     def test_export_comparison_to_html(
         self,
-        structures: tuple[dict[str, Any], dict[str, Any]],
+        structures: tuple[Directory, Directory],
         dir1_name: str,
         dir2_name: str,
     ) -> None:
@@ -972,29 +948,19 @@ class TestBuildComparisonTreeProperties:
     @settings(max_examples=20)
     def test_build_comparison_tree(
         self,
-        structure1: dict[str, Any],
-        structure2: dict[str, Any],
+        structure1: Directory,
+        structure2: Directory,
     ) -> None:
         """Test that build_comparison_tree successfully builds a tree."""
         mock_tree = MagicMock(spec=Tree)
         mock_subtree = MagicMock(spec=Tree)
         mock_tree.add.return_value = mock_subtree
 
-        def count_files_and_folders(struct: dict[str, Any]) -> int:
-            count = 0
-            if "_files" in struct:
-                count += len(struct["_files"])
-            for key, value in struct.items():
-                if (
-                    key != "_files"
-                    and key != "_loc"
-                    and key != "_size"
-                    and key != "_mtime"
-                    and key != "_max_depth_reached"
-                    and isinstance(value, dict)
-                ):
-                    count += 1
-                    count += count_files_and_folders(value)
+        def count_files_and_folders(struct: Directory) -> int:
+            count = len(struct.files)
+            for subdirectory in struct.subdirectories.values():
+                count += 1
+                count += count_files_and_folders(subdirectory)
             return count
 
         expected_calls = count_files_and_folders(structure1) + count_files_and_folders(
@@ -1014,7 +980,7 @@ class TestBuildComparisonTreeStructures:
     def test_identical_structures(
         self,
         mock_tree: MagicMock,
-        simple_structure: dict[str, Any],
+        simple_structure: Directory,
     ) -> None:
         """Test comparing identical structures."""
         build_comparison_tree(
@@ -1032,18 +998,18 @@ class TestBuildComparisonTreeStructures:
 
     def test_different_files(self, mock_tree: MagicMock) -> None:
         """Test comparing structures with different files."""
-        structure1 = {
-            "_files": [
+        structure1 = Directory(
+            files=[
                 FileEntry("file1.txt", "file1.txt"),
                 FileEntry("common.py", "common.py"),
             ]
-        }
-        structure2 = {
-            "_files": [
+        )
+        structure2 = Directory(
+            files=[
                 FileEntry("file2.txt", "file2.txt"),
                 FileEntry("common.py", "common.py"),
             ]
-        }
+        )
         build_comparison_tree(structure1, structure2, mock_tree, DisplayOptions())
         calls = [
             call
@@ -1066,14 +1032,18 @@ class TestBuildComparisonTreeStructures:
         self, mock_tree: MagicMock, mock_subtree: MagicMock
     ) -> None:
         """Test comparing structures with different directories."""
-        structure1 = {
-            "dir1": {"_files": [FileEntry("file1.txt", "file1.txt")]},
-            "common_dir": {"_files": [FileEntry("common.py", "common.py")]},
-        }
-        structure2 = {
-            "dir2": {"_files": [FileEntry("file2.txt", "file2.txt")]},
-            "common_dir": {"_files": [FileEntry("common.py", "common.py")]},
-        }
+        structure1 = Directory(
+            subdirectories={
+                "dir1": Directory(files=[FileEntry("file1.txt", "file1.txt")]),
+                "common_dir": Directory(files=[FileEntry("common.py", "common.py")]),
+            }
+        )
+        structure2 = Directory(
+            subdirectories={
+                "dir2": Directory(files=[FileEntry("file2.txt", "file2.txt")]),
+                "common_dir": Directory(files=[FileEntry("common.py", "common.py")]),
+            }
+        )
         mock_tree.add.return_value = mock_subtree
         build_comparison_tree(structure1, structure2, mock_tree, DisplayOptions())
         dir_calls = [
@@ -1100,18 +1070,18 @@ class TestBuildComparisonTreeStructures:
     def test_with_statistics(self, mock_tree: MagicMock) -> None:
         """Test comparison tree with statistics."""
         now = time.time()
-        structure1 = {
-            "_loc": 100,
-            "_size": 1024,
-            "_mtime": now,
-            "_files": [FileEntry("file1.txt", "/path/to/file1.txt", 50, 512, now)],
-        }
-        structure2 = {
-            "_loc": 200,
-            "_size": 2048,
-            "_mtime": now,
-            "_files": [FileEntry("file2.txt", "/path/to/file2.txt", 100, 1024, now)],
-        }
+        structure1 = Directory(
+            loc=100,
+            size=1024,
+            mtime=now,
+            files=[FileEntry("file1.txt", "/path/to/file1.txt", 50, 512, now)],
+        )
+        structure2 = Directory(
+            loc=200,
+            size=2048,
+            mtime=now,
+            files=[FileEntry("file2.txt", "/path/to/file2.txt", 100, 1024, now)],
+        )
         build_comparison_tree(
             structure1,
             structure2,
@@ -1142,42 +1112,50 @@ class TestBuildComparisonTreeStructures:
         self, mock_tree: MagicMock, mock_subtree: MagicMock
     ) -> None:
         """Test comparison with complex nested structures."""
-        structure1 = {
-            "_files": [
+        structure1 = Directory(
+            files=[
                 FileEntry("common1.txt", "common1.txt"),
                 FileEntry("only1.txt", "only1.txt"),
             ],
-            "dir1": {
-                "_files": [FileEntry("dir1_file.txt", "dir1_file.txt")],
-                "nested1": {
-                    "_files": [FileEntry("nested1_file.txt", "nested1_file.txt")]
-                },
+            subdirectories={
+                "dir1": Directory(
+                    files=[FileEntry("dir1_file.txt", "dir1_file.txt")],
+                    subdirectories={
+                        "nested1": Directory(
+                            files=[FileEntry("nested1_file.txt", "nested1_file.txt")]
+                        )
+                    },
+                ),
+                "common_dir": Directory(
+                    files=[
+                        FileEntry("common_file.txt", "common_file.txt"),
+                        FileEntry("only_in_1.txt", "only_in_1.txt"),
+                    ]
+                ),
             },
-            "common_dir": {
-                "_files": [
-                    FileEntry("common_file.txt", "common_file.txt"),
-                    FileEntry("only_in_1.txt", "only_in_1.txt"),
-                ]
-            },
-        }
-        structure2 = {
-            "_files": [
+        )
+        structure2 = Directory(
+            files=[
                 FileEntry("common1.txt", "common1.txt"),
                 FileEntry("only2.txt", "only2.txt"),
             ],
-            "dir2": {
-                "_files": [FileEntry("dir2_file.txt", "dir2_file.txt")],
-                "nested2": {
-                    "_files": [FileEntry("nested2_file.txt", "nested2_file.txt")]
-                },
+            subdirectories={
+                "dir2": Directory(
+                    files=[FileEntry("dir2_file.txt", "dir2_file.txt")],
+                    subdirectories={
+                        "nested2": Directory(
+                            files=[FileEntry("nested2_file.txt", "nested2_file.txt")]
+                        )
+                    },
+                ),
+                "common_dir": Directory(
+                    files=[
+                        FileEntry("common_file.txt", "common_file.txt"),
+                        FileEntry("only_in_2.txt", "only_in_2.txt"),
+                    ]
+                ),
             },
-            "common_dir": {
-                "_files": [
-                    FileEntry("common_file.txt", "common_file.txt"),
-                    FileEntry("only_in_2.txt", "only_in_2.txt"),
-                ]
-            },
-        }
+        )
         all_calls = []
 
         def side_effect(*args: Any, **kwargs: Any) -> MagicMock:
@@ -1208,16 +1186,16 @@ class TestBuildComparisonTreeStructures:
         self, mock_tree: MagicMock, mock_subtree: MagicMock
     ) -> None:
         """Test that a truncated directory is left unexpanded."""
-        structure1 = {
-            "_files": [FileEntry("file1.txt", "file1.txt")],
-            "subdir": {
-                "_max_depth_reached": True,
+        structure1 = Directory(
+            files=[FileEntry("file1.txt", "file1.txt")],
+            subdirectories={"subdir": Directory(max_depth_reached=True)},
+        )
+        structure2 = Directory(
+            files=[FileEntry("file2.txt", "file2.txt")],
+            subdirectories={
+                "subdir": Directory(files=[FileEntry("subfile.txt", "subfile.txt")])
             },
-        }
-        structure2 = {
-            "_files": [FileEntry("file2.txt", "file2.txt")],
-            "subdir": {"_files": [FileEntry("subfile.txt", "subfile.txt")]},
-        }
+        )
         mock_tree.add.return_value = mock_subtree
         build_comparison_tree(structure1, structure2, mock_tree, DisplayOptions())
         subtree_calls = [
@@ -1233,12 +1211,14 @@ class TestBuildComparisonTreeStructures:
         self, mock_tree: MagicMock, mock_subtree: MagicMock
     ) -> None:
         """Truncated directories still signal whether anything was cut off."""
-        structure1 = {
-            "full": {"_max_depth_reached": True, "_hidden_contents": True},
-            "bare": {"_max_depth_reached": True},
-        }
+        structure1 = Directory(
+            subdirectories={
+                "full": Directory(max_depth_reached=True, hidden_contents=True),
+                "bare": Directory(max_depth_reached=True),
+            }
+        )
         mock_tree.add.return_value = mock_subtree
-        build_comparison_tree(structure1, {}, mock_tree, DisplayOptions())
+        build_comparison_tree(structure1, Directory(), mock_tree, DisplayOptions())
         labels = [str(call.args[0]) for call in mock_tree.add.call_args_list]
         assert any("📂 full" in label for label in labels)
         assert any("📁 bare" in label for label in labels)
@@ -1269,7 +1249,7 @@ class TestCompareGitStatus:
         )
         scan = mocker.patch(
             "recursivist.compare.get_directory_structure",
-            side_effect=[({"_files": []}, set()), ({"_files": []}, set())],
+            side_effect=[(Directory(), set()), (Directory(), set())],
         )
         _scan_sides("d1", "d2", spec=_GIT_SPEC_DISPLAY)
 
@@ -1287,7 +1267,7 @@ class TestCompareGitStatus:
         gs = mocker.patch("recursivist.compare.get_git_status")
         scan = mocker.patch(
             "recursivist.compare.get_directory_structure",
-            side_effect=[({"_files": []}, set()), ({"_files": []}, set())],
+            side_effect=[(Directory(), set()), (Directory(), set())],
         )
         _scan_sides("d1", "d2", spec=DisplayOptions())
 
@@ -1306,20 +1286,20 @@ class TestCompareGitStatus:
         )
         mocker.patch(
             "recursivist.compare.get_directory_structure",
-            side_effect=[({"_files": []}, set()), ({"_files": []}, set())],
+            side_effect=[(Directory(), set()), (Directory(), set())],
         )
         _scan_sides("d1", "d2", spec=DisplayOptions(sort_key=METRIC_GIT))
         assert gs.call_count == 2
 
     def test_build_comparison_tree_renders_git_badges(self) -> None:
         """Files carry their status badge; deleted files are struck through."""
-        structure = {
-            "_files": [FileEntry("mod.py", "mod.py"), FileEntry("del.py", "del.py")],
-            "_git_markers": {"mod.py": "M", "del.py": "D"},
-        }
+        structure = Directory(
+            files=[FileEntry("mod.py", "mod.py"), FileEntry("del.py", "del.py")],
+            git_markers={"mod.py": "M", "del.py": "D"},
+        )
         tree = MagicMock()
         tree.add.return_value = tree
-        build_comparison_tree(structure, {}, tree, _GIT_SPEC_DISPLAY)
+        build_comparison_tree(structure, Directory(), tree, _GIT_SPEC_DISPLAY)
 
         texts = _plain_texts(tree)
         assert any("mod.py" in t and "[M]" in t for t in texts)
@@ -1336,22 +1316,21 @@ class TestCompareGitStatus:
 
     def test_build_comparison_tree_no_badges_without_flag(self) -> None:
         """Markers present in the structure are ignored when git is off."""
-        structure = {
-            "_files": [FileEntry("mod.py", "mod.py")],
-            "_git_markers": {"mod.py": "M"},
-        }
+        structure = Directory(
+            files=[FileEntry("mod.py", "mod.py")], git_markers={"mod.py": "M"}
+        )
         tree = MagicMock()
         tree.add.return_value = tree
-        build_comparison_tree(structure, {}, tree, DisplayOptions())
+        build_comparison_tree(structure, Directory(), tree, DisplayOptions())
         assert all("[M]" not in t for t in _plain_texts(tree))
 
     def test_build_comparison_tree_badges_on_other_side_files(self) -> None:
         """Files unique to the *other* structure use the other side's markers."""
-        this_structure: dict[str, Any] = {"_files": []}
-        other_structure = {
-            "_files": [FileEntry("only_other.py", "only_other.py")],
-            "_git_markers": {"only_other.py": "A"},
-        }
+        this_structure = Directory()
+        other_structure = Directory(
+            files=[FileEntry("only_other.py", "only_other.py")],
+            git_markers={"only_other.py": "A"},
+        )
         tree = MagicMock()
         tree.add.return_value = tree
         build_comparison_tree(this_structure, other_structure, tree, _GIT_SPEC_DISPLAY)
@@ -1360,24 +1339,24 @@ class TestCompareGitStatus:
     def test_build_comparison_tree_git_sort_order(self) -> None:
         """git_status sort orders files modified, added, deleted, untracked,
         then clean."""
-        structure = {
-            "_files": [
+        structure = Directory(
+            files=[
                 FileEntry("clean.py", "clean.py"),
                 FileEntry("unt.py", "unt.py"),
                 FileEntry("del.py", "del.py"),
                 FileEntry("add.py", "add.py"),
                 FileEntry("mod.py", "mod.py"),
             ],
-            "_git_markers": {
+            git_markers={
                 "unt.py": "U",
                 "del.py": "D",
                 "add.py": "A",
                 "mod.py": "M",
             },
-        }
+        )
         tree = MagicMock()
         tree.add.return_value = tree
-        build_comparison_tree(structure, {}, tree, _GIT_SPEC_SORT)
+        build_comparison_tree(structure, Directory(), tree, _GIT_SPEC_SORT)
 
         names = _plain_texts(tree)
         seq = ["mod.py", "add.py", "del.py", "unt.py", "clean.py"]
@@ -1401,19 +1380,19 @@ class TestCompareGitStatus:
 
         def fake_scan(
             directory: str, *args: Any, **kwargs: Any
-        ) -> tuple[dict[str, Any], set[str]]:
+        ) -> tuple[Directory, set[str]]:
             if kwargs.get("git_status_map"):
                 return (
-                    {
-                        "_files": [
+                    Directory(
+                        files=[
                             FileEntry(name="mod.py", path="mod.py"),
                             FileEntry(name="del.py", path="del.py"),
                         ],
-                        "_git_markers": {"mod.py": "M", "del.py": "D"},
-                    },
+                        git_markers={"mod.py": "M", "del.py": "D"},
+                    ),
                     {".py"},
                 )
-            return ({"_files": []}, set())
+            return (Directory(), set())
 
         mocker.patch(
             "recursivist.compare.get_directory_structure", side_effect=fake_scan
@@ -1440,7 +1419,7 @@ class TestCompareGitStatus:
         )
         mocker.patch(
             "recursivist.compare.get_directory_structure",
-            side_effect=[({"_files": []}, set()), ({"_files": []}, set())],
+            side_effect=[(Directory(), set()), (Directory(), set())],
         )
         out = str(tmp_path / "cmp.html")
         export_comparison("d1", "d2", "html", out, spec=DisplayOptions())
@@ -1455,7 +1434,7 @@ class TestCompareGitStatus:
         mocker.patch("recursivist.compare.get_git_status", side_effect=[{}, {}])
         mocker.patch(
             "recursivist.compare.get_directory_structure",
-            side_effect=[({"_files": []}, set()), ({"_files": []}, set())],
+            side_effect=[(Directory(), set()), (Directory(), set())],
         )
         recorded: dict[str, Console] = {}
 
@@ -1489,7 +1468,7 @@ class TestCompareAnnotationAwareDifferences:
     """
 
     def _render(
-        self, structure: dict[str, Any], other: dict[str, Any], spec: DisplayOptions
+        self, structure: Directory, other: Directory, spec: DisplayOptions
     ) -> dict[str, str]:
         tree = MagicMock()
         tree.add.return_value = tree
@@ -1499,8 +1478,8 @@ class TestCompareAnnotationAwareDifferences:
     def test_differing_loc_marks_same_named_file_unique(self) -> None:
         """Same name, different LOC under --sort-by-loc: highlighted, not shared."""
         spec = DisplayOptions(sort_key=METRIC_LOC, metrics=(METRIC_LOC,))
-        this = {"_files": [FileEntry(name="shared.py", path="shared.py", loc=3)]}
-        other = {"_files": [FileEntry(name="shared.py", path="shared.py", loc=1)]}
+        this = Directory(files=[FileEntry(name="shared.py", path="shared.py", loc=3)])
+        other = Directory(files=[FileEntry(name="shared.py", path="shared.py", loc=1)])
 
         styles = self._render(this, other, spec)
         assert styles["📄 shared.py (3 lines)"] == "on green"
@@ -1509,30 +1488,28 @@ class TestCompareAnnotationAwareDifferences:
     def test_matching_loc_keeps_same_named_file_shared(self) -> None:
         """Same name, identical LOC: not highlighted (still shared)."""
         spec = DisplayOptions(sort_key=METRIC_LOC, metrics=(METRIC_LOC,))
-        this = {"_files": [FileEntry(name="shared.py", path="shared.py", loc=5)]}
-        other = {"_files": [FileEntry(name="shared.py", path="shared.py", loc=5)]}
+        this = Directory(files=[FileEntry(name="shared.py", path="shared.py", loc=5)])
+        other = Directory(files=[FileEntry(name="shared.py", path="shared.py", loc=5)])
 
         styles = self._render(this, other, spec)
         assert styles["📄 shared.py (5 lines)"] == ""
 
     def test_no_annotation_ignores_metric_differences(self) -> None:
         """Without an active metric, stored LOC differences do not split files."""
-        this = {"_files": [FileEntry(name="shared.py", path="shared.py", loc=3)]}
-        other = {"_files": [FileEntry(name="shared.py", path="shared.py", loc=1)]}
+        this = Directory(files=[FileEntry(name="shared.py", path="shared.py", loc=3)])
+        other = Directory(files=[FileEntry(name="shared.py", path="shared.py", loc=1)])
 
         styles = self._render(this, other, DisplayOptions())
         assert styles["📄 shared.py"] == ""
 
     def test_differing_git_status_marks_same_named_file_unique(self) -> None:
         """Same name, different Git status: highlighted on each side."""
-        this = {
-            "_files": [FileEntry(name="foo.py", path="foo.py")],
-            "_git_markers": {"foo.py": "M"},
-        }
-        other = {
-            "_files": [FileEntry(name="foo.py", path="foo.py")],
-            "_git_markers": {},
-        }
+        this = Directory(
+            files=[FileEntry(name="foo.py", path="foo.py")], git_markers={"foo.py": "M"}
+        )
+        other = Directory(
+            files=[FileEntry(name="foo.py", path="foo.py")], git_markers={}
+        )
 
         styles = self._render(this, other, _GIT_SPEC_DISPLAY)
         assert styles["📄 foo.py [M]"] == "on green"
@@ -1540,14 +1517,12 @@ class TestCompareAnnotationAwareDifferences:
 
     def test_matching_git_status_keeps_same_named_file_shared(self) -> None:
         """Same name, identical Git status: not highlighted."""
-        this = {
-            "_files": [FileEntry(name="foo.py", path="foo.py")],
-            "_git_markers": {"foo.py": "M"},
-        }
-        other = {
-            "_files": [FileEntry(name="foo.py", path="foo.py")],
-            "_git_markers": {"foo.py": "M"},
-        }
+        this = Directory(
+            files=[FileEntry(name="foo.py", path="foo.py")], git_markers={"foo.py": "M"}
+        )
+        other = Directory(
+            files=[FileEntry(name="foo.py", path="foo.py")], git_markers={"foo.py": "M"}
+        )
 
         styles = self._render(this, other, _GIT_SPEC_DISPLAY)
         assert styles["📄 foo.py [M]"] == ""
@@ -1564,11 +1539,15 @@ class TestCompareAnnotationAwareDifferences:
             "recursivist.compare.get_directory_structure",
             side_effect=[
                 (
-                    {"_files": [FileEntry(name="shared.py", path="shared.py", loc=3)]},
+                    Directory(
+                        files=[FileEntry(name="shared.py", path="shared.py", loc=3)]
+                    ),
                     {".py"},
                 ),
                 (
-                    {"_files": [FileEntry(name="shared.py", path="shared.py", loc=1)]},
+                    Directory(
+                        files=[FileEntry(name="shared.py", path="shared.py", loc=1)]
+                    ),
                     {".py"},
                 ),
             ],
@@ -1603,8 +1582,8 @@ class TestCompareRemoteIdentity:
 
     def _render_with_identity(
         self,
-        structure: dict[str, Any],
-        other: dict[str, Any],
+        structure: Directory,
+        other: Directory,
         spec: DisplayOptions,
         identity_spec: DisplayOptions,
     ) -> dict[str, str]:
@@ -1638,8 +1617,12 @@ class TestCompareRemoteIdentity:
         """Same name and LOC, differing mtime: shared once identity drops mtime."""
         spec = DisplayOptions(metrics=(METRIC_LOC, METRIC_MTIME))
         identity_spec = spec.without_remote_unsupported()
-        this = {"_files": [FileEntry(name="a.py", path="a.py", loc=5, mtime=1.6e9)]}
-        remote = {"_files": [FileEntry(name="a.py", path="a.py", loc=5, mtime=0.0)]}
+        this = Directory(
+            files=[FileEntry(name="a.py", path="a.py", loc=5, mtime=1.6e9)]
+        )
+        remote = Directory(
+            files=[FileEntry(name="a.py", path="a.py", loc=5, mtime=0.0)]
+        )
 
         styles = self._render_with_identity(this, remote, spec, identity_spec)
 
@@ -1649,8 +1632,10 @@ class TestCompareRemoteIdentity:
     def test_mtime_difference_still_splits_when_identity_keeps_it(self) -> None:
         """The same inputs *do* split when identity keeps mtime (local-vs-local)."""
         spec = DisplayOptions(metrics=(METRIC_LOC, METRIC_MTIME))
-        this = {"_files": [FileEntry(name="a.py", path="a.py", loc=5, mtime=1.6e9)]}
-        other = {"_files": [FileEntry(name="a.py", path="a.py", loc=5, mtime=0.0)]}
+        this = Directory(
+            files=[FileEntry(name="a.py", path="a.py", loc=5, mtime=1.6e9)]
+        )
+        other = Directory(files=[FileEntry(name="a.py", path="a.py", loc=5, mtime=0.0)])
 
         styles = self._render_with_identity(this, other, spec, spec)
         assert "on green" in styles.values()
@@ -1660,8 +1645,8 @@ class TestCompareRemoteIdentity:
         """LOC is content-derived, so it keeps splitting even against a remote."""
         spec = DisplayOptions(metrics=(METRIC_LOC,))
         identity_spec = spec.without_remote_unsupported()
-        this = {"_files": [FileEntry(name="a.py", path="a.py", loc=5)]}
-        remote = {"_files": [FileEntry(name="a.py", path="a.py", loc=9)]}
+        this = Directory(files=[FileEntry(name="a.py", path="a.py", loc=5)])
+        remote = Directory(files=[FileEntry(name="a.py", path="a.py", loc=9)])
 
         styles = self._render_with_identity(this, remote, spec, identity_spec)
         assert styles["📄 a.py (5 lines)"] == "on green"
@@ -1673,7 +1658,11 @@ class TestCompareRemoteIdentity:
         """The terminal entry point passes the reduced identity spec downstream."""
         mocker.patch(
             "recursivist.compare._scan_sides",
-            return_value=({"_files": []}, {"_files": []}, (None, _GITHUB_TARGET)),
+            return_value=(
+                Directory(),
+                Directory(),
+                (None, _GITHUB_TARGET),
+            ),
         )
         mock_console = MagicMock()
         mock_console.width = 100
@@ -1706,8 +1695,12 @@ class TestCompareRemoteIdentity:
             "recursivist.compare.compile_regex_patterns",
             side_effect=lambda patterns, use_regex: list(patterns),
         )
-        local = {"_files": [FileEntry(name="a.py", path="a.py", loc=5, mtime=1.6e9)]}
-        remote = {"_files": [FileEntry(name="a.py", path="a.py", loc=5, mtime=0.0)]}
+        local = Directory(
+            files=[FileEntry(name="a.py", path="a.py", loc=5, mtime=1.6e9)]
+        )
+        remote = Directory(
+            files=[FileEntry(name="a.py", path="a.py", loc=5, mtime=0.0)]
+        )
         mocker.patch(
             "recursivist.compare._scan_sides",
             return_value=(local, remote, (None, _GITHUB_TARGET)),
@@ -1734,8 +1727,10 @@ class TestCompareRemoteIdentity:
             "recursivist.compare.compile_regex_patterns",
             side_effect=lambda patterns, use_regex: list(patterns),
         )
-        left = {"_files": [FileEntry(name="a.py", path="a.py", loc=5, mtime=1.6e9)]}
-        right = {"_files": [FileEntry(name="a.py", path="a.py", loc=5, mtime=0.0)]}
+        left = Directory(
+            files=[FileEntry(name="a.py", path="a.py", loc=5, mtime=1.6e9)]
+        )
+        right = Directory(files=[FileEntry(name="a.py", path="a.py", loc=5, mtime=0.0)])
         mocker.patch(
             "recursivist.compare._scan_sides",
             return_value=(left, right, (None, None)),
@@ -1776,18 +1771,42 @@ def test_compare_reports_filters_unmatched_on_both_sides(
     ]
 
 
-def test_reserved_name_directory_is_shared_across_sides(temp_dir: str) -> None:
-    """A folder called ``_files`` on both sides is matched, not flagged as unique."""
+def test_comparison_marks_symlink_loop(mocker: MockerFixture, temp_dir: str) -> None:
+    """A looping directory is marked, not expanded, in the terminal and HTML views."""
+    looping = Directory(subdirectories={"loop": Directory(symlink_loop=True)})
+
+    tree = MagicMock()
+    subtree = MagicMock()
+    tree.add.return_value = subtree
+    build_comparison_tree(looping, Directory(), tree, DisplayOptions())
+    assert _plain_texts(tree) == ["📂 loop"]
+    assert _plain_texts(subtree) == ["↩ (symlink loop)"]
+
+    mocker.patch(
+        "recursivist.compare.get_directory_structure",
+        side_effect=[(looping, set()), (Directory(), set())],
+    )
+    output_path = os.path.join(temp_dir, "cmp.html")
+    export_comparison("left", "right", "html", output_path)
+    with open(output_path, encoding="utf-8") as f:
+        content = f.read()
+    assert '<ul><li class="symlink-loop">↩ (symlink loop)</li></ul>' in content
+    assert content.count('class="directory-unique-left"') == 1
+    assert content.count('class="directory-unique-right"') == 1
+
+
+def test_field_named_directory_is_shared_across_sides(temp_dir: str) -> None:
+    """A folder called ``files`` on both sides is matched, not flagged as unique."""
     for side in ("left", "right"):
-        os.makedirs(os.path.join(temp_dir, side, "_files"))
-        with open(os.path.join(temp_dir, side, "_files", "x.txt"), "w") as f:
+        os.makedirs(os.path.join(temp_dir, side, "files"))
+        with open(os.path.join(temp_dir, side, "files", "x.txt"), "w") as f:
             f.write("x")
     dir1, dir2 = (os.path.join(temp_dir, s) for s in ("left", "right"))
     output_path = os.path.join(temp_dir, "cmp.html")
     export_comparison(dir1, dir2, "html", output_path)
     with open(output_path, encoding="utf-8") as f:
         content = f.read()
-    assert '<span class="directory">📂 _files</span>' in content
+    assert '<span class="directory">📂 files</span>' in content
     assert "x.txt" in content
     assert 'class="directory-unique' not in content
     assert 'class="file-unique' not in content

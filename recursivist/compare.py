@@ -21,7 +21,7 @@ from rich.table import Table
 from rich.text import Text
 from rich.tree import Tree
 
-from recursivist._models import FileEntry
+from recursivist._models import Directory, FileEntry
 from recursivist.exporters.base import write_text
 from recursivist.filtering import (
     PatternMatchTracker,
@@ -47,7 +47,6 @@ from recursivist.metrics import (
 )
 from recursivist.scanner import (
     get_directory_structure,
-    get_subdirectory,
     has_contents,
     iter_subdirectories,
 )
@@ -85,7 +84,7 @@ def _scan_one_side(
     show_full_path: bool,
     spec: DisplayOptions,
     pattern_tracker: PatternMatchTracker | None = None,
-) -> dict[str, Any]:
+) -> Directory:
     """Scan a single already-resolved directory for one side of a comparison.
 
     Git status is looked up (and files annotated) only when *spec* requests it. Callers
@@ -147,7 +146,7 @@ def _scan_sides(
     spec: DisplayOptions | None = None,
     *,
     targets: _Targets | None = None,
-) -> tuple[dict[str, Any], dict[str, Any], _Targets]:
+) -> tuple[Directory, Directory, _Targets]:
     """Scan two inputs for comparison, each a local directory or GitHub URL.
 
     Each side is scanned with the same filtering and metric settings. A side may be a
@@ -221,7 +220,7 @@ def _scan_sides(
             return None
         return stack.enter_context(checkout_repository(target))
 
-    def _side(raw: str, checkout: RepoCheckout | None) -> dict[str, Any]:
+    def _side(raw: str, checkout: RepoCheckout | None) -> Directory:
         if checkout is None:
             return _scan_one_side(
                 raw,
@@ -501,19 +500,17 @@ class _ComparisonWalker:
     def _dir(
         self,
         name: str,
-        content: Any,
-        this_content: dict[str, Any],
-        other_content: dict[str, Any],
+        content: Directory,
+        this_content: Directory,
+        other_content: Directory,
         uniqueness: str,
         metrics: Sequence[str],
         is_empty: bool,
     ) -> _DirNode:
-        is_dict = isinstance(content, dict)
-        symlink_loop = bool(is_dict and content.get("_symlink_loop"))
         children: tuple[_Node, ...] | None
-        if symlink_loop:
+        if content.symlink_loop:
             children = ()
-        elif is_dict and content.get("_max_depth_reached"):
+        elif content.max_depth_reached:
             children = None
         else:
             children = tuple(self.walk(this_content, other_content))
@@ -522,56 +519,46 @@ class _ComparisonWalker:
             name=name,
             metrics_suffix=format_dir_metrics(content, metrics),
             uniqueness=uniqueness,
-            symlink_loop=symlink_loop,
+            symlink_loop=content.symlink_loop,
             children=children,
         )
 
-    def walk(
-        self, structure: dict[str, Any], other_structure: dict[str, Any]
-    ) -> list[_Node]:
+    def walk(self, structure: Directory, other_structure: Directory) -> list[_Node]:
         """Return the nodes for *structure*, compared against *other_structure*.
 
         Entries are ordered: this side's files (sorted), this side's directories, then
-        files and directories that exist only on the other side.
+        files and directories that exist only on the other side. A directory that exists
+        on one side only is walked against an empty
+        [`Directory`][recursivist._models.Directory].
 
         Args:
-            structure: Structure of the directory being rendered.
-            other_structure: Structure of the directory being compared against.
+            structure: The directory being rendered.
+            other_structure: The directory being compared against.
 
         Returns:
             The comparison nodes at this level, each directory carrying its children.
         """
         loads_git = self._loads_git_markers
         sort_key = self.spec.sort_key
-        markers: dict[str, str] = structure.get("_git_markers", {}) if loads_git else {}
-        other_markers: dict[str, str] = (
-            other_structure.get("_git_markers", {})
-            if loads_git and other_structure
-            else {}
-        )
+        markers: dict[str, str] = structure.git_markers if loads_git else {}
+        other_markers: dict[str, str] = other_structure.git_markers if loads_git else {}
         nodes: list[_Node] = []
 
-        if "_files" in structure:
-            files_in_other = (
-                other_structure.get("_files", []) if other_structure else []
-            )
-            other_ids = self._identities(files_in_other, other_markers)
-            for entry in sort_files_by_type(structure["_files"], sort_key, markers):
-                unique = self._identity(entry, markers) not in other_ids
-                nodes.append(
-                    self._file(
-                        entry,
-                        markers,
-                        _UNIQUE_THIS if unique else _SHARED,
-                        self.this_metrics,
-                    )
+        other_ids = self._identities(other_structure.files, other_markers)
+        for entry in sort_files_by_type(structure.files, sort_key, markers):
+            unique = self._identity(entry, markers) not in other_ids
+            nodes.append(
+                self._file(
+                    entry,
+                    markers,
+                    _UNIQUE_THIS if unique else _SHARED,
+                    self.this_metrics,
                 )
+            )
 
         for name, content in iter_subdirectories(structure):
-            other_match = (
-                get_subdirectory(other_structure, name) if other_structure else None
-            )
-            other_content = other_match if other_match is not None else {}
+            other_match = other_structure.subdirectories.get(name)
+            other_content = other_match if other_match is not None else Directory()
             nodes.append(
                 self._dir(
                     name,
@@ -584,29 +571,21 @@ class _ComparisonWalker:
                 )
             )
 
-        if not other_structure:
-            return nodes
-
-        if "_files" in other_structure:
-            this_ids = self._identities(structure.get("_files", []), markers)
-            for entry in sort_files_by_type(
-                other_structure["_files"], sort_key, other_markers
-            ):
-                if self._identity(entry, other_markers) not in this_ids:
-                    nodes.append(
-                        self._file(
-                            entry, other_markers, _UNIQUE_OTHER, self.other_metrics
-                        )
-                    )
+        this_ids = self._identities(structure.files, markers)
+        for entry in sort_files_by_type(other_structure.files, sort_key, other_markers):
+            if self._identity(entry, other_markers) not in this_ids:
+                nodes.append(
+                    self._file(entry, other_markers, _UNIQUE_OTHER, self.other_metrics)
+                )
 
         for name, other_content in iter_subdirectories(other_structure):
-            if get_subdirectory(structure, name) is not None:
+            if name in structure.subdirectories:
                 continue
             nodes.append(
                 self._dir(
                     name,
                     other_content,
-                    {},
+                    Directory(),
                     other_content,
                     _UNIQUE_OTHER,
                     self.other_metrics,
@@ -705,8 +684,8 @@ def _render_html_nodes(nodes: Sequence[_Node]) -> str:
 
 
 def build_comparison_tree(
-    structure: dict[str, Any],
-    other_structure: dict[str, Any],
+    structure: Directory,
+    other_structure: Directory,
     tree: Tree,
     spec: DisplayOptions,
     icon_style: str = "emoji",
@@ -726,7 +705,7 @@ def build_comparison_tree(
 
     When ``spec.show_git_status`` is set, each file is followed by a plain Git-status
     badge — ``[U]`` untracked, ``[M]`` modified, ``[A]`` added, ``[D]`` deleted — read
-    from the ``_git_markers`` stored on *structure* (and on *other_structure* for
+    from the ``git_markers`` stored on *structure* (and on *other_structure* for
     entries unique to it). The badge is not color-coded; it trails the metric
     parenthetical, and deleted files are struck through.
 
@@ -744,8 +723,8 @@ def build_comparison_tree(
     views always agree on ordering, badges and highlighting.
 
     Args:
-        structure: Structure of the directory being rendered.
-        other_structure: Structure of the directory being compared against.
+        structure: The directory being rendered.
+        other_structure: The directory being compared against.
         tree: ``rich`` tree to add nodes to. Modified in place.
         spec: Resolved sorting and annotation directives.
         icon_style: Icon style to use, either ``"emoji"`` or ``"nerd"``.

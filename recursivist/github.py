@@ -41,10 +41,9 @@ import urllib.request
 from collections.abc import Generator, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, replace
-from typing import Any, cast
+from typing import cast
 
-from recursivist._models import FileEntry
-from recursivist.scanner import iter_subdirectories
+from recursivist._models import Directory, FileEntry
 
 logger = logging.getLogger(__name__)
 
@@ -687,9 +686,7 @@ def checkout_repository(
         shutil.rmtree(temp_dir, ignore_errors=True)
 
 
-def apply_github_urls(
-    structure: dict[str, Any], checkout: RepoCheckout
-) -> dict[str, Any]:
+def apply_github_urls(structure: Directory, checkout: RepoCheckout) -> Directory:
     """Rewrite each file's display path to its GitHub blob URL, in place.
 
     Used when ``--full-path`` is requested for a GitHub input: it walks *structure* and
@@ -710,18 +707,14 @@ def apply_github_urls(
     target = checkout.target
     base_prefix = target.subpath.strip("/")
 
-    def _walk(node: dict[str, Any], rel_dir: str) -> None:
-        files = node.get("_files")
-        if files:
-            rewritten: list[FileEntry] = []
-            for entry in files:
-                rel_file = f"{rel_dir}/{entry.name}" if rel_dir else entry.name
-                url = target.blob_url(checkout.ref, rel_file)
-                rewritten.append(entry._replace(path=url))
-            node["_files"] = rewritten
-        for name, content in iter_subdirectories(node):
-            if not isinstance(content, dict):
-                continue
+    def _walk(node: Directory, rel_dir: str) -> None:
+        rewritten: list[FileEntry] = []
+        for entry in node.files:
+            rel_file = f"{rel_dir}/{entry.name}" if rel_dir else entry.name
+            url = target.blob_url(checkout.ref, rel_file)
+            rewritten.append(entry._replace(path=url))
+        node.files = rewritten
+        for name, content in node.subdirectories.items():
             next_dir = f"{rel_dir}/{name}" if rel_dir else name
             _walk(content, next_dir)
 

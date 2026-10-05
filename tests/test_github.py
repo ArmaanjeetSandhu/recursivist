@@ -22,7 +22,7 @@ import pytest
 from typer.testing import CliRunner
 
 from recursivist import github
-from recursivist._models import FileEntry
+from recursivist._models import Directory, FileEntry
 from recursivist.cli import app
 from recursivist.github import (
     GitHubError,
@@ -557,10 +557,10 @@ def test_checkout_repository_rejects_traversal(
 
 
 def test_apply_github_urls_rewrites_paths() -> None:
-    structure: dict[str, Any] = {
-        "_files": [FileEntry(name="a.py", path="a.py")],
-        "sub": {"_files": [FileEntry(name="b.py", path="b.py")]},
-    }
+    structure = Directory(
+        files=[FileEntry(name="a.py", path="a.py")],
+        subdirectories={"sub": Directory(files=[FileEntry(name="b.py", path="b.py")])},
+    )
     checkout = github.RepoCheckout(
         target=GitHubTarget("o", "r"),
         local_root="/tmp/whatever",
@@ -568,15 +568,15 @@ def test_apply_github_urls_rewrites_paths() -> None:
         root_name="r",
     )
     apply_github_urls(structure, checkout)
-    assert structure["_files"][0].path == "https://github.com/o/r/blob/main/a.py"
+    assert structure.files[0].path == "https://github.com/o/r/blob/main/a.py"
     assert (
-        structure["sub"]["_files"][0].path
+        structure.subdirectories["sub"].files[0].path
         == "https://github.com/o/r/blob/main/sub/b.py"
     )
 
 
 def test_apply_github_urls_includes_subpath_prefix() -> None:
-    structure: dict[str, Any] = {"_files": [FileEntry(name="c.py", path="c.py")]}
+    structure = Directory(files=[FileEntry(name="c.py", path="c.py")])
     checkout = github.RepoCheckout(
         target=GitHubTarget("o", "r", subpath="pkg/util"),
         local_root="/tmp/whatever",
@@ -584,9 +584,7 @@ def test_apply_github_urls_includes_subpath_prefix() -> None:
         root_name="util",
     )
     apply_github_urls(structure, checkout)
-    assert (
-        structure["_files"][0].path == "https://github.com/o/r/blob/dev/pkg/util/c.py"
-    )
+    assert structure.files[0].path == "https://github.com/o/r/blob/dev/pkg/util/c.py"
 
 
 def test_without_remote_unsupported_strips_git_and_mtime() -> None:
@@ -751,7 +749,7 @@ def test_cli_export_github_json_blob_urls(
     assert result.exit_code == 0
     data = json.loads((tmp_path / "structure.json").read_text())
     assert data["root"] == "r"
-    paths = [f["path"] for f in data["structure"]["_files"]]
+    paths = [f["path"] for f in data["structure"]["files"]]
     assert "https://github.com/o/r/blob/main/README.md" in paths
 
 
@@ -860,11 +858,13 @@ def test_cli_visualize_github_network_error(
     assert result.exit_code == 1
 
 
-def test_apply_github_urls_rewrites_underscore_directories() -> None:
-    structure: dict[str, Any] = {
-        "__tests__": {"_files": [FileEntry(name="a.js", path="/tmp/x/a.js")]},
-        "/_files": {"_files": [FileEntry(name="b.js", path="/tmp/x/b.js")]},
-    }
+def test_apply_github_urls_rewrites_underscore_and_field_named_directories() -> None:
+    structure = Directory(
+        subdirectories={
+            "__tests__": Directory(files=[FileEntry(name="a.js", path="/tmp/x/a.js")]),
+            "files": Directory(files=[FileEntry(name="b.js", path="/tmp/x/b.js")]),
+        }
+    )
     checkout = github.RepoCheckout(
         target=GitHubTarget("o", "r"),
         local_root="/tmp/whatever",
@@ -873,10 +873,10 @@ def test_apply_github_urls_rewrites_underscore_directories() -> None:
     )
     apply_github_urls(structure, checkout)
     assert (
-        structure["__tests__"]["_files"][0].path
+        structure.subdirectories["__tests__"].files[0].path
         == "https://github.com/o/r/blob/main/__tests__/a.js"
     )
     assert (
-        structure["/_files"]["_files"][0].path
-        == "https://github.com/o/r/blob/main/_files/b.js"
+        structure.subdirectories["files"].files[0].path
+        == "https://github.com/o/r/blob/main/files/b.js"
     )

@@ -9,7 +9,6 @@ argument to ``build_tree`` and an optional keyword to ``display_tree``
 import os
 import re
 import time
-from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
@@ -19,7 +18,7 @@ from pytest_mock import MockerFixture
 from rich.text import Text
 from rich.tree import Tree
 
-from recursivist._models import FileEntry
+from recursivist._models import Directory, FileEntry
 from recursivist.colors import build_color_map
 from recursivist.flags import (
     METRIC_LOC,
@@ -52,7 +51,7 @@ class TestBuildTree:
     def test_basic_tree(
         self,
         mocker: MockerFixture,
-        simple_structure: dict[str, Any],
+        simple_structure: Directory,
         color_map: dict[str, str],
     ) -> None:
         mock_tree = MagicMock(spec=Tree)
@@ -67,8 +66,7 @@ class TestBuildTree:
     def test_empty_structure(self, mocker: MockerFixture) -> None:
         mock_tree = MagicMock(spec=Tree)
         color_map: dict[str, str] = {}
-        structure: dict[str, Any] = {}
-        build_tree(structure, mock_tree, color_map, DisplayOptions())
+        build_tree(Directory(), mock_tree, color_map, DisplayOptions())
         mock_tree.add.assert_not_called()
 
     def test_with_full_paths(
@@ -77,15 +75,17 @@ class TestBuildTree:
         mock_tree = MagicMock(spec=Tree)
         mock_subtree = MagicMock(spec=Tree)
         mock_tree.add.return_value = mock_subtree
-        structure = {
-            "_files": [
+        structure = Directory(
+            files=[
                 FileEntry("file1.txt", "/path/to/file1.txt"),
                 FileEntry("file2.py", "/path/to/file2.py"),
             ],
-            "subdir": {
-                "_files": [FileEntry("subfile.py", "/path/to/subdir/subfile.py")]
+            subdirectories={
+                "subdir": Directory(
+                    files=[FileEntry("subfile.py", "/path/to/subdir/subfile.py")]
+                )
             },
-        }
+        )
         build_tree(structure, mock_tree, color_map, DisplayOptions())
         file_texts = _text_plains(mock_tree)
         assert any("/path/to/file1.txt" in text for text in file_texts)
@@ -108,7 +108,7 @@ class TestBuildTree:
     def test_with_statistics(
         self,
         mocker: MockerFixture,
-        structure_with_stats: dict[str, Any],
+        structure_with_stats: Directory,
         color_map: dict[str, str],
         spec: DisplayOptions,
         expected_indicator: str | list[str],
@@ -133,7 +133,7 @@ class TestBuildTree:
     def test_max_depth_is_not_expanded(
         self,
         mocker: MockerFixture,
-        max_depth_structure: dict[str, Any],
+        max_depth_structure: Directory,
         color_map: dict[str, str],
     ) -> None:
         """A truncated directory is added without any children."""
@@ -146,7 +146,7 @@ class TestBuildTree:
     def test_max_depth_folder_icons(
         self,
         mocker: MockerFixture,
-        max_depth_structure: dict[str, Any],
+        max_depth_structure: Directory,
         color_map: dict[str, str],
     ) -> None:
         """Truncated directories still signal whether anything was cut off."""
@@ -163,25 +163,25 @@ class TestBuildTreeGitStatus:
     """Git-status annotation and ordering, threaded through ``spec``."""
 
     @pytest.fixture
-    def git_structure(self) -> dict[str, Any]:
-        return {
-            "_files": [
+    def git_structure(self) -> Directory:
+        return Directory(
+            files=[
                 FileEntry("clean.py", "clean.py"),
                 FileEntry("mod.py", "mod.py"),
                 FileEntry("add.py", "add.py"),
                 FileEntry("del.py", "del.py"),
                 FileEntry("untr.py", "untr.py"),
             ],
-            "_git_markers": {
+            git_markers={
                 "mod.py": "M",
                 "add.py": "A",
                 "del.py": "D",
                 "untr.py": "U",
             },
-        }
+        )
 
     def test_badges_appended_when_shown(
-        self, git_structure: dict[str, Any], color_map: dict[str, str]
+        self, git_structure: Directory, color_map: dict[str, str]
     ) -> None:
         mock_tree = MagicMock(spec=Tree)
         build_tree(
@@ -195,7 +195,7 @@ class TestBuildTreeGitStatus:
         assert "[" not in by_name["clean.py"]
 
     def test_deleted_file_is_struck_through(
-        self, git_structure: dict[str, Any], color_map: dict[str, str]
+        self, git_structure: Directory, color_map: dict[str, str]
     ) -> None:
         mock_tree = MagicMock(spec=Tree)
         build_tree(
@@ -205,7 +205,7 @@ class TestBuildTreeGitStatus:
         assert any("strike" in str(span.style) for span in del_text.spans)
 
     def test_no_badges_without_show_git_status(
-        self, git_structure: dict[str, Any], color_map: dict[str, str]
+        self, git_structure: Directory, color_map: dict[str, str]
     ) -> None:
         """Sorting by git status still fetches markers, but adds no badge."""
         mock_tree = MagicMock(spec=Tree)
@@ -219,7 +219,7 @@ class TestBuildTreeGitStatus:
         assert not any("[M]" in p or "[A]" in p for p in plains)
 
     def test_git_status_sort_order(
-        self, git_structure: dict[str, Any], color_map: dict[str, str]
+        self, git_structure: Directory, color_map: dict[str, str]
     ) -> None:
         mock_tree = MagicMock(spec=Tree)
         build_tree(
@@ -238,7 +238,7 @@ class TestDisplayTree:
         mock_tree_class = mocker.patch("recursivist.tree.Tree")
         mock_build_tree = mocker.patch("recursivist.tree.build_tree")
         mock_get_structure = mocker.patch("recursivist.tree.get_directory_structure")
-        mock_get_structure.return_value = ({}, set())
+        mock_get_structure.return_value = (Directory(), set())
         with open(os.path.join(temp_dir, "test.txt"), "w") as f:
             f.write("Test content")
         display_tree(temp_dir)
@@ -254,7 +254,7 @@ class TestDisplayTree:
         mocker.patch("recursivist.tree.Tree")
         mock_build_tree = mocker.patch("recursivist.tree.build_tree")
         mock_get_structure = mocker.patch("recursivist.tree.get_directory_structure")
-        mock_get_structure.return_value = ({}, set())
+        mock_get_structure.return_value = (Directory(), set())
         display_tree(temp_dir)
         passed_spec = mock_build_tree.call_args.args[3]
         assert passed_spec == DisplayOptions()
@@ -267,13 +267,13 @@ class TestDisplayTree:
         mocker.patch("recursivist.tree.Tree")
         mock_build_tree = mocker.patch("recursivist.tree.build_tree")
         extensions = {".py", ".md", ".toml", ".json", ".txt"}
-        display_tree(temp_dir, structure={}, extensions=extensions)
+        display_tree(temp_dir, structure=Directory(), extensions=extensions)
         assert mock_build_tree.call_args.args[2] == build_color_map(extensions)
 
     def test_with_filtering_options(self, mocker: MockerFixture, temp_dir: str) -> None:
         mock_get_structure = mocker.patch("recursivist.tree.get_directory_structure")
         mock_compile_regex = mocker.patch("recursivist.tree.compile_regex_patterns")
-        mock_get_structure.return_value = ({}, set())
+        mock_get_structure.return_value = (Directory(), set())
         mock_compile_regex.return_value = []
         exclude_extensions = {".pyc", ".log"}
         display_tree(
@@ -297,7 +297,7 @@ class TestDisplayTree:
     def test_with_statistics(self, mocker: MockerFixture, temp_dir: str) -> None:
         mock_tree = mocker.patch("recursivist.tree.Tree")
         mock_get_structure = mocker.patch("recursivist.tree.get_directory_structure")
-        structure = {"_loc": 100, "_size": 10240, "_mtime": 1625097600.0, "_files": []}
+        structure = Directory(loc=100, size=10240, mtime=1625097600.0)
         mock_get_structure.return_value = (structure, set())
         display_tree(temp_dir, spec=ALL_METRICS_SPEC)
         args, _ = mock_tree.call_args
@@ -315,7 +315,7 @@ class TestDisplayTree:
         mocker.patch("recursivist.tree.Tree")
         mocker.patch("recursivist.tree.build_tree")
         mock_get_structure = mocker.patch("recursivist.tree.get_directory_structure")
-        mock_get_structure.return_value = ({}, set())
+        mock_get_structure.return_value = (Directory(), set())
         display_tree(
             temp_dir,
             spec=DisplayOptions(metrics=(METRIC_LOC, METRIC_SIZE)),
@@ -330,16 +330,18 @@ def test_build_tree_combined(mocker: MockerFixture) -> None:
     """Combined test of build_tree functionality across mixed file shapes."""
     mock_tree = MagicMock(spec=Tree)
     color_map = {".py": "#FF0000", ".txt": "#00FF00"}
-    structure = {
-        "_files": [
+    structure = Directory(
+        files=[
             FileEntry("file1.txt", "file1.txt"),
             FileEntry("file2.py", "/path/to/file2.py"),
             FileEntry("file3.md", "/path/to/file3.md", 50),
             FileEntry("file4.json", "/path/to/file4.json", 20, 1024),
             FileEntry("file5.js", "/path/to/file5.js", 30, 2048, time.time()),
         ],
-        "subdir": {"_files": [FileEntry("subfile.py", "subfile.py")]},
-    }
+        subdirectories={
+            "subdir": Directory(files=[FileEntry("subfile.py", "subfile.py")])
+        },
+    )
     build_tree(structure, mock_tree, color_map, ALL_METRICS_SPEC)
     assert mock_tree.add.call_count >= 6
     texts = _text_plains(mock_tree)
@@ -359,28 +361,18 @@ class TestBuildTreeProperties:
     )
     @settings(max_examples=50)
     def test_build_tree_adds_files(
-        self, structure: dict[str, Any], color_map: dict[str, str]
+        self, structure: Directory, color_map: dict[str, str]
     ) -> None:
         """Test that build_tree properly adds all files to the tree."""
         mock_tree = MagicMock(spec=Tree)
         mock_subtree = MagicMock(spec=Tree)
         mock_tree.add.return_value = mock_subtree
 
-        def count_files_and_folders(struct: dict[str, Any]) -> int:
-            count = 0
-            if "_files" in struct:
-                count += len(struct["_files"])
-            for key, value in struct.items():
-                if (
-                    key != "_files"
-                    and key != "_loc"
-                    and key != "_size"
-                    and key != "_mtime"
-                    and key != "_max_depth_reached"
-                    and isinstance(value, dict)
-                ):
-                    count += 1
-                    count += count_files_and_folders(value)
+        def count_files_and_folders(struct: Directory) -> int:
+            count = len(struct.files)
+            for subdirectory in struct.subdirectories.values():
+                count += 1
+                count += count_files_and_folders(subdirectory)
             return count
 
         expected_calls = count_files_and_folders(structure)
@@ -397,7 +389,7 @@ class TestBuildTreeStructures:
         self,
         mock_tree: MagicMock,
         color_map: dict[str, str],
-        simple_structure: dict[str, Any],
+        simple_structure: Directory,
     ) -> None:
         """Test building a tree from a simple structure."""
         build_tree(simple_structure, mock_tree, color_map, DisplayOptions())
@@ -412,7 +404,7 @@ class TestBuildTreeStructures:
         mock_tree: MagicMock,
         mock_subtree: MagicMock,
         color_map: dict[str, str],
-        nested_structure: dict[str, Any],
+        nested_structure: Directory,
     ) -> None:
         """Test building a tree with nested directories."""
         mock_tree.add.return_value = mock_subtree
@@ -429,13 +421,13 @@ class TestBuildTreeStructures:
         self, mock_tree: MagicMock, color_map: dict[str, str]
     ) -> None:
         """Test building a tree with full file paths."""
-        full_path_structure = {
-            "_files": [
+        full_path_structure = Directory(
+            files=[
                 FileEntry("file1.txt", "/path/to/file1.txt"),
                 FileEntry("file2.py", "/path/to/file2.py"),
                 FileEntry("file3.md", "/path/to/file3.md"),
-            ],
-        }
+            ]
+        )
         build_tree(full_path_structure, mock_tree, color_map, DisplayOptions())
         texts = _text_plains(mock_tree)
         assert "📄 /path/to/file1.txt" in texts
@@ -457,7 +449,7 @@ class TestBuildTreeStructures:
         self,
         mock_tree: MagicMock,
         color_map: dict[str, str],
-        structure_with_stats: dict[str, Any],
+        structure_with_stats: Directory,
         spec: DisplayOptions,
         expected_indicator: str | list[str],
     ) -> None:
@@ -481,7 +473,7 @@ class TestBuildTreeStructures:
         mock_tree: MagicMock,
         mock_subtree: MagicMock,
         color_map: dict[str, str],
-        max_depth_structure: dict[str, Any],
+        max_depth_structure: Directory,
     ) -> None:
         """Test that a truncated directory is left unexpanded."""
         mock_tree.add.return_value = mock_subtree
@@ -491,19 +483,36 @@ class TestBuildTreeStructures:
         assert "📂 subdir" in labels
         assert "📁 empty_subdir" in labels
 
+    def test_symlink_loop_is_marked_not_expanded(
+        self,
+        mock_tree: MagicMock,
+        mock_subtree: MagicMock,
+        color_map: dict[str, str],
+    ) -> None:
+        """A directory that links back to an ancestor gets a marker, not children."""
+        mock_tree.add.return_value = mock_subtree
+        structure = Directory(subdirectories={"loop": Directory(symlink_loop=True)})
+        build_tree(structure, mock_tree, color_map, DisplayOptions())
+        assert [str(call.args[0]) for call in mock_tree.add.call_args_list] == [
+            "📂 loop"
+        ]
+        assert [str(call.args[0]) for call in mock_subtree.add.call_args_list] == [
+            "↩ (symlink loop)"
+        ]
+
     def test_with_various_file_formats(
         self, mock_tree: MagicMock, color_map: dict[str, str]
     ) -> None:
         """Test building a tree with various file info formats."""
-        mixed_structure = {
-            "_files": [
+        mixed_structure = Directory(
+            files=[
                 FileEntry("file1.txt", "file1.txt"),
                 FileEntry("file2.py", "/path/to/file2.py"),
                 FileEntry("file3.md", "/path/to/file3.md", 50),
                 FileEntry("file4.json", "/path/to/file4.json", 20, 1024),
                 FileEntry("file5.js", "/path/to/file5.js", 30, 2048, time.time()),
             ]
-        }
+        )
         build_tree(mixed_structure, mock_tree, color_map, ALL_METRICS_SPEC)
         assert mock_tree.add.call_count == 5
         texts = _text_plains(mock_tree)

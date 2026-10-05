@@ -15,25 +15,32 @@ This writes `structure.json`. `--full-path` makes each `path` unique, which is w
 
 ```bash
 # Total lines of code
-jq '.structure._loc // 0' structure.json
+jq '.structure.loc // 0' structure.json
 
 # Lines of code per top-level directory
-jq -r '.structure | to_entries[]
-       | select(.value | type == "object" and has("_loc"))
-       | [.key, (.value._loc | tostring)] | @tsv' structure.json | sort -k2 -nr
+jq -r '.structure.subdirectories // {} | to_entries[]
+       | select(.value | has("loc"))
+       | [.key, (.value.loc | tostring)] | @tsv' structure.json | sort -k2 -nr
+```
+
+## Every File in the Tree
+
+Files sit under `files` in each directory object, and directories nest under `subdirectories`, so listing every file means walking the tree. The remaining recipes share this `jq` prelude, which defines that walk and applies it to the root:
+
+```bash
+FILES='def files: (.files // [])[], ((.subdirectories // {})[] | files);
+       .structure | files'
 ```
 
 ## Largest Files
 
 ```bash
 # Ten files with the most lines of code
-jq -r '.structure | .. | objects | select(has("_files")) | ._files[]
-       | select(type=="object" and has("loc")) | [.loc, .path] | @tsv' \
+jq -r "$FILES"' | select(has("loc")) | [.loc, .path] | @tsv' \
   structure.json | sort -nr | head -10
 
 # Ten largest files by size
-jq -r '.structure | .. | objects | select(has("_files")) | ._files[]
-       | select(type=="object" and has("size")) | [.size, .path] | @tsv' \
+jq -r "$FILES"' | select(has("size")) | [.size, .path] | @tsv' \
   structure.json | sort -nr | head -10
 ```
 
@@ -41,13 +48,11 @@ jq -r '.structure | .. | objects | select(has("_files")) | ._files[]
 
 ```bash
 # Count files by extension
-jq -r '.structure | .. | objects | select(has("_files")) | ._files[]
-       | select(type=="object") | (.path | split(".") | .[-1]) | ascii_downcase' \
+jq -r "$FILES"' | (.path | split(".") | .[-1]) | ascii_downcase' \
   structure.json | sort | uniq -c | sort -nr
 
 # Lines of code by extension
-jq -r '.structure | .. | objects | select(has("_files")) | ._files[]
-       | select(type=="object" and has("loc"))
+jq -r "$FILES"' | select(has("loc"))
        | "\(.path | split(".") | .[-1])\t\(.loc)"' structure.json \
   | awk -F'\t' '{loc[$1]+=$2; n[$1]++}
       END {for (e in loc) printf "%-6s %8d lines in %d files\n", e, loc[e], n[e]}' \

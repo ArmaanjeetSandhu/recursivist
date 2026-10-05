@@ -101,8 +101,8 @@ def test_get_directory_structure(tmp_path):
 
     structure, extensions = get_directory_structure(str(tmp_path))
 
-    assert "dir1" in structure
-    assert [f.name for f in structure["dir1"]["_files"]] == ["file1.txt"]
+    assert "dir1" in structure.subdirectories
+    assert [f.name for f in structure.subdirectories["dir1"].files] == ["file1.txt"]
     assert ".py" in extensions
 ```
 
@@ -146,7 +146,7 @@ def test_export_to_markdown(tmp_path):
 
 ### File Statistics
 
-`_files` entries are `FileEntry` tuples with fields `(name, path, loc, size, mtime)`. Read them by attribute or by index, since `FileEntry` subclasses `tuple`:
+A directory's `files` are `FileEntry` tuples with fields `(name, path, loc, size, mtime)`. Read them by attribute or by index, since `FileEntry` subclasses `tuple`:
 
 ```python
 import os
@@ -162,10 +162,10 @@ def test_file_statistics(tmp_path):
         str(tmp_path), sort_by_loc=True, sort_by_size=True, sort_by_mtime=True
     )
 
-    assert structure["_loc"] == 3
-    assert structure["_size"] == os.path.getsize(str(py_file))
+    assert structure.loc == 3
+    assert structure.size == os.path.getsize(str(py_file))
 
-    entry = structure["_files"][0]
+    entry = structure.files[0]
     assert entry.name == "test.py"
     assert entry.loc == 3
     assert isinstance(entry, tuple)  # FileEntry subclasses tuple
@@ -198,9 +198,8 @@ def test_exclude_directories(tmp_path, exclude_dirs, expected):
     structure, _ = get_directory_structure(str(tmp_path), exclude_dirs=exclude_dirs)
 
     names = []
-    for key, value in structure.items():
-        if isinstance(value, dict):
-            names += [f.name for f in value.get("_files", [])]
+    for subdirectory in structure.subdirectories.values():
+        names += [f.name for f in subdirectory.files]
     assert sorted(names) == sorted(expected)
 ```
 
@@ -226,6 +225,8 @@ Put shared setup in `conftest.py` as fixtures. Use `monkeypatch` or `unittest.mo
 ```python
 import os
 
+from recursivist._models import Directory
+
 
 def test_permission_denied(tmp_path, monkeypatch):
     def deny(_):
@@ -233,7 +234,7 @@ def test_permission_denied(tmp_path, monkeypatch):
 
     monkeypatch.setattr(os, "listdir", deny)
     structure, extensions = get_directory_structure(str(tmp_path))
-    assert structure == {}
+    assert structure == Directory()
     assert not extensions
 ```
 
@@ -245,7 +246,7 @@ Always cover empty directories, nonexistent paths, permission errors, and binary
 def test_binary_files(tmp_path):
     (tmp_path / "binary.bin").write_bytes(b"\x00\x01\x02\x03")
     structure, _ = get_directory_structure(str(tmp_path), sort_by_loc=True)
-    assert structure["_loc"] == 0  # binary files count as 0 lines
+    assert structure.loc == 0  # binary files count as 0 lines
 ```
 
 ## Debugging Failing Tests

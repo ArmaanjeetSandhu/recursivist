@@ -1,10 +1,8 @@
 """Shared Hypothesis strategies for property-based tests."""
 
-from typing import Any
-
 from hypothesis import strategies as st
 
-from recursivist._models import FileEntry
+from recursivist._models import Directory, FileEntry
 
 simple_filename = st.text(
     alphabet=st.characters(
@@ -37,16 +35,15 @@ file_list = st.lists(file_entry, min_size=0, max_size=20)
 
 
 @st.composite
-def simple_directory_structure(draw: st.DrawFn) -> dict[str, Any]:
+def simple_directory_structure(draw: st.DrawFn) -> Directory:
     """Generate a simple directory structure."""
-    structure: dict[str, Any] = {}
-    structure["_files"] = draw(file_list)
+    structure = Directory(files=draw(file_list))
     if draw(st.booleans()):
-        structure["_loc"] = draw(st.integers(min_value=0, max_value=10000))
+        structure.loc = draw(st.integers(min_value=0, max_value=10000))
     if draw(st.booleans()):
-        structure["_size"] = draw(st.integers(min_value=0, max_value=100 * 1024 * 1024))
+        structure.size = draw(st.integers(min_value=0, max_value=100 * 1024 * 1024))
     if draw(st.booleans()):
-        structure["_mtime"] = draw(st.floats(min_value=0, max_value=1672531200))
+        structure.mtime = draw(st.floats(min_value=0, max_value=1672531200))
     if draw(st.booleans()):
         subdir_name = draw(
             st.text(
@@ -58,7 +55,7 @@ def simple_directory_structure(draw: st.DrawFn) -> dict[str, Any]:
                 max_size=10,
             )
         )
-        structure[subdir_name] = draw(simple_directory_structure())
+        structure.subdirectories[subdir_name] = draw(simple_directory_structure())
     if draw(st.booleans()):
-        structure["_max_depth_reached"] = True
+        structure.max_depth_reached = True
     return structure

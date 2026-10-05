@@ -16,7 +16,7 @@ import pytest
 from hypothesis import strategies as st
 from pytest_mock import MockerFixture
 
-from recursivist._models import FileEntry
+from recursivist._models import Directory, FileEntry
 from recursivist.colors import (
     WCAG_AAA_NORMAL_TEXT,
     build_color_map,
@@ -96,21 +96,22 @@ file_tuple_list = st.lists(
 
 def generate_large_structure(
     depth: int, files_per_dir: int, dir_branching: int
-) -> dict[str, Any]:
+) -> Directory:
     """Generate a large directory structure for testing."""
 
-    def _generate_recursive(current_depth: int) -> dict[str, Any]:
+    def _generate_recursive(current_depth: int) -> Directory:
+        structure = Directory()
         if current_depth > depth:
-            return {}
-        structure: dict[str, Any] = {}
-        structure["_files"] = []
+            return structure
         for i in range(files_per_dir):
             file_name = f"file_{current_depth}_{i}.txt"
-            structure["_files"].append(FileEntry(file_name, file_name))
+            structure.files.append(FileEntry(file_name, file_name))
         if current_depth < depth:
             for i in range(dir_branching):
                 dir_name = f"dir_{current_depth}_{i}"
-                structure[dir_name] = _generate_recursive(current_depth + 1)
+                structure.subdirectories[dir_name] = _generate_recursive(
+                    current_depth + 1
+                )
         return structure
 
     return _generate_recursive(1)
@@ -162,7 +163,7 @@ def test_export_structure(
         assert "root" in data
         assert "structure" in data
         assert data["root"] == os.path.basename(sample_directory)
-        assert "_files" in data["structure"]
+        assert data["structure"]["files"]
     elif format_name == "html":
         assert "</html>" in content
 
@@ -238,14 +239,10 @@ def test_export_structure_with_options(
     with open(output_path, encoding="utf-8") as f:
         data = json.load(f)
     if option_name == "show_full_path":
-        if "_files" in data["structure"]:
-            has_full_path = False
-            for file_item in data["structure"]["_files"]:
-                if isinstance(file_item, dict) and "path" in file_item:
-                    assert os.path.isabs(file_item["path"].replace("/", os.sep))
-                    has_full_path = True
-                    break
-            assert has_full_path, "No full paths found in export"
+        file_items = data["structure"]["files"]
+        assert file_items, "No files found in export"
+        for file_item in file_items:
+            assert os.path.isabs(file_item["path"].replace("/", os.sep))
     elif option_name in ["sort_by_loc", "sort_by_size", "sort_by_mtime"]:
         option_flag = f"show_{option_name[8:]}"
         assert option_flag in data
@@ -254,7 +251,7 @@ def test_export_structure_with_options(
 
 def test_get_exporter_invalid_format(temp_dir: str) -> None:
     """Test getting an exporter with an invalid format."""
-    structure = {"_files": [FileEntry("file1.txt", "file1.txt")]}
+    structure = Directory(files=[FileEntry("file1.txt", "file1.txt")])
     root_name = os.path.basename(temp_dir)
     with pytest.raises(ValueError) as excinfo:
         get_exporter("invalid", structure=structure, root_name=root_name)
@@ -271,13 +268,13 @@ class TestExporterFileOutput:
                 "html",
                 ["<!DOCTYPE html>", "<html>", 'class="file"'],
             ),
-            ("json", ["root", "structure", "_files"]),
+            ("json", ["root", "structure", "files"]),
             ("rst", ["📂 test\\_root", "``file1.txt``", "``file2.py``"]),
         ],
     )
     def test_export_formats(
         self,
-        simple_structure: dict[str, Any],
+        simple_structure: Directory,
         tmp_path: Path,
         format_name: str,
         expected_content: list[str],
@@ -295,7 +292,7 @@ class TestExporterFileOutput:
             assert expected in content
 
     def test_export_with_directories(
-        self, nested_structure: dict[str, Any], tmp_path: Path
+        self, nested_structure: Directory, tmp_path: Path
     ) -> None:
         """Test that directories are properly formatted in exports."""
         md_output_path = os.path.join(tmp_path, "test_dirs.md")
@@ -324,7 +321,7 @@ class TestExporterFileOutput:
     )
     def test_export_with_statistics(
         self,
-        structure_with_stats: dict[str, Any],
+        structure_with_stats: Directory,
         tmp_path: Path,
         option_name: str,
         option_value: bool,
@@ -351,7 +348,7 @@ class TestExporterFileOutput:
             )
 
     def test_export_with_full_path(
-        self, structure_with_stats: dict[str, Any], tmp_path: Path
+        self, structure_with_stats: Directory, tmp_path: Path
     ) -> None:
         """Test exporting with full file paths."""
         output_path = os.path.join(tmp_path, "test_output_fullpath.txt")
@@ -375,7 +372,7 @@ class TestExporterFileOutput:
     )
     def test_export_error_handling(
         self,
-        simple_structure: dict[str, Any],
+        simple_structure: Directory,
         tmp_path: Path,
         error_type: type[Exception],
         error_msg: str,
@@ -396,7 +393,7 @@ class TestExporterFileOutput:
             assert error_msg in str(excinfo.value)
 
     def test_export_with_max_depth(
-        self, max_depth_structure: dict[str, Any], tmp_path: Path
+        self, max_depth_structure: Directory, tmp_path: Path
     ) -> None:
         """Truncated directories are marked by their folder icon alone."""
         for fmt, truncated, empty in [
@@ -419,10 +416,12 @@ class TestExporterFileOutput:
 class TestExporters:
     def test_init(self) -> None:
         """Test initializing an exporter through the factory."""
-        structure = {
-            "_files": [FileEntry("file1.txt", "file1.txt")],
-            "dir1": {"_files": [FileEntry("file2.py", "file2.py")]},
-        }
+        structure = Directory(
+            files=[FileEntry("file1.txt", "file1.txt")],
+            subdirectories={
+                "dir1": Directory(files=[FileEntry("file2.py", "file2.py")])
+            },
+        )
         exporter = get_exporter("txt", structure=structure, root_name="test_root")
         assert exporter.structure == structure
         assert exporter.root_name == "test_root"
@@ -430,10 +429,14 @@ class TestExporters:
 
     def test_init_with_full_path(self) -> None:
         """Test initializing an exporter with full paths."""
-        structure = {
-            "_files": [FileEntry("file1.txt", "/path/to/file1.txt")],
-            "dir1": {"_files": [FileEntry("file2.py", "/path/to/dir1/file2.py")]},
-        }
+        structure = Directory(
+            files=[FileEntry("file1.txt", "/path/to/file1.txt")],
+            subdirectories={
+                "dir1": Directory(
+                    files=[FileEntry("file2.py", "/path/to/dir1/file2.py")]
+                )
+            },
+        )
         exporter = get_exporter(
             "txt", structure=structure, root_name="test_root", show_full_path=True
         )
@@ -444,20 +447,22 @@ class TestExporters:
     def test_init_with_statistics(self) -> None:
         """Test initializing an exporter with statistics."""
         now = time.time()
-        structure = {
-            "_loc": 100,
-            "_size": 1024,
-            "_mtime": now,
-            "_files": [FileEntry("file1.txt", "/path/to/file1.txt", 50, 512, now)],
-            "dir1": {
-                "_loc": 50,
-                "_size": 512,
-                "_mtime": now,
-                "_files": [
-                    FileEntry("file2.py", "/path/to/dir1/file2.py", 50, 512, now)
-                ],
+        structure = Directory(
+            loc=100,
+            size=1024,
+            mtime=now,
+            files=[FileEntry("file1.txt", "/path/to/file1.txt", 50, 512, now)],
+            subdirectories={
+                "dir1": Directory(
+                    loc=50,
+                    size=512,
+                    mtime=now,
+                    files=[
+                        FileEntry("file2.py", "/path/to/dir1/file2.py", 50, 512, now)
+                    ],
+                )
             },
-        }
+        )
         exporter = get_exporter(
             "txt",
             structure=structure,
@@ -488,7 +493,7 @@ class TestExporters:
             [
                 lambda c: '"root":' in c,
                 lambda c: '"structure":' in c,
-                lambda c: '"_files":' in c,
+                lambda c: '"files":' in c,
             ],
         ),
         (
@@ -554,10 +559,10 @@ def test_export_formats(
         assert "root" in data
         assert "structure" in data
         assert data["root"] == os.path.basename(sample_directory)
-        file_names = data["structure"]["_files"]
+        file_names = data["structure"]["files"]
         assert "file1.txt" in file_names
         assert "file2.py" in file_names
-        assert "subdir" in data["structure"]
+        assert "subdir" in data["structure"]["subdirectories"]
 
 
 @pytest.mark.parametrize(
@@ -649,15 +654,14 @@ def test_export_nested_structure(sample_directory: str, output_dir: str) -> None
 
     with open(output_path, encoding="utf-8") as f:
         data = json.load(f)
-    assert "nested" in data["structure"]
-    assert "deep" in data["structure"]["nested"]
-    assert "_files" in data["structure"]["nested"]["deep"]
-    assert "deep_file.txt" in data["structure"]["nested"]["deep"]["_files"]
+    nested = data["structure"]["subdirectories"]["nested"]
+    assert "files" not in nested
+    assert nested["subdirectories"] == {"deep": {"files": ["deep_file.txt"]}}
 
 
 def test_export_invalid_format(temp_dir: str) -> None:
     """Test exporting with invalid format."""
-    structure = {"_files": [FileEntry("file1.txt", "file1.txt")]}
+    structure = Directory(files=[FileEntry("file1.txt", "file1.txt")])
     root_name = os.path.basename(temp_dir)
 
     with pytest.raises(ValueError) as excinfo:
@@ -700,7 +704,7 @@ def test_export_with_max_depth_indicator(temp_dir: str, output_dir: str) -> None
     structure, _ = get_directory_structure(temp_dir, max_depth=2)
     format_indicators = {
         "txt": "📂 level2",
-        "json": "_max_depth_reached",
+        "json": '"max_depth_reached": true',
         "html": "📂 <span",
         "md": "📂 **level2**",
     }
@@ -781,7 +785,8 @@ def test_large_structure_export(output_dir: str) -> None:
         elif fmt == "json":
             assert '"root": "large_root"' in content
             data = json.loads(content)
-            assert "_files" in data["structure"]
+            assert len(data["structure"]["files"]) == 10
+            assert len(data["structure"]["subdirectories"]) == 3
         elif fmt == "html":
             assert "<!DOCTYPE html>" in content
             assert "large_root" in content
@@ -791,8 +796,8 @@ def test_large_structure_export(output_dir: str) -> None:
 
 def test_unicode_file_names(output_dir: str) -> None:
     """Test exporting with Unicode characters in file names."""
-    unicode_structure = {
-        "_files": [
+    unicode_structure = Directory(
+        files=[
             FileEntry("ascii.txt", "ascii.txt"),
             FileEntry("español.txt", "español.txt"),
             FileEntry("中文.py", "中文.py"),
@@ -800,16 +805,16 @@ def test_unicode_file_names(output_dir: str) -> None:
             FileEntry("日本語.js", "日本語.js"),
             FileEntry("한국어.json", "한국어.json"),
         ],
-        "目录": {
-            "_files": [FileEntry("файл.txt", "файл.txt")],
+        subdirectories={
+            "目录": Directory(files=[FileEntry("файл.txt", "файл.txt")]),
+            "папка": Directory(
+                files=[FileEntry("ファイル.py", "ファイル.py")],
+                subdirectories={
+                    "子目录": Directory(files=[FileEntry("파일.md", "파일.md")])
+                },
+            ),
         },
-        "папка": {
-            "_files": [FileEntry("ファイル.py", "ファイル.py")],
-            "子目录": {
-                "_files": [FileEntry("파일.md", "파일.md")],
-            },
-        },
-    }
+    )
 
     for fmt in ["txt", "json", "html", "md"]:
         output_path = os.path.join(output_dir, f"unicode.{fmt}")
@@ -822,11 +827,11 @@ def test_unicode_file_names(output_dir: str) -> None:
             content = f.read()
         if fmt == "json":
             data = json.loads(content)
-            files = data["structure"]["_files"]
+            files = data["structure"]["files"]
             assert "español.txt" in files
             assert "中文.py" in files
             assert "русский.md" in files
-            assert "目录" in data["structure"]
+            assert "目录" in data["structure"]["subdirectories"]
         else:
             assert "español.txt" in content
             assert "中文.py" in content
@@ -898,10 +903,10 @@ def test_export_with_excessive_loc(temp_dir: str, output_dir: str) -> None:
 
 def test_many_unique_extensions(output_dir: str) -> None:
     """Test export with many unique file extensions."""
-    many_extensions_structure: dict[str, list[FileEntry]] = {"_files": []}
+    many_extensions_structure = Directory()
     for i in range(100):
         name = f"file_{i}.{random_string(5)}"
-        many_extensions_structure["_files"].append(FileEntry(name, name))
+        many_extensions_structure.files.append(FileEntry(name, name))
 
     output_path = os.path.join(output_dir, "many_extensions.html")
     get_exporter(
@@ -927,18 +932,20 @@ def test_many_unique_extensions(output_dir: str) -> None:
 
 def test_problematic_filenames(output_dir: str) -> None:
     """Test export with filenames containing special characters."""
-    problematic_structure = {
-        "_files": [
+    problematic_structure = Directory(
+        files=[
             FileEntry("file with spaces.txt", "file with spaces.txt"),
             FileEntry("file&with&ampersands.py", "file&with&ampersands.py"),
             FileEntry("file<with>brackets.md", "file<with>brackets.md"),
             FileEntry("file'with\"quotes.js", "file'with\"quotes.js"),
             FileEntry("file\\with/slashes.html", "file\\with/slashes.html"),
         ],
-        "directory with spaces": {
-            "_files": [FileEntry("nested problematic.txt", "nested problematic.txt")],
+        subdirectories={
+            "directory with spaces": Directory(
+                files=[FileEntry("nested problematic.txt", "nested problematic.txt")]
+            )
         },
-    }
+    )
 
     for fmt in ["txt", "json", "html", "md"]:
         output_path = os.path.join(output_dir, f"escaping.{fmt}")
@@ -967,32 +974,32 @@ def test_problematic_filenames(output_dir: str) -> None:
 def test_combined_export_options(output_dir: str) -> None:
     """Test exporting with all options combined."""
     now = time.time()
-    complex_structure = {
-        "_loc": 500,
-        "_size": 1024 * 1024,
-        "_mtime": int(now),
-        "_files": [
+    complex_structure = Directory(
+        loc=500,
+        size=1024 * 1024,
+        mtime=int(now),
+        files=[
             FileEntry("file1.txt", "/path/to/file1.txt", 100, 512, int(now - 86400)),
             FileEntry("file2.py", "/path/to/file2.py", 200, 1024, int(now)),
         ],
-        "subdir": {
-            "_loc": 300,
-            "_size": 2048,
-            "_mtime": int(now - 3600),
-            "_files": [
-                FileEntry(
-                    "subfile.md",
-                    "/path/to/subdir/subfile.md",
-                    300,
-                    2048,
-                    int(now - 7200),
-                ),
-            ],
-            "nested": {
-                "_max_depth_reached": True,
-            },
+        subdirectories={
+            "subdir": Directory(
+                loc=300,
+                size=2048,
+                mtime=int(now - 3600),
+                files=[
+                    FileEntry(
+                        "subfile.md",
+                        "/path/to/subdir/subfile.md",
+                        300,
+                        2048,
+                        int(now - 7200),
+                    ),
+                ],
+                subdirectories={"nested": Directory(max_depth_reached=True)},
+            )
         },
-    }
+    )
 
     for fmt in ["txt", "json", "html", "md"]:
         output_path = os.path.join(output_dir, f"combined_options.{fmt}")
@@ -1035,15 +1042,13 @@ def test_combined_export_options(output_dir: str) -> None:
         assert len(timestamp_matches) > 0, f"No timestamp format found in {fmt} export"
         assert "max depth reached" not in content
         if fmt == "json":
-            assert "_max_depth_reached" in content
+            assert '"max_depth_reached": true' in content
 
 
 class TestSvgExporter:
     """Tests for the SVG exporter (recursivist.exporters.svg.SvgExporter)."""
 
-    def test_export_basic(
-        self, nested_structure: dict[str, Any], tmp_path: Path
-    ) -> None:
+    def test_export_basic(self, nested_structure: Directory, tmp_path: Path) -> None:
         """A basic export writes a well-formed SVG containing the tree.
 
         Uses a structure whose ``_files`` are plain strings and which nests
@@ -1082,7 +1087,7 @@ class TestSvgExporter:
         assert "subdir" in content
 
     def test_export_with_statistics(
-        self, structure_with_stats: dict[str, Any], tmp_path: Path
+        self, structure_with_stats: Directory, tmp_path: Path
     ) -> None:
         """Exporting with metrics enabled renders the root metrics suffix.
 
@@ -1107,7 +1112,9 @@ class TestSvgExporter:
     def test_export_empty_structure(self, tmp_path: Path) -> None:
         """An empty structure still produces a valid SVG (no extensions)."""
         output_path = os.path.join(tmp_path, "empty.svg")
-        get_exporter("svg", structure={}, root_name="empty_root").export(output_path)
+        get_exporter("svg", structure=Directory(), root_name="empty_root").export(
+            output_path
+        )
 
         assert os.path.exists(output_path)
         with open(output_path, encoding="utf-8") as f:
@@ -1124,7 +1131,7 @@ class TestSvgExporter:
     )
     def test_export_error_handling(
         self,
-        simple_structure: dict[str, Any],
+        simple_structure: Directory,
         tmp_path: Path,
         error_type: type[Exception],
         error_msg: str,
@@ -1154,7 +1161,7 @@ class TestRstExporter:
     """Tests for the reStructuredText (``rst``) exporter."""
 
     def test_export_basic_structure(
-        self, nested_structure: dict[str, Any], tmp_path: Path
+        self, nested_structure: Directory, tmp_path: Path
     ) -> None:
         """Root is a section title; dirs are bold, files are inline literals."""
         output_path = os.path.join(tmp_path, "structure.rst")
@@ -1186,7 +1193,9 @@ class TestRstExporter:
         """
         output_path = os.path.join(tmp_path, "structure.rst")
         get_exporter(
-            "rst", structure={"_files": [FileEntry("a.py", "a.py")]}, root_name="proj"
+            "rst",
+            structure=Directory(files=[FileEntry("a.py", "a.py")]),
+            root_name="proj",
         ).export(output_path)
         with open(output_path, encoding="utf-8") as f:
             lines = _rst_lines(f.read())
@@ -1203,7 +1212,11 @@ class TestRstExporter:
         reStructuredText requires the blank line; without it the nested bullets
         are not parsed as a child list.
         """
-        structure = {"outer": {"_files": [FileEntry("inner.py", "inner.py")]}}
+        structure = Directory(
+            subdirectories={
+                "outer": Directory(files=[FileEntry("inner.py", "inner.py")])
+            }
+        )
         output_path = os.path.join(tmp_path, "structure.rst")
         get_exporter("rst", structure=structure, root_name="root").export(output_path)
         with open(output_path, encoding="utf-8") as f:
@@ -1215,10 +1228,10 @@ class TestRstExporter:
 
     def test_files_listed_before_directories(self, tmp_path: Path) -> None:
         """Within a level, files are emitted before subdirectories."""
-        structure = {
-            "_files": [FileEntry("zzz.py", "zzz.py")],
-            "aaadir": {"_files": [FileEntry("x.py", "x.py")]},
-        }
+        structure = Directory(
+            files=[FileEntry("zzz.py", "zzz.py")],
+            subdirectories={"aaadir": Directory(files=[FileEntry("x.py", "x.py")])},
+        )
         output_path = os.path.join(tmp_path, "structure.rst")
         get_exporter("rst", structure=structure, root_name="root").export(output_path)
         with open(output_path, encoding="utf-8") as f:
@@ -1228,20 +1241,20 @@ class TestRstExporter:
 
     def test_git_status_badges(self, tmp_path: Path) -> None:
         """Git markers are rendered as bold ``[U]``/``[M]``/``[A]``/``[D]`` badges."""
-        structure = {
-            "_files": [
+        structure = Directory(
+            files=[
                 FileEntry("untracked.txt", "untracked.txt"),
                 FileEntry("modified.py", "modified.py"),
                 FileEntry("added.md", "added.md"),
                 FileEntry("deleted.js", "deleted.js"),
             ],
-            "_git_markers": {
+            git_markers={
                 "untracked.txt": "U",
                 "modified.py": "M",
                 "added.md": "A",
                 "deleted.js": "D",
             },
-        }
+        )
         output_path = os.path.join(tmp_path, "structure.rst")
         get_exporter(
             "rst",
@@ -1259,10 +1272,10 @@ class TestRstExporter:
 
     def test_git_status_omitted_when_disabled(self, tmp_path: Path) -> None:
         """No badges are emitted when Git status display is off."""
-        structure = {
-            "_files": [FileEntry("modified.py", "modified.py")],
-            "_git_markers": {"modified.py": "M"},
-        }
+        structure = Directory(
+            files=[FileEntry("modified.py", "modified.py")],
+            git_markers={"modified.py": "M"},
+        )
         output_path = os.path.join(tmp_path, "structure.rst")
         get_exporter(
             "rst",
@@ -1276,7 +1289,7 @@ class TestRstExporter:
         assert "[M]" not in content
 
     def test_max_depth_folder_icons(
-        self, max_depth_structure: dict[str, Any], tmp_path: Path
+        self, max_depth_structure: Directory, tmp_path: Path
     ) -> None:
         """Depth-limited directories are marked by their folder icon alone."""
         output_path = os.path.join(tmp_path, "structure.rst")
@@ -1291,7 +1304,7 @@ class TestRstExporter:
         assert "- 📁 **empty\\_subdir**" in lines
 
     def test_metrics_suffix_loc(
-        self, structure_with_stats: dict[str, Any], tmp_path: Path
+        self, structure_with_stats: Directory, tmp_path: Path
     ) -> None:
         """With ``sort_by_loc``, line counts are appended to files and the root."""
         output_path = os.path.join(tmp_path, "structure.rst")
@@ -1309,10 +1322,12 @@ class TestRstExporter:
 
     def test_full_path_uses_absolute_paths(self, tmp_path: Path) -> None:
         """With full paths enabled, file literals contain the full path."""
-        structure = {
-            "_files": [FileEntry("a.py", "/abs/root/a.py")],
-            "sub": {"_files": [FileEntry("b.py", "/abs/root/sub/b.py")]},
-        }
+        structure = Directory(
+            files=[FileEntry("a.py", "/abs/root/a.py")],
+            subdirectories={
+                "sub": Directory(files=[FileEntry("b.py", "/abs/root/sub/b.py")])
+            },
+        )
         output_path = os.path.join(tmp_path, "structure.rst")
         get_exporter(
             "rst", structure=structure, root_name="root", show_full_path=True
@@ -1325,7 +1340,7 @@ class TestRstExporter:
 
     def test_nerd_icon_style(self, tmp_path: Path) -> None:
         """The nerd icon style substitutes glyphs for the default emoji."""
-        structure = {"_files": [FileEntry("main.py", "main.py")]}
+        structure = Directory(files=[FileEntry("main.py", "main.py")])
         output_path = os.path.join(tmp_path, "structure.rst")
         get_exporter(
             "rst", structure=structure, root_name="root", icon_style="nerd"
@@ -1340,7 +1355,11 @@ class TestRstExporter:
 
     def test_special_characters_are_escaped(self, tmp_path: Path) -> None:
         """Markup characters in directory names are backslash-escaped."""
-        structure = {"weird*name_dir": {"_files": [FileEntry("ok.py", "ok.py")]}}
+        structure = Directory(
+            subdirectories={
+                "weird*name_dir": Directory(files=[FileEntry("ok.py", "ok.py")])
+            }
+        )
         output_path = os.path.join(tmp_path, "structure.rst")
         get_exporter("rst", structure=structure, root_name="root").export(output_path)
         with open(output_path, encoding="utf-8") as f:
@@ -1351,7 +1370,9 @@ class TestRstExporter:
     def test_empty_structure(self, tmp_path: Path) -> None:
         """An empty structure still yields a valid title and underline."""
         output_path = os.path.join(tmp_path, "structure.rst")
-        get_exporter("rst", structure={}, root_name="empty_root").export(output_path)
+        get_exporter("rst", structure=Directory(), root_name="empty_root").export(
+            output_path
+        )
         with open(output_path, encoding="utf-8") as f:
             lines = _rst_lines(f.read())
 
@@ -1362,7 +1383,9 @@ class TestRstExporter:
         """The file ends with a single trailing newline."""
         output_path = os.path.join(tmp_path, "structure.rst")
         get_exporter(
-            "rst", structure={"_files": [FileEntry("a.py", "a.py")]}, root_name="root"
+            "rst",
+            structure=Directory(files=[FileEntry("a.py", "a.py")]),
+            root_name="root",
         ).export(output_path)
         with open(output_path, encoding="utf-8") as f:
             content = f.read()
@@ -1379,7 +1402,7 @@ class TestRstExporter:
     )
     def test_export_error_handling(
         self,
-        simple_structure: dict[str, Any],
+        simple_structure: Directory,
         tmp_path: Path,
         error_type: type[Exception],
         error_msg: str,
@@ -1410,23 +1433,25 @@ class TestRstExporter:
         docutils_core = pytest.importorskip("docutils.core")
 
         now = time.time()
-        structure = {
-            "_loc": 100,
-            "_size": 1024,
-            "_mtime": now,
-            "_files": [
+        structure = Directory(
+            loc=100,
+            size=1024,
+            mtime=now,
+            files=[
                 FileEntry("app.py", "/p/app.py", 50, 512, now),
                 FileEntry("weird*name.py", "/p/weird*name.py", 10, 64, now),
             ],
-            "_git_markers": {"app.py": "M"},
-            "src": {
-                "_loc": 20,
-                "_size": 256,
-                "_mtime": now,
-                "_files": [FileEntry("helper.py", "/p/src/helper.py", 20, 256, now)],
-                "vendored": {"_max_depth_reached": True},
+            git_markers={"app.py": "M"},
+            subdirectories={
+                "src": Directory(
+                    loc=20,
+                    size=256,
+                    mtime=now,
+                    files=[FileEntry("helper.py", "/p/src/helper.py", 20, 256, now)],
+                    subdirectories={"vendored": Directory(max_depth_reached=True)},
+                )
             },
-        }
+        )
         output_path = os.path.join(tmp_path, "structure.rst")
         get_exporter(
             "rst",
@@ -1501,7 +1526,7 @@ class TestJsonGitAndMetrics:
     """The JSON exporter's detailed git-status + ordered-metric rendering."""
 
     def _export(
-        self, structure: dict[str, Any], spec: DisplayOptions, tmp_path: Path
+        self, structure: Directory, spec: DisplayOptions, tmp_path: Path
     ) -> dict[str, Any]:
         out = os.path.join(tmp_path, "out.json")
         get_exporter("json", structure=structure, root_name="root", spec=spec).export(
@@ -1512,20 +1537,20 @@ class TestJsonGitAndMetrics:
         return result
 
     def test_tuple_file_has_ordered_metrics_and_git(self, tmp_path: Path) -> None:
-        structure = {
-            "_loc": 60,
-            "_size": 1536,
-            "_mtime": 1600000000.0,
-            "_files": [FileEntry("a.py", "/p/a.py", 50, 1024, 1600000000.0)],
-            "_git_markers": {"a.py": "M"},
-        }
+        structure = Directory(
+            loc=60,
+            size=1536,
+            mtime=1600000000.0,
+            files=[FileEntry("a.py", "/p/a.py", 50, 1024, 1600000000.0)],
+            git_markers={"a.py": "M"},
+        )
         spec = DisplayOptions(
             sort_key=METRIC_LOC,
             metrics=(METRIC_SIZE, METRIC_LOC),
             show_git_status=True,
         )
         data = self._export(structure, spec, tmp_path)
-        entry = data["structure"]["_files"][0]
+        entry = data["structure"]["files"][0]
         assert entry["name"] == "a.py"
         assert entry["path"] == "/p/a.py"
         assert entry["loc"] == 50
@@ -1537,31 +1562,30 @@ class TestJsonGitAndMetrics:
         assert data["show_git_status"] is True
 
     def test_bare_string_file_wrapped_with_git_status(self, tmp_path: Path) -> None:
-        structure = {
-            "_files": [FileEntry("b.txt", "b.txt")],
-            "_git_markers": {"b.txt": "A"},
-        }
+        structure = Directory(
+            files=[FileEntry("b.txt", "b.txt")], git_markers={"b.txt": "A"}
+        )
         spec = DisplayOptions(show_git_status=True)
         data = self._export(structure, spec, tmp_path)
-        entry = data["structure"]["_files"][0]
+        entry = data["structure"]["files"][0]
         assert entry == {"name": "b.txt", "path": "b.txt", "git_status": "A"}
 
-    def test_git_markers_key_not_leaked(self, tmp_path: Path) -> None:
-        structure = {
-            "_files": [FileEntry("b.txt", "b.txt")],
-            "_git_markers": {"b.txt": "A"},
-        }
+    def test_git_markers_not_written_alongside_file_statuses(
+        self, tmp_path: Path
+    ) -> None:
+        structure = Directory(
+            files=[FileEntry("b.txt", "b.txt")], git_markers={"b.txt": "A"}
+        )
         spec = DisplayOptions(show_git_status=True)
         data = self._export(structure, spec, tmp_path)
-        assert "_git_markers" not in data["structure"]
+        assert "git_markers" not in data["structure"]
 
     def test_no_git_status_when_disabled(self, tmp_path: Path) -> None:
-        structure = {
-            "_files": [FileEntry("b.txt", "b.txt")],
-            "_git_markers": {"b.txt": "A"},
-        }
+        structure = Directory(
+            files=[FileEntry("b.txt", "b.txt")], git_markers={"b.txt": "A"}
+        )
         data = self._export(structure, DisplayOptions(), tmp_path)
-        assert data["structure"]["_files"] == ["b.txt"]
+        assert data["structure"]["files"] == ["b.txt"]
         assert data["show_git_status"] is False
 
 
@@ -1599,21 +1623,23 @@ class TestHtmlContrast:
     ]
 
     def _export(self, tmp_path: Path, spec: DisplayOptions | None = None) -> str:
-        structure: dict[str, Any] = {
-            "_files": [
+        structure = Directory(
+            files=[
                 FileEntry(name, name)
                 for name in [f"file.{ext}" for ext in self.EXTENSIONS]
                 + ["README", "Makefile"]
             ],
-            "subdir": {
-                "_files": [
-                    FileEntry("nested.py", "nested.py"),
-                    FileEntry("nested.md", "nested.md"),
-                ]
+            subdirectories={
+                "subdir": Directory(
+                    files=[
+                        FileEntry("nested.py", "nested.py"),
+                        FileEntry("nested.md", "nested.md"),
+                    ]
+                )
             },
-        }
+        )
         if spec is not None and spec.show_git_status:
-            structure["_git_markers"] = {
+            structure.git_markers = {
                 "file.py": "M",
                 "file.js": "A",
                 "file.ts": "D",
@@ -1707,7 +1733,7 @@ class TestExportColors:
         }
 
     def test_html_uses_the_shared_color_map(
-        self, nested_structure: dict[str, Any], tmp_path: Path
+        self, nested_structure: Directory, tmp_path: Path
     ) -> None:
         output_path = os.path.join(tmp_path, "colors.html")
         get_exporter("html", structure=nested_structure, root_name="root").export(
@@ -1724,7 +1750,7 @@ class TestExportColors:
             )
 
     def test_svg_uses_the_shared_color_map(
-        self, mocker: MockerFixture, nested_structure: dict[str, Any], tmp_path: Path
+        self, mocker: MockerFixture, nested_structure: Directory, tmp_path: Path
     ) -> None:
         mock_build_tree = mocker.patch("recursivist.exporters.svg.build_tree")
         get_exporter("svg", structure=nested_structure, root_name="root").export(
@@ -1736,11 +1762,11 @@ class TestExportColors:
 
 
 @pytest.mark.parametrize("fmt", ["txt", "json", "html", "md", "rst", "svg"])
-def test_export_directory_named_like_reserved_key(temp_dir: str, fmt: str) -> None:
-    """A folder called ``_files`` is exported as a folder, and its sibling survives."""
+def test_export_directory_named_like_a_directory_field(temp_dir: str, fmt: str) -> None:
+    """A folder called ``files`` is exported as a folder, and its sibling survives."""
     root = os.path.join(temp_dir, "root")
-    os.makedirs(os.path.join(root, "_files"))
-    with open(os.path.join(root, "_files", "inner.txt"), "w") as f:
+    os.makedirs(os.path.join(root, "files"))
+    with open(os.path.join(root, "files", "inner.txt"), "w") as f:
         f.write("x")
     with open(os.path.join(root, "top.txt"), "w") as f:
         f.write("x")
@@ -1750,9 +1776,10 @@ def test_export_directory_named_like_reserved_key(temp_dir: str, fmt: str) -> No
     with open(output_path, encoding="utf-8") as f:
         content = f.read()
     if fmt == "json":
-        exported = json.loads(content)["structure"]
-        assert exported["_files"] == ["top.txt"]
-        assert exported["/_files"] == {"_files": ["inner.txt"]}
+        assert json.loads(content)["structure"] == {
+            "files": ["top.txt"],
+            "subdirectories": {"files": {"files": ["inner.txt"]}},
+        }
     else:
         for name in ("top", "inner"):
             assert name in content

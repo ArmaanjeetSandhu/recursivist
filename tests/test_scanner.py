@@ -7,19 +7,17 @@ import logging
 import os
 import re
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 import pytest
 from pytest_mock import MockerFixture
 
-from recursivist._models import FileEntry
+from recursivist._models import Directory, FileEntry
 from recursivist.scanner import (
     collect_extensions,
     get_directory_structure,
-    get_subdirectory,
     has_contents,
     iter_subdirectories,
-    subdirectory_key,
 )
 
 
@@ -33,28 +31,27 @@ def _materialize_tree(root: str, files: dict[str, str]) -> None:
             fh.write(content)
 
 
-def _normalize_structure(structure: dict[str, Any]) -> dict[str, Any]:
-    """Make a get_directory_structure result comparable: '_files' lists become
-    sets of names (order from os.listdir isn't stable), and subdirectories are
-    normalized recursively."""
-    normalized: dict[str, Any] = {}
-    for key, value in structure.items():
-        if key == "_files":
-            normalized["_files"] = {item.name for item in value}
-        elif isinstance(value, dict):
-            normalized[key] = _normalize_structure(value)
-        else:
-            normalized[key] = value
-    return normalized
+def _normalize_structure(structure: Directory) -> tuple[set[str], dict[str, Any]]:
+    """Make a get_directory_structure result comparable: each directory becomes
+    a ``(file_names, subdirectories)`` pair, with the files as a set of names
+    (order from os.listdir isn't stable) and the subdirectories normalized
+    recursively under their names."""
+    return (
+        {item.name for item in structure.files},
+        {
+            name: _normalize_structure(subdirectory)
+            for name, subdirectory in structure.subdirectories.items()
+        },
+    )
 
 
 def test_get_directory_structure(sample_directory: Any) -> None:
     """Test getting directory structure."""
     structure, extensions = get_directory_structure(sample_directory)
-    assert isinstance(structure, dict)
-    assert "_files" in structure
-    assert "subdir" in structure
-    file_names = [f.name for f in structure["_files"]]
+    assert isinstance(structure, Directory)
+    assert structure.files
+    assert "subdir" in structure.subdirectories
+    file_names = [f.name for f in structure.files]
     assert "file1.txt" in file_names
     assert "file2.py" in file_names
     assert ".txt" in extensions
@@ -92,13 +89,15 @@ def test_get_directory_structure_gitignore_end_to_end(temp_dir: str) -> None:
 
     structure, extensions = get_directory_structure(root, ignore_file=".gitignore")
 
-    assert _normalize_structure(structure) == {
-        "_files": {".gitignore", "keep.log", "main.py"},
-        "src": {
-            "_files": {"helper.py", "keep.log"},
-            "build": {"_files": {"nested.py"}},
+    assert _normalize_structure(structure) == (
+        {".gitignore", "keep.log", "main.py"},
+        {
+            "src": (
+                {"helper.py", "keep.log"},
+                {"build": ({"nested.py"}, {})},
+            ),
         },
-    }
+    )
 
     assert extensions == {".log", ".py"}
 
@@ -139,14 +138,16 @@ def test_get_directory_structure_nested_gitignore_anchoring(temp_dir: str) -> No
 
     structure, extensions = get_directory_structure(root, ignore_file=".gitignore")
 
-    assert _normalize_structure(structure) == {
-        "_files": {".gitignore", "main.py"},
-        "build": {"_files": {"keep.py"}},
-        "sub": {
-            "_files": {".gitignore", "important.log"},
-            "nested": {"build": {"_files": {"z.py"}}},
+    assert _normalize_structure(structure) == (
+        {".gitignore", "main.py"},
+        {
+            "build": ({"keep.py"}, {}),
+            "sub": (
+                {".gitignore", "important.log"},
+                {"nested": (set(), {"build": ({"z.py"}, {})})},
+            ),
         },
-    }
+    )
 
     assert extensions == {".log", ".py"}
 
@@ -156,9 +157,9 @@ def test_get_directory_structure_nested_gitignore_anchoring(temp_dir: str) -> No
     [
         ("show_full_path", True, "entry with full path"),
         ("max_depth", 1, "max_depth_reached in level1"),
-        ("sort_by_loc", True, "_loc in structure"),
-        ("sort_by_size", True, "_size in structure"),
-        ("sort_by_mtime", True, "_mtime in structure"),
+        ("sort_by_loc", True, "loc totalled"),
+        ("sort_by_size", True, "size totalled"),
+        ("sort_by_mtime", True, "mtime recorded"),
     ],
 )
 def test_get_directory_structure_with_options(
@@ -170,26 +171,23 @@ def test_get_directory_structure_with_options(
     """Test getting directory structure with various options."""
     kwargs = {option_name: option_value}
     structure, _ = get_directory_structure(deeply_nested_directory, **kwargs)
+    level1 = structure.subdirectories["level1"]
     if expected_result == "entry with full path":
-        assert "_files" in structure
-        for file_item in structure["_files"]:
+        assert structure.files
+        for file_item in structure.files:
             assert isinstance(file_item, FileEntry)
             assert os.path.isabs(file_item.path.replace("/", os.sep))
     elif expected_result == "max_depth_reached in level1":
-        assert "level1" in structure
-        assert "_max_depth_reached" in structure["level1"]
-    elif expected_result == "_loc in structure":
-        assert "_loc" in structure
-        if "level1" in structure:
-            assert "_loc" in structure["level1"]
-    elif expected_result == "_size in structure":
-        assert "_size" in structure
-        if "level1" in structure:
-            assert "_size" in structure["level1"]
-    elif expected_result == "_mtime in structure":
-        assert "_mtime" in structure
-        if "level1" in structure:
-            assert "_mtime" in structure["level1"]
+        assert level1.max_depth_reached
+    elif expected_result == "loc totalled":
+        assert structure.loc is not None
+        assert level1.loc is not None
+    elif expected_result == "size totalled":
+        assert structure.size is not None
+        assert level1.size is not None
+    elif expected_result == "mtime recorded":
+        assert structure.mtime is not None
+        assert level1.mtime is not None
 
 
 def test_pathlib_compatibility(temp_dir: str) -> None:
@@ -199,9 +197,9 @@ def test_pathlib_compatibility(temp_dir: str) -> None:
         f.write("Test content")
     path_obj = Path(temp_dir)
     structure, _ = get_directory_structure(str(path_obj))
-    assert "_files" in structure
+    assert structure.files
     file_found = False
-    for file_item in structure["_files"]:
+    for file_item in structure.files:
         file_name = file_item.name
         if file_name == "test.txt":
             file_found = True
@@ -225,19 +223,21 @@ class TestGetDirectoryStructure:
         with open(subfile, "w") as f:
             f.write("Subfile content")
         structure, extensions = get_directory_structure(temp_dir)
-        assert "_files" in structure, "Root structure should have _files key"
-        assert "subdir" in structure, "Root structure should have subdir directory"
-        assert "_files" in structure["subdir"], (
-            "Subdir structure should have _files key"
+        assert structure.files, "Root structure should have files"
+        assert "subdir" in structure.subdirectories, (
+            "Root structure should have subdir directory"
         )
-        root_files = structure["_files"]
+        assert structure.subdirectories["subdir"].files, (
+            "Subdir structure should have files"
+        )
+        root_files = structure.files
         assert "file1.txt" in [f.name for f in root_files], (
             "file1.txt should be in root files"
         )
         assert "file2.py" in [f.name for f in root_files], (
             "file2.py should be in root files"
         )
-        subdir_files = structure["subdir"]["_files"]
+        subdir_files = structure.subdirectories["subdir"].files
         assert "subfile.md" in [f.name for f in subdir_files], (
             "subfile.md should be in subdir files"
         )
@@ -251,22 +251,17 @@ def test_get_directory_structure_with_no_depth_limit(
 ) -> None:
     """Test that structure is built without depth limits when max_depth=0."""
     structure, _ = get_directory_structure(deeply_nested_directory, max_depth=0)
-    assert "level1" in structure
-    assert "level1_dir1" in structure["level1"]
-    assert "level2" in structure["level1"]
-    assert "level3" in structure["level1"]["level2"]
-    assert "level4" in structure["level1"]["level2"]["level3"]
-    assert "level5" in structure["level1"]["level2"]["level3"]["level4"]
-    assert "level6" in structure["level1"]["level2"]["level3"]["level4"]["level5"]
-    assert "_max_depth_reached" not in structure
-    assert "_max_depth_reached" not in structure["level1"]
-    assert "_max_depth_reached" not in structure["level1"]["level2"]
+    level1 = structure.subdirectories["level1"]
+    assert "level1_dir1" in level1.subdirectories
+    current = level1
+    for name in ("level2", "level3", "level4", "level5", "level6"):
+        assert name in current.subdirectories
+        current = current.subdirectories[name]
 
-    def check_no_max_depth_flags(structure: dict[str, Any]) -> None:
-        assert "_max_depth_reached" not in structure
-        for key, value in structure.items():
-            if key != "_files" and isinstance(value, dict):
-                check_no_max_depth_flags(cast(dict[str, Any], value))
+    def check_no_max_depth_flags(structure: Directory) -> None:
+        assert not structure.max_depth_reached
+        for subdirectory in structure.subdirectories.values():
+            check_no_max_depth_flags(subdirectory)
 
     check_no_max_depth_flags(structure)
 
@@ -286,13 +281,13 @@ def test_get_directory_structure_with_depth_limits(
     structure, _ = get_directory_structure(deeply_nested_directory, max_depth=depth)
 
     def check_path_has_max_depth(path_segments: list[str]) -> bool:
-        current: dict[str, Any] = structure
+        current = structure
         for segment in path_segments:
-            if segment in current:
-                current = current[segment]
+            if segment in current.subdirectories:
+                current = current.subdirectories[segment]
             else:
                 return False
-        return "_max_depth_reached" in current
+        return current.max_depth_reached
 
     for path in max_depth_in_level:
         segments: list[str] = path.split("/")
@@ -310,9 +305,9 @@ class TestPatternMatching:
         structure, extensions = get_directory_structure(
             pattern_test_directory, exclude_patterns=exclude_patterns
         )
-        assert "_files" in structure
+        assert structure.files
         py_files_found = False
-        for file in structure.get("_files", []):
+        for file in structure.files:
             file_name = file.name
             if file_name.endswith(".py"):
                 py_files_found = True
@@ -322,16 +317,14 @@ class TestPatternMatching:
             "Python extension was included despite exclude pattern"
         )
 
-        def check_subdirs_for_py_files(structure: dict[str, Any]) -> None:
-            for key, value in structure.items():
-                if key != "_files" and isinstance(value, dict):
-                    if "_files" in value:
-                        for file in value["_files"]:
-                            file_name = file.name
-                            assert not file_name.endswith(".py"), (
-                                f"Python file {file_name} found despite exclude pattern"
-                            )
-                    check_subdirs_for_py_files(value)
+        def check_subdirs_for_py_files(structure: Directory) -> None:
+            for subdirectory in structure.subdirectories.values():
+                for file in subdirectory.files:
+                    file_name = file.name
+                    assert not file_name.endswith(".py"), (
+                        f"Python file {file_name} found despite exclude pattern"
+                    )
+                check_subdirs_for_py_files(subdirectory)
 
         check_subdirs_for_py_files(structure)
 
@@ -343,25 +336,22 @@ class TestPatternMatching:
         structure, extensions = get_directory_structure(
             pattern_test_directory, include_patterns=include_patterns
         )
-        if "_files" in structure:
-            for file in structure["_files"]:
-                file_name = file.name
-                assert file_name.endswith(".json"), (
-                    f"Non-JSON file {file_name} was included"
-                )
+        for file in structure.files:
+            file_name = file.name
+            assert file_name.endswith(".json"), (
+                f"Non-JSON file {file_name} was included"
+            )
         assert ".json" in extensions
         assert len(extensions) == 1, "Only JSON extension should be included"
 
-        def check_subdirs_for_non_json(structure: dict[str, Any]) -> None:
-            for key, value in structure.items():
-                if key != "_files" and isinstance(value, dict):
-                    if "_files" in value:
-                        for file in value["_files"]:
-                            file_name = file.name
-                            assert file_name.endswith(".json"), (
-                                f"Non-JSON file {file_name} was included"
-                            )
-                    check_subdirs_for_non_json(value)
+        def check_subdirs_for_non_json(structure: Directory) -> None:
+            for subdirectory in structure.subdirectories.values():
+                for file in subdirectory.files:
+                    file_name = file.name
+                    assert file_name.endswith(".json"), (
+                        f"Non-JSON file {file_name} was included"
+                    )
+                check_subdirs_for_non_json(subdirectory)
 
         check_subdirs_for_non_json(structure)
 
@@ -373,9 +363,8 @@ class TestPatternMatching:
         structure, extensions = get_directory_structure(
             pattern_test_directory, include_patterns=include_patterns
         )
-        assert "_files" in structure
-        assert len(structure["_files"]) == 2, "Should find exactly 2 data CSV files"
-        file_names = [f.name for f in structure["_files"]]
+        assert len(structure.files) == 2, "Should find exactly 2 data CSV files"
+        file_names = [f.name for f in structure.files]
         assert "data_20230101.csv" in file_names
         assert "data_20230102.csv" in file_names
         assert ".csv" in extensions
@@ -391,26 +380,19 @@ class TestPatternMatching:
             sort_by_size=True,
             sort_by_mtime=True,
         )
-        assert "_loc" in structure
-        assert "_size" in structure
-        assert "_mtime" in structure
-        if "_files" in structure:
-            for file_item in structure["_files"]:
-                assert isinstance(file_item, FileEntry)
-                assert isinstance(file_item.loc, int)
-                assert isinstance(file_item.size, int)
-                assert isinstance(file_item.mtime, float)
-        for key, value in structure.items():
-            if (
-                key != "_files"
-                and key != "_loc"
-                and key != "_size"
-                and key != "_mtime"
-                and isinstance(value, dict)
-            ):
-                assert "_loc" in value
-                assert "_size" in value
-                assert "_mtime" in value
+        assert structure.loc is not None
+        assert structure.size is not None
+        assert structure.mtime is not None
+        for file_item in structure.files:
+            assert isinstance(file_item, FileEntry)
+            assert isinstance(file_item.loc, int)
+            assert isinstance(file_item.size, int)
+            assert isinstance(file_item.mtime, float)
+        assert structure.subdirectories
+        for subdirectory in structure.subdirectories.values():
+            assert subdirectory.loc is not None
+            assert subdirectory.size is not None
+            assert subdirectory.mtime is not None
 
     def test_both_include_and_exclude_patterns(
         self, pattern_test_directory: str
@@ -427,10 +409,7 @@ class TestPatternMatching:
             include_patterns=include_patterns,
             exclude_patterns=exclude_patterns,
         )
-        file_names = []
-        if "_files" in structure:
-            for file_item in structure["_files"]:
-                file_names.append(file_item.name)
+        file_names = [file_item.name for file_item in structure.files]
         assert "test_file1.py" in file_names
         assert "include_me.py" in file_names
         assert "exclude_me.py" not in file_names
@@ -446,12 +425,9 @@ def test_get_directory_structure_pathlib(pattern_test_directory: str) -> None:
         str(path_obj), include_patterns=include_patterns
     )
     assert ".py" in extensions
-    if "_files" in structure:
-        for file_item in structure["_files"]:
-            file_name = file_item.name
-            assert file_name.endswith(".py"), (
-                f"Non-Python file {file_name} was included"
-            )
+    for file_item in structure.files:
+        file_name = file_item.name
+        assert file_name.endswith(".py"), f"Non-Python file {file_name} was included"
 
 
 def _supports_symlinks(base: str) -> bool:
@@ -488,9 +464,8 @@ class TestSymlinkCycles:
 
         structure, _ = get_directory_structure(temp_dir)
 
-        loop = structure["a"]["b"]["loop"]
-        assert loop == {"_symlink_loop": True}
-        assert "a" not in loop
+        loop = structure.subdirectories["a"].subdirectories["b"].subdirectories["loop"]
+        assert loop == Directory(symlink_loop=True)
 
     def test_self_referential_symlink_is_cut(self, temp_dir: str) -> None:
         """A directory containing a symlink to itself is marked, not recursed."""
@@ -501,7 +476,9 @@ class TestSymlinkCycles:
 
         structure, _ = get_directory_structure(temp_dir)
 
-        assert structure["c"]["self"] == {"_symlink_loop": True}
+        assert structure.subdirectories["c"].subdirectories["self"] == Directory(
+            symlink_loop=True
+        )
 
     def test_non_cyclic_symlink_is_still_followed(self, temp_dir: str) -> None:
         """A symlink to a non-ancestor directory is traversed like any directory."""
@@ -517,9 +494,9 @@ class TestSymlinkCycles:
 
         structure, _ = get_directory_structure(temp_dir)
 
-        alias = structure["src"]["alias"]
-        assert "_symlink_loop" not in alias
-        names = {f.name for f in alias["_files"]}
+        alias = structure.subdirectories["src"].subdirectories["alias"]
+        assert not alias.symlink_loop
+        names = {f.name for f in alias.files}
         assert "keep.txt" in names
 
     def test_cycle_does_not_explode_depth(self, temp_dir: str) -> None:
@@ -533,10 +510,8 @@ class TestSymlinkCycles:
 
         structure, _ = get_directory_structure(temp_dir)
 
-        def max_depth(node: Any, d: int = 0) -> int:
-            if not isinstance(node, dict):
-                return d
-            children = [v for k, v in node.items() if not k.startswith("_")]
+        def max_depth(node: Directory, d: int = 0) -> int:
+            children = node.subdirectories.values()
             return max((max_depth(v, d + 1) for v in children), default=d)
 
         assert max_depth(structure) == 3
@@ -560,13 +535,13 @@ def test_exclude_extensions_applies_to_dangling_symlinks(temp_dir: str) -> None:
         temp_dir, exclude_extensions={".log"}
     )
 
-    names = {f.name for f in structure["_files"]}
+    names = {f.name for f in structure.files}
     assert names == {"keep.txt"}
     assert extensions == {".txt"}
 
 
 class TestHiddenContentsAtDepthLimit:
-    """The ``_hidden_contents`` flag and the :func:`has_contents` predicate."""
+    """The ``hidden_contents`` flag and the :func:`has_contents` predicate."""
 
     def test_flag_set_only_when_something_was_cut_off(self, temp_dir: str) -> None:
         """A truncated directory records whether it still held anything."""
@@ -575,11 +550,12 @@ class TestHiddenContentsAtDepthLimit:
 
         structure, _ = get_directory_structure(temp_dir, max_depth=2)
 
-        assert structure["full"]["deep"] == {
-            "_max_depth_reached": True,
-            "_hidden_contents": True,
-        }
-        assert structure["bare"]["empty"] == {"_max_depth_reached": True}
+        assert structure.subdirectories["full"].subdirectories["deep"] == Directory(
+            max_depth_reached=True, hidden_contents=True
+        )
+        assert structure.subdirectories["bare"].subdirectories["empty"] == Directory(
+            max_depth_reached=True
+        )
 
     def test_excluded_children_do_not_count_as_contents(self, temp_dir: str) -> None:
         """A directory holding only excluded files is truncated as empty."""
@@ -589,7 +565,9 @@ class TestHiddenContentsAtDepthLimit:
             temp_dir, max_depth=2, exclude_extensions={".log"}
         )
 
-        assert structure["outer"]["inner"] == {"_max_depth_reached": True}
+        assert structure.subdirectories["outer"].subdirectories["inner"] == Directory(
+            max_depth_reached=True
+        )
 
     @pytest.mark.parametrize(
         "error", [PermissionError("Permission denied"), OSError("boom")]
@@ -609,24 +587,24 @@ class TestHiddenContentsAtDepthLimit:
         mocker.patch("recursivist.scanner.os.listdir", side_effect=fake_listdir)
         structure, _ = get_directory_structure(temp_dir, max_depth=2)
 
-        assert structure["outer"]["locked"] == {"_max_depth_reached": True}
+        assert structure.subdirectories["outer"].subdirectories["locked"] == Directory(
+            max_depth_reached=True
+        )
 
     @pytest.mark.parametrize(
         "structure,expected",
         [
-            ({}, False),
-            ({"_files": []}, False),
-            ({"_loc": 0, "_size": 0}, False),
-            ({"_files": [FileEntry("a.txt", "a.txt")]}, True),
-            ({"subdir": {}}, True),
-            ({"_max_depth_reached": True}, False),
-            ({"_max_depth_reached": True, "_hidden_contents": True}, True),
-            ({"_symlink_loop": True}, True),
-            ("not-a-dict", False),
+            (Directory(), False),
+            (Directory(loc=0, size=0), False),
+            (Directory(files=[FileEntry("a.txt", "a.txt")]), True),
+            (Directory(subdirectories={"subdir": Directory()}), True),
+            (Directory(max_depth_reached=True), False),
+            (Directory(max_depth_reached=True, hidden_contents=True), True),
+            (Directory(symlink_loop=True), True),
         ],
     )
-    def test_has_contents(self, structure: Any, expected: bool) -> None:
-        """Only entries with something to show are reported as non-empty."""
+    def test_has_contents(self, structure: Directory, expected: bool) -> None:
+        """Only directories with something to show are reported as non-empty."""
         assert has_contents(structure) is expected
 
 
@@ -718,34 +696,48 @@ class TestUnmatchedFilterReporting:
         assert len(self._messages(caplog)) == 1
 
 
-class TestReservedNameDirectories:
-    """Directories whose names clash with the structure's bookkeeping keys."""
+class TestFieldNamedDirectories:
+    """Directories named after a ``Directory`` field are ordinary subdirectories."""
 
     @pytest.fixture
     def tree(self, temp_dir: str) -> str:
-        for rel in ("_files/inner.txt", "_loc/deep.py", "top.txt"):
-            path = os.path.join(temp_dir, rel)
-            os.makedirs(os.path.dirname(path), exist_ok=True)
-            with open(path, "w") as f:
-                f.write("x\n")
+        _materialize_tree(
+            temp_dir,
+            {
+                "files/inner.txt": "x\n",
+                "loc/deep.py": "x\n",
+                "subdirectories/nested.txt": "x\n",
+                "top.txt": "x\n",
+            },
+        )
         return temp_dir
 
-    def test_reserved_name_does_not_clobber_bookkeeping(self, tree: str) -> None:
+    def test_field_name_does_not_clobber_the_field(self, tree: str) -> None:
         structure, _ = get_directory_structure(tree, sort_by_loc=True)
-        assert [entry.name for entry in structure["_files"]] == ["top.txt"]
-        assert structure["_loc"] == 3
-        subdirs = dict(iter_subdirectories(structure))
-        assert sorted(subdirs) == ["_files", "_loc"]
-        assert [e.name for e in subdirs["_files"]["_files"]] == ["inner.txt"]
-        assert get_subdirectory(structure, "_loc") is subdirs["_loc"]
+        assert [entry.name for entry in structure.files] == ["top.txt"]
+        assert structure.loc == 4
+        subdirs = structure.subdirectories
+        assert sorted(subdirs) == ["files", "loc", "subdirectories"]
+        assert [e.name for e in subdirs["files"].files] == ["inner.txt"]
+        assert subdirs["loc"].loc == 1
+        assert [e.name for e in subdirs["subdirectories"].files] == ["nested.txt"]
 
-    def test_subdirectory_key_round_trips(self) -> None:
-        assert subdirectory_key("src") == "src"
-        assert subdirectory_key("_private") == "_private"
-        structure: dict[str, Any] = {subdirectory_key("_files"): {}, "_files": []}
-        assert [name for name, _ in iter_subdirectories(structure)] == ["_files"]
-        assert get_subdirectory(structure, "_files") == {}
-        assert get_subdirectory(structure, "missing") is None
+
+class TestIterSubdirectories:
+    def test_yields_in_case_sensitive_name_order(self) -> None:
+        structure = Directory(
+            subdirectories={"b": Directory(), "_a": Directory(), "B": Directory()}
+        )
+        assert [name for name, _ in iter_subdirectories(structure)] == ["B", "_a", "b"]
+
+    def test_yields_each_subdirectory_under_its_name(self) -> None:
+        src = Directory(files=[FileEntry("main.py", "main.py")])
+        structure = Directory(subdirectories={"src": src})
+        assert list(iter_subdirectories(structure)) == [("src", src)]
+
+    def test_directory_without_subdirectories_yields_nothing(self) -> None:
+        structure = Directory(files=[FileEntry("a.txt", "a.txt")], loc=1)
+        assert list(iter_subdirectories(structure)) == []
 
 
 def test_include_patterns_keep_directories_with_underscore_children(
@@ -756,8 +748,8 @@ def test_include_patterns_keep_directories_with_underscore_children(
     with open(os.path.join(nested, "module.py"), "w") as f:
         f.write("x = 1\n")
     structure, _ = get_directory_structure(temp_dir, include_patterns=["*.py"])
-    internal = structure["pkg"]["_internal"]
-    assert [entry.name for entry in internal["_files"]] == ["module.py"]
+    internal = structure.subdirectories["pkg"].subdirectories["_internal"]
+    assert [entry.name for entry in internal.files] == ["module.py"]
 
 
 class TestCollectExtensions:
@@ -778,12 +770,14 @@ class TestCollectExtensions:
         assert collect_extensions(structure) == extensions
 
     def test_skips_truncated_and_looping_directories(self) -> None:
-        structure: dict[str, Any] = {
-            "_files": [FileEntry("a.py", "a.py")],
-            "deep": {"_max_depth_reached": True, "_hidden_contents": True},
-            "loop": {"_symlink_loop": True},
-        }
+        structure = Directory(
+            files=[FileEntry("a.py", "a.py")],
+            subdirectories={
+                "deep": Directory(max_depth_reached=True, hidden_contents=True),
+                "loop": Directory(symlink_loop=True),
+            },
+        )
         assert collect_extensions(structure) == {".py"}
 
     def test_empty_structure(self) -> None:
-        assert collect_extensions({}) == set()
+        assert collect_extensions(Directory()) == set()

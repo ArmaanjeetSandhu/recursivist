@@ -11,7 +11,7 @@
 | `rst`      | `structure.rst`               | [reStructuredText nested list](#restructuredtext-rst) |
 | `svg`      | `structure.svg`               | [Image of the terminal tree](#svg-svg)                |
 
-Every format honors the filtering, depth, full-path, file-statistics, Git-status, and icon-style options. Exports use the `emoji` icon style unless `--icon-style nerd` is given. A directory that was not descended into because it is a [symbolic link back to an ancestor](../user-guide/visualization.md#symbolic-links) is marked `↩ (symlink loop)`, or carries a `_symlink_loop` key in JSON.
+Every format honors the filtering, depth, full-path, file-statistics, Git-status, and icon-style options. Exports use the `emoji` icon style unless `--icon-style nerd` is given. A directory that was not descended into because it is a [symbolic link back to an ancestor](../user-guide/visualization.md#symbolic-links) is marked `↩ (symlink loop)`, or carries a `symlink_loop` key in JSON.
 
 The examples below all describe the same project, first as a plain export and then with `--sort-by-loc`.
 
@@ -54,22 +54,26 @@ A structured representation. The payload has these top-level keys:
 | Key                                                      | Value                                                                                     |
 | -------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
 | `root`                                                   | Name of the exported directory                                                            |
-| `structure`                                              | The tree: each subdirectory is a nested object under its own name                         |
+| `structure`                                              | The tree: the root directory as an object, with its subdirectories nested inside it       |
 | `sort_key`                                               | The active sort (`"loc"`, `"size"`, `"mtime"`, `"git_status"`, `"similarity"`), or `null` |
 | `metric_order`                                           | The numeric metrics displayed, in display order                                           |
 | `show_loc`, `show_size`, `show_mtime`, `show_git_status` | Whether each annotation was enabled                                                       |
 
-Within `structure`, a directory's own files are listed under `_files`. Without detail flags, files collapse to bare names:
+Every directory, the root included, is an object with the same set of keys: its own files are listed under `files`, and its subdirectories are nested under `subdirectories`, keyed by name. A key that does not apply is left out, so a directory without subdirectories has no `subdirectories` key. Without detail flags, files collapse to bare names:
 
 ```json
 {
     "root": "my-project",
     "structure": {
-        "_files": ["README.md", "setup.py", "requirements.txt"],
-        "src": {
-            "_files": ["main.py", "utils.py"],
-            "tests": {
-                "_files": ["test_main.py", "test_utils.py"]
+        "files": ["README.md", "setup.py", "requirements.txt"],
+        "subdirectories": {
+            "src": {
+                "files": ["main.py", "utils.py"],
+                "subdirectories": {
+                    "tests": {
+                        "files": ["test_main.py", "test_utils.py"]
+                    }
+                }
             }
         }
     },
@@ -88,7 +92,7 @@ With a detail flag (full path, LOC, size, mtime, or Git status), each file becom
 {
     "root": "my-project",
     "structure": {
-        "_files": [
+        "files": [
             {
                 "name": "README.md",
                 "path": "README.md",
@@ -105,35 +109,39 @@ With a detail flag (full path, LOC, size, mtime, or Git status), each file becom
                 "loc": 18
             }
         ],
-        "_loc": 1262,
-        "src": {
-            "_files": [
-                {
-                    "name": "main.py",
-                    "path": "main.py",
-                    "loc": 245
-                },
-                {
-                    "name": "utils.py",
-                    "path": "utils.py",
-                    "loc": 157
-                }
-            ],
-            "_loc": 1055,
-            "tests": {
-                "_files": [
+        "loc": 1262,
+        "subdirectories": {
+            "src": {
+                "files": [
                     {
-                        "name": "test_main.py",
-                        "path": "test_main.py",
-                        "loc": 412
+                        "name": "main.py",
+                        "path": "main.py",
+                        "loc": 245
                     },
                     {
-                        "name": "test_utils.py",
-                        "path": "test_utils.py",
-                        "loc": 241
+                        "name": "utils.py",
+                        "path": "utils.py",
+                        "loc": 157
                     }
                 ],
-                "_loc": 653
+                "loc": 1055,
+                "subdirectories": {
+                    "tests": {
+                        "files": [
+                            {
+                                "name": "test_main.py",
+                                "path": "test_main.py",
+                                "loc": 412
+                            },
+                            {
+                                "name": "test_utils.py",
+                                "path": "test_utils.py",
+                                "loc": 241
+                            }
+                        ],
+                        "loc": 653
+                    }
+                }
             }
         }
     },
@@ -148,17 +156,19 @@ With a detail flag (full path, LOC, size, mtime, or Git status), each file becom
 
 The fields that can appear:
 
-| On a file                  | On a directory                           | Present with                                                                                                  |
-| -------------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `name`, `path`             |                                          | Any detail flag; `path` is the full path (or GitHub blob URL) with `--full-path`, and the file name otherwise |
-| `loc`                      | `_loc`                                   | `--loc` or `--sort-by-loc`                                                                                    |
-| `size`, `size_formatted`   | `_size`, `_size_formatted`               | `--size` or `--sort-by-size`                                                                                  |
-| `mtime`, `mtime_formatted` | `_mtime`, `_mtime_formatted`             | `--mtime` or `--sort-by-mtime`                                                                                |
-| `git_status`               |                                          | `--git-status` or `--sort-by-git-status`, on files that have a status                                         |
-|                            | `_max_depth_reached`, `_hidden_contents` | `--depth`, on a directory cut off by the limit (`_hidden_contents` when it is not empty)                      |
-|                            | `_symlink_loop`                          | A directory that links back to an ancestor                                                                    |
+| On a file                  | On a directory                         | Present with                                                                                                  |
+| -------------------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+|                            | `files`                                | A directory that has files                                                                                    |
+|                            | `subdirectories`                       | A directory that has subdirectories                                                                           |
+| `name`, `path`             |                                        | Any detail flag; `path` is the full path (or GitHub blob URL) with `--full-path`, and the file name otherwise |
+| `loc`                      | `loc`                                  | `--loc` or `--sort-by-loc`                                                                                    |
+| `size`, `size_formatted`   | `size`, `size_formatted`               | `--size` or `--sort-by-size`                                                                                  |
+| `mtime`, `mtime_formatted` | `mtime`, `mtime_formatted`             | `--mtime` or `--sort-by-mtime`                                                                                |
+| `git_status`               |                                        | `--git-status` or `--sort-by-git-status`, on files that have a status                                         |
+|                            | `max_depth_reached`, `hidden_contents` | `--depth`, on a directory cut off by the limit (`hidden_contents` when it is not empty)                       |
+|                            | `symlink_loop`                         | A directory that links back to an ancestor                                                                    |
 
-Sizes are in bytes and modification times are Unix timestamps; the `_formatted` variants hold the human-readable text shown by the other formats. This format pairs well with [jq](https://jqlang.org) — see [Analyzing a Codebase with JSON](../recipes/json.md).
+Sizes are in bytes and modification times are Unix timestamps; the `_formatted` variants hold the human-readable text shown by the other formats. A directory that was cut off by the depth limit or links back to an ancestor was not read, so it carries no totals. This format pairs well with [jq](https://jqlang.org) — see [Analyzing a Codebase with JSON](../recipes/json.md).
 
 ## HTML (`.html`)
 

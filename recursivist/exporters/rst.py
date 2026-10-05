@@ -7,8 +7,8 @@ and Sphinx.
 """
 
 import unicodedata
-from typing import Any
 
+from recursivist._models import Directory
 from recursivist.icons import get_icon
 from recursivist.metrics import format_dir_metrics, format_metrics_suffix
 from recursivist.scanner import has_contents, iter_subdirectories
@@ -85,13 +85,13 @@ class RstExporter(BaseExporter):
         """
 
         def _build_rst_tree(
-            structure: dict[str, Any],
+            structure: Directory,
             level: int = 0,
         ) -> list[str]:
             """Return the reStructuredText lines for *structure* and its descendants.
 
             Args:
-                structure: Directory-structure dict to render.
+                structure: Directory to render.
                 level: Current nesting depth, controlling indentation.
 
             Returns:
@@ -100,33 +100,29 @@ class RstExporter(BaseExporter):
             """
             lines: list[str] = []
             indent = "  " * level
-            if "_files" in structure:
-                for entry in sort_files_by_type(
-                    structure["_files"],
-                    self.sort_key,
-                    structure.get("_git_markers"),
-                ):
-                    file_icon = get_icon(
-                        entry.name, is_dir=False, style=self.icon_style
-                    )
+            for entry in sort_files_by_type(
+                structure.files, self.sort_key, structure.git_markers
+            ):
+                file_icon = get_icon(entry.name, is_dir=False, style=self.icon_style)
 
-                    _git_markers = structure.get("_git_markers", {})
-                    _git_marker = (
-                        _git_markers.get(entry.name, "") if self.show_git_status else ""
-                    )
-                    _git_suffix = (
-                        f" {_GIT_RST_BADGE[_git_marker]}"
-                        if _git_marker in _GIT_RST_BADGE
-                        else ""
-                    )
+                _git_marker = (
+                    structure.git_markers.get(entry.name, "")
+                    if self.show_git_status
+                    else ""
+                )
+                _git_suffix = (
+                    f" {_GIT_RST_BADGE[_git_marker]}"
+                    if _git_marker in _GIT_RST_BADGE
+                    else ""
+                )
 
-                    lines.append(
-                        f"{indent}- {file_icon} {_rst_inline_literal(entry.path)}"
-                        + format_metrics_suffix(
-                            entry.loc, entry.size, entry.mtime, self.metrics
-                        )
-                        + _git_suffix
+                lines.append(
+                    f"{indent}- {file_icon} {_rst_inline_literal(entry.path)}"
+                    + format_metrics_suffix(
+                        entry.loc, entry.size, entry.mtime, self.metrics
                     )
+                    + _git_suffix
+                )
             for name, content in iter_subdirectories(structure):
                 folder_icon = get_icon(
                     name,
@@ -135,21 +131,18 @@ class RstExporter(BaseExporter):
                     is_empty=not has_contents(content),
                 )
 
-                metrics = ""
-                if isinstance(content, dict):
-                    metrics = format_dir_metrics(content, self.metrics)
+                metrics = format_dir_metrics(content, self.metrics)
                 lines.append(
                     f"{indent}- {folder_icon} **{_rst_escape(name)}**{metrics}"
                 )
-                if isinstance(content, dict):
-                    if content.get("_symlink_loop"):
+                if content.symlink_loop:
+                    lines.append("")
+                    lines.append(f"{indent}  - ↩ *(symlink loop)*")
+                elif not content.max_depth_reached:
+                    sublines = _build_rst_tree(content, level + 1)
+                    if sublines:
                         lines.append("")
-                        lines.append(f"{indent}  - ↩ *(symlink loop)*")
-                    elif not content.get("_max_depth_reached"):
-                        sublines = _build_rst_tree(content, level + 1)
-                        if sublines:
-                            lines.append("")
-                            lines.extend(sublines)
+                        lines.extend(sublines)
             return lines
 
         root_icon = get_icon(

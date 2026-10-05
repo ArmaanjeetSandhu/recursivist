@@ -6,7 +6,7 @@ Recursivist is organized as a set of focused modules that can be imported direct
 
 | Module                   | Responsibility                                      | Reference                                             |
 | ------------------------ | --------------------------------------------------- | ----------------------------------------------------- |
-| `recursivist.scanner`    | Walk a directory into the nested structure dict     | [Scanning and Filtering](api/scanning.md)             |
+| `recursivist.scanner`    | Walk a directory into a tree of `Directory` nodes   | [Scanning and Filtering](api/scanning.md)             |
 | `recursivist.filtering`  | Ignore-file, glob, and regex exclusion logic        | [Scanning and Filtering](api/scanning.md)             |
 | `recursivist.flags`      | Resolve sort/display flags into a `DisplayOptions`  | [Sorting and Metrics](api/display.md)                 |
 | `recursivist.sorting`    | File ordering (by type, metric, or name similarity) | [Sorting and Metrics](api/display.md)                 |
@@ -20,16 +20,19 @@ Recursivist is organized as a set of focused modules that can be imported direct
 | `recursivist.github`     | Materialize a GitHub repository for scanning        | [Git, GitHub, and Configuration](api/integrations.md) |
 | `recursivist.config`     | User and project configuration                      | [Git, GitHub, and Configuration](api/integrations.md) |
 
-## The Structure Dictionary
+## The Directory Structure
 
-Most of the API revolves around the nested dictionary produced by [`get_directory_structure`][recursivist.scanner.get_directory_structure]. Each subdirectory is a nested dict under its own name; a directory's own files and aggregate metrics live under reserved keys:
+Most of the API revolves around the tree produced by [`get_directory_structure`][recursivist.scanner.get_directory_structure]: a [`Directory`][recursivist._models.Directory] for the scanned root, with every subdirectory nested as another `Directory`. Each one holds its own data in these fields:
 
-- `_files`: a list of [`FileEntry`][recursivist._models.FileEntry] objects for the directory's files
-- `_loc`, `_size`, `_mtime`: aggregate totals, present only when the matching metric is requested
-- `_max_depth_reached`: present when traversal stopped at the depth limit
-- `_hidden_contents`: present alongside `_max_depth_reached` when the untraversed directory is not empty, so renderers can tell it apart from one that holds nothing
-- `_symlink_loop`: present when a directory was not descended into because it resolves to one of its own ancestors
-- `_git_markers`: a `{filename: status}` map, present only with Git status enabled
+- `files`: a list of [`FileEntry`][recursivist._models.FileEntry] objects for the directory's files
+- `subdirectories`: the nested directories, as a `{name: Directory}` map
+- `loc`, `size`, `mtime`: aggregate totals, `None` unless the matching metric is requested
+- `max_depth_reached`: `True` when traversal stopped at the depth limit
+- `hidden_contents`: `True` alongside `max_depth_reached` when the untraversed directory is not empty, so renderers can tell it apart from one that holds nothing
+- `symlink_loop`: `True` when a directory was not descended into because it resolves to one of its own ancestors
+- `git_markers`: a `{filename: status}` map, empty unless Git status is enabled
+
+Subdirectory names are the only keys of `subdirectories`, so a directory can be called anything. [`iter_subdirectories`][recursivist.scanner.iter_subdirectories] yields them in the order the renderers list them.
 
 ## DisplayOptions
 
@@ -51,10 +54,10 @@ This script scans a directory with metrics enabled, exports two formats, and pri
 ```python
 import sys
 
-from recursivist.scanner import get_directory_structure
+from recursivist.scanner import get_directory_structure, iter_subdirectories
 from recursivist.exporters import get_exporter
 from recursivist.flags import DisplayOptions
-from recursivist._models import FileEntry
+from recursivist._models import Directory, FileEntry
 
 
 def analyze_directory(directory_path: str) -> None:
@@ -81,17 +84,16 @@ def analyze_directory(directory_path: str) -> None:
 
     print(f"Directory: {directory_path}")
     print(f"Extensions: {sorted(extensions)}")
-    print(f"Total lines of code: {structure.get('_loc', 0)}")
-    print(f"Total size (bytes): {structure.get('_size', 0)}")
+    print(f"Total lines of code: {structure.loc}")
+    print(f"Total size (bytes): {structure.size}")
 
     # Collect every file (each a FileEntry) and find the largest by LOC.
-    def collect(struct: dict, path: str = "") -> list[tuple[str, FileEntry]]:
+    def collect(directory: Directory, path: str = "") -> list[tuple[str, FileEntry]]:
         found: list[tuple[str, FileEntry]] = []
-        for fe in struct.get("_files", []):
+        for fe in directory.files:
             found.append((f"{path}/{fe.name}" if path else fe.name, fe))
-        for name, content in struct.items():
-            if isinstance(content, dict) and not name.startswith("_"):
-                found.extend(collect(content, f"{path}/{name}" if path else name))
+        for name, subdirectory in iter_subdirectories(directory):
+            found.extend(collect(subdirectory, f"{path}/{name}" if path else name))
         return found
 
     files = collect(structure)

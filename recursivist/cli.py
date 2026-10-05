@@ -42,6 +42,7 @@ from rich.console import Console
 from rich.logging import RichHandler
 from rich.progress import Progress
 
+from recursivist._models import Directory
 from recursivist.compare import (
     display_comparison,
     export_comparison,
@@ -1040,7 +1041,7 @@ def _scan_directory(
     sort_by_size: bool,
     sort_by_mtime: bool,
     show_git_status: bool,
-) -> tuple[dict[str, Any], set[str]]:
+) -> tuple[Directory, set[str]]:
     """Fetch Git status and scan *directory* into a tree structure.
 
     Encapsulates the scanning pipeline shared by the visualize and export commands:
@@ -1236,7 +1237,7 @@ class _ScannedTree:
 
     scan_dir: str
     root_name: str
-    structure: dict[str, Any]
+    structure: Directory
     extensions: set[str]
 
 

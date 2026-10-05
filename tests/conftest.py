@@ -5,16 +5,13 @@ import shutil
 import tempfile
 import time
 from collections.abc import Generator
-from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
 from rich.tree import Tree
 from typer.testing import CliRunner
 
-from recursivist._models import FileEntry
-
-DirStructure = dict[str, Any]
+from recursivist._models import Directory, FileEntry
 
 
 @pytest.fixture(autouse=True)
@@ -355,79 +352,82 @@ def color_map() -> dict[str, str]:
 
 
 @pytest.fixture
-def simple_structure() -> DirStructure:
+def simple_structure() -> Directory:
     """Create a simple directory structure for testing."""
-    return {
-        "_files": [
+    return Directory(
+        files=[
             FileEntry("file1.txt", "file1.txt"),
             FileEntry("file2.py", "file2.py"),
             FileEntry("file3.md", "file3.md"),
-        ],
-    }
+        ]
+    )
 
 
 @pytest.fixture
-def nested_structure() -> DirStructure:
+def nested_structure() -> Directory:
     """Create a nested directory structure for testing."""
-    return {
-        "_files": [
+    return Directory(
+        files=[
             FileEntry("root_file1.txt", "root_file1.txt"),
             FileEntry("root_file2.py", "root_file2.py"),
         ],
-        "subdir1": {
-            "_files": [
-                FileEntry("subdir1_file1.txt", "subdir1_file1.txt"),
-                FileEntry("subdir1_file2.js", "subdir1_file2.js"),
-            ],
+        subdirectories={
+            "subdir1": Directory(
+                files=[
+                    FileEntry("subdir1_file1.txt", "subdir1_file1.txt"),
+                    FileEntry("subdir1_file2.js", "subdir1_file2.js"),
+                ]
+            ),
+            "subdir2": Directory(
+                files=[FileEntry("subdir2_file1.md", "subdir2_file1.md")],
+                subdirectories={
+                    "nested": Directory(
+                        files=[FileEntry("nested_file1.json", "nested_file1.json")]
+                    )
+                },
+            ),
         },
-        "subdir2": {
-            "_files": [FileEntry("subdir2_file1.md", "subdir2_file1.md")],
-            "nested": {
-                "_files": [FileEntry("nested_file1.json", "nested_file1.json")],
-            },
-        },
-    }
+    )
 
 
 @pytest.fixture
-def structure_with_stats() -> DirStructure:
+def structure_with_stats() -> Directory:
     """Create a directory structure with file statistics."""
     now = time.time()
-    return {
-        "_loc": 100,
-        "_size": 1024,
-        "_mtime": now,
-        "_files": [
+    return Directory(
+        loc=100,
+        size=1024,
+        mtime=now,
+        files=[
             FileEntry("file1.txt", "/path/to/file1.txt", 50, 512, now - 100),
             FileEntry("file2.py", "/path/to/file2.py", 30, 256, now - 200),
         ],
-        "subdir": {
-            "_loc": 20,
-            "_size": 256,
-            "_mtime": now - 300,
-            "_files": [
-                FileEntry(
-                    "subfile.md", "/path/to/subdir/subfile.md", 20, 256, now - 400
-                ),
-            ],
+        subdirectories={
+            "subdir": Directory(
+                loc=20,
+                size=256,
+                mtime=now - 300,
+                files=[
+                    FileEntry(
+                        "subfile.md", "/path/to/subdir/subfile.md", 20, 256, now - 400
+                    ),
+                ],
+            )
         },
-    }
+    )
 
 
 @pytest.fixture
-def max_depth_structure() -> DirStructure:
+def max_depth_structure() -> Directory:
     """Create a structure truncated at the depth limit.
 
     ``subdir`` was cut short with contents left unexplored, while
     ``empty_subdir`` was cut short but holds nothing.
     """
-    return {
-        "_files": [FileEntry("root_file.txt", "root_file.txt")],
-        "subdir": {
-            "_max_depth_reached": True,
-            "_hidden_contents": True,
+    return Directory(
+        files=[FileEntry("root_file.txt", "root_file.txt")],
+        subdirectories={
+            "subdir": Directory(max_depth_reached=True, hidden_contents=True),
+            "empty_subdir": Directory(max_depth_reached=True),
         },
-        "empty_subdir": {
-            "_max_depth_reached": True,
-        },
-    }
+    )

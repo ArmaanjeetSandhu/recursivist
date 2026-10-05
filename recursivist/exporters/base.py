@@ -16,8 +16,8 @@ import os
 import re
 import secrets
 import shutil
-from typing import Any
 
+from recursivist._models import Directory
 from recursivist.flags import DisplayOptions
 
 _SURROGATES = re.compile("[\ud800-\udfff]")
@@ -95,7 +95,7 @@ class BaseExporter:
 
     def __init__(
         self,
-        structure: dict[str, Any],
+        structure: Directory,
         root_name: str,
         show_full_path: bool = False,
         spec: DisplayOptions | None = None,

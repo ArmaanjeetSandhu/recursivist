@@ -55,10 +55,10 @@ Recursivist is organized into small, focused modules:
 recursivist/
 ├── __init__.py        # Package metadata and version
 ├── __main__.py        # `python -m recursivist` entry point
-├── _models.py         # FileEntry (a NamedTuple)
+├── _models.py         # Directory (a dataclass) and FileEntry (a NamedTuple)
 ├── cli.py             # Typer-based command-line interface
 ├── flags.py           # DisplayOptions and command-line-order flag resolution
-├── scanner.py         # Directory traversal -> nested structure dict
+├── scanner.py         # Directory traversal -> tree of Directory nodes
 ├── tree.py            # Rich tree rendering (build_tree, display_tree)
 ├── compare.py         # Side-by-side comparison and rendering
 ├── filtering.py       # should_exclude, compile_regex_patterns, parse_ignore_file
@@ -224,7 +224,7 @@ Exporters live in `recursivist/exporters/` and subclass `BaseExporter`, which st
 To add a metric beyond lines of code, size, and mtime:
 
 1. Collect it in `get_directory_structure` (`scanner.py`) and add a flag to enable it.
-2. Thread it through `FileEntry` in `_models.py` and the formatting helpers in `metrics.py`.
+2. Thread it through `FileEntry` and `Directory` in `_models.py` and the formatting helpers in `metrics.py`.
 3. Register the metric and its flags in `flags.py` so they resolve into `DisplayOptions` (a sorting flag, a display-only flag, or both).
 4. Surface it in `build_tree` (`tree.py`), the exporters, and `compare.py`.
 5. Add the CLI options in `cli.py`, giving each a `_records_order` callback with its flag id, and wire them into `resolve_display_options`.

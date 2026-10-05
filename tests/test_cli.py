@@ -16,6 +16,7 @@ import pytest
 from typer.testing import CliRunner
 
 from recursivist import cli as cli_module
+from recursivist._models import Directory
 from recursivist.cli import app, parse_list_option
 from recursivist.exporters.markdown import _md_escape_text
 from recursivist.exporters.rst import _rst_escape
@@ -444,11 +445,10 @@ def test_export_json_content(
     assert "root" in data
     assert "structure" in data
     assert data["root"] == os.path.basename(sample_directory)
-    assert "_files" in data["structure"]
-    file_names = data["structure"]["_files"]
+    file_names = data["structure"]["files"]
     assert "file1.txt" in file_names
     assert "file2.py" in file_names
-    assert "subdir" in data["structure"]
+    assert "subdir" in data["structure"]["subdirectories"]
 
 
 def test_export_with_full_path(
@@ -508,13 +508,11 @@ def test_export_with_filtering_options(
     with open(export_file, encoding="utf-8") as f:
         data: dict[str, Any] = json.load(f)
     assert "structure" in data
-    assert "exclude_me" not in data["structure"]
-    if "_files" in data["structure"]:
-        for file in data["structure"]["_files"]:
-            if isinstance(file, str):
-                assert not file.startswith("test")
-            else:
-                assert not file[0].startswith("test")
+    assert "exclude_me" not in data["structure"]["subdirectories"]
+    file_names = data["structure"]["files"]
+    assert file_names
+    for file_name in file_names:
+        assert not file_name.startswith("test")
 
 
 def test_export_with_depth_limit(
@@ -541,9 +539,10 @@ def test_export_with_depth_limit(
     with open(export_file, encoding="utf-8") as f:
         data: dict[str, Any] = json.load(f)
     assert "structure" in data
-    assert "level1" in data["structure"]
-    assert "level2" in data["structure"]["level1"]
-    assert "_max_depth_reached" in data["structure"]["level1"]["level2"]
+    level1 = data["structure"]["subdirectories"]["level1"]
+    level2 = level1["subdirectories"]["level2"]
+    assert level2["max_depth_reached"] is True
+    assert "subdirectories" not in level2
 
 
 def test_export_invalid_format(
@@ -1208,9 +1207,10 @@ def test_export_command_with_depth_limit(
     with open(export_file, encoding="utf-8") as f:
         data: dict[str, Any] = json.load(f)
     assert "structure" in data
-    assert "level1" in data["structure"]
-    assert "level2" in data["structure"]["level1"]
-    assert "_max_depth_reached" in data["structure"]["level1"]["level2"]
+    level1 = data["structure"]["subdirectories"]["level1"]
+    level2 = level1["subdirectories"]["level2"]
+    assert level2["max_depth_reached"] is True
+    assert "subdirectories" not in level2
 
 
 def test_compare_command_with_depth_limit(
@@ -1356,26 +1356,10 @@ def test_export_with_different_depth_limits(
     with open(export_file, encoding="utf-8") as f:
         data: dict[str, Any] = json.load(f)
     current: dict[str, Any] = data["structure"]
-    assert "level1" in current
-    current = current["level1"]
-    if depth == 1:
-        assert "_max_depth_reached" in current
-        return
-    assert "level2" in current
-    current = current["level2"]
-    if depth == 2:
-        assert "_max_depth_reached" in current
-        return
-    assert "level3" in current
-    current = current["level3"]
-    if depth == 3:
-        assert "_max_depth_reached" in current
-        return
-    assert "level4" in current
-    current = current["level4"]
-    if depth == 4:
-        assert "_max_depth_reached" in current
-        return
+    for level in range(1, depth + 1):
+        assert "max_depth_reached" not in current
+        current = current["subdirectories"][f"level{level}"]
+    assert current["max_depth_reached"] is True
 
 
 def test_unlimited_depth(runner: CliRunner, deeply_nested_directory: str) -> None:
@@ -1453,18 +1437,16 @@ def test_glob_patterns(pattern_test_directory: str) -> None:
     test_files_found = False
     log_files_found = False
 
-    def check_files(struct: dict[str, Any]) -> None:
+    def check_files(struct: Directory) -> None:
         nonlocal test_files_found, log_files_found
-        if "_files" in struct:
-            for file in struct["_files"]:
-                file_name = file.name
-                if file_name.startswith("test_"):
-                    test_files_found = True
-                if file_name.endswith(".log"):
-                    log_files_found = True
-        for key, value in struct.items():
-            if key != "_files" and isinstance(value, dict):
-                check_files(value)
+        for file in struct.files:
+            file_name = file.name
+            if file_name.startswith("test_"):
+                test_files_found = True
+            if file_name.endswith(".log"):
+                log_files_found = True
+        for subdirectory in struct.subdirectories.values():
+            check_files(subdirectory)
 
     check_files(structure)
     assert not test_files_found, "Test files were found despite glob exclude pattern"
@@ -1510,28 +1492,32 @@ def test_regex_pattern_escaping(pattern_test_directory: str) -> None:
         pattern_test_directory, include_patterns=include_patterns
     )
     found = False
-    if "_files" in structure:
-        for file_item in structure["_files"]:
-            file_name = file_item.name
-            if file_name == "file+[special].txt":
-                found = True
-                break
+    for file_item in structure.files:
+        file_name = file_item.name
+        if file_name == "file+[special].txt":
+            found = True
+            break
     assert found, "File with special characters not found with escaped regex pattern"
 
 
 def test_regex_nested_directory_patterns(pattern_test_directory: str) -> None:
     """Test regular expressions for files in nested directories."""
     structure, _ = get_directory_structure(pattern_test_directory)
-    assert "tests" in structure, "Base structure doesn't have tests directory"
-    assert "unit" in structure["tests"], "Base structure doesn't have unit directory"
-    assert "integration" in structure["tests"], (
+    assert "tests" in structure.subdirectories, (
+        "Base structure doesn't have tests directory"
+    )
+    tests_dir = structure.subdirectories["tests"]
+    assert "unit" in tests_dir.subdirectories, (
+        "Base structure doesn't have unit directory"
+    )
+    assert "integration" in tests_dir.subdirectories, (
         "Base structure doesn't have integration directory"
     )
     include_patterns = [re.compile(r"test_.*\.py$")]
     structure, _ = get_directory_structure(
         pattern_test_directory, include_patterns=include_patterns
     )
-    files_at_root = [f.name for f in structure.get("_files", [])]
+    files_at_root = [f.name for f in structure.files]
     assert "test_file1.py" in files_at_root, "Root test_file1.py should be included"
     assert "regular_file.txt" not in files_at_root, (
         "Non-matching files should be excluded"
@@ -1540,19 +1526,17 @@ def test_regex_nested_directory_patterns(pattern_test_directory: str) -> None:
     structure, _ = get_directory_structure(
         pattern_test_directory, include_patterns=include_patterns
     )
-    if "_files" in structure:
-        files_at_root = [f.name for f in structure.get("_files", [])]
-        assert "regular_file.txt" in files_at_root, "Regular file should be included"
-        assert "test_file1.py" not in files_at_root, "Test file should be excluded"
+    files_at_root = [f.name for f in structure.files]
+    assert "regular_file.txt" in files_at_root, "Regular file should be included"
+    assert "test_file1.py" not in files_at_root, "Test file should be excluded"
     with open(os.path.join(pattern_test_directory, "unique_test_pattern.py"), "w") as f:
         f.write("# Unique test file")
     include_patterns = [re.compile(r"unique_test_pattern\.py$")]
     structure, _ = get_directory_structure(
         pattern_test_directory, include_patterns=include_patterns
     )
-    if "_files" in structure:
-        files = [f.name for f in structure["_files"]]
-        assert "unique_test_pattern.py" in files, "Unique test file should be included"
+    files = [f.name for f in structure.files]
+    assert "unique_test_pattern.py" in files, "Unique test file should be included"
 
 
 def test_visualize_reports_unmatched_filters(

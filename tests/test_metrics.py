@@ -17,6 +17,7 @@ from hypothesis import strategies as st
 from hypothesis.strategies import DrawFn
 from pytest_mock import MockerFixture
 
+from recursivist._models import Directory
 from recursivist.metrics import (
     count_lines_of_code,
     format_dir_metrics,
@@ -638,22 +639,27 @@ class TestFormatMetricsSuffix:
 
 
 class TestFormatDirMetrics:
-    def test_non_dict_returns_empty(self) -> None:
-        assert format_dir_metrics("not-a-dict", ("loc",)) == ""
-        assert format_dir_metrics(None, ("loc",)) == ""
+    def test_directory_without_totals_returns_empty(self) -> None:
+        assert format_dir_metrics(Directory(), ("loc",)) == ""
+        assert format_dir_metrics(Directory(symlink_loop=True), ("loc", "size")) == ""
 
-    def test_reads_totals_from_dict(self) -> None:
-        content = {"_loc": 100, "_size": 2048, "_mtime": 0.0}
+    def test_reads_totals_from_directory(self) -> None:
+        content = Directory(loc=100, size=2048, mtime=0.0)
         assert format_dir_metrics(content, ("loc", "size")) == " (100 lines, 2.0 KB)"
 
     def test_only_present_metrics_included(self) -> None:
-        """A requested metric absent from the directory dict is dropped."""
-        content = {"_loc": 100}
+        """A requested metric the directory holds no total for is dropped."""
+        content = Directory(loc=100)
         assert format_dir_metrics(content, ("size", "loc")) == " (100 lines)"
 
     def test_requested_order_preserved(self) -> None:
-        content = {"_loc": 100, "_size": 2048}
+        content = Directory(loc=100, size=2048)
         assert format_dir_metrics(content, ("size", "loc")) == " (2.0 KB, 100 lines)"
 
+    def test_zero_totals_are_still_shown(self) -> None:
+        assert format_dir_metrics(Directory(loc=0, size=0), ("loc", "size")) == (
+            " (0 lines, 0 B)"
+        )
+
     def test_empty_metrics_returns_empty(self) -> None:
-        assert format_dir_metrics({"_loc": 100}, ()) == ""
+        assert format_dir_metrics(Directory(loc=100), ()) == ""

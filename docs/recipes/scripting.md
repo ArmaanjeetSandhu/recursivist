@@ -32,7 +32,7 @@ recursivist config list ./my-project --json
 
 ## Using Recursivist from Python
 
-Scanning produces a nested structure dictionary; `get_exporter` writes files from it:
+Scanning produces a tree of `Directory` nodes; `get_exporter` writes files from it:
 
 ```python
 from recursivist.scanner import get_directory_structure
@@ -57,15 +57,17 @@ for fmt, out in (("md", "output.md"), ("json", "output.json")):
         spec=spec,
     ).export(out)
 
-print("Total lines of code:", structure.get("_loc", 0))
-print("Total size (bytes):", structure.get("_size", 0))
+print("Total lines of code:", structure.loc)
+print("Total size (bytes):", structure.size)
 ```
 
-Each entry in a directory's `_files` list is a `FileEntry` (a `NamedTuple`); read attributes like `.name`, `.path`, and `.loc` directly. Because `FileEntry` subclasses `tuple`, tuple-style access and `isinstance(item, tuple)` work as well. The [Python API reference](../reference/api-reference.md) describes the structure dictionary and has a longer example.
+Each entry in a directory's `files` list is a `FileEntry` (a `NamedTuple`); read attributes like `.name`, `.path`, and `.loc` directly. Because `FileEntry` subclasses `tuple`, tuple-style access and `isinstance(item, tuple)` work as well. Subdirectories are nested `Directory` nodes under `subdirectories`, keyed by name. The [Python API reference](../reference/api-reference.md#the-directory-structure) describes every field and has a longer example.
 
 ## Serving Structures from Flask
 
 ```python
+from dataclasses import asdict
+
 from flask import Flask, jsonify, request
 from recursivist.scanner import get_directory_structure
 
@@ -85,7 +87,7 @@ def get_structure():
             sort_by_loc="sort_by_loc" in request.args,
             sort_by_size="sort_by_size" in request.args,
         )
-        return jsonify({"directory": directory, "structure": structure})
+        return jsonify({"directory": directory, "structure": asdict(structure)})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 ```

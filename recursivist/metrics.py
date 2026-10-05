@@ -2,7 +2,7 @@
 
 Lines-of-code counting, file size and modification-time retrieval, and the helpers that
 format those metrics into the annotation suffixes shown next to files and directories.
-Pure standard library.
+Uses only the standard library and the shared data model.
 """
 
 import io
@@ -11,7 +11,8 @@ import os
 import stat
 from collections.abc import Sequence
 from datetime import datetime, timedelta
-from typing import Any
+
+from recursivist._models import Directory
 
 logger = logging.getLogger(__name__)
 
@@ -238,28 +239,48 @@ def format_metrics_suffix(
     return f" {annotation}" if annotation else ""
 
 
-def format_dir_metrics(content: Any, metrics: Sequence[str] = ()) -> str:
-    """Return the space-prefixed metrics suffix for a directory node.
+def recorded_dir_metrics(
+    directory: Directory, metrics: Sequence[str] = ()
+) -> list[str]:
+    """Return the entries of *metrics* that *directory* holds a total for.
 
-    Wraps [`format_metrics_suffix`][recursivist.metrics.format_metrics_suffix], reading
-    the totals from a directory's structure dict and keeping only the requested metrics
-    that are actually present on that directory — while preserving the requested display
-    order. Returns ``""`` for a non-dict node.
+    A directory carries a total only for the metrics its scan collected, and none at all
+    when it was not traversed. The order of *metrics* is preserved.
 
     Args:
-        content: The directory's structure dict (or any value; non-dicts yield an empty
-            string).
+        directory: The directory whose totals are consulted.
+        metrics: The metrics to display, in order.
+
+    Returns:
+        The displayable subset of *metrics*, in the same order.
+    """
+    totals: dict[str, int | float | None] = {
+        "loc": directory.loc,
+        "size": directory.size,
+        "mtime": directory.mtime,
+    }
+    return [m for m in metrics if totals.get(m) is not None]
+
+
+def format_dir_metrics(directory: Directory, metrics: Sequence[str] = ()) -> str:
+    """Return the space-prefixed metrics suffix for a directory.
+
+    Wraps [`format_metrics_suffix`][recursivist.metrics.format_metrics_suffix], reading
+    the totals from *directory* and keeping only the requested metrics that it actually
+    holds a total for (see
+    [`recorded_dir_metrics`][recursivist.metrics.recorded_dir_metrics]) — while
+    preserving the requested display order.
+
+    Args:
+        directory: The directory whose totals are formatted.
         metrics: The metrics to display, in order.
 
     Returns:
         The metrics suffix (with a leading space) or an empty string.
     """
-    if not isinstance(content, dict):
-        return ""
-    present = [m for m in metrics if f"_{m}" in content]
     return format_metrics_suffix(
-        content.get("_loc", 0),
-        content.get("_size", 0),
-        content.get("_mtime", 0.0),
-        present,
+        directory.loc or 0,
+        directory.size or 0,
+        directory.mtime or 0.0,
+        recorded_dir_metrics(directory, metrics),
     )

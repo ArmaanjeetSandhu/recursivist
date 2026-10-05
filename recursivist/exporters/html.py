@@ -7,8 +7,8 @@ it to an ``.html`` file.
 
 import html
 import os
-from typing import Any
 
+from recursivist._models import Directory
 from recursivist.colors import (
     WCAG_AAA_NORMAL_TEXT,
     build_color_map,
@@ -19,6 +19,7 @@ from recursivist.metrics import (
     format_dir_metrics,
     format_metrics,
     format_metrics_suffix,
+    recorded_dir_metrics,
 )
 from recursivist.scanner import collect_extensions, has_contents, iter_subdirectories
 from recursivist.sorting import sort_files_by_type
@@ -62,64 +63,60 @@ class HtmlExporter(BaseExporter):
         color_map = build_color_map(collect_extensions(self.structure))
 
         def _build_html_tree(
-            structure: dict[str, Any],
+            structure: Directory,
         ) -> str:
             """Return the nested ``<ul>`` markup for *structure*.
 
             Args:
-                structure: Directory-structure dict to render.
+                structure: Directory to render.
 
             Returns:
                 An HTML fragment representing this subtree.
             """
             html_content = ["<ul>"]
-            if "_files" in structure:
-                for entry in sort_files_by_type(
-                    structure["_files"],
-                    self.sort_key,
-                    structure.get("_git_markers"),
-                ):
-                    file_name = entry.name
-                    ext = os.path.splitext(file_name)[1].lower()
-                    color = ensure_contrast(
-                        color_map.get(ext, "#FFFFFF"), _BACKGROUND, _MIN_CONTRAST
+            for entry in sort_files_by_type(
+                structure.files, self.sort_key, structure.git_markers
+            ):
+                file_name = entry.name
+                ext = os.path.splitext(file_name)[1].lower()
+                color = ensure_contrast(
+                    color_map.get(ext, "#FFFFFF"), _BACKGROUND, _MIN_CONTRAST
+                )
+
+                file_icon = get_icon(file_name, is_dir=False, style=self.icon_style)
+
+                _git_marker = (
+                    structure.git_markers.get(file_name, "")
+                    if self.show_git_status
+                    else ""
+                )
+                _file_style = f"color: {color};"
+                if _git_marker and _git_marker in _GIT_STATUS_STYLES:
+                    _, _file_style_extra = _GIT_STATUS_STYLES[_git_marker]
+                    _git_badge = (
+                        f' <span class="git-badge git-{_git_marker.lower()}">'
+                        f"[{_git_marker}]</span>"
                     )
-
-                    file_icon = get_icon(file_name, is_dir=False, style=self.icon_style)
-
-                    _git_markers_here = structure.get("_git_markers", {})
-                    _git_marker = (
-                        _git_markers_here.get(file_name, "")
-                        if self.show_git_status
+                    _name_style = (
+                        ' style="text-decoration: line-through;"'
+                        if _file_style_extra == "line-through"
                         else ""
                     )
-                    _file_style = f"color: {color};"
-                    if _git_marker and _git_marker in _GIT_STATUS_STYLES:
-                        _, _file_style_extra = _GIT_STATUS_STYLES[_git_marker]
-                        _git_badge = (
-                            f' <span class="git-badge git-{_git_marker.lower()}">'
-                            f"[{_git_marker}]</span>"
-                        )
-                        _name_style = (
-                            ' style="text-decoration: line-through;"'
-                            if _file_style_extra == "line-through"
-                            else ""
-                        )
-                        _name_open = f"<span{_name_style}>"
-                        _name_close = "</span>"
-                    else:
-                        _git_badge = ""
-                        _name_open = ""
-                        _name_close = ""
+                    _name_open = f"<span{_name_style}>"
+                    _name_close = "</span>"
+                else:
+                    _git_badge = ""
+                    _name_open = ""
+                    _name_close = ""
 
-                    html_content.append(
-                        f'<li class="file" style="{_file_style}">{file_icon} '
-                        f"{_name_open}{html.escape(entry.path)}{_name_close}"
-                        + format_metrics_suffix(
-                            entry.loc, entry.size, entry.mtime, self.metrics
-                        )
-                        + f"{_git_badge}</li>"
+                html_content.append(
+                    f'<li class="file" style="{_file_style}">{file_icon} '
+                    f"{_name_open}{html.escape(entry.path)}{_name_close}"
+                    + format_metrics_suffix(
+                        entry.loc, entry.size, entry.mtime, self.metrics
                     )
+                    + f"{_git_badge}</li>"
+                )
             for name, content in iter_subdirectories(structure):
                 folder_icon = get_icon(
                     name,
@@ -128,16 +125,14 @@ class HtmlExporter(BaseExporter):
                     is_empty=not has_contents(content),
                 )
 
-                enabled = []
-                if isinstance(content, dict):
-                    enabled = [m for m in self.metrics if f"_{m}" in content]
+                enabled = recorded_dir_metrics(content, self.metrics)
                 metric_html = ""
                 if enabled:
                     css = "metric-count" if len(enabled) >= 2 else f"{enabled[0]}-count"
                     inner = format_metrics(
-                        content.get("_loc", 0),
-                        content.get("_size", 0),
-                        content.get("_mtime", 0.0),
+                        content.loc or 0,
+                        content.size or 0,
+                        content.mtime or 0.0,
                         enabled,
                     )
                     metric_html = f' <span class="{css}">{inner}</span>'
@@ -145,13 +140,12 @@ class HtmlExporter(BaseExporter):
                     f'<li class="directory">{folder_icon} '
                     f'<span class="dir-name">{html.escape(name)}</span>{metric_html}'
                 )
-                if isinstance(content, dict):
-                    if content.get("_symlink_loop"):
-                        html_content.append(
-                            '<ul><li class="symlink-loop">↩ (symlink loop)</li></ul>'
-                        )
-                    elif not content.get("_max_depth_reached"):
-                        html_content.append(_build_html_tree(content))
+                if content.symlink_loop:
+                    html_content.append(
+                        '<ul><li class="symlink-loop">↩ (symlink loop)</li></ul>'
+                    )
+                elif not content.max_depth_reached:
+                    html_content.append(_build_html_tree(content))
                 html_content.append("</li>")
             html_content.append("</ul>")
             return "\n".join(html_content)

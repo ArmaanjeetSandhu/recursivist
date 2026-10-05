@@ -7,12 +7,12 @@ stack, composing the scanner, filtering, colors, metrics, sorting, and icon modu
 
 import logging
 import os
-from typing import Any
 
 from rich.console import Console
 from rich.text import Text
 from rich.tree import Tree
 
+from recursivist._models import Directory
 from recursivist.colors import build_color_map
 from recursivist.filtering import compile_regex_patterns, normalize_extensions
 from recursivist.flags import METRIC_GIT, DisplayOptions
@@ -37,7 +37,7 @@ _GIT_MARKER_STYLES: dict[str, tuple[str, str]] = {
 
 
 def build_tree(
-    structure: dict[str, Any],
+    structure: Directory,
     tree: Tree,
     color_map: dict[str, str],
     spec: DisplayOptions,
@@ -63,46 +63,39 @@ def build_tree(
       disk are also struck through.
 
     Args:
-        structure: Directory-structure dict to render.
+        structure: Directory to render.
         tree: ``rich`` tree to add nodes to. Modified in place.
         color_map: Mapping of lowercase file extension to hex color.
         spec: Resolved sorting and annotation directives.
         icon_style: Icon style to use, either ``"emoji"`` or ``"nerd"``.
     """
     need_git = spec.show_git_status or spec.sort_key == METRIC_GIT
-    git_markers_dict: dict[str, str] = (
-        structure.get("_git_markers", {}) if need_git else {}
-    )
-    if "_files" in structure:
-        for entry in sort_files_by_type(
-            structure["_files"], spec.sort_key, git_markers_dict
-        ):
-            ext = os.path.splitext(entry.name)[1].lower()
-            color = color_map.get(ext, "#FFFFFF")
+    git_markers_dict: dict[str, str] = structure.git_markers if need_git else {}
+    for entry in sort_files_by_type(structure.files, spec.sort_key, git_markers_dict):
+        ext = os.path.splitext(entry.name)[1].lower()
+        color = color_map.get(ext, "#FFFFFF")
 
-            git_marker = git_markers_dict.get(entry.name, "")
-            is_deleted = git_marker == "D"
+        git_marker = git_markers_dict.get(entry.name, "")
+        is_deleted = git_marker == "D"
 
-            name_style = f"{color} strike" if is_deleted else color
+        name_style = f"{color} strike" if is_deleted else color
 
-            colored_text = Text()
-            icon = get_icon(entry.name, is_dir=False, style=icon_style)
-            colored_text.append(f"{icon} ", style=color)
-            colored_text.append(
-                entry.path
-                + format_metrics_suffix(
-                    entry.loc, entry.size, entry.mtime, spec.metrics
-                ),
-                style=name_style,
+        colored_text = Text()
+        icon = get_icon(entry.name, is_dir=False, style=icon_style)
+        colored_text.append(f"{icon} ", style=color)
+        colored_text.append(
+            entry.path
+            + format_metrics_suffix(entry.loc, entry.size, entry.mtime, spec.metrics),
+            style=name_style,
+        )
+
+        if spec.show_git_status and git_marker:
+            marker_style, badge = _GIT_MARKER_STYLES.get(
+                git_marker, ("dim", f"[{git_marker}]")
             )
+            colored_text.append(f" {badge}", style=marker_style)
 
-            if spec.show_git_status and git_marker:
-                marker_style, badge = _GIT_MARKER_STYLES.get(
-                    git_marker, ("dim", f"[{git_marker}]")
-                )
-                colored_text.append(f" {badge}", style=marker_style)
-
-            tree.add(colored_text)
+        tree.add(colored_text)
     for folder, content in iter_subdirectories(structure):
         folder_icon = get_icon(
             folder,
@@ -113,9 +106,9 @@ def build_tree(
         metrics = format_dir_metrics(content, spec.metrics)
         folder_display = f"{folder_icon} {folder}{metrics}"
         subtree = tree.add(Text(folder_display))
-        if isinstance(content, dict) and content.get("_symlink_loop"):
+        if content.symlink_loop:
             subtree.add(Text("↩ (symlink loop)", style="dim"))
-        elif not (isinstance(content, dict) and content.get("_max_depth_reached")):
+        elif not content.max_depth_reached:
             build_tree(content, subtree, color_map, spec, icon_style)
 
 
@@ -131,7 +124,7 @@ def display_tree(
     show_full_path: bool = False,
     spec: DisplayOptions | None = None,
     icon_style: str = "emoji",
-    structure: dict[str, Any] | None = None,
+    structure: Directory | None = None,
     extensions: set[str] | None = None,
     root_name: str | None = None,
 ) -> None:
