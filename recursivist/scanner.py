@@ -9,6 +9,7 @@ consumed by the renderers and exporters.
 import logging
 import os
 from collections.abc import Iterator, Mapping, Sequence
+from itertools import chain
 from re import Pattern
 from typing import Any
 
@@ -79,6 +80,57 @@ def get_subdirectory(structure: dict[str, Any], name: str) -> Any | None:
     return structure.get(subdirectory_key(name))
 
 
+class _DeletedEntries:
+    """Files Git reports as deleted, indexed by the directory they were deleted from.
+
+    A deleted file is no longer on disk, so a directory listing never returns it, and
+    when it was the last file in its directory the directory is gone as well. This index
+    lets the scanner list such entries alongside the ones on disk, so they pass through
+    the same exclusion rules as everything else.
+
+    Args:
+        git_markers_by_dir: Git status markers grouped by directory, as returned by
+            `_group_git_status`.
+    """
+
+    def __init__(self, git_markers_by_dir: Mapping[str, Mapping[str, str]]) -> None:
+        self._files: dict[str, list[str]] = {}
+        self._subdirs: dict[str, set[str]] = {}
+        for directory, markers in git_markers_by_dir.items():
+            deleted = [name for name, status in markers.items() if status == "D"]
+            if not deleted:
+                continue
+            self._files[directory] = deleted
+            while directory:
+                parent, _, name = directory.rpartition("/")
+                siblings = self._subdirs.setdefault(parent, set())
+                if name in siblings:
+                    break
+                siblings.add(name)
+                directory = parent
+
+    def missing_from(self, root_dir: str, rel_dir: str) -> Iterator[tuple[str, bool]]:
+        """Yield ``(name, is_dir)`` for the deleted entries a listing of *root_dir*
+        lacks.
+
+        These are the deleted files that are no longer on disk, and the subdirectories
+        that held deleted files (at any depth) and are no longer on disk either. An
+        entry that still exists is left to the directory listing.
+
+        Args:
+            root_dir: Filesystem path of the directory, which may itself be gone.
+            rel_dir: The same directory relative to the scan root (``""`` for the root).
+        """
+        rel_dir = rel_dir.replace(os.sep, "/")
+        for name in self._files.get(rel_dir, ()):
+            path = os.path.join(root_dir, name)
+            if os.path.isdir(path) or not os.path.lexists(path):
+                yield name, False
+        for name in sorted(self._subdirs.get(rel_dir, ())):
+            if not os.path.isdir(os.path.join(root_dir, name)):
+                yield name, True
+
+
 def _has_visible_entries(
     root_dir: str,
     exclude_dirs: Sequence[str],
@@ -86,6 +138,8 @@ def _has_visible_entries(
     exclude_extensions: set[str],
     exclude_patterns: Sequence[str | Pattern[str]],
     include_patterns: Sequence[str | Pattern[str]],
+    deleted: _DeletedEntries | None = None,
+    on_disk: bool = True,
 ) -> bool:
     """Return whether *root_dir* holds at least one non-excluded entry.
 
@@ -103,18 +157,27 @@ def _has_visible_entries(
         exclude_extensions: Lowercase, dot-prefixed extensions to exclude.
         exclude_patterns: Glob or compiled-regex patterns to exclude.
         include_patterns: Glob or compiled-regex patterns to include.
+        deleted: Index of the files Git reports as deleted, when Git status is shown.
+            Deleted entries count like the ones on disk. A directory that exists only as
+            the former home of deleted files is the one case that is followed downwards,
+            because it is worth showing only if one of those files survives the
+            exclusion rules.
+        on_disk: Whether *root_dir* exists. ``False`` for a directory known only from
+            *deleted*, which has nothing to list.
 
     Returns:
         ``True`` if any child survives the exclusion rules.
     """
-    try:
-        items = os.listdir(root_dir)
-    except PermissionError:
-        logger.warning("Permission denied: %s", root_dir)
-        return False
-    except Exception as e:
-        logger.exception("Error reading directory %s: %s", root_dir, e)
-        return False
+    items: list[str] = []
+    if on_disk:
+        try:
+            items = os.listdir(root_dir)
+        except PermissionError:
+            logger.warning("Permission denied: %s", root_dir)
+            return False
+        except Exception as e:
+            logger.exception("Error reading directory %s: %s", root_dir, e)
+            return False
     for item in items:
         item_path = os.path.join(root_dir, item)
         if item in exclude_dirs or should_exclude(
@@ -126,6 +189,31 @@ def _has_visible_entries(
         ):
             continue
         return True
+    if deleted is None:
+        return False
+    rel_dir = ignore_context.get("rel_dir", "")
+    for item, is_dir in deleted.missing_from(root_dir, rel_dir):
+        item_path = os.path.join(root_dir, item)
+        if item in exclude_dirs or should_exclude(
+            item_path,
+            ignore_context,
+            exclude_extensions,
+            exclude_patterns,
+            include_patterns,
+            is_dir=is_dir,
+        ):
+            continue
+        if not is_dir or _has_visible_entries(
+            item_path,
+            exclude_dirs,
+            {**ignore_context, "rel_dir": os.path.join(rel_dir, item)},
+            exclude_extensions,
+            exclude_patterns,
+            include_patterns,
+            deleted,
+            on_disk=False,
+        ):
+            return True
     return False
 
 
@@ -223,6 +311,11 @@ def get_directory_structure(
       back up the tree.
     - ``"_git_markers"``: ``{filename: status_char}`` (when *show_git_status* is set).
 
+    When *show_git_status* is set, files Git reports as deleted are listed even though
+    they are no longer on disk, together with any directory that disappeared along with
+    them. They are subject to the same exclusion rules as every other entry, and a
+    deleted directory is listed only if at least one of its deleted files survives them.
+
     Args:
         root_dir: Directory to scan.
         exclude_dirs: Directory names to skip entirely.
@@ -298,6 +391,7 @@ def get_directory_structure(
         sort_by_size,
         sort_by_mtime,
         git_markers_by_dir,
+        _DeletedEntries(git_markers_by_dir) if git_markers_by_dir is not None else None,
         ancestor_ids,
         pattern_tracker,
     )
@@ -322,19 +416,25 @@ def _scan_level(
     sort_by_size: bool,
     sort_by_mtime: bool,
     git_markers_by_dir: Mapping[str, dict[str, str]] | None,
+    deleted: _DeletedEntries | None,
     ancestor_ids: frozenset[tuple[int, int]],
     pattern_tracker: PatternMatchTracker,
+    on_disk: bool = True,
 ) -> tuple[dict[str, Any], set[str]]:
     """Scan one directory level for
     [`get_directory_structure`][recursivist.scanner.get_directory_structure].
 
     Takes the same arguments with their defaults already filled in, except that the Git
-    status map arrives pre-grouped by directory (see `_group_git_status`), or as
-    ``None`` when Git status is not wanted. Recurses into subdirectories directly, so
-    that grouping and the shared *pattern_tracker* are reused for the whole walk.
+    status map arrives pre-grouped by directory (see `_group_git_status`) along with the
+    matching *deleted* index, or both as ``None`` when Git status is not wanted.
+    Recurses into subdirectories directly, so that grouping and the shared
+    *pattern_tracker* are reused for the whole walk.
 
-    Each entry is classified and filtered exactly once: files are recorded as they are
-    met, and the surviving subdirectories are queued and descended into afterwards.
+    The entries of a level are the ones on disk followed by the ones Git reports as
+    deleted from it. Each entry is classified and filtered exactly once: files are
+    recorded as they are met, and the surviving subdirectories are queued and descended
+    into afterwards. *on_disk* is ``False`` for a directory that is itself gone and is
+    being walked only for its deleted files.
     """
     ignore_stack: list[tuple[str, tuple[str, ...]]] = (
         list(parent_ignore_patterns) if parent_ignore_patterns else []
@@ -365,21 +465,35 @@ def _scan_level(
             exclude_extensions,
             exclude_patterns,
             include_patterns,
+            deleted,
+            on_disk,
         ):
             truncated["_hidden_contents"] = True
         return truncated, extensions_set
-    try:
-        items = os.listdir(root_dir)
-    except PermissionError:
-        logger.warning("Permission denied: %s", root_dir)
-        return structure, extensions_set
-    except Exception as e:
-        logger.exception("Error reading directory %s: %s", root_dir, e)
-        return structure, extensions_set
-    subdirectories: list[tuple[str, str]] = []
-    for item in items:
+    items: list[str] = []
+    if on_disk:
+        try:
+            items = os.listdir(root_dir)
+        except PermissionError:
+            logger.warning("Permission denied: %s", root_dir)
+            return structure, extensions_set
+        except Exception as e:
+            logger.exception("Error reading directory %s: %s", root_dir, e)
+            return structure, extensions_set
+    entries: Iterator[tuple[str, bool, bool]] = (
+        (item, os.path.isdir(os.path.join(root_dir, item)), True) for item in items
+    )
+    if deleted is not None:
+        entries = chain(
+            entries,
+            (
+                (item, is_dir, False)
+                for item, is_dir in deleted.missing_from(root_dir, current_path)
+            ),
+        )
+    subdirectories: list[tuple[str, str, bool]] = []
+    for item, is_dir, exists in entries:
         item_path = os.path.join(root_dir, item)
-        is_dir = os.path.isdir(item_path)
         if pattern_tracker.pending:
             pattern_tracker.observe(item_path, is_dir)
         if item in exclude_dirs or should_exclude(
@@ -392,7 +506,7 @@ def _scan_level(
         ):
             continue
         if is_dir:
-            subdirectories.append((item, item_path))
+            subdirectories.append((item, item_path, exists))
         else:
             _, ext = os.path.splitext(item)
             if "_files" not in structure:
@@ -400,13 +514,13 @@ def _scan_level(
             file_loc = 0
             file_size = 0
             file_mtime = 0.0
-            if sort_by_loc:
+            if exists and sort_by_loc:
                 file_loc = count_lines_of_code(item_path)
                 total_loc += file_loc
-            if sort_by_size:
+            if exists and sort_by_size:
                 file_size = get_file_size(item_path)
                 total_size += file_size
-            if sort_by_mtime:
+            if exists and sort_by_mtime:
                 file_mtime = get_file_mtime(item_path)
                 latest_mtime = max(latest_mtime, file_mtime)
             if show_full_path:
@@ -429,7 +543,7 @@ def _scan_level(
         child_ancestor_ids = ancestor_ids | {(st.st_dev, st.st_ino)}
     except OSError:
         child_ancestor_ids = ancestor_ids
-    for item, item_path in subdirectories:
+    for item, item_path, exists in subdirectories:
         try:
             item_st = os.stat(item_path)
             item_id: tuple[int, int] | None = (item_st.st_dev, item_st.st_ino)
@@ -458,9 +572,13 @@ def _scan_level(
             sort_by_size,
             sort_by_mtime,
             git_markers_by_dir,
+            deleted,
             child_ancestor_ids,
             pattern_tracker,
+            on_disk=exists,
         )
+        if not exists and not has_contents(substructure):
+            continue
         if include_patterns and not (
             substructure.get("_files")
             or substructure.get("_max_depth_reached")
@@ -488,21 +606,6 @@ def _scan_level(
         else None
     )
     if git_markers:
-        existing_names = {f.name for f in structure.get("_files", [])}
-
-        for fname, status in git_markers.items():
-            if status == "D" and fname not in existing_names:
-                _, ext = os.path.splitext(fname)
-                if ext:
-                    extensions_set.add(ext.lower())
-                if "_files" not in structure:
-                    structure["_files"] = []
-                abs_deleted = os.path.abspath(os.path.join(root_dir, fname)).replace(
-                    os.sep, "/"
-                )
-                display = abs_deleted if show_full_path else fname
-                structure["_files"].append(FileEntry(name=fname, path=display))
-
         structure["_git_markers"] = git_markers
 
     return structure, extensions_set
