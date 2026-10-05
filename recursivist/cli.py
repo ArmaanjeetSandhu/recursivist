@@ -65,7 +65,11 @@ from recursivist.exporters import (
     get_exporter,
     supported_formats,
 )
-from recursivist.filtering import compile_regex_patterns, normalize_extensions
+from recursivist.filtering import (
+    InvalidPatternError,
+    compile_regex_patterns,
+    normalize_extensions,
+)
 from recursivist.flags import DisplayOptions, resolve_display_options
 from recursivist.git_status import get_git_status
 from recursivist.github import (
@@ -790,29 +794,43 @@ def _parse_filter_options(
     exclude_patterns: list[str] | None,
     include_patterns: list[str] | None,
     use_regex: bool,
+    verbose: bool,
 ) -> tuple[list[str], set[str], list[str], list[str]]:
     """Parse and normalize the shared exclude/include filter options.
 
     Normalizes each repeated flag value (dropping empties), lowercases and dot-prefixes
-    excluded extensions into a set, and emits the same debug logging used by every
-    command. This is the common preprocessing step shared by the visualize, export, and
-    compare commands.
+    excluded extensions into a set, rejects invalid ``--regex`` patterns, and emits the
+    same debug logging used by every command. This is the common preprocessing step
+    shared by the visualize, export, and compare commands.
 
     Args:
         exclude_dirs: Raw directory-exclusion values from Typer.
         exclude_extensions: Raw extension-exclusion values from Typer.
         exclude_patterns: Raw exclude-pattern values from Typer.
         include_patterns: Raw include-pattern values from Typer.
-        use_regex: Whether patterns are regex (affects log wording).
+        use_regex: Whether patterns are regex. When ``True`` every pattern is
+            validated here, before any scanning or downloading starts.
+        verbose: Whether to log the traceback of an invalid pattern.
 
     Returns:
         A tuple of ``(parsed_exclude_dirs, exclude_exts_set, parsed_exclude_patterns,
         parsed_include_patterns)``.
+
+    Raises:
+        typer.Exit: With exit code ``1`` if *use_regex* is ``True`` and a pattern is
+            not a valid regular expression.
     """
     parsed_exclude_dirs = parse_list_option(exclude_dirs)
     parsed_exclude_exts = parse_list_option(exclude_extensions)
     parsed_exclude_patterns = parse_list_option(exclude_patterns)
     parsed_include_patterns = parse_list_option(include_patterns)
+    try:
+        compile_regex_patterns(
+            [*parsed_exclude_patterns, *parsed_include_patterns], use_regex
+        )
+    except InvalidPatternError as e:
+        logger.exception(MSG_ERROR, e, exc_info=verbose)
+        raise typer.Exit(1) from None
     exclude_exts_set = normalize_extensions(parsed_exclude_exts)
     if exclude_exts_set:
         logger.debug("Excluding extensions: %s", exclude_exts_set)
@@ -1244,6 +1262,7 @@ def _plan_tree_scan(
     mtime: bool,
     show_git_status: bool,
     icon_style: IconStyle | None,
+    verbose: bool,
     use_configured_icon_style: bool,
 ) -> _TreeScanPlan:
     """Resolve the options shared by visualize and export into a scan plan.
@@ -1268,7 +1287,8 @@ def _plan_tree_scan(
 
     Raises:
         typer.Exit: With exit code ``1`` if *directory* is a local path that does not
-            exist or is not a directory.
+            exist or is not a directory, or if *use_regex* is ``True`` and a pattern is
+            not a valid regular expression.
     """
     target = parse_github_url(directory)
     is_remote = target is not None
@@ -1313,6 +1333,7 @@ def _plan_tree_scan(
         exclude_patterns,
         include_patterns,
         use_regex,
+        verbose,
     )
     return _TreeScanPlan(
         target=target,
@@ -1464,6 +1485,7 @@ def visualize(
         mtime=mtime,
         show_git_status=show_git_status,
         icon_style=icon_style,
+        verbose=verbose,
         use_configured_icon_style=True,
     )
     try:
@@ -1597,6 +1619,7 @@ def export(
         mtime=mtime,
         show_git_status=show_git_status,
         icon_style=icon_style,
+        verbose=verbose,
         use_configured_icon_style=False,
     )
     failed_formats: list[str] = []
@@ -1802,6 +1825,7 @@ def compare(
         exclude_patterns,
         include_patterns,
         use_regex,
+        verbose,
     )
     if ignore_file:
         for d in local_paths:

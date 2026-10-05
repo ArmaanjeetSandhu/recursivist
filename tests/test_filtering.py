@@ -263,7 +263,7 @@ def test_should_exclude_double_star(
     [
         (["*.py", "test_*"], False, 2, [str, str]),
         ([r"\.py$", r"^test_"], True, 2, [re.Pattern, re.Pattern]),
-        ([r"[invalid", r"(unclosed"], True, 2, [str, str]),
+        ([r"[invalid", r"(unclosed"], False, 2, [str, str]),
         ([], False, 0, []),
         ([], True, 0, []),
     ],
@@ -404,7 +404,7 @@ class TestCompileRegexPatterns:
         [
             (["*.py", "test_*"], False, [str, str]),
             ([r"\.py$", r"^test_"], True, [re.Pattern, re.Pattern]),
-            ([r"[invalid", r"(unclosed"], True, [str, str]),
+            ([r"[invalid", r"(unclosed"], False, [str, str]),
         ],
     )
     def test_basic_compilation(

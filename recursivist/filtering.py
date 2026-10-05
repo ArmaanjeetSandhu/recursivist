@@ -79,14 +79,18 @@ def normalize_extensions(extensions: Iterable[str]) -> set[str]:
     }
 
 
+class InvalidPatternError(ValueError):
+    """Raised when a ``--regex`` pattern is not a valid regular expression."""
+
+
 def compile_regex_patterns(
     patterns: Sequence[str], is_regex: bool = False
 ) -> list[str | Pattern[str]]:
     """Compile patterns to regex objects when regex matching is requested.
 
     When *is_regex* is ``False`` the patterns are returned unchanged for glob matching.
-    When ``True`` each pattern is compiled to a `re.Pattern`; any pattern that fails to
-    compile is kept as a string and a warning is logged.
+    When ``True`` each pattern is compiled to a `re.Pattern`, and a pattern that fails
+    to compile is an error.
 
     Args:
         patterns: Patterns to process.
@@ -95,17 +99,24 @@ def compile_regex_patterns(
 
     Returns:
         A list whose items are plain strings for glob patterns or compiled `re.Pattern`
-        objects for successfully compiled regexes.
+        objects for regexes.
+
+    Raises:
+        InvalidPatternError: If *is_regex* is ``True`` and any pattern is not a valid
+            regular expression. The message names every invalid pattern.
     """
     if not is_regex:
         return cast(list[str | Pattern[str]], patterns)
     compiled_patterns: list[str | Pattern[str]] = []
+    errors: list[str] = []
     for pattern in patterns:
         try:
             compiled_patterns.append(re.compile(pattern))
         except re.error as e:
-            logger.warning("Invalid regex pattern '%s': %s", pattern, e)
-            compiled_patterns.append(pattern)
+            errors.append(f"'{pattern}' ({e})")
+    if errors:
+        noun = "pattern" if len(errors) == 1 else "patterns"
+        raise InvalidPatternError(f"Invalid regex {noun}: {', '.join(errors)}")
     return compiled_patterns
 
 
