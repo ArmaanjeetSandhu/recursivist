@@ -4,13 +4,9 @@ This reference covers the glob and regular-expression syntax used by `--exclude-
 
 ## What Patterns Match
 
-`--exclude-pattern` and `--include-pattern` test each file's **name** (its basename), evaluated at every level of the tree. They do **not** match against paths.
+`--exclude-pattern` and `--include-pattern` test each file's **name** (its basename), evaluated at every level of the tree. They do **not** match against paths: a pattern that contains a path separator, such as `src/*`, matches nothing, while `*.js` matches `.js` files at any depth. To filter by location, use `--exclude` or an [ignore file](../user-guide/pattern-filtering.md#ignore-files) instead.
 
-!!! warning "Use the right tool for paths"
-
-    A pattern that contains a path separator, such as `src/*` or `src/**/*.js`, matches nothing — file names never contain a `/`. A pattern like `*.js` matches `.js` files at **any** depth. To filter by location, use a directory exclusion (`--exclude`) or a gitignore-style [ignore file](../user-guide/pattern-filtering.md#ignore-files), which _do_ match paths.
-
-Patterns are globs by default. Add `--regex` to interpret them as Python regular expressions instead.
+Patterns are globs by default. Add `--regex` to interpret every pattern on the command line as a Python regular expression instead.
 
 ## Glob Patterns
 
@@ -94,4 +90,5 @@ If a pattern isn't behaving as expected:
 1. Remember that patterns match the **file name**, not the path. If you meant to target a location, use `--exclude` or `--ignore-file`.
 2. Run with `--verbose` to see how patterns are applied.
 3. Anchor regular expressions with `^` and `$` when you want a whole-name match.
-4. Test complex regular expressions in a tool like [regex101.com](https://regex101.com/) before using them.
+4. Quote patterns so that your shell does not expand `*` or interpret `|` and `$` before Recursivist sees them.
+5. Test complex regular expressions in a tool like [regex101.com](https://regex101.com/) before using them.

@@ -1,12 +1,12 @@
 # Testing Guide
 
-This guide covers Recursivist's test suite and conventions. It's intended for contributors adding features or fixing bugs.
+This guide covers Recursivist's test suite and conventions. It's intended for contributors adding features or fixing bugs; see the [Development Guide](development.md) for setting up an environment.
 
 ## Framework
 
 Recursivist uses [pytest](https://pytest.org/), with [Hypothesis](https://hypothesis.readthedocs.io/) for property-based tests and [Nox](https://nox.thea.codes/) as the task runner. Tests run across Python 3.10–3.14 in isolated environments. Coverage reporting is enabled by default through `addopts` in `pyproject.toml`.
 
-The suite exercises directory scanning, filtering, sorting, tree rendering, every export format, comparison, file statistics, Git status, colorization, and the CLI.
+The suite exercises directory scanning, filtering, sorting, tree rendering, every export format, comparison, file statistics, Git status, GitHub repository inputs, colorization, and the CLI.
 
 ## Running Tests
 
@@ -56,12 +56,34 @@ tests/
 ├── test_metrics.py      # Lines of code, size, mtime
 ├── test_colors.py       # Per-extension colors
 ├── test_git_status.py   # Git status lookup
+├── test_github.py       # GitHub URL parsing and repository checkout
 ├── test_exporters.py    # Export formats
 ├── test_compare.py      # Directory comparison
 └── test_integration.py  # End-to-end scenarios
 ```
 
 ## Writing Tests
+
+Write tests for all new features and bug fixes. Place them in the `tests/` file that matches the module being tested (for example, `tests/test_colors.py` for `recursivist/colors.py`), and follow the style of the tests already there:
+
+```python
+# tests/test_colors.py
+from recursivist.colors import build_color_map
+
+
+def test_build_color_map():
+    # Given
+    extensions = [".py", ".md"]
+
+    # When
+    color_map = build_color_map(extensions)
+
+    # Then
+    assert set(color_map) == set(extensions)
+    for color in color_map.values():
+        assert color.startswith("#")
+        assert len(color) == 7
+```
 
 ### Directory Operations
 
@@ -80,7 +102,7 @@ def test_get_directory_structure(tmp_path):
     structure, extensions = get_directory_structure(str(tmp_path))
 
     assert "dir1" in structure
-    assert "file1.txt" in structure["dir1"]["_files"]
+    assert [f.name for f in structure["dir1"]["_files"]] == ["file1.txt"]
     assert ".py" in extensions
 ```
 

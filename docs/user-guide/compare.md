@@ -8,28 +8,69 @@ The `compare` command shows two directory structures side by side and highlights
 recursivist compare dir1 dir2
 ```
 
-Both directories must exist. The two trees are printed in labeled, color-coded panels with a legend.
+Each input must be an existing directory or a [GitHub repository URL](github-repositories.md#comparing-with-a-github-repository). A legend is printed first, followed by the two trees in labeled panels:
+
+<div class="terminal-demo">
+  <div class="terminal-header">
+    <div class="terminal-buttons">
+      <div class="terminal-button red"></div>
+      <div class="terminal-button yellow"></div>
+      <div class="terminal-button green"></div>
+    </div>
+    <div class="terminal-title">recursivist-demo ~ bash</div>
+  </div>
+  <div class="terminal-body">
+    <div class="terminal-output boxed">
+      <div class="terminal-panel dim"><span style="font-weight: bold;">Legend:</span> <span style="background: #238636; color: #ffffff;">Green</span> = In this directory, <span style="background: #b62324; color: #ffffff;">Red</span> = In the other directory</div>
+      <div class="terminal-panels">
+        <div class="terminal-panel blue">
+          <div class="terminal-panel-title">Directory 1: project-v1</div>
+          <pre><span style="font-weight: bold;">📂 project-v1</span>
+├── 📄 README.md
+├── <span class="terminal-mark green">📄 setup.py</span>
+├── 📄 requirements.txt
+├── 📂 src
+│   ├── 📄 main.py
+│   ├── 📄 utils.py
+│   └── 📂 tests
+│       ├── 📄 test_main.py
+│       └── <span class="terminal-mark green">📄 test_utils.py</span>
+├── <span class="terminal-mark red">📄 pyproject.toml</span>
+└── <span style="color: #ff7b72;">📂 docs</span>
+    └── <span class="terminal-mark red">📄 index.md</span></pre>
+        </div>
+        <div class="terminal-panel green">
+          <div class="terminal-panel-title">Directory 2: project-v2</div>
+          <pre><span style="font-weight: bold;">📂 project-v2</span>
+├── 📄 README.md
+├── <span class="terminal-mark green">📄 pyproject.toml</span>
+├── 📄 requirements.txt
+├── <span style="color: #4ade80;">📂 docs</span>
+│   └── <span class="terminal-mark green">📄 index.md</span>
+├── 📂 src
+│   ├── 📄 main.py
+│   ├── 📄 utils.py
+│   └── 📂 tests
+│       ├── 📄 test_main.py
+│       └── <span class="terminal-mark red">📄 test_utils.py</span>
+└── <span class="terminal-mark red">📄 setup.py</span></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
 ## Reading the Output
 
-Highlighting marks what is unique to each side:
+Each panel lists everything found on **either** side, and colors are relative to the panel they appear in:
 
 - Items present in both directories are shown normally.
-- Items unique to the first directory (`dir1`) are highlighted with a **green** background.
-- Items unique to the second directory (`dir2`) are highlighted with a **red** background.
+- Items found only in **that panel's** directory are highlighted in **green**.
+- Items found only in the **other** directory are highlighted in **red**, and are listed after the panel's own entries.
 
-A legend at the bottom explains the scheme, and notes any active options such as metric display, depth limits, or applied patterns.
+In the example above, `project-v2` replaced `setup.py` with `pyproject.toml`, added a `docs` directory, and dropped `test_utils.py`. So `setup.py` and `test_utils.py` are green on the left and red on the right, while `pyproject.toml` and `docs` are red on the left and green on the right. Files are highlighted with a colored background and directories with colored text; file names are not colored by extension here, so that the differences stand out.
 
-## File Statistics
-
-Include metrics in the comparison to surface differences beyond structure — for example, which files grew or were modified more recently. As elsewhere, `--sort-by-loc`/`-size`/`-mtime` sort by and show a metric, `--loc`/`--size`/`--mtime` show one without reordering, and only the first sorting flag takes effect:
-
-```bash
-recursivist compare dir1 dir2 --sort-by-loc
-recursivist compare dir1 dir2 --sort-by-size
-recursivist compare dir1 dir2 --mtime               # show mtime, keep default order
-recursivist compare dir1 dir2 --sort-by-loc --size  # sort by LOC, show LOC and size
-```
+The legend also notes any active options, such as metric display, sorting, depth limits, or full paths. Include and exclude patterns are listed in a separate "Applied Patterns" panel.
 
 ## Saving as HTML
 
@@ -45,79 +86,43 @@ This writes `comparison.html` to the current directory. Change the location or f
 recursivist compare dir1 dir2 --save --output-dir ./reports --prefix project-diff
 ```
 
-When saving to HTML, the `emoji` icon style is used by default for cross-platform consistency; override it with `--icon-style nerd`.
-
-## Filtering and Depth
-
-The same filtering, depth, and full-path options as the other commands apply to both directories:
-
-```bash
-recursivist compare dir1 dir2 --exclude node_modules --exclude .git
-recursivist compare dir1 dir2 --exclude-ext .pyc --exclude-ext .log
-recursivist compare dir1 dir2 --exclude-pattern "*.test.js"
-recursivist compare dir1 dir2 --include-pattern "*.py" --include-pattern "*.md"
-recursivist compare dir1 dir2 --ignore-file .gitignore
-recursivist compare dir1 dir2 --depth 3
-recursivist compare dir1 dir2 --full-path
-recursivist compare dir1 dir2 --git-status
-recursivist compare dir1 dir2 --sort-by-git-status
-```
-
-See [Pattern Filtering](pattern-filtering.md) for details.
+The document contains the same side-by-side comparison, highlighting, and legend as the terminal view, which makes it convenient for sharing results or keeping a record of structural changes. It uses the `emoji` icon style by default for cross-platform consistency; override it with `--icon-style nerd`.
 
 !!! note
 
-    `compare` supports every sorting and display flag, including the Git-status flags (`--git-status` and `--sort-by-git-status`), the metric sorts, the display-only `--loc`/`--size`/`--mtime`, and `--sort-by-similarity`. When Git status is enabled, each directory's status is read independently against its own repository, so both sides are annotated correctly even when they belong to different repos. Also note that `-f` here is shorthand for `--save`, not `--format`.
+    In `compare`, `-f` is shorthand for `--save`, not for `--format` as it is in `export`.
 
-## GitHub Repositories
+## Controlling What Is Compared
 
-Either input to `compare` may be a GitHub repository URL, so a local directory can be compared against a GitHub repository, two GitHub repositories against each other, or two local directories:
+`compare` takes the same options as `visualize`, and applies them to both directories:
 
 ```bash
-# Local directory against a GitHub repository
+recursivist compare dir1 dir2 --exclude node_modules --exclude .git
+recursivist compare dir1 dir2 --include-pattern "*.py" --include-pattern "*.md"
+recursivist compare dir1 dir2 --ignore-file .gitignore
+recursivist compare dir1 dir2 --depth 3
+recursivist compare dir1 dir2 --sort-by-loc --size
+recursivist compare dir1 dir2 --git-status
+```
+
+- **Filtering**: see [Pattern Filtering](pattern-filtering.md).
+- **Depth and full paths**: see [Visualization](visualization.md#directory-depth-control).
+- **Lines of code, sizes, modification times, and Git status**: see [Sorting and Statistics](sorting-and-statistics.md). Metrics surface differences beyond structure — for example, which files grew or were modified more recently. Git status is read independently for each directory, so both sides are annotated correctly even when they belong to different repositories.
+- **Saved and project settings**: `compare` uses the project configuration of the first local directory given. See [Configuration](configuration.md#how-commands-use-settings).
+
+## Comparing with a GitHub Repository
+
+Either input may be a GitHub repository URL:
+
+```bash
 recursivist compare ./my-fork https://github.com/owner/repo
-
-# Two GitHub repositories
-recursivist compare https://github.com/owner/repo-a https://github.com/owner/repo-b
-
-# Two refs of the same repository
 recursivist compare https://github.com/owner/repo/tree/main https://github.com/owner/repo/tree/develop
 ```
 
-Each GitHub side is downloaded and scanned like a local directory. A `/tree/<ref>` or `/blob/<ref>/<subpath>` selector pins a branch, tag, or commit and, optionally, a subtree; set `GITHUB_TOKEN` (or `GH_TOKEN`) to raise rate limits and reach private repositories. Lines of code and size apply to a GitHub side, and `--full-path` shows its files' blob URLs.
-
-The options tied to a working copy — `--git-status`, `--sort-by-git-status`, `--mtime`, `--sort-by-mtime`, and `--ignore-file` — are skipped for a GitHub side. When **both** inputs are GitHub repositories they are skipped entirely. In a **mixed** comparison, `--git-status`, `--mtime`, and `--ignore-file` still apply to the local side, so a local directory can be annotated with Git status while the GitHub side is not; `--sort-by-git-status` and `--sort-by-mtime` are skipped for both sides, because the two sides share one ordering. An ignore file named by the `ignore-file` [setting](../reference/cli-reference.md#settings) is likewise applied to local sides only, while the directories named by the `exclude` setting are left out of both sides, as those given with `--exclude` are. See the [CLI Reference](../reference/cli-reference.md#github-repositories) for the accepted URL forms.
-
-## Use Cases
-
-Comparing structures is useful for tracking how a project changes over time:
-
-```bash
-# Two versions of a project
-recursivist compare project-v1.0 project-v2.0 --exclude node_modules --exclude .git
-
-# Two Git branches (checked out into separate directories)
-git clone -b main repo main-branch
-git clone -b feature/x repo feature-branch
-recursivist compare main-branch feature-branch
-
-# Source against a build, focusing on JavaScript
-recursivist compare src dist --include-pattern "*.js" --sort-by-size
-
-# Original files against a backup
-recursivist compare original-files backup-files --full-path
-```
-
-## HTML Output
-
-The saved HTML document contains:
-
-- A side-by-side, two-column comparison
-- Color-coded highlighting of the differences
-- A legend explaining the scheme and any active options
-
-This is convenient for sharing results or keeping a record of structural changes.
+Some options are skipped for a GitHub side. [GitHub Repositories](github-repositories.md#comparing-with-a-github-repository) explains which, and how a mixed local-and-GitHub comparison behaves.
 
 ## Terminal Compatibility
 
 The side-by-side terminal view is best in a terminal with Unicode and ANSI color support and enough width to fit both panels. On narrow terminals, prefer the HTML export (`--save`).
+
+For worked examples — comparing versions, branches, builds, and backups — see the [comparison recipes](../recipes/comparisons.md).

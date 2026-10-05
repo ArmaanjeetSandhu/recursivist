@@ -12,18 +12,30 @@ recursivist visualize
 
 Output:
 
-```
-📂 my-project
-├── 📄 README.md
-├── 📄 setup.py
-├── 📄 requirements.txt
+<div class="terminal-demo">
+  <div class="terminal-header">
+    <div class="terminal-buttons">
+      <div class="terminal-button red"></div>
+      <div class="terminal-button yellow"></div>
+      <div class="terminal-button green"></div>
+    </div>
+    <div class="terminal-title">recursivist-demo ~ bash</div>
+  </div>
+  <div class="terminal-body">
+    <div class="terminal-output">
+      <pre>📂 my-project
+├── <span style="color: #f1fa8c;">📄 README.md</span>
+├── <span style="color: #83e43d;">📄 setup.py</span>
+├── <span style="color: #bd93f9;">📄 requirements.txt</span>
 └── 📂 src
-    ├── 📄 main.py
-    ├── 📄 utils.py
+    ├── <span style="color: #83e43d;">📄 main.py</span>
+    ├── <span style="color: #83e43d;">📄 utils.py</span>
     └── 📂 tests
-        ├── 📄 test_main.py
-        └── 📄 test_utils.py
-```
+        ├── <span style="color: #83e43d;">📄 test_main.py</span>
+        └── <span style="color: #83e43d;">📄 test_utils.py</span></pre>
+    </div>
+  </div>
+</div>
 
 Files are listed before subdirectories, and each file type is given its own color. To visualize a different directory, pass its path:
 
@@ -42,22 +54,34 @@ recursivist visualize --sort-by-mtime   # sort by and show modification times
 recursivist visualize --sort-by-loc --size   # sort by LOC, show LOC and size
 ```
 
-Flags are read left to right: only the first sorting flag takes effect (a second `--sort-by-*` is ignored), and annotations appear in the order given.
-
 With `--sort-by-loc`:
 
-```
-📂 my-project (1262 lines)
-├── 📄 README.md (124 lines)
-├── 📄 setup.py (65 lines)
-├── 📄 requirements.txt (18 lines)
+<div class="terminal-demo">
+  <div class="terminal-header">
+    <div class="terminal-buttons">
+      <div class="terminal-button red"></div>
+      <div class="terminal-button yellow"></div>
+      <div class="terminal-button green"></div>
+    </div>
+    <div class="terminal-title">recursivist-demo ~ bash</div>
+  </div>
+  <div class="terminal-body">
+    <div class="terminal-output">
+      <pre>📂 my-project (1262 lines)
+├── <span style="color: #f1fa8c;">📄 README.md</span> (124 lines)
+├── <span style="color: #83e43d;">📄 setup.py</span> (65 lines)
+├── <span style="color: #bd93f9;">📄 requirements.txt</span> (18 lines)
 └── 📂 src (1055 lines)
-    ├── 📄 main.py (245 lines)
-    ├── 📄 utils.py (157 lines)
+    ├── <span style="color: #83e43d;">📄 main.py</span> (245 lines)
+    ├── <span style="color: #83e43d;">📄 utils.py</span> (157 lines)
     └── 📂 tests (653 lines)
-        ├── 📄 test_main.py (412 lines)
-        └── 📄 test_utils.py (241 lines)
-```
+        ├── <span style="color: #83e43d;">📄 test_main.py</span> (412 lines)
+        └── <span style="color: #83e43d;">📄 test_utils.py</span> (241 lines)</pre>
+    </div>
+  </div>
+</div>
+
+[Sorting and Statistics](../user-guide/sorting-and-statistics.md) explains how these flags combine.
 
 ## Show Git Status
 
@@ -104,7 +128,7 @@ recursivist export https://github.com/owner/repo --format md
 recursivist compare ./my-fork https://github.com/owner/repo
 ```
 
-Add a `/tree/<ref>` selector to pin a branch, tag, or commit (optionally followed by a subtree to scan), and set `GITHUB_TOKEN` (or `GH_TOKEN`) to raise rate limits and reach private repositories. See the [CLI Reference](../reference/cli-reference.md#github-repositories) for the accepted URL forms and the options that apply to a GitHub input.
+See [GitHub Repositories](../user-guide/github-repositories.md) for pinning a branch or subtree, private repositories, and the options that apply to a GitHub input.
 
 ## Common Options
 
@@ -124,7 +148,7 @@ recursivist visualize --exclude-pattern "^test_.*\.py$" --regex
 # Include only matching files
 recursivist visualize --include-pattern "*.py" --include-pattern "*.md"
 
-# Respect a .gitignore-style file
+# Respect a .gitignore-style file (not read unless you ask)
 recursivist visualize --ignore-file .gitignore
 
 # Limit traversal depth
@@ -133,6 +157,17 @@ recursivist visualize --depth 2
 # Show full paths instead of bare filenames
 recursivist visualize --full-path
 ```
+
+## Save Your Defaults
+
+Options you pass on every run can be saved once:
+
+```bash
+recursivist config set ignore-file .gitignore
+recursivist config set exclude node_modules .git
+```
+
+See [Configuration](../user-guide/configuration.md) for per-project settings and the order of precedence.
 
 ## Shell Completion
 
@@ -146,7 +181,6 @@ See the [Shell Completion guide](../user-guide/shell-completion.md) for per-shel
 
 ## Next Steps
 
-- [Visualization](../user-guide/visualization.md) — customize terminal output
-- [Pattern Filtering](../user-guide/pattern-filtering.md) — precise include/exclude control
-- [Export Formats](../reference/export-formats.md) — every output format in detail
+- [User Guide](../user-guide/basic-usage.md) — each command and option explained
+- [Recipes](../recipes/index.md) — worked examples for common jobs
 - [CLI Reference](../reference/cli-reference.md) — all commands and options

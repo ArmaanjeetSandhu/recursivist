@@ -83,6 +83,10 @@
   overflow-x: auto;
 }
 
+.terminal-demo.compact .terminal-body {
+  font-size: 0.64rem;
+}
+
 .terminal-body pre,
 .terminal-body code,
 .terminal-output pre,
@@ -109,6 +113,67 @@
 .terminal-output {
   margin-top: 0.5rem;
   margin-bottom: 0.75rem;
+}
+.terminal-output:not(.boxed) {
+  width: max-content;
+  min-width: 100%;
+}
+
+.terminal-panels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 1rem;
+}
+
+.terminal-panel {
+  position: relative;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 6px;
+  padding: 0.45rem 0.5rem;
+  font-size: 0.925em;
+}
+.terminal-panels .terminal-panel {
+  flex: 1 1 auto;
+  padding-top: 0.7rem;
+}
+.terminal-panel.blue {
+  border-color: #58a6ff;
+}
+.terminal-panel.green {
+  border-color: #4ade80;
+}
+
+.terminal-panel-title {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 0 0.5em;
+  background: #0d1117;
+  line-height: 1;
+  white-space: nowrap;
+}
+.terminal-panel.blue .terminal-panel-title {
+  color: #58a6ff;
+}
+.terminal-panel.green .terminal-panel-title {
+  color: #4ade80;
+}
+
+.terminal-panel pre {
+  overflow: hidden !important;
+}
+.terminal-mark {
+  color: #ffffff;
+  padding-right: 100em;
+  margin-right: -100em;
+}
+.terminal-mark.green {
+  background: #238636;
+}
+.terminal-mark.red {
+  background: #b62324;
 }
 
 .terminal-command.typing::after {
@@ -169,4 +234,11 @@
 
 [data-md-color-scheme="slate"] .md-logo img {
   content: url("../images/logo-white.svg");
+}
+
+.md-typeset__table {
+  min-width: 100%;
+}
+.md-typeset table:not([class]) {
+  display: table;
 }

@@ -4,7 +4,7 @@
   <p class="hero-subtitle">A powerful command-line tool for visualizing directory structures with rich formatting, color-coding, and comprehensive analysis options.</p>
   <div class="hero-buttons">
     <a href="getting-started/installation/" class="md-button md-button--primary">Get Started</a>
-    <a href="examples/basic/" class="md-button md-button--secondary">View Examples</a>
+    <a href="recipes/" class="md-button md-button--secondary">View Recipes</a>
   </div>
 </div>
 
@@ -57,7 +57,7 @@
     </div>
     <div class="feature-title">File Statistics</div>
     <div class="feature-description">Display and sort by lines of code, file sizes, or modification times with formatting appropriate to each metric for better project understanding.</div>
-    <a href="user-guide/visualization/#file-statistics" class="feature-link">File statistics <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
+    <a href="user-guide/sorting-and-statistics/" class="feature-link">File statistics <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
   </div>
 
   <div class="feature-card">
@@ -74,8 +74,8 @@
       <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 256 256" aria-hidden="true"><rect width="256" height="256" fill="none"/><circle cx="80" cy="56" r="24" opacity="0.2" fill="currentColor"/><circle cx="80" cy="200" r="24" opacity="0.2" fill="currentColor"/><circle cx="192" cy="120" r="24" opacity="0.2" fill="currentColor"/><circle cx="80" cy="56" r="24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><circle cx="80" cy="200" r="24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><circle cx="192" cy="120" r="24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><line x1="80" y1="80" x2="80" y2="176" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><path d="M80,80c0,52,112,48,112,40" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/></svg>
     </div>
     <div class="feature-title">Gitignore Support</div>
-    <div class="feature-description">Automatically respects your `.gitignore` patterns and similar ignore files to exclude files and directories you don't want to include in the visualization.</div>
-    <a href="advanced/integration/#git" class="feature-link">Using with Git <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
+    <div class="feature-description">Honors a `.gitignore` or any similar ignore file when you name one with `--ignore-file`, or save its name once so that it is applied on every run.</div>
+    <a href="user-guide/pattern-filtering/#ignore-files" class="feature-link">Ignore files <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
   </div>
 
   <div class="feature-card">
@@ -84,7 +84,7 @@
     </div>
     <div class="feature-title">GitHub Repositories</div>
     <div class="feature-description">Point to any GitHub repo and scan it like a local directory, with optional branch, tag, or subtree selection.</div>
-    <a href="reference/cli-reference/#github-repositories" class="feature-link">Scan a repository <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
+    <a href="user-guide/github-repositories/" class="feature-link">Scan a repository <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
   </div>
 
   <div class="feature-card">
@@ -189,9 +189,9 @@ pip install recursivist
     <div class="feature-icon">
       <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 256 256" aria-hidden="true"><rect width="256" height="256" fill="none"/><path d="M218.87,75.06A72,72,0,0,1,96,144L40.28,199.75a20,20,0,0,0,28.28,28.28L124.31,172A72,72,0,0,1,218.87,75.06Z" opacity="0.2" fill="currentColor"/><path d="M218.87,75.06A72,72,0,0,1,96,144L40.28,199.75a20,20,0,0,0,28.28,28.28L124.31,172A72,72,0,0,1,218.87,75.06Z" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><path d="M165.07,110.46l-27.1-62.43a8,8,0,0,1,3.63-10.11l27.71-14.3a8,8,0,0,1,11.1,4l12,36Z" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/></svg>
     </div>
-    <div class="feature-title">Examples</div>
-    <div class="feature-description">Practical examples showing how to use Recursivist effectively for various scenarios and project types.</div>
-    <a href="examples/basic/" class="feature-link">Explore Examples <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
+    <div class="feature-title">Recipes</div>
+    <div class="feature-description">Worked examples for common jobs: filters for each project type, keeping structure docs current, analyzing JSON exports, and comparing branches.</div>
+    <a href="recipes/" class="feature-link">Explore Recipes <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
   </div>
 
   <div class="feature-card">

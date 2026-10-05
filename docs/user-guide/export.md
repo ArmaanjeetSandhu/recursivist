@@ -12,16 +12,18 @@ recursivist export /path/to/project --format json
 
 The format flag accepts `txt`, `json`, `html`, `md`, `svg`, and `rst`. When omitted, it defaults to `md`.
 
-## Available Formats
+## Choosing a Format
 
-| Format           | Extension | Description                       | Best For                              |
-| ---------------- | --------- | --------------------------------- | ------------------------------------- |
-| Text             | `.txt`    | Plain ASCII tree                  | Quick reference, text-only contexts   |
-| JSON             | `.json`   | Structured data                   | Programmatic processing, integrations |
-| HTML             | `.html`   | Self-contained styled web page    | Sharing, web documentation            |
-| Markdown         | `.md`     | GitHub-compatible nested list     | READMEs, project documentation        |
-| SVG              | `.svg`    | Vector image of the terminal tree | Embedding visuals in docs and READMEs |
-| reStructuredText | `.rst`    | Sphinx-compatible nested list     | Sphinx/docutils documentation         |
+| Format           | `--format` | Description                       | Best For                              |
+| ---------------- | ---------- | --------------------------------- | ------------------------------------- |
+| Text             | `txt`      | Plain-text tree                   | Quick reference, text-only contexts   |
+| JSON             | `json`     | Structured data                   | Programmatic processing, integrations |
+| HTML             | `html`     | Self-contained styled web page    | Sharing, web documentation            |
+| Markdown         | `md`       | GitHub-compatible nested list     | READMEs, project documentation        |
+| SVG              | `svg`      | Vector image of the terminal tree | Embedding visuals in docs and READMEs |
+| reStructuredText | `rst`      | Sphinx-compatible nested list     | Sphinx/docutils documentation         |
+
+[Export Formats](../reference/export-formats.md) shows exactly what each format produces.
 
 ## Multiple Formats at Once
 
@@ -41,40 +43,9 @@ recursivist export --format json --prefix my-project     # my-project.json
 
 The output directory is created automatically if it doesn't exist.
 
-## File Statistics
+## Controlling What Is Exported
 
-Every format can include lines of code, file sizes, and modification times. As in the terminal, sorting and display are separate: `--sort-by-loc`/`-size`/`-mtime` sort by and show a metric, while `--loc`/`--size`/`--mtime` show a metric without reordering.
-
-```bash
-recursivist export --format md --sort-by-loc          # sort by and show LOC
-recursivist export --format html --sort-by-size       # sort by and show size
-recursivist export --format json --mtime              # show mtime, keep default order
-recursivist export --format md --sort-by-loc --size   # sort by LOC, show LOC and size
-```
-
-Flags are resolved by command-line order — only the first sorting flag takes effect, and a second `--sort-by-*` is ignored. See the [CLI Reference](../reference/cli-reference.md#sorting-and-display-flags).
-
-## Git Status
-
-Annotate exported files with their Git status (`[U]`, `[M]`, `[A]`, `[D]`):
-
-```bash
-recursivist export --format md --git-status
-```
-
-`--git-status` annotates without reordering; use `--sort-by-git-status` to also sort by status. The status marker always trails after any metric annotations.
-
-## Icon Style
-
-Exports use the `emoji` icon style by default — independent of your saved and project configurations — so files render consistently anywhere. Switch to Nerd Font glyphs with:
-
-```bash
-recursivist export --format md --icon-style nerd
-```
-
-## Filtering and Depth
-
-All filtering options, plus depth limiting and full paths, work exactly as they do for `visualize`:
+`export` takes the same options as `visualize`, and they work the same way:
 
 ```bash
 recursivist export \
@@ -83,179 +54,22 @@ recursivist export \
   --exclude-ext .pyc \
   --exclude-pattern "*.test.js" \
   --depth 3 \
-  --full-path
+  --sort-by-loc --size \
+  --git-status
 ```
 
-See [Pattern Filtering](pattern-filtering.md).
+- **Filtering**: see [Pattern Filtering](pattern-filtering.md).
+- **Depth and full paths**: see [Visualization](visualization.md#directory-depth-control).
+- **Lines of code, sizes, modification times, and Git status**: see [Sorting and Statistics](sorting-and-statistics.md).
+- **A GitHub repository instead of a local directory**: see [GitHub Repositories](github-repositories.md).
 
-## GitHub Repositories
+## Icon Style
 
-`export` accepts a GitHub repository URL in place of a local directory, writing the same output files it would for a local scan:
+Exports use the `emoji` icon style by default — independent of your saved and project [configuration](configuration.md) — so files render consistently anywhere. Switch to Nerd Font glyphs with:
 
 ```bash
-recursivist export https://github.com/owner/repo --format md
-recursivist export https://github.com/owner/repo/tree/main/src --format "md json"
+recursivist export --format md --icon-style nerd
 ```
-
-A `/tree/<ref>` or `/blob/<ref>/<subpath>` selector pins a branch, tag, or commit and, optionally, a subtree; without one, the default branch is used. Set `GITHUB_TOKEN` (or `GH_TOKEN`) to raise rate limits and reach private repositories. Lines of code and size are read from the file contents and export normally; with `--full-path`, each file is written with its GitHub blob URL rather than a filesystem path — convenient for a Markdown or JSON export that links back to the source. The `--git-status`, `--sort-by-git-status`, `--mtime`, `--sort-by-mtime`, and `--ignore-file` options do not apply to a hosted repository and are skipped. See the [CLI Reference](../reference/cli-reference.md#github-repositories) for the accepted URL forms.
-
-## Format Details
-
-### Text (`.txt`)
-
-A plain ASCII tree using `├──` and `└──` connectors:
-
-```
-📂 my-project
-├── 📄 README.md
-├── 📄 setup.py
-├── 📄 requirements.txt
-└── 📂 src
-    ├── 📄 main.py
-    ├── 📄 utils.py
-    └── 📂 tests
-        ├── 📄 test_main.py
-        └── 📄 test_utils.py
-```
-
-### JSON (`.json`)
-
-A structured representation. Without detail flags, files collapse to bare names:
-
-```json
-{
-    "root": "my-project",
-    "structure": {
-        "_files": ["README.md", "setup.py", "requirements.txt"],
-        "src": {
-            "_files": ["main.py", "utils.py"],
-            "tests": {
-                "_files": ["test_main.py", "test_utils.py"]
-            }
-        }
-    },
-    "show_loc": false,
-    "show_size": false,
-    "show_mtime": false,
-    "show_git_status": false
-}
-```
-
-With a detail flag (full path, LOC, size, mtime, or Git status), each file becomes an object carrying the requested fields, and directories gain aggregate totals:
-
-```json
-{
-    "root": "my-project",
-    "structure": {
-        "_loc": 1262,
-        "_files": [
-            { "name": "README.md", "path": "README.md", "loc": 124 },
-            { "name": "setup.py", "path": "setup.py", "loc": 65 },
-            {
-                "name": "requirements.txt",
-                "path": "requirements.txt",
-                "loc": 18
-            }
-        ],
-        "src": {
-            "_loc": 1055,
-            "_files": [
-                { "name": "main.py", "path": "main.py", "loc": 245 },
-                { "name": "utils.py", "path": "utils.py", "loc": 157 }
-            ],
-            "tests": {
-                "_loc": 653,
-                "_files": [
-                    {
-                        "name": "test_main.py",
-                        "path": "test_main.py",
-                        "loc": 412
-                    },
-                    {
-                        "name": "test_utils.py",
-                        "path": "test_utils.py",
-                        "loc": 241
-                    }
-                ]
-            }
-        }
-    },
-    "show_loc": true,
-    "show_size": false,
-    "show_mtime": false,
-    "show_git_status": false
-}
-```
-
-Size and mtime entries also include human-readable variants (`size_formatted`, `mtime_formatted`). This format is ideal for processing with tools like [jq](https://jqlang.org).
-
-### HTML (`.html`)
-
-A self-contained HTML document with an embedded stylesheet: a nested list with extension-colored files, bold directory names, and any enabled metric or Git-status annotations. It opens in any browser and needs no external assets — well suited to sharing or embedding in documentation.
-
-The document pins a white background, and every extension color is darkened as needed so that all text meets the WCAG 2.1 level AAA contrast ratio (7:1) for normal-sized text. Hues are preserved, so extensions stay visually distinct and each one keeps the hue it has in the terminal tree.
-
-### Markdown (`.md`)
-
-A nested bullet list that renders cleanly on GitHub and other Markdown viewers — directories in bold, files as inline code:
-
-```markdown
-# 📂 my-project
-
-- 📄 `README.md`
-- 📄 `setup.py`
-- 📄 `requirements.txt`
-- 📂 **src**
-    - 📄 `main.py`
-    - 📄 `utils.py`
-    - 📂 **tests**
-        - 📄 `test_main.py`
-        - 📄 `test_utils.py`
-```
-
-With statistics:
-
-```markdown
-# 📂 my-project (1262 lines)
-
-- 📄 `README.md` (124 lines)
-- 📄 `setup.py` (65 lines)
-- 📄 `requirements.txt` (18 lines)
-- 📂 **src** (1055 lines)
-    - 📄 `main.py` (245 lines)
-    - 📄 `utils.py` (157 lines)
-    - 📂 **tests** (653 lines)
-        - 📄 `test_main.py` (412 lines)
-        - 📄 `test_utils.py` (241 lines)
-```
-
-### SVG (`.svg`)
-
-A scalable vector image of the tree exactly as it appears in the terminal, preserving the `rich` colors, icons, and connectors. Perfect for embedding a directory structure in a README without losing the styling.
-
-```bash
-recursivist export --format svg
-```
-
-### reStructuredText (`.rst`)
-
-A nested bullet list that renders cleanly with docutils and Sphinx — the reStructuredText counterpart to the Markdown export. The root is a section title, directories are shown in bold, and files as inline literals:
-
-```rst
-📂 my-project
-=============
-
-- 📄 ``README.md``
-- 📂 **src**
-
-  - 📄 ``main.py``
-```
-
-```bash
-recursivist export --format rst
-```
-
-Drop the file into a Sphinx project directly, or pull it into an existing page with the `.. include::` directive.
 
 ## Examples
 
@@ -275,4 +89,4 @@ recursivist export \
   --sort-by-loc
 ```
 
-For a per-format reference, see [Export Formats](../reference/export-formats.md).
+For longer workflows, see the recipes on [keeping structure docs up to date](../recipes/documentation.md) and [analyzing a JSON export](../recipes/json.md).

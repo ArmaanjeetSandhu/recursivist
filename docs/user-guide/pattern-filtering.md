@@ -1,6 +1,8 @@
 # Pattern Filtering
 
-Recursivist offers several complementary ways to control which files and directories appear. This guide explains each one and, importantly, how they interact.
+Recursivist offers several complementary ways to control which files and directories appear. This guide explains each one and, importantly, how they interact. Every filtering option works identically with `visualize`, `export`, and `compare`.
+
+Nothing is filtered by default: every file and directory is listed, including `.git`, and no ignore file is read until you name one.
 
 ## The Four Filtering Mechanisms
 
@@ -13,6 +15,8 @@ Recursivist offers several complementary ways to control which files and directo
 
 The distinction in the last column matters: **include and exclude patterns test a file's name, not its path**, whereas an ignore file matches paths. This determines which tool to reach for, as explained below.
 
+`--exclude`, `--exclude-ext`, `--exclude-pattern`, and `--include-pattern` each take one value; repeat the option to give several.
+
 ## Directory Exclusion
 
 Exclude directories by name. Matching directories are pruned entirely and never descended into:
@@ -21,18 +25,11 @@ Exclude directories by name. Matching directories are pruned entirely and never 
 recursivist visualize --exclude node_modules --exclude .git --exclude venv
 ```
 
-To exclude the same directories on every run without passing the option, save their names as a preference, or set them for a project in a `.recursivist.toml` file or a `[tool.recursivist]` table in `pyproject.toml`:
+To exclude the same directories on every run, save their names as the `exclude` [setting](configuration.md):
 
 ```bash
 recursivist config set exclude node_modules .git venv
 ```
-
-```toml
-# .recursivist.toml
-exclude = ["node_modules", ".git", "venv"]
-```
-
-The names are used by `visualize`, `export`, and `compare`. A list is used whole rather than merged with another: a project setting replaces your saved preference, `--exclude` replaces both for a run, and `--exclude ""` runs without excluding any directory. See [Settings](../reference/cli-reference.md#settings) for the details.
 
 ## Extension Exclusion
 
@@ -61,12 +58,14 @@ recursivist visualize --include-pattern "*.md" --include-pattern "*.py"
 
     Because patterns are tested against the file name only, a path-style pattern such as `src/*` or `src/**/*.js` will not match anything — file names never contain a `/`. A pattern like `*.js`, by contrast, matches `.js` files at **any** depth. To filter by location rather than by name, use a directory exclusion (`--exclude src`) or an ignore file (see below).
 
-Glob syntax: `*` matches any run of characters, `?` matches a single character, `[abc]` matches one listed character, and `[!abc]` matches one character not listed. With `--regex`, patterns follow Python's regular-expression syntax and are searched within the file name (anchor with `^` and `$` for a full-name match):
+With `--regex`, patterns follow Python's regular-expression syntax and are searched within the file name (anchor with `^` and `$` for a full-name match):
 
 ```bash
 recursivist visualize --exclude-pattern "^test_.*\.py$" --regex
 recursivist visualize --exclude-pattern ".*\.(spec|test)\.(js|ts)$" --regex
 ```
+
+`--regex` applies to every pattern on the command line, include and exclude alike. The glob and regex syntax is laid out in the [Pattern Matching](../reference/pattern-matching.md) reference.
 
 ## Ignore Files
 
@@ -78,19 +77,6 @@ recursivist visualize --ignore-file .recursivist-ignore
 ```
 
 The leading dot in the name is optional: `--ignore-file gitignore` resolves to `.gitignore` when that file is present, so both spellings work.
-
-To honor an ignore file on every run without passing the option, save its name as a preference, or set it for a project in a `.recursivist.toml` file or a `[tool.recursivist]` table in `pyproject.toml`:
-
-```bash
-recursivist config set ignore-file .gitignore
-```
-
-```toml
-# .recursivist.toml
-ignore-file = ".gitignore"
-```
-
-The name is used by `visualize`, `export`, and `compare` wherever a file of that name exists; where none does, the scan goes ahead without an ignore file, and no warning is shown. A project setting overrides your saved preference, `--ignore-file` overrides both for a run, and `--ignore-file ""` runs without any ignore file. See [Settings](../reference/cli-reference.md#settings) for the details.
 
 Like Git, ignore files are discovered at **every level** of the tree, and **each is evaluated relative to the directory that contains it** rather than to the scan root. So an anchored pattern such as `/build` in a nested `.gitignore` matches only inside that subdirectory; a deeper ignore file's verdict overrides a shallower one for the same path.
 
@@ -108,6 +94,12 @@ build/
 
 # But keep an important generated file
 !build/manifest.json
+```
+
+To honor an ignore file on every run, save its name as the `ignore-file` [setting](configuration.md):
+
+```bash
+recursivist config set ignore-file .gitignore
 ```
 
 ## Order of Precedence
@@ -138,26 +130,12 @@ recursivist visualize \
   --ignore-file .gitignore
 ```
 
-## Same Behavior Across Commands
+This keeps `.js` and `.md` files, drops `.test.js` files and excluded extensions, prunes the listed directories, and also applies the ignore file.
 
-Every filtering option works identically with `visualize`, `export`, and `compare`:
+## When a Filter Doesn't Behave as Expected
 
-```bash
-recursivist export --format md --include-pattern "*.py" --exclude-pattern "test_*.py"
-recursivist compare dir1 dir2 --exclude node_modules --exclude .git --exclude-ext ".log"
-```
+1. Remember that patterns match the **file name**, not the path. If you meant to target a location, use `--exclude` or `--ignore-file`.
+2. Run with `--verbose` to see how patterns are applied.
+3. Check whether a saved or project [setting](configuration.md) is adding an ignore file or exclusions: `recursivist config list` shows what is in effect.
 
-## Examples
-
-```bash
-# Documentation files only
-recursivist visualize --include-pattern "*.md" --include-pattern "*.rst" --include-pattern "*.txt"
-
-# Exclude generated and minified assets
-recursivist visualize --exclude dist --exclude build --exclude-ext .min.js --exclude-ext .map
-
-# Backend source, excluding tests (regex)
-recursivist visualize --include-pattern ".*\.py$" --exclude-pattern "test_.*\.py$" --regex
-```
-
-For a focused reference on glob and regex syntax, see [Pattern Matching](../reference/pattern-matching.md).
+For ready-made filter sets for common project types, see the [filtering recipes](../recipes/filtering.md).

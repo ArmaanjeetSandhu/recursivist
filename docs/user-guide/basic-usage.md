@@ -1,6 +1,6 @@
 # Basic Usage
 
-Recursivist is built around a small set of commands that share a consistent collection of filtering and display options. This guide covers the fundamentals; later guides go deeper into each command.
+Recursivist is built around three commands — `visualize`, `export`, and `compare` — that share one set of filtering, sorting, and display options. This page covers what they have in common; each of the other guides goes deeper into one topic.
 
 ## Command Structure
 
@@ -10,13 +10,13 @@ recursivist [COMMAND] [OPTIONS] [ARGUMENTS]
 
 The available commands are:
 
-| Command     | Purpose                                       |
-| ----------- | --------------------------------------------- |
-| `visualize` | Display a directory structure in the terminal |
-| `export`    | Export a directory structure to files         |
-| `compare`   | Compare two directory structures side by side |
-| `config`    | Manage persistent user preferences            |
-| `version`   | Show the installed version                    |
+| Command     | Purpose                                       | Guide                             |
+| ----------- | --------------------------------------------- | --------------------------------- |
+| `visualize` | Display a directory structure in the terminal | [Visualization](visualization.md) |
+| `export`    | Export a directory structure to files         | [Export](export.md)               |
+| `compare`   | Compare two directory structures side by side | [Compare](compare.md)             |
+| `config`    | Manage persistent user preferences            | [Configuration](configuration.md) |
+| `version`   | Show the installed version                    |                                   |
 
 ## Getting Help
 
@@ -31,147 +31,56 @@ recursivist visualize --help  # options for a specific command
 
 By default, `visualize` and `export`:
 
-- Include every file and directory in the target location.
+- Include every file and directory in the target location. Nothing is left out unless you ask: a `.git` directory is listed like any other, and a `.gitignore` is not read until you [name it](pattern-filtering.md#ignore-files).
 - Apply no depth limit.
 - Show bare filenames rather than full paths.
 - Color files by extension (colors are derived deterministically from the extensions present, so the same set of file types always gets the same colors).
 - List files before subdirectories, ordering files by extension and then name.
 - Label entries with generic emoji icons (📄 for files, 📂 for directories that have contents, and 📁 for empty ones).
 
-## Icon Styles
+## Shared Options
 
-Recursivist ships with two icon styles:
+`visualize`, `export`, and `compare` accept the same options for choosing what is shown and how:
 
-- **`emoji`** (default): the generic 📄, 📂, and 📁 glyphs, which render in virtually any terminal.
-- **`nerd`**: file-type-specific [Nerd Font](https://www.nerdfonts.com/) glyphs (a distinct icon for Python, JavaScript, folders like `.git` or `node_modules`, and so on). This requires a Nerd Font installed and selected in your terminal.
+| To...                                          | Use                                                                                                        | Guide                                                          |
+| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| Leave out directories, file types, or files    | `--exclude`, `--exclude-ext`, `--exclude-pattern`, `--include-pattern`, `--regex`, `--ignore-file`         | [Pattern Filtering](pattern-filtering.md)                      |
+| Limit how deep the tree goes                   | `--depth`                                                                                                  | [Visualization](visualization.md#directory-depth-control)      |
+| Show full paths instead of bare filenames      | `--full-path`                                                                                              | [Visualization](visualization.md#full-path-display)            |
+| Sort files, or annotate them with a metric     | `--sort-by-loc`, `--sort-by-size`, `--sort-by-mtime`, `--sort-by-similarity`, `--loc`, `--size`, `--mtime` | [Sorting and Statistics](sorting-and-statistics.md)            |
+| Show or sort by Git status                     | `--git-status`, `--sort-by-git-status`                                                                     | [Sorting and Statistics](sorting-and-statistics.md#git-status) |
+| Choose between emoji and Nerd Font icons       | `--icon-style`                                                                                             | [Visualization](visualization.md#icon-styles)                  |
+| See how filters and settings are being applied | `--verbose`                                                                                                | [Below](#verbose-output)                                       |
 
-Set the default style persistently with the `config` command:
+Two more things apply to all three commands:
 
-```bash
-recursivist config set icon-style nerd
-recursivist config set icon-style emoji
-```
+- Wherever a command takes a directory, it also takes a GitHub repository URL. See [GitHub Repositories](github-repositories.md).
+- Options you would otherwise repeat on every run — the icon style, an ignore file, directories to exclude — can be saved for yourself or for a project. See [Configuration](configuration.md).
 
-The preference is stored in a JSON config file in your platform's application-data directory (for example, `~/.config/recursivist/config.json` on Linux); `recursivist config path` prints its exact location. `recursivist config get icon-style` prints the saved style, or `emoji` when none is saved. Remove the preference with `recursivist config unset icon-style`, or every saved preference with `recursivist config reset`. Override it for a single run with `--icon-style`:
+The [CLI Reference](../reference/cli-reference.md) lists every option with its short form.
 
-```bash
-recursivist visualize --icon-style nerd
-```
-
-A project can also set the style for everyone who works on it, in a `.recursivist.toml` file or a `[tool.recursivist]` table in `pyproject.toml`:
-
-```toml
-# .recursivist.toml
-icon-style = "nerd"
-```
-
-A project setting overrides your saved preference, and `--icon-style` overrides both. See [Project Configuration](../reference/cli-reference.md#project-configuration) for how the file is found. `recursivist config list` prints the style in effect for the current directory and the file that sets it.
-
-Exports default to the `emoji` style regardless of your configuration, so exported files render consistently on any machine. Pass `--icon-style nerd` to override this.
-
-## Common Options
-
-The following options are shared by `visualize`, `export`, and `compare`.
-
-### Excluding Directories
-
-```bash
-recursivist visualize --exclude node_modules --exclude .git
-```
-
-### Excluding File Extensions
-
-Extensions may be given with or without the leading dot:
-
-```bash
-recursivist visualize --exclude-ext .pyc --exclude-ext .log
-```
-
-### Limiting Depth
-
-```bash
-recursivist visualize --depth 2
-```
-
-Subtrees cut off by the limit are left unexpanded. Their folder icon still distinguishes the two cases: 📂 means contents were hidden by the limit, while 📁 means the directory is genuinely empty.
-
-### Showing Full Paths
-
-```bash
-recursivist visualize --full-path
-```
-
-### Verbose Output
+## Verbose Output
 
 ```bash
 recursivist visualize --verbose
 ```
 
-Verbose mode lowers the log level to `DEBUG`, printing details about how patterns and filters are applied — useful when a filter isn't behaving as expected.
-
-## Scanning a GitHub Repository
-
-Wherever `visualize`, `export`, and `compare` take a directory, they also take a GitHub repository URL. The repository is downloaded to a temporary location, scanned like a local directory, and cleaned up afterward:
-
-```bash
-recursivist visualize https://github.com/owner/repo
-recursivist export https://github.com/owner/repo --format md
-recursivist compare ./local-fork https://github.com/owner/repo
-```
-
-A `/tree/<ref>` or `/blob/<ref>/<subpath>` selector pins a branch, tag, or commit and, optionally, a subtree to scan. Set `GITHUB_TOKEN` (or `GH_TOKEN`) to raise rate limits and reach private repositories. Because a hosted repository has no per-file Git status or modification time and already reflects its ignore rules, the `--git-status`, `--sort-by-git-status`, `--mtime`, `--sort-by-mtime`, and `--ignore-file` options do not apply to a GitHub input and are skipped; `--loc` and `--size` still work, and `--full-path` shows each file's GitHub blob URL. See the [CLI Reference](../reference/cli-reference.md#github-repositories) for the accepted URL forms and full details.
-
-## File Statistics
-
-All three primary commands can display file metrics, and can sort by them. Sorting and display are separate concerns:
-
-```bash
-recursivist visualize --sort-by-loc     # sort by AND show lines of code
-recursivist visualize --sort-by-size    # sort by AND show file sizes
-recursivist visualize --sort-by-mtime   # sort by AND show modification times
-
-recursivist visualize --loc             # show lines of code, keep default order
-recursivist visualize --size            # show file sizes, keep default order
-recursivist visualize --mtime           # show modification times, keep default order
-```
-
-The `--sort-by-*` forms both sort and annotate; the bare `--loc`/`--size`/`--mtime` forms annotate only. Flags are resolved by their order on the command line: only the first sorting flag takes effect, and annotations appear in the order requested. So to sort by lines of code while also showing size, write `--sort-by-loc --size` — note that a second `--sort-by-*` (as in `--sort-by-loc --sort-by-size`) is ignored. See [Visualization](visualization.md#file-statistics) and the [CLI Reference](../reference/cli-reference.md#sorting-and-display-flags) for details.
-
-## Grouping by Name Similarity
-
-Instead of the default extension-and-name ordering, files can be grouped so that similarly named files sit next to each other:
-
-```bash
-recursivist visualize --sort-by-similarity
-```
-
-Like the metric sorts, this is a sorting flag, so only the first sorting flag on the command line takes effect: an earlier `--sort-by-*` (metric or Git status) wins and the similarity flag is ignored.
-
-## Pattern Filtering
-
-Glob patterns (default) and regular expressions (`--regex`) give finer control than directory or extension exclusions, and include patterns limit the view to matching files, overriding ignore files but not explicit exclusions:
-
-```bash
-recursivist visualize --exclude-pattern "*.test.js"
-recursivist visualize --exclude-pattern "^test_.*\.py$" --regex
-recursivist visualize --include-pattern "*.py" --include-pattern "*.md"
-recursivist visualize --ignore-file .gitignore
-```
-
-See [Pattern Filtering](pattern-filtering.md) for the full picture, including the order of precedence.
+Verbose mode lowers the log level to `DEBUG`, printing details about how patterns and filters are applied and which project configuration file was used — useful when a filter isn't behaving as expected.
 
 ## Exit Codes
 
-Recursivist uses standard exit codes:
+| Code | Meaning                                                                                                                      |
+| ---- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `0`  | Success                                                                                                                      |
+| `1`  | An error occurred (for example, an invalid directory, an unsupported export format, or a failure during scanning or writing) |
+| `2`  | The command line could not be parsed (for example, an unknown option or a missing argument)                                  |
 
-- `0`: Success
-- `1`: An error occurred (for example, an invalid directory, an unsupported export format, or a failure during scanning or writing)
-
-These make Recursivist easy to use in scripts and automation.
+These make Recursivist easy to use in scripts and automation; see [Scripting and Python](../recipes/scripting.md).
 
 ## Next Steps
 
 - [Visualization](visualization.md) — terminal output options in depth
+- [Sorting and Statistics](sorting-and-statistics.md) — ordering files and annotating them with metrics
+- [Pattern Filtering](pattern-filtering.md) — precise include/exclude control
 - [Export](export.md) — saving structures to files
 - [Compare](compare.md) — diffing two directories
-- [Pattern Filtering](pattern-filtering.md) — precise include/exclude control

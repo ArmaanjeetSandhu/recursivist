@@ -1,38 +1,39 @@
-# API Reference
+# Python API
 
-Recursivist is organized as a set of focused modules that can be used directly from Python. This page documents the public API (generated from the source docstrings) and shows how to compose it.
+Recursivist is organized as a set of focused modules that can be imported directly from Python. These pages are generated from the source docstrings; this one maps the modules and describes the data they share.
 
-## Module Overview
+## Modules
 
-| Module                   | Responsibility                                      |
-| ------------------------ | --------------------------------------------------- |
-| `recursivist.scanner`    | Walk a directory into the nested structure dict     |
-| `recursivist.tree`       | Render a structure as a Rich tree in the terminal   |
-| `recursivist.exporters`  | Exporter registry and per-format exporters          |
-| `recursivist.compare`    | Compare and render two structures                   |
-| `recursivist.filtering`  | Ignore-file, glob, and regex exclusion logic        |
-| `recursivist.flags`      | Resolve sort/display flags into a `DisplayOptions`  |
-| `recursivist.sorting`    | File ordering (by type, metric, or name similarity) |
-| `recursivist.metrics`    | Lines of code, size, mtime, and metric formatting   |
-| `recursivist.colors`     | Deterministic per-extension colors                  |
-| `recursivist.icons`      | Emoji and Nerd Font icon lookup                     |
-| `recursivist.git_status` | Git status lookup                                   |
-| `recursivist.github`     | Materialize a GitHub repository for scanning        |
-| `recursivist.config`     | User and project configuration                      |
+| Module                   | Responsibility                                      | Reference                                             |
+| ------------------------ | --------------------------------------------------- | ----------------------------------------------------- |
+| `recursivist.scanner`    | Walk a directory into the nested structure dict     | [Scanning and Filtering](api/scanning.md)             |
+| `recursivist.filtering`  | Ignore-file, glob, and regex exclusion logic        | [Scanning and Filtering](api/scanning.md)             |
+| `recursivist.flags`      | Resolve sort/display flags into a `DisplayOptions`  | [Sorting and Metrics](api/display.md)                 |
+| `recursivist.sorting`    | File ordering (by type, metric, or name similarity) | [Sorting and Metrics](api/display.md)                 |
+| `recursivist.metrics`    | Lines of code, size, mtime, and metric formatting   | [Sorting and Metrics](api/display.md)                 |
+| `recursivist.tree`       | Render a structure as a Rich tree in the terminal   | [Rendering](api/rendering.md)                         |
+| `recursivist.compare`    | Compare and render two structures                   | [Rendering](api/rendering.md)                         |
+| `recursivist.colors`     | Deterministic per-extension colors                  | [Rendering](api/rendering.md)                         |
+| `recursivist.icons`      | Emoji and Nerd Font icon lookup                     | [Rendering](api/rendering.md)                         |
+| `recursivist.exporters`  | Exporter registry and per-format exporters          | [Exporters](api/exporters.md)                         |
+| `recursivist.git_status` | Git status lookup                                   | [Git, GitHub, and Configuration](api/integrations.md) |
+| `recursivist.github`     | Materialize a GitHub repository for scanning        | [Git, GitHub, and Configuration](api/integrations.md) |
+| `recursivist.config`     | User and project configuration                      | [Git, GitHub, and Configuration](api/integrations.md) |
 
 ## The Structure Dictionary
 
-Most of the API revolves around the nested dictionary produced by `get_directory_structure`. Each subdirectory is a nested dict under its own name; a directory's own files and aggregate metrics live under reserved keys:
+Most of the API revolves around the nested dictionary produced by [`get_directory_structure`][recursivist.scanner.get_directory_structure]. Each subdirectory is a nested dict under its own name; a directory's own files and aggregate metrics live under reserved keys:
 
-- `_files`: a list of [`FileEntry`](#fileentry) objects for the directory's files
+- `_files`: a list of [`FileEntry`][recursivist._models.FileEntry] objects for the directory's files
 - `_loc`, `_size`, `_mtime`: aggregate totals, present only when the matching metric is requested
 - `_max_depth_reached`: present when traversal stopped at the depth limit
 - `_hidden_contents`: present alongside `_max_depth_reached` when the untraversed directory is not empty, so renderers can tell it apart from one that holds nothing
+- `_symlink_loop`: present when a directory was not descended into because it resolves to one of its own ancestors
 - `_git_markers`: a `{filename: status}` map, present only with Git status enabled
 
-### DisplayOptions
+## DisplayOptions
 
-Sorting and annotation are driven by a single resolved value, `recursivist.flags.DisplayOptions`, which the renderers and exporters consult. It separates ordering (`sort_key`) from annotation (`metrics` and `show_git_status`):
+Sorting and annotation are driven by a single resolved value, [`DisplayOptions`][recursivist.flags.DisplayOptions], which the renderers and exporters consult. It separates ordering (`sort_key`) from annotation (`metrics` and `show_git_status`):
 
 ```python
 from recursivist.flags import DisplayOptions
@@ -41,69 +42,7 @@ from recursivist.flags import DisplayOptions
 spec = DisplayOptions(sort_key="loc", metrics=("loc", "size"))
 ```
 
-`sort_key` is one of `"loc"`, `"size"`, `"mtime"`, `"git_status"`, `"similarity"`, or `None` (the default extension/name order). `metrics` is the ordered tuple of numeric metrics to display, and `show_git_status` toggles the Git-status marker. To build a `DisplayOptions` from raw CLI flags, use `recursivist.flags.resolve_display_options`, passing the flag ids in the order they were given as `order`.
-
-### FileEntry
-
-::: recursivist._models.FileEntry
-
-## Scanner
-
-::: recursivist.scanner
-
-## Tree Rendering
-
-::: recursivist.tree
-
-## Exporters
-
-Exports go through the `get_exporter` factory, which returns a `BaseExporter` subclass for the requested format. Call its `export` method with an output path.
-
-::: recursivist.exporters
-
-::: recursivist.exporters.base
-
-## Compare
-
-::: recursivist.compare
-
-## Filtering
-
-::: recursivist.filtering
-
-## Flags
-
-::: recursivist.flags
-
-## Sorting
-
-::: recursivist.sorting
-
-## Metrics
-
-::: recursivist.metrics
-
-## Colors
-
-::: recursivist.colors
-
-## Icons
-
-::: recursivist.icons
-
-## Git Status
-
-::: recursivist.git_status
-
-## GitHub
-
-A GitHub repository URL passed to `visualize`, `export`, or `compare` is resolved here. `parse_github_url` turns a URL into a `GitHubTarget`, and `checkout_repository` downloads the repository's source archive into a temporary directory and yields a `RepoCheckout` whose `local_root` is scanned like any other directory. `apply_github_urls` rewrites file paths to GitHub blob URLs for `--full-path` output.
-
-::: recursivist.github
-
-## Configuration
-
-::: recursivist.config
+`sort_key` is one of `"loc"`, `"size"`, `"mtime"`, `"git_status"`, `"similarity"`, or `None` (the default extension/name order). `metrics` is the ordered tuple of numeric metrics to display, and `show_git_status` toggles the Git-status marker. To build a `DisplayOptions` from raw CLI flags, use [`resolve_display_options`][recursivist.flags.resolve_display_options], passing the flag ids in the order they were given as `order`.
 
 ## Example: Custom Analysis Script
 
@@ -167,13 +106,4 @@ if __name__ == "__main__":
     analyze_directory(sys.argv[1] if len(sys.argv) > 1 else ".")
 ```
 
-## Extending Recursivist
-
-The modular layout makes the common extension points clear:
-
-- **A new export format**: subclass `BaseExporter` in a new module under `recursivist/exporters/`, implement `export`, and register it in the `_EXPORTERS` map in `recursivist/exporters/__init__.py`.
-- **Custom filtering**: extend `should_exclude` in `recursivist/filtering.py`.
-- **Custom rendering**: build on `build_tree` and `display_tree` in `recursivist/tree.py`.
-- **A new metric**: collect it in `get_directory_structure` (`recursivist/scanner.py`), thread it through `FileEntry`, register it in `recursivist/flags.py` (so it resolves into `DisplayOptions`), and surface it in the renderers, exporters, and CLI.
-
-See the [Development Guide](../advanced/development.md) for the full workflow.
+For a shorter starting point, see [Scripting and Python](../recipes/scripting.md#using-recursivist-from-python). To add an export format, a metric, or a command of your own, see [Extending Recursivist](../contributing/development.md#extending-recursivist).
