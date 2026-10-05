@@ -56,13 +56,20 @@ def parse_ignore_file(ignore_file_path: str) -> list[str]:
         ignore_file_path: Path to the ignore file (e.g. ``.gitignore``).
 
     Returns:
-        The list of pattern lines, or an empty list when the path does not exist or is
-        not a regular file (a directory, or a named pipe that would block when read).
+        The list of pattern lines, or an empty list when the path does not exist, is
+        not a regular file (a directory, or a named pipe that would block when read),
+        or cannot be read.
     """
     if not os.path.isfile(ignore_file_path):
         return []
-    with open(ignore_file_path, encoding="utf-8-sig", errors="replace") as f:
-        return f.read().splitlines()
+    try:
+        with open(ignore_file_path, encoding="utf-8-sig", errors="replace") as f:
+            return f.read().splitlines()
+    except OSError as e:
+        logger.warning(
+            "Skipping unreadable ignore file %s: %s", ignore_file_path, e.strerror or e
+        )
+        return []
 
 
 def normalize_extensions(extensions: Iterable[str]) -> set[str]:

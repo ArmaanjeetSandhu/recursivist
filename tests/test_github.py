@@ -37,12 +37,15 @@ from recursivist.github import (
 )
 
 
-def _make_tarball(top: str, files: Mapping[str, str]) -> bytes:
+def _make_tarball(
+    top: str, files: Mapping[str, str], links: Mapping[str, str] | None = None
+) -> bytes:
     """Build a ``tar.gz`` mimicking a GitHub source archive layout.
 
     Args:
         top: The single top-level directory name (e.g. ``"repo-main"``).
         files: Mapping of repo-relative path to text content.
+        links: Mapping of repo-relative path to symlink target.
 
     Returns:
         The gzipped tar archive bytes.
@@ -59,6 +62,12 @@ def _make_tarball(top: str, files: Mapping[str, str]) -> bytes:
             info.size = len(data)
             info.mtime = 1700000000
             tar.addfile(info, io.BytesIO(data))
+        for rel, link_target in (links or {}).items():
+            info = tarfile.TarInfo(f"{top}/{rel}")
+            info.type = tarfile.SYMTYPE
+            info.linkname = link_target
+            info.mtime = 1700000000
+            tar.addfile(info)
     return buf.getvalue()
 
 

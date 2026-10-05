@@ -535,20 +535,48 @@ def _is_within(base: str, path: str) -> bool:
     return target_real == base_real or target_real.startswith(base_real + os.sep)
 
 
+def _warn_skipped_link(member: tarfile.TarInfo) -> None:
+    """Warn that the link *member* is left out of the extraction."""
+    logger.warning(
+        "Skipping link '%s': its target '%s' lies outside the repository",
+        member.name.partition("/")[2] or member.name,
+        member.linkname,
+    )
+
+
+def _skip_unsafe_links(
+    member: tarfile.TarInfo, dest_path: str
+) -> tarfile.TarInfo | None:
+    """Tar extraction filter: the ``data`` filter, with unsafe links skipped.
+
+    A repository may legitimately track a symlink with an absolute target, or a
+    relative one that climbs out of the repository. Such a member is left out of the
+    extraction, and a warning names it. Any other member that the ``data`` filter
+    rejects raises, which fails the extraction.
+    """
+    try:
+        return tarfile.data_filter(member, dest_path)
+    except (tarfile.AbsoluteLinkError, tarfile.LinkOutsideDestinationError):
+        _warn_skipped_link(member)
+        return None
+
+
 def _safe_extract(archive_path: str, dest_dir: str) -> None:
     """Extract *archive_path* into *dest_dir*, rejecting path traversal.
 
     Uses the tar ``data`` extraction filter when available (Python 3.12+) and otherwise
-    validates every member manually so that entries with absolute paths, ``..``
-    components, or symlinks pointing outside *dest_dir* cannot escape the destination
-    directory. Any extraction failure is surfaced as a
+    validates every member manually so that entries with absolute paths or ``..``
+    components cannot escape the destination directory. A link whose target lies
+    outside *dest_dir* is skipped with a warning, and the remaining members are
+    extracted. Any extraction failure is surfaced as a
     [`GitHubError`][recursivist.github.GitHubError].
     """
     try:
         with tarfile.open(archive_path, mode="r:gz") as tar:
             if hasattr(tarfile, "data_filter"):
-                tar.extractall(dest_dir, filter="data")
+                tar.extractall(dest_dir, filter=_skip_unsafe_links)
                 return
+            members = []
             for member in tar.getmembers():
                 member_path = os.path.join(dest_dir, member.name)
                 if not _is_within(dest_dir, member_path):
@@ -560,11 +588,10 @@ def _safe_extract(archive_path: str, dest_dir: str) -> None:
                         os.path.dirname(member_path), member.linkname
                     )
                     if not _is_within(dest_dir, link_path):
-                        raise GitHubError(
-                            "Refusing to extract unsafe link from archive: "
-                            f"{member.name!r}"
-                        )
-            tar.extractall(dest_dir)
+                        _warn_skipped_link(member)
+                        continue
+                members.append(member)
+            tar.extractall(dest_dir, members=members)
     except tarfile.TarError as exc:
         raise GitHubError(f"Could not extract repository archive: {exc}") from exc
 

@@ -44,7 +44,8 @@ def get_git_status(directory: str) -> dict[str, str]:
         )
         if root_result.returncode != 0:
             return {}
-        git_root = root_result.stdout.strip()
+        git_root = os.path.realpath(root_result.stdout.strip())
+        directory = os.path.realpath(directory)
 
         status_result = subprocess.run(
             ["git", "status", "--porcelain", "-z", "--untracked-files=all"],
@@ -83,7 +84,8 @@ def get_git_status(directory: str) -> dict[str, str]:
             )
             try:
                 rel = os.path.relpath(abs_file, directory)
-                if not rel.startswith(".."):
+                outside = rel == os.pardir or rel.startswith(os.pardir + os.sep)
+                if not outside:
                     status_map[rel.replace(os.sep, "/")] = status
             except ValueError:
                 pass

@@ -69,6 +69,10 @@ recursivist export https://github.com/owner/repo --format md --full-path
 
 [Saved and project settings](configuration.md) follow the same logic. The `ignore-file` setting is not applied to a GitHub input, and no message is shown for it. The `exclude` setting of your user preferences is applied, as `--exclude` is. A GitHub input has no project configuration of its own.
 
+## Symbolic Links
+
+A symbolic link whose target lies inside the repository is [listed like any other link](visualization.md#symbolic-links). One whose target lies outside it — an absolute path such as `/etc/hosts`, or a relative path that climbs out of the repository — is left out of the tree, and a warning names the link. Its target is not part of the repository, so following it would read a file from your own machine.
+
 ## Comparing with a GitHub Repository
 
 Either input to `compare` may be a GitHub repository URL, so a local directory can be compared against a GitHub repository, or two GitHub repositories (or two refs of one repository) against each other:
