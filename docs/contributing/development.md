@@ -29,7 +29,7 @@ uv venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
 
 # Install in editable mode with development dependencies
-uv pip install -e ".[dev]"
+uv pip install -e . --group dev
 ```
 
 Editable mode means source changes take effect without reinstalling. Check that the CLI runs from your checkout:
@@ -89,7 +89,7 @@ See the [Python API reference](../reference/api-reference.md) for the public fun
 | Session            | What it runs                                                           |
 | ------------------ | ---------------------------------------------------------------------- |
 | `nox -s lint`      | `ruff check` and `ruff format --check`                                 |
-| `nox -s typecheck` | `mypy --strict` and `pyright`                                          |
+| `nox -s typecheck` | strict `mypy` and `pyright`                                            |
 | `nox -s tests`     | pytest on every supported Python version (3.10–3.14)                   |
 | `nox -s docs`      | A strict build of the documentation, which fails on a broken reference |
 
@@ -152,7 +152,7 @@ def function(arg1: str, arg2: int) -> bool:
 The documentation lives in `docs/` and is built with [Zensical](https://zensical.org/); the navigation is defined in `zensical.toml`. Install the documentation dependencies and start a live preview:
 
 ```bash
-uv pip install -e ".[docs]"
+uv pip install -e . --group docs
 zensical serve
 ```
 

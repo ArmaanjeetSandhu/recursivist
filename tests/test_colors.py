@@ -92,7 +92,7 @@ class TestBuildColorMap:
 
 class TestRelativeLuminance:
     @pytest.mark.parametrize(
-        "color,expected",
+        ("color", "expected"),
         [
             ((0, 0, 0), 0.0),
             ((255, 255, 255), 1.0),

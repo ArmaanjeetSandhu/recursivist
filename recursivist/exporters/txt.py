@@ -4,6 +4,8 @@ Renders the scanned structure as an indented ASCII tree (``├──``/``└─�
 writes it to a ``.txt`` file.
 """
 
+from typing import ClassVar
+
 from recursivist._models import Directory
 from recursivist.icons import get_icon
 from recursivist.metrics import format_dir_metrics, format_metrics_suffix
@@ -18,7 +20,12 @@ class TxtExporter(BaseExporter):
 
     extension = "txt"
 
-    _GIT_TXT_SUFFIX = {"U": " [U]", "M": " [M]", "A": " [A]", "D": " [D]"}
+    _GIT_TXT_SUFFIX: ClassVar[dict[str, str]] = {
+        "U": " [U]",
+        "M": " [M]",
+        "A": " [A]",
+        "D": " [D]",
+    }
 
     def export(self, output_path: str) -> None:
         """Write the structure to *output_path* as a plain-text tree.

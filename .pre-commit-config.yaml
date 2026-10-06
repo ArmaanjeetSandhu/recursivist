@@ -10,7 +10,7 @@ repos:
     hooks:
       - id: typecheck
         name: typecheck (via nox)
-        entry: uvx nox -s typecheck
+        entry: uvx --with nox-uv nox -s typecheck
         language: system
         pass_filenames: false
         types: [python]

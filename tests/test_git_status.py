@@ -176,7 +176,7 @@ class TestGitStatusParsing:
         """A non-zero ``rev-parse`` exit raises, carrying Git's error output."""
         root = _completed(128, b"", b"fatal: not a git repository\n")
         with patch("subprocess.run", side_effect=[root]):
-            with pytest.raises(GitStatusError, match="^fatal: not a git repository$"):
+            with pytest.raises(GitStatusError, match=r"^fatal: not a git repository$"):
                 get_git_status("/repo")
 
     def test_status_failure_raises(self) -> None:

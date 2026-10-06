@@ -38,12 +38,14 @@ import tempfile
 import urllib.error
 import urllib.parse
 import urllib.request
-from collections.abc import Generator, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, replace
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
-from recursivist._models import Directory, FileEntry
+if TYPE_CHECKING:
+    from collections.abc import Generator, Iterator
+
+    from recursivist._models import Directory, FileEntry
 
 logger = logging.getLogger(__name__)
 
@@ -279,7 +281,7 @@ def _fetch_refs_advertisement(target: GitHubTarget, token: str | None) -> bytes:
     url = f"{_WEB_HOST}/{target.owner}/{target.repo}/info/refs?service=git-upload-pack"
     try:
         with urllib.request.urlopen(_request(url, token), timeout=30) as response:
-            return cast(bytes, response.read())
+            return cast("bytes", response.read())
     except urllib.error.HTTPError as exc:
         if exc.code in (401, 404):
             raise GitHubError(

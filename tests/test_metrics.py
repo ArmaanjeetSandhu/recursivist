@@ -150,13 +150,13 @@ class TestCountLinesOfCode:
             assert line_count >= 0, (
                 "Line count should never be negative even for binary files"
             )
-            if file_path.lower().endswith(".bin") or (
-                b"\x00" in content and len(content) > 0 and content.strip()
-            ):
-                if content.strip() != b"\x00":
-                    assert line_count == 0, (
-                        "Files with non-trivial null bytes should return 0 lines"
-                    )
+            if (
+                file_path.lower().endswith(".bin")
+                or (b"\x00" in content and len(content) > 0 and content.strip())
+            ) and content.strip() != b"\x00":
+                assert line_count == 0, (
+                    "Files with non-trivial null bytes should return 0 lines"
+                )
         finally:
             os.unlink(file_path)
 
@@ -257,7 +257,7 @@ class TestCountLinesOfCode:
 
 class TestFileSize:
     @pytest.mark.parametrize(
-        "file_name,size",
+        ("file_name", "size"),
         [
             ("empty.txt", 0),
             ("small.txt", 10),
@@ -275,7 +275,7 @@ class TestFileSize:
         assert get_file_size(non_existent) == 0
 
     @pytest.mark.parametrize(
-        "error_type,error_msg",
+        ("error_type", "error_msg"),
         [
             (PermissionError, "Permission denied"),
             (Exception, "Generic error"),
@@ -308,7 +308,7 @@ class TestFileMtime:
         assert get_file_mtime(file_path) == actual_mtime
 
     @pytest.mark.parametrize(
-        "error_type,error_msg,expected",
+        ("error_type", "error_msg", "expected"),
         [
             (None, None, 0.0),
             (PermissionError, "Permission denied", 0.0),
@@ -341,7 +341,7 @@ class TestFileMtime:
 
 class TestCountLines:
     @pytest.mark.parametrize(
-        "file_content,expected_lines",
+        ("file_content", "expected_lines"),
         [
             ("", 0),
             ("Single line", 1),
@@ -397,7 +397,7 @@ class TestCountLines:
 
 class TestFormatSize:
     @pytest.mark.parametrize(
-        "size,expected",
+        ("size", "expected"),
         [
             (0, "0 B"),
             (1, "1 B"),

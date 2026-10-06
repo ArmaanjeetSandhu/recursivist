@@ -551,9 +551,8 @@ def test_checkout_repository_rejects_traversal(
     )
     target = parse_github_url("https://github.com/o/r/tree/main")
     assert target is not None
-    with pytest.raises(GitHubError):
-        with checkout_repository(target):
-            pass
+    with pytest.raises(GitHubError), checkout_repository(target):
+        pass
 
 
 def test_apply_github_urls_rewrites_paths() -> None:

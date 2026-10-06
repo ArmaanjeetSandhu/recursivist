@@ -150,10 +150,9 @@ def comparison_pair(
     """Generate a pair of related structures for comparison testing."""
     base_structure: Directory = draw(comparison_structure(ensure_files=ensure_files))
     modified_structure = Directory()
-    modified_files: list[FileEntry] = []
-    for file_item in base_structure.files:
-        if draw(st.booleans()):
-            modified_files.append(file_item)
+    modified_files: list[FileEntry] = [
+        file_item for file_item in base_structure.files if draw(st.booleans())
+    ]
     for _ in range(draw(st.integers(min_value=0, max_value=3))):
         new_filename = draw(
             st.text(
@@ -234,7 +233,7 @@ def test_scan_sides(comparison_directories: tuple[str, str]) -> None:
 
 
 @pytest.mark.parametrize(
-    "option_name,option_value,expected_result",
+    ("option_name", "option_value", "expected_result"),
     [
         ("show_full_path", True, "file1.txt"),
         ("exclude_dirs", ["exclude_me"], "exclude_me"),
@@ -367,7 +366,7 @@ def test_display_comparison_stays_side_by_side_when_names_are_long(
 
 
 @pytest.mark.parametrize(
-    "option_name,option_value,expected_in_output,expected_not_in_output",
+    ("option_name", "option_value", "expected_in_output", "expected_not_in_output"),
     [
         ("show_full_path", True, "Full file paths are shown", None),
         ("exclude_dirs", ["exclude_me"], None, ["exclude_me", "excluded.txt"]),
@@ -450,7 +449,7 @@ def test_export_comparison_html(
 
 
 @pytest.mark.parametrize(
-    "option_name,option_value,expected_in_output,expected_not_in_output",
+    ("option_name", "option_value", "expected_in_output", "expected_not_in_output"),
     [
         ("show_full_path", True, None, None),
         ("exclude_dirs", ["exclude_me"], None, ["exclude_me", "excluded.txt"]),
@@ -526,12 +525,13 @@ def test_export_comparison_with_options(
             base_name_dir1 = os.path.basename(dir1)
             base_name_dir2 = os.path.basename(dir2)
             for line in content.split("\n"):
-                if ("📄" in line or "file" in line) and (
-                    base_name_dir1 in line or base_name_dir2 in line
+                if (
+                    ("📄" in line or "file" in line)
+                    and (base_name_dir1 in line or base_name_dir2 in line)
+                    and ("/" in line or "\\" in line)
                 ):
-                    if "/" in line or "\\" in line:
-                        found_at_least_one_full_path = True
-                        break
+                    found_at_least_one_full_path = True
+                    break
         assert found_at_least_one_full_path, "No full paths found in the HTML export"
 
 

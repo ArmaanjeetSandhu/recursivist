@@ -572,11 +572,13 @@ class _ComparisonWalker:
             )
 
         this_ids = self._identities(structure.files, markers)
-        for entry in sort_files_by_type(other_structure.files, sort_key, other_markers):
-            if self._identity(entry, other_markers) not in this_ids:
-                nodes.append(
-                    self._file(entry, other_markers, _UNIQUE_OTHER, self.other_metrics)
-                )
+        nodes.extend(
+            self._file(entry, other_markers, _UNIQUE_OTHER, self.other_metrics)
+            for entry in sort_files_by_type(
+                other_structure.files, sort_key, other_markers
+            )
+            if self._identity(entry, other_markers) not in this_ids
+        )
 
         for name, other_content in iter_subdirectories(other_structure):
             if name in structure.subdirectories:

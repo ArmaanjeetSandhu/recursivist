@@ -39,7 +39,7 @@ def assert_path_info_in_output(output: str, directory: str) -> None:
 
 
 @pytest.mark.parametrize(
-    "input_list,expected",
+    ("input_list", "expected"),
     [
         (["value1"], ["value1"]),
         (["value1", "value2", "value3"], ["value1", "value2", "value3"]),
@@ -75,7 +75,7 @@ def test_visualize_with_full_path(runner: CliRunner, sample_directory: str) -> N
 
 
 @pytest.mark.parametrize(
-    "option_name,option_value,expected_missing",
+    ("option_name", "option_value", "expected_missing"),
     [
         ("--exclude", "exclude_me", ["exclude_me", "excluded.txt"]),
         ("--exclude-ext", ".py", ["file2.py"]),
@@ -118,7 +118,7 @@ def test_visualize_with_filtering_options(
 
 
 @pytest.mark.parametrize(
-    "option_name,value1,value2",
+    ("option_name", "value1", "value2"),
     [
         ("--exclude", "exclude_me1", "exclude_me2"),
         ("--exclude-ext", ".py", ".log"),
@@ -320,7 +320,7 @@ def test_visualize_with_verbose_mode(
 
 
 @pytest.mark.parametrize(
-    "option,expected_in_output",
+    ("option", "expected_in_output"),
     [
         ("--sort-by-loc", "lines"),
         ("--sort-by-size", ["B", "KB", "MB"]),
@@ -926,18 +926,20 @@ def test_compare_github_distinct_refs_same_commit_rejected(
 def test_compare_github_explicit_ref_differs_from_default_allowed(
     runner: CliRunner,
 ) -> None:
-    with mock.patch(
-        "recursivist.github.resolve_commit_shas", return_value=["a" * 40, "b" * 40]
+    with (
+        mock.patch(
+            "recursivist.github.resolve_commit_shas", return_value=["a" * 40, "b" * 40]
+        ),
+        mock.patch("recursivist.cli.display_comparison") as display,
     ):
-        with mock.patch("recursivist.cli.display_comparison") as display:
-            result = runner.invoke(
-                app,
-                [
-                    "compare",
-                    "github.com/owner/repo",
-                    "github.com/owner/repo/tree/main",
-                ],
-            )
+        result = runner.invoke(
+            app,
+            [
+                "compare",
+                "github.com/owner/repo",
+                "github.com/owner/repo/tree/main",
+            ],
+        )
     assert result.exit_code == 0
     assert display.called
 
@@ -945,18 +947,20 @@ def test_compare_github_explicit_ref_differs_from_default_allowed(
 def test_compare_github_different_refs_different_commits_allowed(
     runner: CliRunner,
 ) -> None:
-    with mock.patch(
-        "recursivist.github.resolve_commit_shas", return_value=["a" * 40, "b" * 40]
+    with (
+        mock.patch(
+            "recursivist.github.resolve_commit_shas", return_value=["a" * 40, "b" * 40]
+        ),
+        mock.patch("recursivist.cli.display_comparison") as display,
     ):
-        with mock.patch("recursivist.cli.display_comparison") as display:
-            result = runner.invoke(
-                app,
-                [
-                    "compare",
-                    "github.com/owner/repo/tree/main",
-                    "github.com/owner/repo/tree/dev",
-                ],
-            )
+        result = runner.invoke(
+            app,
+            [
+                "compare",
+                "github.com/owner/repo/tree/main",
+                "github.com/owner/repo/tree/dev",
+            ],
+        )
     assert result.exit_code == 0
     assert display.called
 
@@ -1620,7 +1624,7 @@ def test_flag_order_comes_from_invocation_not_process_argv(
 
 
 @pytest.mark.parametrize(
-    "args,expected",
+    ("args", "expected"),
     [
         (["-sz"], "loc"),
         (["-zs"], "size"),

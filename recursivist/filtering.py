@@ -23,14 +23,17 @@ import fnmatch
 import logging
 import os
 import re
-from collections.abc import Iterable, Mapping, Sequence
 from functools import cache
 from re import Pattern
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from pathspec import PathSpec
-from pathspec.pattern import Pattern as IgnorePattern
 from pathspec.util import lookup_pattern
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable, Mapping, Sequence
+
+    from pathspec.pattern import Pattern as IgnorePattern
 
 logger = logging.getLogger(__name__)
 
@@ -89,6 +92,14 @@ class InvalidPatternError(ValueError):
     """Raised when a ``--regex`` pattern is not a valid regular expression."""
 
 
+def _compile_or_error(pattern: str) -> Pattern[str] | re.error:
+    """Compile *pattern*, returning the `re.error` instead of raising it."""
+    try:
+        return re.compile(pattern)
+    except re.error as e:
+        return e
+
+
 def compile_regex_patterns(
     patterns: Sequence[str], is_regex: bool = False
 ) -> list[str | Pattern[str]]:
@@ -112,14 +123,15 @@ def compile_regex_patterns(
             regular expression. The message names every invalid pattern.
     """
     if not is_regex:
-        return cast(list[str | Pattern[str]], patterns)
+        return cast("list[str | Pattern[str]]", patterns)
     compiled_patterns: list[str | Pattern[str]] = []
     errors: list[str] = []
     for pattern in patterns:
-        try:
-            compiled_patterns.append(re.compile(pattern))
-        except re.error as e:
-            errors.append(f"'{pattern}' ({e})")
+        result = _compile_or_error(pattern)
+        if isinstance(result, re.error):
+            errors.append(f"'{pattern}' ({result})")
+        else:
+            compiled_patterns.append(result)
     if errors:
         noun = "pattern" if len(errors) == 1 else "patterns"
         raise InvalidPatternError(f"Invalid regex {noun}: {', '.join(errors)}")

@@ -57,7 +57,7 @@ def _make_entry(base_dir: str, rel_path: str, is_dir: bool) -> tuple[str, str]:
 
 
 @pytest.mark.parametrize(
-    "path,patterns,extensions,expected,exclude_patterns",
+    ("path", "patterns", "extensions", "expected", "exclude_patterns"),
     [
         ("/test/app.log", ["*.log", "node_modules"], set(), True, None),
         ("/test/app.txt", ["*.log", "node_modules"], set(), False, None),
@@ -93,7 +93,7 @@ def test_should_exclude(
 
 
 @pytest.mark.parametrize(
-    "patterns,rel_path,is_dir,expected",
+    ("patterns", "rel_path", "is_dir", "expected"),
     [
         (["/build"], "build", True, True),
         (["/build"], "src/build", True, False),
@@ -127,7 +127,7 @@ def test_should_exclude_gitignore_patterns(
 
 
 @pytest.mark.parametrize(
-    "stack,rel_path,is_dir,expected",
+    ("stack", "rel_path", "is_dir", "expected"),
     [
         ([("", ("*.log",)), ("sub", ("/build",))], "sub/build", True, True),
         ([("", ("*.log",)), ("sub", ("/build",))], "sub/nested/build", True, False),
@@ -171,7 +171,14 @@ def test_should_exclude_without_pattern_stack(temp_dir: str) -> None:
 
 
 @pytest.mark.parametrize(
-    "ignore_patterns,exclude_patterns,exclude_extensions,include_patterns,rel_path,expected",
+    (
+        "ignore_patterns",
+        "exclude_patterns",
+        "exclude_extensions",
+        "include_patterns",
+        "rel_path",
+        "expected",
+    ),
     [
         (["*.log", "!keep.log"], None, None, None, "keep.log", False),
         (["*.log", "!keep.log"], ["keep.log"], None, None, "keep.log", True),
@@ -206,7 +213,7 @@ def test_should_exclude_filter_precedence(
 
 
 @pytest.mark.parametrize(
-    "ignore_patterns,include_patterns,rel_path,is_dir,expected",
+    ("ignore_patterns", "include_patterns", "rel_path", "is_dir", "expected"),
     [
         (["node_modules/"], ["*.js"], "node_modules", True, True),
         (["build/"], [re.compile(r"\.js$")], "build", True, True),
@@ -232,7 +239,7 @@ def test_should_exclude_include_patterns_do_not_bypass_ignore_for_dirs(
 
 
 @pytest.mark.parametrize(
-    "ignore_patterns,rel_path,is_dir,expected",
+    ("ignore_patterns", "rel_path", "is_dir", "expected"),
     [
         (["doc/**/*.txt"], "doc/a.txt", False, True),
         (["doc/**/*.txt"], "doc/sub/deep/a.txt", False, True),
@@ -259,7 +266,7 @@ def test_should_exclude_double_star(
 
 
 @pytest.mark.parametrize(
-    "patterns,is_regex,expected_count,expected_types",
+    ("patterns", "is_regex", "expected_count", "expected_types"),
     [
         (["*.py", "test_*"], False, 2, [str, str]),
         ([r"\.py$", r"^test_"], True, 2, [re.Pattern, re.Pattern]),
@@ -282,7 +289,7 @@ def test_compile_regex_patterns(
 
 
 @pytest.mark.parametrize(
-    "extensions,expected",
+    ("extensions", "expected"),
     [
         (["py"], {".py"}),
         ([".py"], {".py"}),
@@ -307,7 +314,7 @@ def test_normalize_extensions_is_idempotent(extensions: list[str]) -> None:
 
 
 @pytest.mark.parametrize(
-    "content,expected_patterns",
+    ("content", "expected_patterns"),
     [
         (
             "# This is a comment\n*.log\n\nnode_modules/\ndist\n# Another comment\n",
@@ -400,7 +407,7 @@ class TestShouldExcludeProperties:
 
 class TestCompileRegexPatterns:
     @pytest.mark.parametrize(
-        "patterns,is_regex,expected_types",
+        ("patterns", "is_regex", "expected_types"),
         [
             (["*.py", "test_*"], False, [str, str]),
             ([r"\.py$", r"^test_"], True, [re.Pattern, re.Pattern]),
@@ -438,7 +445,7 @@ class TestCompileRegexPatterns:
 
 class TestShouldExclude:
     @pytest.mark.parametrize(
-        "path,patterns,expected",
+        ("path", "patterns", "expected"),
         [
             ("/test/app.log", ["*.log", "node_modules"], True),
             ("/test/app.txt", ["*.log", "node_modules"], False),
@@ -456,7 +463,7 @@ class TestShouldExclude:
         assert result == expected
 
     @pytest.mark.parametrize(
-        "path,extensions,expected",
+        ("path", "extensions", "expected"),
         [
             ("/test/script.py", {".py", ".js"}, True),
             ("/test/app.js", {".py", ".js"}, True),
@@ -473,7 +480,7 @@ class TestShouldExclude:
         assert result == expected
 
     @pytest.mark.parametrize(
-        "path,pattern,expected",
+        ("path", "pattern", "expected"),
         [
             ("/test/test_app.py", r"test_.*\.py$", True),
             ("/test/app.log", r"\.log$", True),
@@ -530,7 +537,7 @@ class TestShouldExclude:
         )
 
     @pytest.mark.parametrize(
-        "path,pattern,expected",
+        ("path", "pattern", "expected"),
         [
             ("/test/path/to/file.txt", "file.txt", True),
             ("/test/path/to/other.txt", "file.txt", False),

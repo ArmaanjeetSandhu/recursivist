@@ -91,7 +91,7 @@ class TestBuildTree:
         assert any("/path/to/file2.py" in text for text in file_texts)
 
     @pytest.mark.parametrize(
-        "spec,expected_indicator",
+        ("spec", "expected_indicator"),
         [
             (DisplayOptions(sort_key=METRIC_LOC, metrics=(METRIC_LOC,)), "lines"),
             (
@@ -414,7 +414,7 @@ class TestBuildTreeStructures:
         assert "📄 /path/to/file3.md" in texts
 
     @pytest.mark.parametrize(
-        "spec,expected_indicator",
+        ("spec", "expected_indicator"),
         [
             (DisplayOptions(sort_key=METRIC_LOC, metrics=(METRIC_LOC,)), "lines"),
             (DisplayOptions(sort_key=METRIC_SIZE, metrics=(METRIC_SIZE,)), ["B", "KB"]),

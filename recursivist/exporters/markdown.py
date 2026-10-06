@@ -5,6 +5,7 @@ files as inline code — and writes it to a ``.md`` file.
 """
 
 import html
+from typing import ClassVar
 
 from recursivist._models import Directory
 from recursivist.icons import get_icon
@@ -47,7 +48,7 @@ class MarkdownExporter(BaseExporter):
 
     extension = "md"
 
-    _GIT_MD_BADGE = {
+    _GIT_MD_BADGE: ClassVar[dict[str, str]] = {
         "U": "**[U]**",
         "M": "**[M]**",
         "A": "**[A]**",
@@ -90,10 +91,7 @@ class MarkdownExporter(BaseExporter):
                     else ""
                 )
                 _md_code = _md_inline_code(entry.path)
-                if _git_marker_md == "D":
-                    _md_display = f"~~{_md_code}~~"
-                else:
-                    _md_display = _md_code
+                _md_display = f"~~{_md_code}~~" if _git_marker_md == "D" else _md_code
                 _md_git_suffix = (
                     f" {self._GIT_MD_BADGE[_git_marker_md]}"
                     if _git_marker_md in self._GIT_MD_BADGE

@@ -9,7 +9,7 @@ import string
 import time
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 from unittest.mock import patch
 
 import pytest
@@ -123,7 +123,7 @@ def random_string(length: int) -> str:
 
 
 @pytest.mark.parametrize(
-    "format_name,format_extension,expected_content",
+    ("format_name", "format_extension", "expected_content"),
     [
         ("json", "json", ["root", "structure"]),
         ("txt", "txt", ["file1.txt", "file2.py", "subdir"]),
@@ -169,7 +169,7 @@ def test_export_structure(
 
 
 @pytest.mark.parametrize(
-    "option_name,option_value",
+    ("option_name", "option_value"),
     [
         ("show_full_path", True),
         ("sort_by_loc", True),
@@ -244,7 +244,7 @@ def test_get_exporter_invalid_format(temp_dir: str) -> None:
 
 class TestExporterFileOutput:
     @pytest.mark.parametrize(
-        "format_name,expected_content",
+        ("format_name", "expected_content"),
         [
             ("txt", ["📂 test_root", "file1.txt", "file2.py", "file3.md"]),
             ("md", ["# 📂 test\\_root", "`file1.txt`"]),
@@ -296,7 +296,7 @@ class TestExporterFileOutput:
         assert 'class="directory"' in html_content
 
     @pytest.mark.parametrize(
-        "option_name,option_value,expected_in_content",
+        ("option_name", "option_value", "expected_in_content"),
         [
             ("sort_by_loc", True, "lines"),
             ("sort_by_size", True, ["B", "KB", "MB"]),
@@ -348,7 +348,7 @@ class TestExporterFileOutput:
         assert "/path/to/" in content
 
     @pytest.mark.parametrize(
-        "error_type,error_msg",
+        ("error_type", "error_msg"),
         [
             (PermissionError, "Permission denied"),
             (OSError, "No space left on device"),
@@ -460,7 +460,7 @@ class TestExporters:
 
 
 @pytest.mark.parametrize(
-    "format_name,format_extension,content_checks",
+    ("format_name", "format_extension", "content_checks"),
     [
         (
             "txt",
@@ -550,7 +550,7 @@ def test_export_formats(
 
 
 @pytest.mark.parametrize(
-    "option_name,option_value,content_check",
+    ("option_name", "option_value", "content_check"),
     [
         (
             "show_full_path",
@@ -823,7 +823,7 @@ def test_unicode_file_names(output_dir: str) -> None:
 
 
 @pytest.mark.parametrize(
-    "error_type,error_msg",
+    ("error_type", "error_msg"),
     [
         (PermissionError, "Permission denied"),
         (OSError, "No space left on device"),
@@ -839,10 +839,7 @@ def test_export_structure_error_types(
     structure, _ = get_directory_structure(sample_directory)
     output_path = os.path.join(output_dir, f"error_{error_type.__name__}.txt")
     error: Exception
-    if error_type is OSError:
-        error = OSError(28, error_msg)
-    else:
-        error = error_type(error_msg)
+    error = OSError(28, error_msg) if error_type is OSError else error_type(error_msg)
     exporter = get_exporter(
         "txt",
         structure=structure,
@@ -1105,7 +1102,7 @@ class TestSvgExporter:
         assert "empty_root" in content
 
     @pytest.mark.parametrize(
-        "error_type,error_msg",
+        ("error_type", "error_msg"),
         [
             (PermissionError, "Permission denied"),
             (OSError, "No space left on device"),
@@ -1376,7 +1373,7 @@ class TestRstExporter:
         assert not content.endswith("\n\n")
 
     @pytest.mark.parametrize(
-        "error_type,error_msg",
+        ("error_type", "error_msg"),
         [
             (PermissionError, "Permission denied"),
             (OSError, "No space left on device"),
@@ -1470,7 +1467,7 @@ class TestRstHelpers:
 
     def test_inline_literal_double_backtick_falls_back_to_escaped(self) -> None:
         result = _rst_inline_literal("a``b.py")
-        assert "``a``b.py``" != result
+        assert result != "``a``b.py``"
         assert "\\`\\`" in result
 
     def test_inline_literal_leading_space_falls_back(self) -> None:
@@ -1581,7 +1578,7 @@ class TestHtmlContrast:
     BACKGROUND = "#ffffff"
     AAA_NORMAL_TEXT = 7.0
 
-    EXTENSIONS = [
+    EXTENSIONS: ClassVar[list[str]] = [
         "py",
         "js",
         "ts",
@@ -1701,7 +1698,7 @@ class TestHtmlContrast:
 class TestExportColors:
     """Exports color files from the same mapping as the terminal tree."""
 
-    EXTENSIONS = {".txt", ".py", ".js", ".md", ".json"}
+    EXTENSIONS: ClassVar[set[str]] = {".txt", ".py", ".js", ".md", ".json"}
 
     @staticmethod
     def _html_file_colors(content: str) -> dict[str, str]:

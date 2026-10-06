@@ -44,12 +44,11 @@ def color_distance(color1: tuple[int, int, int], color2: tuple[int, int, int]) -
     r1, g1, b1 = [x / 255 for x in color1]
     r2, g2, b2 = [x / 255 for x in color2]
     r_weight, g_weight, b_weight = 0.3, 0.59, 0.11
-    dist = math.sqrt(
+    return math.sqrt(
         r_weight * (r1 - r2) ** 2
         + g_weight * (g1 - g2) ** 2
         + b_weight * (b1 - b2) ** 2
     )
-    return dist
 
 
 def hex_to_rgb(hex_color: str) -> tuple[int, int, int]:
@@ -64,7 +63,7 @@ def hex_to_rgb(hex_color: str) -> tuple[int, int, int]:
     """
     hex_color = hex_color.lstrip("#")
     return cast(
-        tuple[int, int, int], tuple(int(hex_color[i : i + 2], 16) for i in (0, 2, 4))
+        "tuple[int, int, int]", tuple(int(hex_color[i : i + 2], 16) for i in (0, 2, 4))
     )
 
 

@@ -51,7 +51,7 @@ def _is_contiguous(order: list[str], group: list[str]) -> bool:
 
 
 @pytest.mark.parametrize(
-    "names,groups",
+    ("names", "groups"),
     [
         (
             [
@@ -165,7 +165,7 @@ def test_default_key_when_omitted_entirely() -> None:
 
 
 @pytest.mark.parametrize(
-    "sort_key,expected_order",
+    ("sort_key", "expected_order"),
     [
         (METRIC_SIZE, ["big.py", "mid.py", "small.py"]),
         (METRIC_LOC, ["big.py", "mid.py", "small.py"]),
@@ -191,7 +191,7 @@ def test_empty_input_returns_empty(sort_key: str | None) -> None:
 
 
 @pytest.mark.parametrize(
-    "files,sort_key,expected_order",
+    ("files", "sort_key", "expected_order"),
     [
         (
             _entries(["c.txt", "b.py", "a.txt", "d.py"]),
@@ -359,7 +359,7 @@ class TestSortFilesByTypeProperties:
 
 class TestSortFilesByType:
     @pytest.mark.parametrize(
-        "input_files,expected_order",
+        ("input_files", "expected_order"),
         [
             (
                 _entries(["c.txt", "b.py", "a.txt", "d.py"]),
@@ -396,7 +396,7 @@ class TestSortFilesByType:
         )
 
     @pytest.mark.parametrize(
-        "sort_key,files,expected_order",
+        ("sort_key", "files", "expected_order"),
         [
             (
                 METRIC_LOC,

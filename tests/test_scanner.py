@@ -3,6 +3,7 @@
 Covers traversal, depth limits, filtering integration, and pathlib support.
 """
 
+import contextlib
 import logging
 import os
 import re
@@ -153,7 +154,7 @@ def test_get_directory_structure_nested_gitignore_anchoring(temp_dir: str) -> No
 
 
 @pytest.mark.parametrize(
-    "option_name,option_value,expected_result",
+    ("option_name", "option_value", "expected_result"),
     [
         ("show_full_path", True, "entry with full path"),
         ("max_depth", 1, "max_depth_reached in level1"),
@@ -267,7 +268,7 @@ def test_get_directory_structure_with_no_depth_limit(
 
 
 @pytest.mark.parametrize(
-    "depth,max_depth_in_level",
+    ("depth", "max_depth_in_level"),
     [
         (1, ["level1"]),
         (2, ["level1/level2", "level1/level1_dir1"]),
@@ -441,10 +442,8 @@ def _supports_symlinks(base: str) -> bool:
         return False
     finally:
         for p in (link, src):
-            try:
+            with contextlib.suppress(OSError):
                 (os.remove if os.path.islink(p) else os.rmdir)(p)
-            except OSError:
-                pass
     return True
 
 
@@ -592,7 +591,7 @@ class TestHiddenContentsAtDepthLimit:
         )
 
     @pytest.mark.parametrize(
-        "structure,expected",
+        ("structure", "expected"),
         [
             (Directory(), False),
             (Directory(loc=0, size=0), False),
