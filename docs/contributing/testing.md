@@ -159,7 +159,7 @@ def test_file_statistics(tmp_path):
     py_file.write_text("line 1\nline 2\nline 3\n")
 
     structure, _ = get_directory_structure(
-        str(tmp_path), sort_by_loc=True, sort_by_size=True, sort_by_mtime=True
+        str(tmp_path), collect_loc=True, collect_size=True, collect_mtime=True
     )
 
     assert structure.loc == 3
@@ -245,7 +245,7 @@ Always cover empty directories, nonexistent paths, permission errors, and binary
 ```python
 def test_binary_files(tmp_path):
     (tmp_path / "binary.bin").write_bytes(b"\x00\x01\x02\x03")
-    structure, _ = get_directory_structure(str(tmp_path), sort_by_loc=True)
+    structure, _ = get_directory_structure(str(tmp_path), collect_loc=True)
     assert structure.loc == 0  # binary files count as 0 lines
 ```
 

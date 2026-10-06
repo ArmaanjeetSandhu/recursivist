@@ -211,22 +211,18 @@ def _group_git_status(git_status_map: Mapping[str, str]) -> dict[str, dict[str, 
 
 def get_directory_structure(
     root_dir: str,
+    *,
     exclude_dirs: Sequence[str] | None = None,
     ignore_file: str | None = None,
     exclude_extensions: set[str] | None = None,
-    parent_ignore_patterns: Sequence[tuple[str, tuple[str, ...]]] | None = None,
     exclude_patterns: Sequence[str | Pattern[str]] | None = None,
     include_patterns: Sequence[str | Pattern[str]] | None = None,
     max_depth: int = 0,
-    current_depth: int = 0,
-    current_path: str = "",
     show_full_path: bool = False,
-    sort_by_loc: bool = False,
-    sort_by_size: bool = False,
-    sort_by_mtime: bool = False,
-    show_git_status: bool = False,
-    git_status_map: dict[str, str] | None = None,
-    ancestor_ids: frozenset[tuple[int, int]] | None = None,
+    collect_loc: bool = False,
+    collect_size: bool = False,
+    collect_mtime: bool = False,
+    git_status_map: Mapping[str, str] | None = None,
     pattern_tracker: PatternMatchTracker | None = None,
 ) -> tuple[Directory, set[str]]:
     """Build the tree of directory nodes representing a directory structure.
@@ -244,21 +240,23 @@ def get_directory_structure(
     - ``files``: a [`FileEntry`][recursivist._models.FileEntry] for each of the
       directory's files.
     - ``subdirectories``: the nested directories, keyed by name.
-    - ``loc``: total lines of code (when *sort_by_loc* is set).
-    - ``size``: total size in bytes (when *sort_by_size* is set).
-    - ``mtime``: latest modification time (when *sort_by_mtime* is set).
+    - ``loc``: total lines of code (when *collect_loc* is set).
+    - ``size``: total size in bytes (when *collect_size* is set).
+    - ``mtime``: latest modification time (when *collect_mtime* is set).
     - ``max_depth_reached``: ``True`` when traversal stopped at *max_depth*.
     - ``hidden_contents``: ``True`` alongside ``max_depth_reached`` when the untraversed
       directory is not empty, which distinguishes it from one that holds nothing.
     - ``symlink_loop``: ``True`` when a directory was not recursed into because it
       resolves to one of its own ancestors, i.e. a symlink (or other) cycle back up the
       tree.
-    - ``git_markers``: ``{filename: status_char}`` (when *show_git_status* is set).
+    - ``git_markers``: ``{filename: status_char}`` (when *git_status_map* is given).
 
     A metric that was not requested is left as ``None``, as are all three on a directory
-    that was not traversed (one cut short by the depth limit, or a symlink loop).
+    that was not traversed (one cut short by the depth limit, or a symlink loop). The
+    scan only collects metrics and leaves entries in listing order; ordering is applied
+    when the structure is rendered, by [`recursivist.sorting`][recursivist.sorting].
 
-    When *show_git_status* is set, files Git reports as deleted are listed even though
+    When *git_status_map* is given, files Git reports as deleted are listed even though
     they are no longer on disk, together with any directory that disappeared along with
     them. They are subject to the same exclusion rules as every other entry, and a
     deleted directory is listed only if at least one of its deleted files survives them.
@@ -269,32 +267,23 @@ def get_directory_structure(
         ignore_file: Name of an ignore file to honor within each directory (e.g.
             ``.gitignore``).
         exclude_extensions: Lowercase, dot-prefixed extensions to exclude.
-        parent_ignore_patterns: Ignore files inherited from parent directories as a
-            shallowest-first stack of ``(base_dir_relative_to_root, patterns)`` pairs.
-            Each ignore file keeps its own anchoring, scoping its patterns to its
-            subtree as Git does. Set internally across the recursion.
         exclude_patterns: Glob or compiled-regex patterns to exclude.
         include_patterns: Glob or compiled-regex patterns to include. When given, only
             files whose names match one are kept, and a match overrides ignore-file
             rules for that file. They do not override *exclude_dirs*,
             *exclude_extensions*, or *exclude_patterns*.
         max_depth: Maximum depth to traverse, or ``0`` for unlimited.
-        current_depth: Current recursion depth. Set internally.
-        current_path: Path of the current directory relative to the scan root. Set
-            internally.
         show_full_path: Whether to store absolute paths instead of bare filenames.
-        sort_by_loc: Whether to count and total lines of code.
-        sort_by_size: Whether to measure and total file sizes.
-        sort_by_mtime: Whether to record file modification times.
-        show_git_status: Whether to annotate files with Git status markers.
+        collect_loc: Whether to count and total lines of code.
+        collect_size: Whether to measure and total file sizes.
+        collect_mtime: Whether to record file modification times.
         git_status_map: Pre-computed ``{rel_path: status_char}`` mapping, as returned by
             [`recursivist.git_status.get_git_status`][recursivist.git_status.get_git_status].
-        ancestor_ids: ``(st_dev, st_ino)`` identities of the directories on the path
-            from the scan root to (and including) *root_dir*, used to detect symlink
-            cycles. Set internally across the recursion.
+            When given, files are annotated with their Git status markers; when
+            omitted, the structure carries no Git status.
         pattern_tracker: Records which of the exclude/include filters matched a
-            scanned entry. When omitted on the top-level call, one is created and each
-            filter that matched nothing is logged as a warning once the scan finishes.
+            scanned entry. When omitted, one is created and each filter that matched
+            nothing is logged as a warning once the scan finishes.
             Pass one explicitly to aggregate several scans (as a comparison does) and
             report it yourself.
 
@@ -310,36 +299,32 @@ def get_directory_structure(
         exclude_patterns = []
     if include_patterns is None:
         include_patterns = []
-    if ancestor_ids is None:
-        ancestor_ids = frozenset()
-    owns_tracker = pattern_tracker is None and current_depth == 0
+    owns_tracker = pattern_tracker is None
     if pattern_tracker is None:
         pattern_tracker = PatternMatchTracker(
             exclude_dirs, exclude_extensions, exclude_patterns, include_patterns
         )
     git_markers_by_dir = (
-        _group_git_status(git_status_map)
-        if show_git_status and git_status_map is not None
-        else None
+        _group_git_status(git_status_map) if git_status_map is not None else None
     )
     structure, extensions_set = _scan_level(
         root_dir,
         exclude_dirs,
         ignore_file,
         exclude_extensions,
-        parent_ignore_patterns,
+        (),
         exclude_patterns,
         include_patterns,
         max_depth,
-        current_depth,
-        current_path,
+        0,
+        "",
         show_full_path,
-        sort_by_loc,
-        sort_by_size,
-        sort_by_mtime,
+        collect_loc,
+        collect_size,
+        collect_mtime,
         git_markers_by_dir,
         _DeletedEntries(git_markers_by_dir) if git_markers_by_dir is not None else None,
-        ancestor_ids,
+        frozenset(),
         pattern_tracker,
     )
     if owns_tracker:
@@ -352,16 +337,16 @@ def _scan_level(
     exclude_dirs: Sequence[str],
     ignore_file: str | None,
     exclude_extensions: set[str],
-    parent_ignore_patterns: Sequence[tuple[str, tuple[str, ...]]] | None,
+    parent_ignore_patterns: Sequence[tuple[str, tuple[str, ...]]],
     exclude_patterns: Sequence[str | Pattern[str]],
     include_patterns: Sequence[str | Pattern[str]],
     max_depth: int,
     current_depth: int,
     current_path: str,
     show_full_path: bool,
-    sort_by_loc: bool,
-    sort_by_size: bool,
-    sort_by_mtime: bool,
+    collect_loc: bool,
+    collect_size: bool,
+    collect_mtime: bool,
     git_markers_by_dir: Mapping[str, dict[str, str]] | None,
     deleted: _DeletedEntries | None,
     ancestor_ids: frozenset[tuple[int, int]],
@@ -371,11 +356,24 @@ def _scan_level(
     """Scan one directory level for
     [`get_directory_structure`][recursivist.scanner.get_directory_structure].
 
-    Takes the same arguments with their defaults already filled in, except that the Git
-    status map arrives pre-grouped by directory (see `_group_git_status`) along with the
-    matching *deleted* index, or both as ``None`` when Git status is not wanted.
-    Recurses into subdirectories directly, reusing that grouping and the shared
-    *pattern_tracker* for the whole walk.
+    Takes that function's arguments with their defaults already filled in, together
+    with the state of the walk. The Git status map arrives pre-grouped by directory (see
+    `_group_git_status`) along with the matching *deleted* index, or both as ``None``
+    when no map was given. Recurses into subdirectories directly, reusing that grouping
+    and the shared *pattern_tracker* for the whole walk.
+
+    The state of the walk places *root_dir* relative to the scan root:
+
+    - *parent_ignore_patterns*: ignore files inherited from the directories above, as a
+      shallowest-first stack of ``(base_dir_relative_to_root, patterns)`` pairs. Each
+      ignore file keeps its own anchoring, scoping its patterns to its subtree as Git
+      does.
+    - *current_depth*: depth of *root_dir* below the scan root (``0`` for the root).
+    - *current_path*: path of *root_dir* relative to the scan root (``""`` for the
+      root).
+    - *ancestor_ids*: ``(st_dev, st_ino)`` identities of the directories on the path
+      from the scan root down to, but not including, *root_dir*, used to detect symlink
+      cycles.
 
     The entries of a level are the ones on disk followed by the ones Git reports as
     deleted from it. Each entry is classified and filtered exactly once: files are
@@ -383,9 +381,7 @@ def _scan_level(
     into afterwards. *on_disk* is ``False`` for a directory that is itself gone and is
     being walked only for its deleted files.
     """
-    ignore_stack: list[tuple[str, tuple[str, ...]]] = (
-        list(parent_ignore_patterns) if parent_ignore_patterns else []
-    )
+    ignore_stack: list[tuple[str, tuple[str, ...]]] = list(parent_ignore_patterns)
     if ignore_file:
         current_ignore_patterns = parse_ignore_file(os.path.join(root_dir, ignore_file))
         if current_ignore_patterns:
@@ -460,13 +456,13 @@ def _scan_level(
             file_loc = 0
             file_size = 0
             file_mtime = 0.0
-            if exists and sort_by_loc:
+            if exists and collect_loc:
                 file_loc = count_lines_of_code(item_path)
                 total_loc += file_loc
-            if exists and sort_by_size:
+            if exists and collect_size:
                 file_size = get_file_size(item_path)
                 total_size += file_size
-            if exists and sort_by_mtime:
+            if exists and collect_mtime:
                 file_mtime = get_file_mtime(item_path)
                 latest_mtime = max(latest_mtime, file_mtime)
             if show_full_path:
@@ -514,9 +510,9 @@ def _scan_level(
             current_depth + 1,
             next_path,
             show_full_path,
-            sort_by_loc,
-            sort_by_size,
-            sort_by_mtime,
+            collect_loc,
+            collect_size,
+            collect_mtime,
             git_markers_by_dir,
             deleted,
             child_ancestor_ids,
@@ -533,17 +529,17 @@ def _scan_level(
             continue
         structure.subdirectories[item] = substructure
         extensions_set.update(sub_extensions)
-        if sort_by_loc and substructure.loc is not None:
+        if collect_loc and substructure.loc is not None:
             total_loc += substructure.loc
-        if sort_by_size and substructure.size is not None:
+        if collect_size and substructure.size is not None:
             total_size += substructure.size
-        if sort_by_mtime and substructure.mtime is not None:
+        if collect_mtime and substructure.mtime is not None:
             latest_mtime = max(latest_mtime, substructure.mtime)
-    if sort_by_loc:
+    if collect_loc:
         structure.loc = total_loc
-    if sort_by_size:
+    if collect_size:
         structure.size = total_size
-    if sort_by_mtime:
+    if collect_mtime:
         structure.mtime = latest_mtime
 
     git_markers = (

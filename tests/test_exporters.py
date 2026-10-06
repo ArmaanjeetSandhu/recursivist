@@ -181,44 +181,28 @@ def test_export_structure_with_options(
     sample_directory: Any, output_dir: str, option_name: str, option_value: bool
 ) -> None:
     """Test exporting structure with various options."""
-    exclude_dirs = None
-    ignore_file = None
-    exclude_extensions = None
-    parent_ignore_patterns = None
-    exclude_patterns = None
-    include_patterns = None
     max_depth = 0
-    current_depth = 0
-    current_path = ""
     show_full_path = False
-    sort_by_loc = False
-    sort_by_size = False
-    sort_by_mtime = False
+    collect_loc = False
+    collect_size = False
+    collect_mtime = False
     if option_name == "show_full_path":
         show_full_path = option_value
     elif option_name == "sort_by_loc":
-        sort_by_loc = option_value
+        collect_loc = option_value
     elif option_name == "sort_by_size":
-        sort_by_size = option_value
+        collect_size = option_value
     elif option_name == "sort_by_mtime":
-        sort_by_mtime = option_value
+        collect_mtime = option_value
     elif option_name == "max_depth":
         max_depth = option_value
     structure, _ = get_directory_structure(
         sample_directory,
-        exclude_dirs,
-        ignore_file,
-        exclude_extensions,
-        parent_ignore_patterns,
-        exclude_patterns,
-        include_patterns,
-        max_depth,
-        current_depth,
-        current_path,
-        show_full_path,
-        sort_by_loc,
-        sort_by_size,
-        sort_by_mtime,
+        max_depth=max_depth,
+        show_full_path=show_full_path,
+        collect_loc=collect_loc,
+        collect_size=collect_size,
+        collect_mtime=collect_mtime,
     )
     output_path = os.path.join(output_dir, f"structure_{option_name}.json")
 
@@ -603,13 +587,11 @@ def test_export_with_options(
 ) -> None:
     """Test exporting with various options."""
     get_structure_kwargs: dict[str, Any] = {}
-    if option_name in [
-        "show_full_path",
-        "sort_by_loc",
-        "sort_by_size",
-        "sort_by_mtime",
-    ]:
+    if option_name == "show_full_path":
         get_structure_kwargs[option_name] = option_value
+    elif option_name in _METRIC_SPECS:
+        scan_flag = option_name.replace("sort_by_", "collect_")
+        get_structure_kwargs[scan_flag] = option_value
 
     structure, _ = get_directory_structure(sample_directory, **get_structure_kwargs)
     output_path = os.path.join(output_dir, f"structure_{option_name}.txt")
@@ -727,7 +709,7 @@ def test_export_with_max_depth_indicator(temp_dir: str, output_dir: str) -> None
 def test_export_with_statistics(sample_directory: str, output_dir: str) -> None:
     """Test exporting with statistics (LOC, size, mtime)."""
     structure, _ = get_directory_structure(
-        sample_directory, sort_by_loc=True, sort_by_size=True, sort_by_mtime=True
+        sample_directory, collect_loc=True, collect_size=True, collect_mtime=True
     )
     format_indicators = {
         "txt": [
@@ -879,7 +861,7 @@ def test_export_with_excessive_loc(temp_dir: str, output_dir: str) -> None:
     with open(test_file, "w") as f:
         f.writelines(f"print('Line {i}')\n" for i in range(10000))
 
-    structure, _ = get_directory_structure(temp_dir, sort_by_loc=True)
+    structure, _ = get_directory_structure(temp_dir, collect_loc=True)
 
     for fmt in ["txt", "json", "html", "md"]:
         output_path = os.path.join(output_dir, f"large_loc.{fmt}")

@@ -279,7 +279,7 @@ def test_statistics_integration(temp_dir: str) -> None:
         with open(os.path.join(src_dir, file_name), "w") as f:
             f.write(content)
     structure, _ = get_directory_structure(
-        temp_dir, sort_by_loc=True, sort_by_size=True, sort_by_mtime=True
+        temp_dir, collect_loc=True, collect_size=True, collect_mtime=True
     )
     assert structure.loc is not None
     assert structure.size is not None
@@ -305,7 +305,7 @@ def test_export_formats_with_statistics(
     with open(os.path.join(temp_dir, "test2.py"), "w") as f:
         f.write("\n".join([f"print('Line {i}')" for i in range(5)]))
     structure, _ = get_directory_structure(
-        temp_dir, sort_by_loc=True, sort_by_size=True, sort_by_mtime=True
+        temp_dir, collect_loc=True, collect_size=True, collect_mtime=True
     )
     output_path = os.path.join(output_dir, f"stats_export.{fmt}")
 

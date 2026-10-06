@@ -43,8 +43,8 @@ structure, extensions = get_directory_structure(
     "path/to/directory",
     exclude_dirs=["node_modules", ".git"],
     exclude_extensions={".pyc", ".log"},
-    sort_by_loc=True,
-    sort_by_size=True,
+    collect_loc=True,
+    collect_size=True,
 )
 
 # A DisplayOptions describes how to sort and what to annotate.
@@ -84,8 +84,8 @@ def get_structure():
             directory,
             exclude_dirs=exclude_dirs,
             max_depth=int(request.args.get("max_depth", 0)),
-            sort_by_loc="sort_by_loc" in request.args,
-            sort_by_size="sort_by_size" in request.args,
+            collect_loc="loc" in request.args,
+            collect_size="size" in request.args,
         )
         return jsonify({"directory": directory, "structure": asdict(structure)})
     except Exception as e:

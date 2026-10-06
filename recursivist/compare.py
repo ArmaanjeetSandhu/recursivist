@@ -115,17 +115,16 @@ def _scan_one_side(
         git_status_map = get_git_status(scan_dir)
     structure, _ = get_directory_structure(
         scan_dir,
-        exclude_dirs,
-        ignore_file,
-        exclude_extensions,
+        exclude_dirs=exclude_dirs,
+        ignore_file=ignore_file,
+        exclude_extensions=exclude_extensions,
         exclude_patterns=exclude_patterns,
         include_patterns=include_patterns,
         max_depth=max_depth,
         show_full_path=show_full_path,
-        sort_by_loc=spec.show_loc,
-        sort_by_size=spec.show_size,
-        sort_by_mtime=spec.show_mtime,
-        show_git_status=need_git,
+        collect_loc=spec.show_loc,
+        collect_size=spec.show_size,
+        collect_mtime=spec.show_mtime,
         git_status_map=git_status_map,
         pattern_tracker=pattern_tracker,
     )

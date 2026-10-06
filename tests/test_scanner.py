@@ -157,9 +157,9 @@ def test_get_directory_structure_nested_gitignore_anchoring(temp_dir: str) -> No
     [
         ("show_full_path", True, "entry with full path"),
         ("max_depth", 1, "max_depth_reached in level1"),
-        ("sort_by_loc", True, "loc totalled"),
-        ("sort_by_size", True, "size totalled"),
-        ("sort_by_mtime", True, "mtime recorded"),
+        ("collect_loc", True, "loc totalled"),
+        ("collect_size", True, "size totalled"),
+        ("collect_mtime", True, "mtime recorded"),
     ],
 )
 def test_get_directory_structure_with_options(
@@ -376,9 +376,9 @@ class TestPatternMatching:
         structure, _ = get_directory_structure(
             pattern_test_directory,
             include_patterns=include_patterns,
-            sort_by_loc=True,
-            sort_by_size=True,
-            sort_by_mtime=True,
+            collect_loc=True,
+            collect_size=True,
+            collect_mtime=True,
         )
         assert structure.loc is not None
         assert structure.size is not None
@@ -713,7 +713,7 @@ class TestFieldNamedDirectories:
         return temp_dir
 
     def test_field_name_does_not_clobber_the_field(self, tree: str) -> None:
-        structure, _ = get_directory_structure(tree, sort_by_loc=True)
+        structure, _ = get_directory_structure(tree, collect_loc=True)
         assert [entry.name for entry in structure.files] == ["top.txt"]
         assert structure.loc == 4
         subdirs = structure.subdirectories

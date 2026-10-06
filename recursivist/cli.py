@@ -1034,9 +1034,9 @@ def _scan_directory(
     use_regex: bool,
     max_depth: int,
     show_full_path: bool,
-    sort_by_loc: bool,
-    sort_by_size: bool,
-    sort_by_mtime: bool,
+    collect_loc: bool,
+    collect_size: bool,
+    collect_mtime: bool,
     show_git_status: bool,
 ) -> tuple[Directory, set[str]]:
     """Fetch Git status and scan *directory* into a tree structure.
@@ -1055,9 +1055,9 @@ def _scan_directory(
         use_regex: Whether patterns are regular expressions.
         max_depth: Maximum directory depth (``0`` for unlimited).
         show_full_path: Whether full paths are requested.
-        sort_by_loc: Whether to compute lines-of-code counts.
-        sort_by_size: Whether to compute file sizes.
-        sort_by_mtime: Whether to compute modification times.
+        collect_loc: Whether to compute lines-of-code counts.
+        collect_size: Whether to compute file sizes.
+        collect_mtime: Whether to compute modification times.
         show_git_status: Whether to annotate files with Git status.
 
     Returns:
@@ -1081,17 +1081,16 @@ def _scan_directory(
         )
         structure, extensions = get_directory_structure(
             str(directory),
-            parsed_exclude_dirs,
-            ignore_file,
-            exclude_exts_set,
+            exclude_dirs=parsed_exclude_dirs,
+            ignore_file=ignore_file,
+            exclude_extensions=exclude_exts_set,
             exclude_patterns=compiled_exclude,
             include_patterns=compiled_include,
             max_depth=max_depth,
             show_full_path=show_full_path,
-            sort_by_loc=sort_by_loc,
-            sort_by_size=sort_by_size,
-            sort_by_mtime=sort_by_mtime,
-            show_git_status=show_git_status,
+            collect_loc=collect_loc,
+            collect_size=collect_size,
+            collect_mtime=collect_mtime,
             git_status_map=git_status_map,
         )
         logger.debug("Found %d unique file extensions", len(extensions))

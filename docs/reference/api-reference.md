@@ -30,7 +30,7 @@ Most of the API revolves around the tree produced by [`get_directory_structure`]
 - `max_depth_reached`: `True` when traversal stopped at the depth limit
 - `hidden_contents`: `True` alongside `max_depth_reached` when the untraversed directory is not empty, which distinguishes it from one that holds nothing
 - `symlink_loop`: `True` when a directory was not descended into because it resolves to one of its own ancestors
-- `git_markers`: a `{filename: status}` map, empty unless Git status is enabled
+- `git_markers`: a `{filename: status}` map, empty unless a Git status map is passed to the scan
 
 Subdirectory names are the only keys of `subdirectories`, so a directory can be called anything. [`iter_subdirectories`][recursivist.scanner.iter_subdirectories] yields them in the order the renderers list them.
 
@@ -66,8 +66,8 @@ def analyze_directory(directory_path: str) -> None:
         directory_path,
         exclude_dirs=["node_modules", ".git", ".venv"],
         exclude_extensions={".pyc", ".log", ".tmp"},
-        sort_by_loc=True,
-        sort_by_size=True,
+        collect_loc=True,
+        collect_size=True,
     )
 
     # Describe how to sort and annotate, then export via the factory.

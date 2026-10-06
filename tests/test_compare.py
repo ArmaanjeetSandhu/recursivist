@@ -638,33 +638,31 @@ class TestScanSides:
             )
             mock_get_structure.assert_any_call(
                 dir1,
-                None,
-                None,
-                None,
+                exclude_dirs=None,
+                ignore_file=None,
+                exclude_extensions=None,
                 exclude_patterns=None,
                 include_patterns=None,
                 max_depth=0,
                 show_full_path=False,
-                sort_by_loc=False,
-                sort_by_size=False,
-                sort_by_mtime=False,
-                show_git_status=False,
+                collect_loc=False,
+                collect_size=False,
+                collect_mtime=False,
                 git_status_map=None,
                 pattern_tracker=ANY,
             )
             mock_get_structure.assert_any_call(
                 dir2,
-                None,
-                None,
-                None,
+                exclude_dirs=None,
+                ignore_file=None,
+                exclude_extensions=None,
                 exclude_patterns=None,
                 include_patterns=None,
                 max_depth=0,
                 show_full_path=False,
-                sort_by_loc=False,
-                sort_by_size=False,
-                sort_by_mtime=False,
-                show_git_status=False,
+                collect_loc=False,
+                collect_size=False,
+                collect_mtime=False,
                 git_status_map=None,
                 pattern_tracker=ANY,
             )
@@ -704,17 +702,16 @@ class TestScanSides:
             )
             mock_get_structure.assert_any_call(
                 dir1,
-                exclude_dirs,
-                ".gitignore",
-                exclude_extensions,
+                exclude_dirs=exclude_dirs,
+                ignore_file=".gitignore",
+                exclude_extensions=exclude_extensions,
                 exclude_patterns=ANY,
                 include_patterns=ANY,
                 max_depth=max_depth,
                 show_full_path=True,
-                sort_by_loc=True,
-                sort_by_size=True,
-                sort_by_mtime=True,
-                show_git_status=False,
+                collect_loc=True,
+                collect_size=True,
+                collect_mtime=True,
                 git_status_map=None,
                 pattern_tracker=ANY,
             )
@@ -1249,7 +1246,6 @@ class TestCompareGitStatus:
         gs.assert_any_call("d1")
         gs.assert_any_call("d2")
         first, second = scan.call_args_list
-        assert first.kwargs["show_git_status"] is True
         assert first.kwargs["git_status_map"] == {"a.py": "M"}
         assert second.kwargs["git_status_map"] == {"b.py": "U"}
 
@@ -1265,7 +1261,6 @@ class TestCompareGitStatus:
 
         gs.assert_not_called()
         for call in scan.call_args_list:
-            assert call.kwargs["show_git_status"] is False
             assert call.kwargs["git_status_map"] is None
 
     def test_sort_by_git_status_fetches_status_without_display_flag(
