@@ -8,27 +8,31 @@ Two complementary layers are used:
   results to a location relative to the queried directory.
 - :class:`TestGitStatusParsing` mocks ``subprocess.run`` to feed crafted
   ``--porcelain -z`` output, deterministically covering every parsing branch
-  plus the early-return and error paths that are awkward to provoke with a real
-  repository.
+  plus the error paths that are awkward to provoke with a real repository.
 """
 
 import os
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
-from recursivist.git_status import get_git_status
+from recursivist.git_status import GitStatusError, get_git_status
 
 git_available = shutil.which("git") is not None
 requires_git = pytest.mark.skipif(not git_available, reason="git is not installed")
 
 
-def _completed(returncode: int, stdout: str) -> subprocess.CompletedProcess[str]:
+def _completed(
+    returncode: int, stdout: bytes, stderr: bytes = b""
+) -> subprocess.CompletedProcess[bytes]:
     """Build a ``CompletedProcess`` stand-in for mocking ``subprocess.run``."""
-    return subprocess.CompletedProcess(args=[], returncode=returncode, stdout=stdout)
+    return subprocess.CompletedProcess(
+        args=[], returncode=returncode, stdout=stdout, stderr=stderr
+    )
 
 
 def _init_repo(path: str) -> None:
@@ -101,9 +105,15 @@ class TestGitStatusRealRepo:
         status = get_git_status(str(sub))
         assert status == {"module.py": "M"}
 
-    def test_non_git_directory_returns_empty(self, tmp_path: Path) -> None:
-        """Outside a repository ``git rev-parse`` fails and the result is {}."""
-        assert get_git_status(str(tmp_path)) == {}
+    def test_clean_repository_returns_empty(self, tmp_path: Path) -> None:
+        """A repository with no changes yields an empty mapping."""
+        repo = str(tmp_path)
+        _init_repo(repo)
+        (tmp_path / "keep.txt").write_text("initial\n")
+        subprocess.run(["git", "add", "-A"], cwd=repo, check=True)
+        subprocess.run(["git", "commit", "-qm", "init"], cwd=repo, check=True)
+
+        assert get_git_status(repo) == {}
 
 
 class TestGitStatusParsing:
@@ -112,17 +122,17 @@ class TestGitStatusParsing:
     def test_all_status_codes(self) -> None:
         """Every recognised porcelain code maps to the expected character, and
         rename/copy second records plus too-short records are skipped."""
-        root = _completed(0, "/repo\n")
+        root = _completed(0, b"/repo\n")
         porcelain = (
-            "A  added.txt\0"
-            "M  staged_mod.txt\0"
-            " M worktree_mod.txt\0"
-            "D  staged_del.txt\0"
-            " D worktree_del.txt\0"
-            "?? untracked.txt\0"
-            "R  new_name.txt\0old_name.txt\0"
-            "C  copy.txt\0source.txt\0"
-            "XY\0"
+            b"A  added.txt\0"
+            b"M  staged_mod.txt\0"
+            b" M worktree_mod.txt\0"
+            b"D  staged_del.txt\0"
+            b" D worktree_del.txt\0"
+            b"?? untracked.txt\0"
+            b"R  new_name.txt\0old_name.txt\0"
+            b"C  copy.txt\0source.txt\0"
+            b"XY\0"
         )
         status = _completed(0, porcelain)
         with patch("subprocess.run", side_effect=[root, status]):
@@ -142,35 +152,55 @@ class TestGitStatusParsing:
 
     def test_files_outside_directory_are_filtered(self) -> None:
         """A changed file above the queried directory is excluded."""
-        root = _completed(0, "/repo\n")
-        porcelain = " M pkg/inside.txt\0 M outside.txt\0"
+        root = _completed(0, b"/repo\n")
+        porcelain = b" M pkg/inside.txt\0 M outside.txt\0"
         status = _completed(0, porcelain)
         with patch("subprocess.run", side_effect=[root, status]):
             result = get_git_status(os.path.join("/repo", "pkg"))
         assert result == {"inside.txt": "M"}
 
-    def test_rev_parse_failure_returns_empty(self) -> None:
-        """A non-zero ``rev-parse`` exit short-circuits to {}."""
-        root = _completed(128, "")
-        with patch("subprocess.run", side_effect=[root]):
-            assert get_git_status("/repo") == {}
-
-    def test_status_failure_returns_empty(self) -> None:
-        """A non-zero ``git status`` exit short-circuits to {}."""
-        root = _completed(0, "/repo\n")
-        status = _completed(1, "")
+    def test_non_utf8_path_is_kept(self) -> None:
+        """A path that is not valid UTF-8 decodes losslessly and leaves the other
+        entries intact."""
+        raw = b"caf\xe9.txt"
+        root = _completed(0, b"/repo\n")
+        status = _completed(0, b"?? " + raw + b"\0 M plain.txt\0")
         with patch("subprocess.run", side_effect=[root, status]):
-            assert get_git_status("/repo") == {}
+            result = get_git_status("/repo")
+        assert result.pop("plain.txt") == "M"
+        ((name, marker),) = result.items()
+        assert marker == "U"
+        assert name.encode(sys.getfilesystemencoding(), "surrogateescape") == raw
 
-    def test_subprocess_exception_returns_empty(self) -> None:
-        """Any exception (e.g. ``git`` missing) is swallowed, returning {}."""
-        with patch("subprocess.run", side_effect=FileNotFoundError("git missing")):
-            assert get_git_status("/repo") == {}
+    def test_rev_parse_failure_raises_with_git_message(self) -> None:
+        """A non-zero ``rev-parse`` exit raises, carrying Git's error output."""
+        root = _completed(128, b"", b"fatal: not a git repository\n")
+        with patch("subprocess.run", side_effect=[root]):
+            with pytest.raises(GitStatusError, match="^fatal: not a git repository$"):
+                get_git_status("/repo")
+
+    def test_status_failure_raises(self) -> None:
+        """A non-zero ``git status`` exit raises, naming the command and exit status
+        when Git printed nothing."""
+        root = _completed(0, b"/repo\n")
+        status = _completed(1, b"")
+        with patch("subprocess.run", side_effect=[root, status]):
+            with pytest.raises(GitStatusError, match="git status exited with status 1"):
+                get_git_status("/repo")
+
+    def test_git_not_runnable_raises(self) -> None:
+        """An ``OSError`` from launching Git (e.g. ``git`` missing) is raised as a
+        ``GitStatusError`` chained to the original error."""
+        error = FileNotFoundError("git missing")
+        with patch("subprocess.run", side_effect=error):
+            with pytest.raises(GitStatusError, match="git missing") as excinfo:
+                get_git_status("/repo")
+        assert excinfo.value.__cause__ is error
 
     def test_relpath_value_error_is_ignored(self) -> None:
         """A ``ValueError`` from ``relpath`` (e.g. cross-drive) skips the entry."""
-        root = _completed(0, "/repo\n")
-        status = _completed(0, " M somefile.txt\0")
+        root = _completed(0, b"/repo\n")
+        status = _completed(0, b" M somefile.txt\0")
         with patch("subprocess.run", side_effect=[root, status]):
             with patch("os.path.relpath", side_effect=ValueError("different drive")):
                 assert get_git_status("/repo") == {}

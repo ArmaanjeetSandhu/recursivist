@@ -226,7 +226,9 @@ recursivist visualize --git-status
   </div>
 </div>
 
-Markers are `[U]` untracked, `[M]` modified, `[A]` added, and `[D]` deleted. Deleted files are also shown struck through, and a file deleted from disk is still listed to keep the change visible, along with its directory if that is gone too. If the directory isn't inside a repository (or has no changes), no markers are added.
+Markers are `[U]` untracked, `[M]` modified, `[A]` added, and `[D]` deleted. Deleted files are also shown struck through, and a file deleted from disk is still listed to keep the change visible, along with its directory if that is gone too. A directory with no changes gets no markers.
+
+When Git status can't be read (because the directory isn't inside a repository, `git` isn't installed, or Git reports an error), a warning naming the cause is logged and the tree is shown without markers.
 
 `--git-status` is display-only. To also **sort** by Git status (modified, added, deleted, untracked, then clean), use the combined flag:
 

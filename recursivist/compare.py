@@ -28,7 +28,7 @@ from recursivist.filtering import (
     normalize_extensions,
 )
 from recursivist.flags import METRIC_GIT, METRIC_MTIME, DisplayOptions
-from recursivist.git_status import get_git_status
+from recursivist.git_status import GitStatusError, get_git_status
 from recursivist.github import (
     GitHubTarget,
     RepoCheckout,
@@ -86,9 +86,10 @@ def _scan_one_side(
 ) -> Directory:
     """Scan a single already-resolved directory for one side of a comparison.
 
-    Git status is looked up (and files annotated) only when *spec* requests it. For
-    GitHub sides, callers pass a spec with Git status and modification time already
-    removed (see
+    Git status is looked up (and files annotated) only when *spec* requests it; when it
+    cannot be read, a warning naming the cause is logged and the side is scanned without
+    it. For GitHub sides, callers pass a spec with Git status and modification time
+    already removed (see
     [`without_remote_unsupported`][recursivist.flags.DisplayOptions.without_remote_unsupported]).
     A hosted repository is never given Git markers or per-file timestamps.
 
@@ -112,7 +113,10 @@ def _scan_one_side(
     need_git = spec.show_git_status or spec.sort_key == METRIC_GIT
     git_status_map: dict[str, str] | None = None
     if need_git:
-        git_status_map = get_git_status(scan_dir)
+        try:
+            git_status_map = get_git_status(scan_dir)
+        except GitStatusError as e:
+            logger.warning("Git status unavailable for %s: %s", scan_dir, e)
     structure, _ = get_directory_structure(
         scan_dir,
         exclude_dirs=exclude_dirs,

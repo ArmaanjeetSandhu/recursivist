@@ -72,7 +72,7 @@ from recursivist.filtering import (
     normalize_extensions,
 )
 from recursivist.flags import DisplayOptions, resolve_display_options
-from recursivist.git_status import get_git_status
+from recursivist.git_status import GitStatusError, get_git_status
 from recursivist.github import (
     GitHubTarget,
     apply_github_urls,
@@ -1043,7 +1043,9 @@ def _scan_directory(
 
     Encapsulates the scanning pipeline shared by the visualize and export commands:
     optionally resolving the Git status map, compiling patterns, running the scan under
-    a progress indicator, and logging the number of unique extensions found.
+    a progress indicator, and logging the number of unique extensions found. When Git
+    status cannot be read, a warning naming the cause is logged and the scan proceeds
+    without it.
 
     Args:
         directory: Resolved directory to scan.
@@ -1066,12 +1068,10 @@ def _scan_directory(
     """
     git_status_map: dict[str, str] | None = None
     if show_git_status:
-        git_status_map = get_git_status(str(directory))
-        if not git_status_map:
-            logger.debug(
-                "Git status requested but no data returned — "
-                "directory may not be inside a Git repository, or there are no changes."
-            )
+        try:
+            git_status_map = get_git_status(str(directory))
+        except GitStatusError as e:
+            logger.warning("Git status unavailable for %s: %s", directory, e)
     with Progress(console=err_console) as progress:
         progress.add_task("[cyan]Scanning directory structure...", total=None)
         compiled_exclude, compiled_include = _compile_patterns_for_scan(
