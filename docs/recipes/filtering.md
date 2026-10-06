@@ -104,7 +104,7 @@ recursivist visualize --ignore-file .recursivist-ignore
 
 ## Sharing Filters with Your Team
 
-Commit a `.recursivist.toml` to the repository (or add a `[tool.recursivist]` table to `pyproject.toml`) so that everyone gets the same view without passing any options:
+Commit a `.recursivist.toml` to the repository (or add a `[tool.recursivist]` table to `pyproject.toml`) to give everyone the same view without passing any options:
 
 ```toml
 # .recursivist.toml

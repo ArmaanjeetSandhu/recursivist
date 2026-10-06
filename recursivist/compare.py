@@ -86,11 +86,11 @@ def _scan_one_side(
 ) -> Directory:
     """Scan a single already-resolved directory for one side of a comparison.
 
-    Git status is looked up (and files annotated) only when *spec* requests it. Callers
-    pass a spec with Git status and modification time already removed for GitHub sides
-    (see
-    [`without_remote_unsupported`][recursivist.flags.DisplayOptions.without_remote_unsupported]),
-    so a hosted repository is never given Git markers or per-file timestamps.
+    Git status is looked up (and files annotated) only when *spec* requests it. For
+    GitHub sides, callers pass a spec with Git status and modification time already
+    removed (see
+    [`without_remote_unsupported`][recursivist.flags.DisplayOptions.without_remote_unsupported]).
+    A hosted repository is never given Git markers or per-file timestamps.
 
     Args:
         scan_dir: The local directory to scan (a real directory, or the temporary
@@ -103,8 +103,8 @@ def _scan_one_side(
         max_depth: Maximum depth to scan, or ``0`` for unlimited.
         show_full_path: Whether to store absolute paths instead of bare names.
         spec: Resolved sorting and annotation directives for this side.
-        pattern_tracker: Shared record of which filters matched, so a comparison can
-            report filters that matched nothing on either side.
+        pattern_tracker: Shared record of which filters matched, used to report filters
+            that matched nothing on either side.
 
     Returns:
         The scanned structure for this side.
@@ -155,16 +155,15 @@ def _scan_sides(
     blob URLs.
 
     The ``--ignore-file`` option, Git-status annotations, and modification-time
-    annotations only apply to local directories, so they are skipped for any GitHub side
+    annotations apply only to local directories. They are skipped for any GitHub side
     (its spec is adjusted via
     [`without_remote_unsupported`][recursivist.flags.DisplayOptions.without_remote_unsupported])
-    while still being honored for a local side. When *both* sides are GitHub
-    repositories the caller is expected to have already cleared these from *spec* as
-    well.
+    and honored for a local side. When *both* sides are GitHub repositories the caller
+    is expected to have already cleared these from *spec* as well.
 
     A GitHub URL that points at a file is scanned from the directory containing that
     file, which is only known once the repository has been downloaded; the returned
-    targets carry that directory as their subpath, so callers can label each side after
+    targets carry that directory as their subpath, for callers to label each side after
     the directory actually scanned.
 
     Args:
@@ -306,9 +305,8 @@ _UNIQUE_OTHER = "other"
 def _side_metrics(metrics: Sequence[str], is_remote: bool) -> tuple[str, ...]:
     """Return the metrics displayable for one side of a comparison.
 
-    A hosted repository has no meaningful modification times, so ``mtime`` is dropped
-    for a remote side; a local side displays every requested metric. The display order
-    of *metrics* is kept.
+    A remote side drops ``mtime``, which is meaningless for a hosted repository; a local
+    side displays every requested metric. The display order of *metrics* is kept.
     """
     if is_remote:
         return tuple(m for m in metrics if m != METRIC_MTIME)
@@ -346,7 +344,7 @@ def _comparison_identity(
     difference in the key always corresponds to a visible difference in the tree (e.g.
     ``shared.py (3 lines)`` vs ``shared.py (1 line)``, or a ``[M]`` badge on only one
     side). Only the bare *name* is used for the filename component, never the full path,
-    so full-path display does not by itself make every file look unique.
+    or full-path display would by itself make every file look unique.
 
     Args:
         entry: The file whose identity is wanted.
@@ -385,7 +383,7 @@ class _FileNode:
 
     @property
     def deleted(self) -> bool:
-        """Whether the file is shown as deleted (and so struck through)."""
+        """Whether the file is shown as deleted (struck through)."""
         return self.git_marker == "D"
 
 
@@ -698,9 +696,9 @@ def build_comparison_tree(
     Recursively adds the entries of *structure* to *tree*, comparing each against
     *other_structure*: items present in both are shown normally, items unique to
     *structure* are highlighted in green, and items unique to *other_structure* are
-    highlighted in red. File names are rendered without file-type-specific colors so the
-    green/red difference highlighting stands out. Files are ordered by ``spec.sort_key``
-    and metric annotations are appended in ``spec.metrics`` order.
+    highlighted in red. File names are rendered without file-type-specific colors to let
+    the green/red difference highlighting stand out. Files are ordered by
+    ``spec.sort_key`` and metric annotations are appended in ``spec.metrics`` order.
 
     When ``spec.show_git_status`` is set, each file is followed by a plain Git-status
     badge — ``[U]`` untracked, ``[M]`` modified, ``[A]`` added, ``[D]`` deleted — read
@@ -713,13 +711,13 @@ def build_comparison_tree(
     status marks them as unique to their side. *identity_spec* controls which
     annotations that match considers: it defaults to *spec*, but a caller comparing a
     local directory against a hosted repository passes
-    ``spec.without_remote_unsupported()`` so that annotations a remote side cannot
-    provide (modification time, Git status) are excluded from the identity — those are
-    still *displayed* per *spec*, but they do not split otherwise-matching files across
-    the two sides.
+    ``spec.without_remote_unsupported()`` to exclude from the identity the annotations a
+    remote side cannot provide (modification time, Git status). Those are still
+    *displayed* per *spec*, but they do not split otherwise-matching files across the
+    two sides.
 
-    The traversal is shared with the HTML export (see `_ComparisonWalker`), so both
-    views always agree on ordering, badges and highlighting.
+    Sharing the traversal with the HTML export (see `_ComparisonWalker`) keeps both
+    views in agreement on ordering, badges and highlighting.
 
     Args:
         structure: The directory being rendered.
@@ -745,8 +743,8 @@ def _side_display_name(raw: str, target: GitHubTarget | None) -> str:
 
     For a GitHub URL this is the repository name (or the subpath's last segment); for a
     local path it is the directory's own name. *target* is the GitHub target for *raw*
-    as checked out, so that a URL pointing at a file is named after the directory
-    scanned in its place; it is ``None`` for a local path.
+    as checked out, or ``None`` for a local path. With it, a URL pointing at a file is
+    named after the directory scanned in its place.
     """
     if target is not None:
         return target.display_name

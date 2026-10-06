@@ -121,7 +121,7 @@ class TestContrastRatio:
 
 
 class TestEnsureContrast:
-    """The HTML export draws on white, so colors must be legible against it."""
+    """Colors must be legible against the white the HTML export draws on."""
 
     def test_compliant_color_is_unchanged(self) -> None:
         assert ensure_contrast("#2c3e50", "#ffffff") == "#2c3e50"

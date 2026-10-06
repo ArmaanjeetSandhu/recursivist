@@ -49,7 +49,7 @@ def parse_ignore_file(ignore_file_path: str) -> list[str]:
     entirely to the gitignore matcher, so callers must not strip or filter the returned
     lines.
 
-    A leading UTF-8 byte order mark is dropped, as Git does, so that it does not become
+    A leading UTF-8 byte order mark is dropped, as Git does. Left in, it would become
     part of the first pattern and silently stop that pattern from matching.
 
     Args:
@@ -75,11 +75,10 @@ def parse_ignore_file(ignore_file_path: str) -> list[str]:
 def normalize_extensions(extensions: Iterable[str]) -> set[str]:
     """Return *extensions* in the lowercase, dot-prefixed form the scanner matches on.
 
-    An extension may be written with or without its leading dot and in any case, so
+    An extension may be written with or without its leading dot and in any case:
     ``"pyc"``, ``".pyc"`` and ``".PYC"`` all become ``".pyc"``. The result is the form
     expected wherever an ``exclude_extensions`` argument is described as normalized.
-    Duplicates collapse, and normalizing an already-normalized set returns an equal
-    set.
+    Duplicates collapse, and normalizing an already-normalized set returns an equal set.
     """
     return {
         ext.lower() if ext.startswith(".") else f".{ext.lower()}" for ext in extensions
@@ -161,8 +160,8 @@ def _resolve_ignore_levels(
 
     Each pair is one ignore file: *base* is the file's directory relative to the scan
     root (``""`` for the root ignore file) and *patterns* are its verbatim pattern
-    lines. Levels are ordered shallowest-first so a caller can let a deeper file's
-    verdict override a shallower one, matching Git's precedence.
+    lines. Levels are ordered shallowest-first, which lets a deeper file's verdict
+    override a shallower one, matching Git's precedence.
 
     The levels are read from the ``"pattern_stack"`` entry of *ignore_context*; a
     context without one carries no ignore rules.

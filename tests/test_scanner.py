@@ -520,7 +520,7 @@ class TestSymlinkCycles:
 def test_exclude_extensions_applies_to_dangling_symlinks(temp_dir: str) -> None:
     """--exclude-ext hides any non-directory entry, not only regular files.
 
-    A dangling symlink is neither a file nor a directory to ``os.path``, so the
+    A dangling symlink is neither a file nor a directory to ``os.path``. The
     extension rule must not depend on ``os.path.isfile``.
     """
     if not _supports_symlinks(temp_dir):

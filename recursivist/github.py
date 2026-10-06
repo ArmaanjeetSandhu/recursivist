@@ -134,8 +134,8 @@ class GitHubTarget:
 
         Returns:
             A URL of the form ``https://github.com/<owner>/<repo>/blob/<ref>/<relpath>``,
-            with the ref and path percent-encoded so that characters such as spaces,
-            ``#`` and ``?`` do not break the link. ``/`` is kept as the path separator.
+            with the ref and path percent-encoded to keep characters such as spaces,
+            ``#`` and ``?`` from breaking the link. ``/`` is kept as the path separator.
         """
         clean = relpath.replace(os.sep, "/").lstrip("/")
         quoted_ref = urllib.parse.quote(ref, safe="/")
@@ -387,14 +387,14 @@ def resolve_commit_shas(
 ) -> list[str | None]:
     """Resolve each ref in *refs* to a commit SHA using one advertisement fetch.
 
-    A single ``info/refs`` request is made and reused for every ref, so this is cheap
-    even for several refs on the same repository. Each entry is resolved as follows:
+    A single ``info/refs`` request serves every ref, however many are resolved on the
+    same repository. Each entry is resolved as follows:
 
     * ``None`` resolves to the commit the default branch (``HEAD``) points at.
     * A branch or tag name resolves to its tip commit; annotated tags resolve to the
       commit they dereference to.
     * A value that is not an advertised ref but looks like a commit SHA (7-40 hex
-      characters) is returned as-is, lowercased, so explicit commit pins are supported.
+      characters) is returned as-is, lowercased. This supports explicit commit pins.
     * Anything else resolves to ``None``.
 
     Args:

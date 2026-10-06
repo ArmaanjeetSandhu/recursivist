@@ -28,7 +28,7 @@ Most of the API revolves around the tree produced by [`get_directory_structure`]
 - `subdirectories`: the nested directories, as a `{name: Directory}` map
 - `loc`, `size`, `mtime`: aggregate totals, `None` unless the matching metric is requested
 - `max_depth_reached`: `True` when traversal stopped at the depth limit
-- `hidden_contents`: `True` alongside `max_depth_reached` when the untraversed directory is not empty, so renderers can tell it apart from one that holds nothing
+- `hidden_contents`: `True` alongside `max_depth_reached` when the untraversed directory is not empty, which distinguishes it from one that holds nothing
 - `symlink_loop`: `True` when a directory was not descended into because it resolves to one of its own ancestors
 - `git_markers`: a `{filename: status}` map, empty unless Git status is enabled
 

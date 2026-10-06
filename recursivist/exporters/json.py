@@ -6,8 +6,8 @@ carrying the requested fields.
 
 Every directory is written as an object with a fixed set of keys, of which only the ones
 that apply are present. Its subdirectories are nested under ``subdirectories``, keyed by
-name, so a directory's own fields and the names of its subdirectories never share a
-namespace.
+name, which keeps a directory's own fields and the names of its subdirectories in
+separate namespaces.
 """
 
 import json

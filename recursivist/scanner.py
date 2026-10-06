@@ -32,9 +32,9 @@ logger = logging.getLogger(__name__)
 class _DeletedEntries:
     """Files Git reports as deleted, indexed by the directory they were deleted from.
 
-    A deleted file is no longer on disk, so a directory listing never returns it, and
-    when it was the last file in its directory the directory is gone as well. This index
-    lets the scanner list such entries alongside the ones on disk, so they pass through
+    A deleted file is no longer on disk and a directory listing never returns it; when
+    it was the last file in its directory, the directory is gone as well. This index
+    lets the scanner list such entries alongside the ones on disk and pass them through
     the same exclusion rules as everything else.
 
     Args:
@@ -190,7 +190,7 @@ def has_contents(directory: Directory) -> bool:
 def _group_git_status(git_status_map: Mapping[str, str]) -> dict[str, dict[str, str]]:
     """Group a Git status map by the directory each path lives in.
 
-    Done once per scan so that every directory can look its own markers up directly,
+    Done once per scan, after which every directory looks its own markers up directly
     instead of filtering the whole map again at each level.
 
     Args:
@@ -249,8 +249,7 @@ def get_directory_structure(
     - ``mtime``: latest modification time (when *sort_by_mtime* is set).
     - ``max_depth_reached``: ``True`` when traversal stopped at *max_depth*.
     - ``hidden_contents``: ``True`` alongside ``max_depth_reached`` when the untraversed
-      directory is not empty, so renderers can still tell it apart from one that holds
-      nothing.
+      directory is not empty, which distinguishes it from one that holds nothing.
     - ``symlink_loop``: ``True`` when a directory was not recursed into because it
       resolves to one of its own ancestors, i.e. a symlink (or other) cycle back up the
       tree.
@@ -272,8 +271,8 @@ def get_directory_structure(
         exclude_extensions: Lowercase, dot-prefixed extensions to exclude.
         parent_ignore_patterns: Ignore files inherited from parent directories as a
             shallowest-first stack of ``(base_dir_relative_to_root, patterns)`` pairs.
-            Each ignore file keeps its own anchoring so its patterns stay scoped to its
-            subtree, matching Git. Set internally across the recursion.
+            Each ignore file keeps its own anchoring, scoping its patterns to its
+            subtree as Git does. Set internally across the recursion.
         exclude_patterns: Glob or compiled-regex patterns to exclude.
         include_patterns: Glob or compiled-regex patterns to include. When given, only
             files whose names match one are kept, and a match overrides ignore-file
@@ -375,8 +374,8 @@ def _scan_level(
     Takes the same arguments with their defaults already filled in, except that the Git
     status map arrives pre-grouped by directory (see `_group_git_status`) along with the
     matching *deleted* index, or both as ``None`` when Git status is not wanted.
-    Recurses into subdirectories directly, so that grouping and the shared
-    *pattern_tracker* are reused for the whole walk.
+    Recurses into subdirectories directly, reusing that grouping and the shared
+    *pattern_tracker* for the whole walk.
 
     The entries of a level are the ones on disk followed by the ones Git reports as
     deleted from it. Each entry is classified and filtered exactly once: files are

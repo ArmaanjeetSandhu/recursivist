@@ -278,7 +278,7 @@ def test_sort_by_git_status_groups_and_orders() -> None:
 
 
 def test_sort_by_git_status_without_markers_is_all_clean() -> None:
-    """With no markers every file ranks as clean, so ordering is by name."""
+    """With no markers every file ranks as clean and ordering is by name."""
     files = _entries(["c.py", "a.py", "b.py"])
     assert _names(sort_files_by_type(files, METRIC_GIT)) == ["a.py", "b.py", "c.py"]
     assert _names(sort_files_by_type(files, METRIC_GIT, {})) == ["a.py", "b.py", "c.py"]

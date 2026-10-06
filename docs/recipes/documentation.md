@@ -147,7 +147,7 @@ recursivist export --format md --output-dir project-map --prefix L3-complete --s
 
 ## Documenting a Repository You Haven't Cloned
 
-`export` takes a GitHub repository URL in place of a local path, so a structure page can be generated for another repository without cloning it:
+`export` takes a GitHub repository URL in place of a local path, generating a structure page for another repository without cloning it:
 
 ```bash
 recursivist export https://github.com/owner/repo --format md --output-dir ./docs

@@ -1976,7 +1976,7 @@ def test_visualize_github_input_skips_project_config(
 def test_export_ignores_project_icon_style(
     runner: CliRunner, sample_directory: str, output_dir: str
 ) -> None:
-    """Exports use emoji whatever the project sets, so the files render anywhere."""
+    """Exports use emoji whatever the project sets, to render anywhere."""
     _write_project_config(sample_directory, "nerd")
     result = runner.invoke(
         app, ["export", sample_directory, "-f", "txt", "-o", output_dir]
@@ -2062,7 +2062,7 @@ def test_malformed_user_config_warns_and_uses_defaults(
 def test_flags_for_every_setting_do_not_read_user_config(
     runner: CliRunner, sample_directory: str
 ) -> None:
-    """Flags settle every setting, so a bad saved value is not even reported."""
+    """When flags settle every setting, a bad saved value is not even reported."""
     _write_user_config('{"icon_style": "bogus", "ignore_file": 3, "exclude": 3}')
     result = runner.invoke(
         app,

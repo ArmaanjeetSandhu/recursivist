@@ -68,7 +68,7 @@ Each panel lists everything found on **either** side, and colors are relative to
 - Items found only in **that panel's** directory are highlighted in **green**.
 - Items found only in the **other** directory are highlighted in **red**, and are listed after the panel's own entries.
 
-In the example above, `project-v2` replaced `setup.py` with `pyproject.toml`, added a `docs` directory, and dropped `test_utils.py`. So `setup.py` and `test_utils.py` are green on the left and red on the right, while `pyproject.toml` and `docs` are red on the left and green on the right. Files are highlighted with a colored background and directories with colored text; file names are not colored by extension here, so that the differences stand out.
+In the example above, `project-v2` replaced `setup.py` with `pyproject.toml`, added a `docs` directory, and dropped `test_utils.py`. `setup.py` and `test_utils.py` are green on the left and red on the right, while `pyproject.toml` and `docs` are red on the left and green on the right. Files are highlighted with a colored background and directories with colored text. To let the differences stand out, file names are not colored by extension here.
 
 The legend also notes any active options, such as metric display, sorting, depth limits, or full paths. Include and exclude patterns are listed in a separate "Applied Patterns" panel.
 
@@ -86,7 +86,7 @@ This writes `comparison.html` to the current directory. Change the location or f
 recursivist compare dir1 dir2 --save --output-dir ./reports --prefix project-diff
 ```
 
-The document contains the same side-by-side comparison, highlighting, and legend as the terminal view, which makes it convenient for sharing results or keeping a record of structural changes. It uses the `emoji` icon style by default for cross-platform consistency; override it with `--icon-style nerd`.
+The document contains the same side-by-side comparison, highlighting, and legend as the terminal view. Use it to share results or keep a record of structural changes. It uses the `emoji` icon style by default for cross-platform consistency; override it with `--icon-style nerd`.
 
 !!! note
 

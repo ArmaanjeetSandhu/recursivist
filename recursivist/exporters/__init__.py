@@ -35,7 +35,7 @@ def supported_formats() -> list[str]:
 
     Returns:
         The supported format identifiers, sorted for stable presentation. Alias keys are
-        included, so both ``"md"`` and ``"markdown"`` appear.
+        included: both ``"md"`` and ``"markdown"`` appear.
     """
     return sorted(_EXPORTERS)
 
@@ -43,7 +43,7 @@ def supported_formats() -> list[str]:
 def canonical_extension(format_type: str) -> str:
     """Return the canonical output file extension for a format identifier.
 
-    The extension is read from the exporter class, so aliases that share an exporter
+    The extension is read from the exporter class, and aliases that share an exporter
     collapse to a single extension.
 
     Args:

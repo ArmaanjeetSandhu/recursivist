@@ -179,7 +179,7 @@ A self-contained HTML document with an embedded stylesheet — no external asset
 - Metric annotations when statistics are enabled
 - Git-status badges when `--git-status` is used
 
-The document pins a white background, and every extension color is darkened as needed so that all text meets the WCAG 2.1 level AAA contrast ratio (7:1) for normal-sized text. Hues are preserved, so extensions stay visually distinct and each one keeps the hue it has in the terminal tree.
+The document pins a white background, and every extension color is darkened as needed until all text meets the WCAG 2.1 level AAA contrast ratio (7:1) for normal-sized text. Hues are preserved: extensions stay visually distinct, and each one keeps the hue it has in the terminal tree.
 
 Open it in any browser, or embed it in documentation. The output is a static page.
 
@@ -257,7 +257,7 @@ With statistics:
     - 📄 ``test_utils.py`` (241 lines)
 ```
 
-The section-title underline is sized to the title's display width, so emoji icons don't trigger a "Title underline too short" warning. Directory names have rST markup characters escaped, and Git status is shown with bold `[U]`/`[M]`/`[A]`/`[D]` badges (reStructuredText has no standard strike-through, so deleted files carry the `[D]` badge rather than being struck through). Drop the file straight into a Sphinx project or include it with the [`.. include::`](https://docutils.sourceforge.io/docs/ref/rst/directives.html#include) directive.
+The section-title underline is sized to the title's display width, which keeps emoji icons from triggering a "Title underline too short" warning. Directory names have rST markup characters escaped, and Git status is shown with bold `[U]`/`[M]`/`[A]`/`[D]` badges (reStructuredText has no standard strike-through; deleted files carry the `[D]` badge instead). Drop the file straight into a Sphinx project or include it with the [`.. include::`](https://docutils.sourceforge.io/docs/ref/rst/directives.html#include) directive.
 
 ## SVG (`.svg`)
 

@@ -164,9 +164,9 @@ def get_icon(
     2. File-extension match in ``EXTENSION_ICONS``.
     3. The ``DEFAULT_NERD_FILE`` fallback.
 
-    For directories, ``FOLDER_ICONS`` is consulted first (so well-known folders keep
-    their distinctive glyph regardless of their contents), falling back to the open or
-    closed generic folder glyph depending on *is_empty*.
+    For directories, ``FOLDER_ICONS`` is consulted first, and well-known folders keep
+    their distinctive glyph regardless of their contents. Other directories fall back to
+    the open or closed generic folder glyph depending on *is_empty*.
 
     Args:
         filename: Name of the file or directory (basename only, not a full path).

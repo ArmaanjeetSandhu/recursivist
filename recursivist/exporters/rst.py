@@ -31,7 +31,7 @@ def _rst_display_width(text: str) -> int:
 
     Replicates `docutils.utils.column_width`: East Asian wide and fullwidth characters
     count as two columns, combining characters as zero, and everything else as one. Used
-    to size section-title underlines so they are never reported as too short.
+    to size section-title underlines that docutils never reports as too short.
     """
     width = sum(_EAST_ASIAN_WIDTHS[unicodedata.east_asian_width(c)] for c in text)
     width -= sum(1 for c in text if unicodedata.combining(c))
@@ -46,7 +46,7 @@ def _rst_inline_literal(text: str) -> str:
     recognizes them when the opening back-ticks are not followed by whitespace and the
     closing back-ticks are not preceded by whitespace. When *text* would violate any of
     these rules (it is empty, contains a double back-tick, or starts or ends with
-    whitespace) the exporter falls back to escaped plain text so the output stays valid
+    whitespace) the exporter falls back to escaped plain text to keep the output valid
     reStructuredText.
     """
     if text and "``" not in text and not text[0].isspace() and not text[-1].isspace():
@@ -57,8 +57,8 @@ def _rst_inline_literal(text: str) -> str:
 def _rst_escape(text: str) -> str:
     """Escape reStructuredText inline-markup characters in *text*.
 
-    Backslash-escapes the characters that can start or end inline markup so the text
-    renders literally in interpreted contexts such as bold directory names and the
+    Backslash-escapes the characters that can start or end inline markup, making the
+    text render literally in interpreted contexts such as bold directory names and the
     section title. The backslash itself is escaped first to avoid double-processing.
     """
     for ch in ("\\", "`", "*", "_", "|"):
@@ -74,7 +74,7 @@ class RstExporter(BaseExporter):
     def export(self, output_path: str) -> None:
         """Write the structure to *output_path* as reStructuredText.
 
-        The root is rendered as a section title (underlined so its length matches the
+        The root is rendered as a section title (with an underline as long as the
         title's display width) followed by a nested bullet list. Directory names are
         shown in bold and filenames as inline literals, with any enabled metric or
         Git-status suffixes. A blank line is inserted before each nested list, as
@@ -95,8 +95,8 @@ class RstExporter(BaseExporter):
                 level: Current nesting depth, controlling indentation.
 
             Returns:
-                The rendered lines for this subtree, in display order. A blank
-                line precedes every nested list so the output parses correctly.
+                The rendered lines for this subtree, in display order. A blank line
+                precedes every nested list, as the parser requires.
             """
             lines: list[str] = []
             indent = "  " * level

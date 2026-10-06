@@ -145,7 +145,7 @@ def function(arg1: str, arg2: int) -> bool:
 
 !!! note "Command docstrings are help text"
 
-    The docstring of a CLI command in `recursivist/cli.py` is printed as that command's `--help` text, exactly as written, so it does not follow the example above. Keep it to what a user of the command needs: leave out the `Args:`, `Returns:`, and `Raises:` sections, and name flags (`--exclude`) rather than parameters (`exclude_dirs`). Wrap the paragraphs after the first at 76 characters, not counting indentation, so that they fit an 80-column terminal. Rich reads a lowercase word in square brackets as markup and drops it, so avoid text such as `[tool.recursivist]`.
+    The docstring of a CLI command in `recursivist/cli.py` is printed as that command's `--help` text, exactly as written, so it does not follow the example above. Keep it to what a user of the command needs: leave out the `Args:`, `Returns:`, and `Raises:` sections, and name flags (`--exclude`) rather than parameters (`exclude_dirs`). Wrap the paragraphs after the first at 76 characters (not counting indentation) to fit an 80-column terminal. And avoid text like `[tool.recursivist]`, since Rich reads a lowercase word in square brackets as markup and drops it.
 
 ## Working on the Documentation
 
@@ -162,9 +162,9 @@ Before opening a pull request, run the same strict build that CI runs:
 nox -s docs
 ```
 
-When you add or change a command-line option, update its help text in `cli.py`, the [CLI Reference](../reference/cli-reference.md), and the guide page that explains it. Each topic is explained in one place and linked from the others, so prefer a link over a second explanation.
+When you add or change a command-line option, update its help text in `cli.py`, the [CLI Reference](../reference/cli-reference.md), and the guide page that explains it. Each topic is explained in one place and linked from the others. Prefer a link over a second explanation.
 
-Show terminal output as a static terminal illustration — the `terminal-demo` markup used on the home page and throughout the guide, without the command line that triggers the typing animation — rather than as a plain code block or an image. Add the `compact` class for output wider than 64 columns, so that it keeps the same margin on the right as on the left. For boxed output such as the `compare` panels, draw the boxes with the `terminal-panel` classes rather than with box-drawing characters, which leave gaps between lines. Contents of exported files stay in ordinary code blocks.
+Show terminal output as a static terminal illustration — the `terminal-demo` markup used on the home page and throughout the guide, without the command line that triggers the typing animation — rather than as a plain code block or an image. Add the `compact` class for output wider than 64 columns to keep the same margin on the right as on the left. For boxed output such as the `compare` panels, draw the boxes with the `terminal-panel` classes rather than with box-drawing characters, which leave gaps between lines. Contents of exported files stay in ordinary code blocks.
 
 ## Extending Recursivist
 
@@ -225,7 +225,7 @@ To add a metric beyond lines of code, size, and mtime:
 
 1. Collect it in `get_directory_structure` (`scanner.py`) and add a flag to enable it.
 2. Thread it through `FileEntry` and `Directory` in `_models.py` and the formatting helpers in `metrics.py`.
-3. Register the metric and its flags in `flags.py` so they resolve into `DisplayOptions` (a sorting flag, a display-only flag, or both).
+3. Register the metric and its flags in `flags.py`, where they resolve into `DisplayOptions` (a sorting flag, a display-only flag, or both).
 4. Surface it in `build_tree` (`tree.py`), the exporters, and `compare.py`.
 5. Add the CLI options in `cli.py`, giving each a `_records_order` callback with its flag id, and wire them into `resolve_display_options`.
 

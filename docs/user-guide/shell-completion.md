@@ -41,6 +41,16 @@ mkdir -p ~/.zfunc
 recursivist --show-completion > ~/.zfunc/_recursivist
 ```
 
+## Completion for the Alias
+
+Completion is registered per command name, which means installing it for `recursivist` does not cover the [`rcv`](../getting-started/installation.md#short-alias) alias. To get completion under that name too, run the installer through it:
+
+```bash
+rcv --install-completion
+```
+
+The manual steps above work the same way: run `--show-completion` under the alias and name the file after it, e.g. `rcv --show-completion > ~/.zfunc/_rcv`.
+
 ## Using Completion
 
 Once set up, completion works throughout the CLI:

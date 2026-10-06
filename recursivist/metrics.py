@@ -115,9 +115,9 @@ def format_size(size_in_bytes: int) -> str:
     """Format a byte count as a human-readable size string.
 
     Scales the value to bytes, KB, MB, or GB and formats it with one decimal place for
-    every unit above bytes. The unit is chosen after rounding, so a value that rounds up
-    to 1024 moves to the next unit (``1048575`` is ``"1.0 MB"``, not ``"1024.0 KB"``).
-    GB is the largest unit, so it is never promoted.
+    every unit above bytes. The unit is chosen after rounding: a value that rounds up to
+    1024 moves to the next unit (``1048575`` is ``"1.0 MB"``, not ``"1024.0 KB"``). GB,
+    the largest unit, is never promoted.
 
     Args:
         size_in_bytes: Size in bytes.

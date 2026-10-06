@@ -15,7 +15,7 @@ Recursivist depends on [Rich](https://github.com/Textualize/rich) for terminal r
 pip install recursivist
 ```
 
-Recursivist is a command-line tool, so you may prefer to install it in an isolated environment of its own with [pipx](https://pipx.pypa.io/) or [uv](https://docs.astral.sh/uv/), which puts the `recursivist` command on your `PATH` without touching your other Python packages:
+As a command-line tool, Recursivist can be installed in an isolated environment of its own with [pipx](https://pipx.pypa.io/) or [uv](https://docs.astral.sh/uv/), putting the `recursivist` command on your `PATH` without touching your other Python packages:
 
 ```bash
 pipx install recursivist
@@ -57,6 +57,17 @@ recursivist version
 ```
 
 This prints the installed version, e.g. `Recursivist version: 2.1.0`.
+
+## Short Alias
+
+Installing Recursivist puts two commands on your `PATH`: `recursivist` and the shorter `rcv`. They are the same program under different names. Every command, option, and setting works identically whichever one you type:
+
+```bash
+recursivist visualize --depth 2
+rcv visualize --depth 2
+```
+
+Help output and usage messages show whichever name you ran. [Shell completion](../user-guide/shell-completion.md#completion-for-the-alias) is set up per name. The rest of the documentation uses the full `recursivist` name.
 
 ## Nerd Font Icons (Optional)
 

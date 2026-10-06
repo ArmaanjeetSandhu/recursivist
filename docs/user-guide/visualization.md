@@ -40,9 +40,9 @@ Within each directory, files appear before subdirectories. Files are ordered by 
 
 ## Color Coding
 
-Each file extension is assigned its own color. A color starts from a hash of the extension and is then spaced apart from the colors of the other extensions in the tree, so different types stay visually distinct.
+Each file extension is assigned its own color. A color starts from a hash of the extension and is then spaced apart from the colors of the other extensions in the tree to keep different types visually distinct.
 
-Colors are deterministic: a given set of file types always produces the same colors, so a directory is colored the same way on every run, and the SVG and HTML exports use the same colors as the terminal (the HTML export darkens them for contrast on its white page). Because colors are spaced relative to one another, an extension's color can differ between directories that contain different mixes of file types.
+Colors are deterministic: a given set of file types always produces the same colors. A directory is colored the same way on every run, and the SVG and HTML exports use the same colors as the terminal (the HTML export darkens them for contrast on its white page). Because colors are spaced relative to one another, an extension's color can differ between directories that contain different mixes of file types.
 
 ## Icon Styles
 
@@ -63,7 +63,7 @@ To make a style the default, save it as a preference or set it for a project:
 recursivist config set icon-style nerd
 ```
 
-See [Configuration](configuration.md) for how saved and project settings work. Exported files (and a comparison saved as HTML) use the `emoji` style regardless of your configuration, so they render consistently on any machine; pass `--icon-style nerd` to override this.
+See [Configuration](configuration.md) for how saved and project settings work. Exported files (and a comparison saved as HTML) use the `emoji` style regardless of your configuration, so that they render consistently on any machine; pass `--icon-style nerd` to override this.
 
 ## Directory Depth Control
 

@@ -6,8 +6,8 @@ Concrete exporters subclass it and implement
 [`BaseExporter.export`][recursivist.exporters.base.BaseExporter.export].
 
 [`write_text`][recursivist.exporters.base.write_text] is the single place export files
-are written: it makes undecodable file names encodable and writes atomically, so every
-format behaves the same way.
+are written: it makes undecodable file names encodable and writes atomically, the same
+way for every format.
 """
 
 import contextlib
@@ -32,7 +32,7 @@ def write_text(output_path: str, text: str) -> None:
     """Atomically write *text* to *output_path* as UTF-8.
 
     Lone surrogates, which stand in for the undecodable bytes of a non-UTF-8 file name,
-    are replaced with U+FFFD so the text always encodes.
+    are replaced with U+FFFD to guarantee that the text encodes.
 
     The text is written to a temporary file in the destination directory, which is then
     renamed over the destination. A failure at any point leaves an existing file
@@ -81,8 +81,8 @@ class BaseExporter:
     by each subclass's [`export`][recursivist.exporters.base.BaseExporter.export]. For
     convenience, the individual pieces of the spec are also exposed as plain attributes
     (``metrics``, ``sort_key``,
-    ``show_loc``/``show_size``/``show_mtime``/``show_git_status``) so exporters can read
-    them directly.
+    ``show_loc``/``show_size``/``show_mtime``/``show_git_status``) for exporters to read
+    directly.
 
     Attributes:
         extension: Canonical file extension for this format, without a leading dot (e.g.

@@ -69,16 +69,16 @@ recursivist visualize --exclude-pattern ".*\.(spec|test)\.(js|ts)$" --regex
 
 ## Ignore Files
 
-The `--ignore-file` option reads a gitignore-style file and applies its patterns to each file's **path**. This is the path-aware mechanism. Matching is delegated to [`pathspec`](https://pypi.org/project/pathspec/)'s gitignore implementation, so it follows the full gitignore specification: anchoring, the `**` wildcard, directory-only patterns (a trailing `/`), negation (a leading `!`, with last-match-wins), character classes, and backslash escapes.
+The `--ignore-file` option reads a gitignore-style file and applies its patterns to each file's **path**. This is the path-aware mechanism. Matching is delegated to [`pathspec`](https://pypi.org/project/pathspec/)'s gitignore implementation and follows the full gitignore specification: anchoring, the `**` wildcard, directory-only patterns (a trailing `/`), negation (a leading `!`, with last-match-wins), character classes, and backslash escapes.
 
 ```bash
 recursivist visualize --ignore-file .gitignore
 recursivist visualize --ignore-file .recursivist-ignore
 ```
 
-The leading dot in the name is optional: `--ignore-file gitignore` resolves to `.gitignore` when that file is present, so both spellings work.
+The leading dot in the name is optional: `--ignore-file gitignore` resolves to `.gitignore` when that file is present.
 
-Like Git, ignore files are discovered at **every level** of the tree, and **each is evaluated relative to the directory that contains it** rather than to the scan root. So an anchored pattern such as `/build` in a nested `.gitignore` matches only inside that subdirectory; a deeper ignore file's verdict overrides a shallower one for the same path.
+Like Git, ignore files are discovered at **every level** of the tree, and **each is evaluated relative to the directory that contains it** rather than to the scan root. An anchored pattern such as `/build` in a nested `.gitignore` matches only inside that subdirectory; a deeper ignore file's verdict overrides a shallower one for the same path.
 
 An example `.recursivist-ignore`:
 

@@ -1092,8 +1092,8 @@ class TestSvgExporter:
         """Exporting with metrics enabled renders the root metrics suffix.
 
         ``structure_with_stats`` stores ``_files`` as tuples and carries
-        ``_loc``/``_size``/``_mtime`` keys, so this also covers the tuple branch
-        of the extension collector.
+        ``_loc``/``_size``/``_mtime`` keys. This also covers the tuple branch of
+        the extension collector.
         """
         output_path = os.path.join(tmp_path, "stats.svg")
         get_exporter(
@@ -1590,10 +1590,10 @@ class TestJsonGitAndMetrics:
 
 
 class TestHtmlContrast:
-    """The HTML export renders on a white page, so its text must meet WCAG AAA.
+    """Text in the HTML export, which renders on a white page, must meet WCAG AAA.
 
-    Extension colors are generated for a dark terminal, so they have to be
-    adapted before being used as inline styles here.
+    Extension colors are generated for a dark terminal and have to be adapted
+    before being used as inline styles here.
     """
 
     BACKGROUND = "#ffffff"

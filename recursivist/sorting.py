@@ -32,7 +32,7 @@ def _name_key(entry: FileEntry) -> tuple[str, str]:
 
 
 def sort_files_by_similarity(files: Sequence[FileEntry]) -> list[FileEntry]:
-    """Order files so that similarly named files sit next to each other.
+    """Order files to place similarly named files next to each other.
 
     Unlike the LOC/size/mtime metrics, name similarity is *relational*: it depends on
     how a file's name compares to the others rather than on any single measured value,
@@ -45,18 +45,18 @@ def sort_files_by_similarity(files: Sequence[FileEntry]) -> list[FileEntry]:
        same order).
     2. Repeatedly, the not-yet-placed entry whose name is most similar to the most
        recently placed name is appended. Similarity is the `difflib.SequenceMatcher`
-       ratio computed case-insensitively on the full filename (extension included), so
-       ``main.py``/``main.js`` and ``test_api.py``/``test_api.js`` naturally cluster.
+       ratio computed case-insensitively on the full filename (extension included),
+       which clusters ``main.py``/``main.js`` and ``test_api.py``/``test_api.js``.
     3. Ratio ties are broken by case-insensitive name order: because the candidates are
        kept alphabetically sorted and the best match is only replaced on a strictly
        greater ratio, the alphabetically-first of any tied group wins.
 
     This is a heuristic (locally greedy) ordering rather than a globally optimal
-    grouping, which is the appropriate trade-off for a directory listing: each directory
-    holds relatively few files, so the ``O(n^2)`` pairwise comparisons are cheap, and
+    grouping, which is the appropriate trade-off for a directory listing: the ``O(n^2)``
+    pairwise comparisons are cheap for the relatively few files a directory holds, and
     the result reliably places obvious name-siblings adjacent to one another.
 
-    Only the name is used, so the metric fields do not affect the result.
+    Only the name is used. The metric fields do not affect the result.
 
     Args:
         files: The [`FileEntry`][recursivist._models.FileEntry] items to order.
@@ -104,11 +104,11 @@ def sort_files_by_type(
     - ``"similarity"``: by name similarity, via
       [`sort_files_by_similarity`][recursivist.sorting.sort_files_by_similarity].
 
-    Every ordering ends in a name tie-breaker, so the result is independent of the
+    Every ordering ends in a name tie-breaker, making the result independent of the
     order of *files* (which the scanner takes from ``os.listdir``).
 
     This mirrors the resolution in [`recursivist.flags`][recursivist.flags], where only
-    the first sorting flag on the command line takes effect, so there is never more than
+    the first sorting flag on the command line takes effect and there is never more than
     one active metric to combine.
 
     Args:

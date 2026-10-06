@@ -1,11 +1,11 @@
 """Deterministic color assignment for file extensions.
 
 Derives a hex color for each file extension from a hash of the extension, then nudges it
-away from the colors already assigned so distinct extensions stay visually separable.
+away from the colors already assigned to keep distinct extensions visually separable.
 [`build_color_map`][recursivist.colors.build_color_map] colors a whole set of extensions
-at once, in sorted order, so a given set always produces the same mapping. Also provides
-WCAG 2.1 contrast helpers used by renderers that draw onto a known background (such as
-the HTML exporter) to guarantee legible text. Pure standard library.
+at once, in sorted order, so that a given set always produces the same mapping. Also
+provides WCAG 2.1 contrast helpers used by renderers that draw onto a known background
+(such as the HTML exporter) to guarantee legible text. Pure standard library.
 """
 
 import colorsys
@@ -137,10 +137,9 @@ def ensure_contrast(
 ) -> str:
     """Adjust a color until it meets a WCAG contrast ratio against *background*.
 
-    The hue is preserved so extensions stay recognisable and mutually distinguishable;
+    The hue is preserved to keep extensions recognisable and mutually distinguishable;
     only brightness (and, if brightness alone is not enough, saturation) is changed.
-    Colors that already meet *min_ratio* are returned unchanged, so this is a no-op for
-    compliant input.
+    Colors that already meet *min_ratio* are returned unchanged.
 
     Colors are darkened against light backgrounds and lightened against dark ones,
     whichever direction can reach the required ratio.
@@ -261,10 +260,9 @@ def build_color_map(extensions: Iterable[str]) -> dict[str, str]:
     """Assign a visually distinct color to every extension in *extensions*.
 
     Extensions are colored in sorted order, starting from an empty set of assigned
-    colors, so the result is a pure function of the set of extensions: it depends
-    neither on the order *extensions* is iterated in nor on any colors generated
-    earlier. The same set therefore always yields the same mapping, across runs and
-    across renderers.
+    colors. The result is a pure function of the set of extensions: it depends neither
+    on the order *extensions* is iterated in nor on any colors generated earlier. The
+    same set always yields the same mapping, across runs and across renderers.
 
     Each color starts from a hash of its extension and is nudged away from the colors of
     the extensions sorted before it. An extension's color can consequently differ

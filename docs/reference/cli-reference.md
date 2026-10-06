@@ -2,6 +2,8 @@
 
 A complete reference for every Recursivist command and option. For explanations and worked examples, follow the links into the [User Guide](../user-guide/basic-usage.md).
 
+The examples use the full `recursivist` command; the shorter [`rcv`](../getting-started/installation.md#short-alias) alias accepts exactly the same commands and options.
+
 ## Commands
 
 | Command                   | Description                                   |
@@ -207,7 +209,7 @@ Saves a value for one of the settings. `exclude` takes one name per argument, an
 
 ### `config unset`
 
-Removes a saved value, so the setting falls back to its default. `unset` accepts any key, including one Recursivist does not recognize, which makes it the way to clear an entry that is reported with a warning. Only the key given is changed.
+Removes a saved value, returning the setting to its default. `unset` accepts any key, including one Recursivist does not recognize: use it to clear an entry that is reported with a warning. Only the key given is changed.
 
 ### `config reset`
 
@@ -217,7 +219,7 @@ Removes a saved value, so the setting falls back to its default. `unset` accepts
 
 Removes every saved value at once by deleting the file, so each setting falls back to its default. The whole file is removed, including entries Recursivist does not recognize and a file it cannot read, which makes it the way to clear a file that is reported with a warning.
 
-It asks for confirmation first, in a question that names the entries about to be removed, and removes nothing unless the answer is yes: declining, or having no answer to read, as in a script, exits with status 1. `--yes` removes without asking. The removed entries are printed with their values, so a value can be saved again with `config set`. When there is no file, nothing is asked or done and the command still succeeds.
+It asks for confirmation first, in a question that names the entries about to be removed, and removes nothing unless the answer is yes: declining, or having no answer to read, as in a script, exits with status 1. `--yes` removes without asking. The removed entries are printed with their values, ready to be saved again with `config set`. When there is no file, nothing is asked or done and the command still succeeds.
 
 ### `config get`
 
@@ -334,7 +336,7 @@ recursivist config list ./my-project --json
 
 With `--all` as well, each entry also has a `layers` array holding the same three fields for every layer, in the same order as the text listing. There, `value` is `null` for a layer that does not set it, and `source` is `null` for a layer that has no file.
 
-The listing is the only thing written to standard output, so it can be piped to another program; warnings about a configuration file, and the error for a `DIRECTORY` that is not a directory, go to standard error. An invalid value is reported with a warning and counts as not set, as it does for a run. Nothing is created or changed.
+Only the listing is written to standard output, ready to pipe to another program; warnings about a configuration file, and the error for a `DIRECTORY` that is not a directory, go to standard error. An invalid value is reported with a warning and counts as not set, as it does for a run. Nothing is created or changed.
 
 A command-line flag such as `--icon-style`, `--ignore-file`, or `--exclude` still overrides the listed value for a run, and exports use the `emoji` icon style unless `--icon-style` is given.
 

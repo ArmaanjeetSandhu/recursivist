@@ -101,8 +101,8 @@ def _records_order(flag_id: str) -> Callable[[typer.Context, bool], bool]:
     Flag order matters for sorting and annotation, but a command only receives *which*
     flags were given. The parser knows the order: it runs the callbacks of the options
     present on the command line in the order they appeared, ahead of those of the
-    options that were left out. Each order-sensitive flag carries one of these
-    callbacks, so the order is the one the parser read the flags in.
+    options that were left out. Each order-sensitive flag carries one of these callbacks
+    and is recorded in the order the parser read it.
 
     Args:
         flag_id: The flag's id in the [`recursivist.flags`][recursivist.flags] registry.
@@ -330,8 +330,8 @@ def _known_config_key(key: str) -> str:
 def _quoted(value: str | list[str]) -> str:
     """Return a configuration value for a message, each string in single quotes.
 
-    A list is shown as its quoted strings separated by commas, so that names holding
-    spaces stay distinguishable.
+    A list is shown as its quoted strings separated by commas. The quotes keep names
+    holding spaces distinguishable.
     """
     strings = value if isinstance(value, list) else [value]
     return ", ".join(f"'{string}'" for string in strings)
@@ -406,11 +406,11 @@ def config_unset(
 ) -> None:
     """Remove a saved configuration value.
 
-    Deletes one entry from the global configuration file, so the setting
-    falls back to the project configuration or the built-in default. Any key
-    is accepted, written with dashes or underscores, which makes this the way
-    to remove an entry that recursivist does not recognize and reports with a
-    warning. A key that is not saved is not an error.
+    Deletes one entry from the global configuration file, returning the setting
+    to the project configuration or the built-in default. Any key is accepted,
+    written with dashes or underscores, including one that recursivist does not
+    recognize and reports with a warning. A key that is not saved is not an
+    error.
 
     Examples:
         >>> recursivist config unset icon-style
@@ -441,8 +441,7 @@ def config_reset(
     project configuration or the built-in default. Confirmation is asked for
     first, and declining, or having no answer to read, as in a script, exits
     with code 1; pass `--yes` to skip the question. The removed entries are
-    printed with their values. Project configuration files are left as they
-    are.
+    printed with their values. Project configuration files are left as they are.
 
     Examples:
         >>> recursivist config reset
@@ -482,12 +481,11 @@ def config_get(
     """Print the value of a user configuration setting.
 
     Prints the value saved in the global configuration file, or the built-in
-    default when the key is not saved or its saved value is invalid. The key
-    may be written with dashes or underscores. The value is the only thing
-    written to standard output, one directory name per line for `exclude`, so
-    the command is usable in a shell substitution. Project configuration
-    files are not consulted; `config list` shows the value in effect for a
-    directory.
+    default when the key is not saved or its saved value is invalid. The key may
+    be written with dashes or underscores. Only the value is written to standard
+    output, one directory name per line for `exclude`, ready for use in a shell
+    substitution. Project configuration files are not consulted; `config list`
+    shows the value in effect for a directory.
 
     Examples:
         >>> recursivist config get icon-style
@@ -568,7 +566,7 @@ def _config_listing_lines(
     with the file left out for a built-in default. With it, the line holds only the key
     and value and is followed by one indented row per layer: the row of the effective
     layer is marked with ``*``, and a layer without a value shows ``(not set)``. Columns
-    are padded so that they line up across settings.
+    are padded to line up across settings.
 
     Args:
         settings: Each setting's layers in precedence order, keyed by the setting's
@@ -718,10 +716,9 @@ def parse_list_option(option_value: list[str] | None) -> list[str]:
     To supply multiple values, repeat the flag once per value:
        >>> --exclude "Application Support" --exclude node_modules
 
-    Each occurrence is preserved verbatim, so values may contain spaces. This is
-    required to name directories or patterns such as ``"Application Support"`` or ``"My
-    Documents"``; those would be impossible to express if values were split on
-    whitespace.
+    Each occurrence is preserved verbatim, spaces included. This is required to name
+    directories or patterns such as ``"Application Support"`` or ``"My Documents"``;
+    those would be impossible to express if values were split on whitespace.
 
     Each value is stripped of surrounding whitespace, and values that are empty or
     whitespace-only (e.g. from ``--exclude ""``) are dropped. Interior whitespace is
@@ -854,8 +851,8 @@ def _parse_filter_options(
 def _enable_verbose_if_requested(verbose: bool) -> None:
     """Lower the logger to DEBUG when verbose output is requested.
 
-    Shared by the visualize, export, and compare commands so the verbose preamble is
-    defined in exactly one place. The level lasts only for the current invocation:
+    Shared by the visualize, export, and compare commands as the single definition of
+    the verbose preamble. The level lasts only for the current invocation:
     `_configure_logging` restores the previous one when the command finishes.
     """
     if verbose:
@@ -866,8 +863,8 @@ def _enable_verbose_if_requested(verbose: bool) -> None:
 def _resolve_and_validate_directory(directory: Path) -> Path:
     """Resolve a directory path and verify it points at a directory.
 
-    Centralizes the existence/`is_dir` check shared by the visualize and export commands
-    so the validation behavior and error message stay consistent.
+    Centralizes the existence/`is_dir` check shared by the visualize and export
+    commands, keeping the validation behavior and error message consistent.
 
     Args:
         directory: Raw directory path as received from Typer.
@@ -893,7 +890,7 @@ def _resolve_ignore_file(
 
     Checks if the provided ignore_file exists in any of the target directories. If it
     doesn't, but a version with a leading dot does, returns the dotted version.
-    Otherwise, returns the original filename so normal warning logic proceeds.
+    Otherwise, returns the original filename for the normal warning logic to handle.
 
     Args:
         directories: List of resolved directory paths to check for the ignore file.
@@ -941,8 +938,8 @@ def _choose_ignore_file(
 
     The ``--ignore-file`` option wins whenever it is given, and an empty value there
     means that no ignore file is honored. Without the option, the ``ignore-file``
-    configuration setting is used. Either way the name goes through
-    `_resolve_ignore_file`, so its leading dot is optional.
+    configuration setting is used. Either way `_resolve_ignore_file` makes the name's
+    leading dot optional.
 
     *configured* is the function returned by `_config_reader`; it is only called when
     the option was not supplied. The result is ``None`` when no ignore file is honored.
@@ -976,11 +973,11 @@ def _warn_if_ignore_file_missing(
 ) -> None:
     """Log whether the ignore file in use exists inside *directory*.
 
-    Emits a debug message when the ignore file is found. When it is absent, a file
-    named with ``--ignore-file`` is reported with a warning, since it was asked for on
-    this run. One that comes from the configuration is a standing preference that
-    applies wherever the file exists, so its absence is only a debug message. Does
-    nothing when no ignore file is in use. Shared by the visualize and export commands.
+    Emits a debug message when the ignore file is found. When it is absent, a file named
+    with ``--ignore-file`` is reported with a warning, since it was asked for on this
+    run. One that comes from the configuration is a standing preference that applies
+    wherever the file exists, and its absence is only a debug message. Does nothing when
+    no ignore file is in use. Shared by the visualize and export commands.
 
     Args:
         directory: Directory in which to look for the ignore file.
@@ -1113,7 +1110,8 @@ def _log_ignored_remote_flags(
     The ``--ignore-file``, ``--git-status``, ``--sort-by-git-status``, ``--mtime`` and
     ``--sort-by-mtime`` options are not meaningful for a hosted repository (see
     [`recursivist.github`][recursivist.github]); when any were supplied for a GitHub
-    input, this logs an informational message naming them so the behavior is not silent.
+    input, this logs an informational message naming them rather than dropping them
+    silently.
 
     Args:
         ignore_file: The requested ignore filename, if any.
@@ -1149,17 +1147,17 @@ def _compare_inputs_are_same(
     """Return whether both ``compare`` inputs refer to the same target.
 
     Comparing a structure against itself produces a diff in which every item is shared
-    and nothing is unique, which is never what the caller intends. This detects that
-    case so the `compare` command can reject it instead of doing pointless work.
+    and nothing is unique, which is never what the caller intends. The `compare` command
+    uses this to reject that case instead of doing pointless work.
 
     The two inputs are considered the same when:
 
     * both are GitHub repositories that resolve to the same repository, ref and subtree
       — see [`same_github_target`][recursivist.github.same_github_target] for how
       owner/repo case-insensitivity and the default branch are handled; or
-    * both are local directories whose resolved absolute paths are equal, so that
+    * both are local directories whose resolved absolute paths are equal. This covers
       ``dir`` and ``dir/``, relative and absolute spellings, and symlinks pointing at
-      the same location are all recognized as identical.
+      the same location.
 
     A local directory and a GitHub repository are never the same.
 
@@ -1877,7 +1875,8 @@ def main() -> None:
 
     Invokes the Typer application, which parses command-line arguments and dispatches to
     the appropriate subcommand function. This function is registered as the
-    ``recursivist`` console-script entry point in the package configuration.
+    ``recursivist`` console-script entry point in the package configuration, along with
+    the shorter ``rcv`` alias.
     """
     app()
 

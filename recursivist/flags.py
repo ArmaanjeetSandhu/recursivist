@@ -113,8 +113,8 @@ class DisplayOptions:
     def without_remote_unsupported(self) -> "DisplayOptions":
         """Return a copy with annotations that don't apply to a hosted repo.
 
-        A GitHub checkout has no meaningful per-file Git status or modification time —
-        every file effectively shares the tip commit's status and timestamp — so the
+        A GitHub checkout has no meaningful per-file Git status or modification time,
+        because every file effectively shares the tip commit's status and timestamp. The
         Git-status badge and the modification-time metric are dropped, and a sort keyed
         on either falls back to the default ordering. The lines-of-code and size metrics
         are retained, since those are computed from the file contents themselves.
@@ -200,7 +200,8 @@ def resolve_display_options(
     The boolean arguments say *which* flags are active and *order* says in what order
     they were given; the CLI parser supplies both. *order* only arranges the active set
     — a flag listed in it but not active is ignored, and an active flag missing from it
-    is placed after the listed ones, in registry order, so resolution is deterministic.
+    is placed after the listed ones, in registry order, which keeps resolution
+    deterministic.
 
     Args:
         sort_loc: Whether ``--sort-by-loc`` was given.

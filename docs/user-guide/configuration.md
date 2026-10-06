@@ -10,7 +10,7 @@ Options you would otherwise pass on every run can be saved once. Recursivist has
 | `ignore-file` | A file name, such as `.gitignore` | Not set | The ignore file honored by `visualize`, `export`, and `compare` when `--ignore-file` is not given |
 | `exclude`     | One or more directory names       | Not set | The directories excluded by `visualize`, `export`, and `compare` when `--exclude` is not given    |
 
-**`icon-style`** chooses between the two [icon styles](visualization.md#icon-styles). Exported files, and a comparison saved as HTML, use the `emoji` style regardless of this setting, so they render consistently on any machine; pass `--icon-style nerd` to override that for a run.
+**`icon-style`** chooses between the two [icon styles](visualization.md#icon-styles). Exported files, and a comparison saved as HTML, use the `emoji` style regardless of this setting, to render consistently on any machine; pass `--icon-style nerd` to override that for a run.
 
 **`ignore-file`** names a gitignore-style [ignore file](pattern-filtering.md#ignore-files), exactly as `--ignore-file` does: the leading dot is optional, and the file is looked up in the directory being scanned and at every level below it. Any name that is not blank is accepted. A directory that has no file of that name is scanned without one, and no warning is shown, so the setting can be saved once and left on.
 
@@ -48,7 +48,7 @@ recursivist config reset
 recursivist config path
 ```
 
-`config set exclude` takes one name per argument, so a name that contains spaces is quoted, and the names given replace the saved ones as a whole. `config get` prints the saved value, or the built-in default when none is saved. `config reset` asks for confirmation before deleting the file; add `--yes` to skip the question in a script.
+`config set exclude` takes one name per argument (quote a name that contains spaces), and the names given replace the saved ones as a whole. `config get` prints the saved value, or the built-in default when none is saved. `config reset` asks for confirmation before deleting the file; add `--yes` to skip the question in a script.
 
 The [CLI Reference](../reference/cli-reference.md#config) describes each subcommand's output and exit status precisely.
 
@@ -105,7 +105,7 @@ The directory defaults to the current one. Add `--all` to see the value of every
 
 ## Invalid Values
 
-An unknown key or an invalid value is reported with a warning and ignored, so that setting falls through to the next layer. This applies to project files and to your user preferences file alike, so a mistake made while editing either by hand cannot change what is rendered. Remove a bad entry from your user preferences with `config unset` — it accepts any key, including one Recursivist does not recognize — or remove the whole file with `config reset`.
+An unknown key or an invalid value is reported with a warning and ignored, and that setting falls through to the next layer. This applies to project files and to your user preferences file alike, so a mistake made while editing either by hand cannot change what is rendered. Remove a bad entry from your user preferences with `config unset` — it accepts any key, including one Recursivist does not recognize — or remove the whole file with `config reset`.
 
 ## How Commands Use Settings
 

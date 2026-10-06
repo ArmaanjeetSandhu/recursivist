@@ -25,7 +25,7 @@ jq -r '.structure.subdirectories // {} | to_entries[]
 
 ## Every File in the Tree
 
-Files sit under `files` in each directory object, and directories nest under `subdirectories`, so listing every file means walking the tree. The remaining recipes share this `jq` prelude, which defines that walk and applies it to the root:
+Files sit under `files` in each directory object, and directories nest under `subdirectories`. Listing every file means walking the tree. The remaining recipes share this `jq` prelude, which defines that walk and applies it to the root:
 
 ```bash
 FILES='def files: (.files // [])[], ((.subdirectories // {})[] | files);

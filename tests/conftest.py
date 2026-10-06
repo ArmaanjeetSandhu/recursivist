@@ -21,13 +21,13 @@ def isolated_user_config(
     """Keep every test away from the real user configuration file.
 
     Commands that are not given ``--icon-style`` fall back to the saved ``icon_style``
-    preference, so a developer who has run ``recursivist config set icon-style nerd``
-    would otherwise get Nerd Font glyphs where the tests expect emoji. Pointing the
+    preference. A developer who has run ``recursivist config set icon-style nerd`` would
+    otherwise get Nerd Font glyphs where the tests expect emoji. Pointing the
     configuration path at an empty temporary directory makes the suite see the built-in
     defaults on any machine, and keeps a test from ever writing to the real file.
 
-    The CLI module holds its own reference to the path function, for ``config path``,
-    so it is redirected as well and reports the same temporary file.
+    The CLI module holds its own reference to the path function, for ``config path``.
+    That reference is redirected as well and reports the same temporary file.
     """
     config_path = tmp_path_factory.mktemp("config") / "config.json"
     for module in ("recursivist.config", "recursivist.cli"):

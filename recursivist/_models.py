@@ -58,7 +58,7 @@ class Directory:
         max_depth_reached: Whether traversal stopped at the depth limit, leaving the
             directory's contents unread.
         hidden_contents: Whether a directory cut short by the depth limit is not empty,
-            so renderers can tell it apart from one that holds nothing.
+            which distinguishes it from one that holds nothing.
         symlink_loop: Whether the directory was not descended into because it resolves
             to one of its own ancestors, i.e. a symlink (or other) cycle back up the
             tree.

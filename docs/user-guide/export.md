@@ -65,7 +65,7 @@ recursivist export \
 
 ## Icon Style
 
-Exports use the `emoji` icon style by default — independent of your saved and project [configuration](configuration.md) — so files render consistently anywhere. Switch to Nerd Font glyphs with:
+Exports use the `emoji` icon style by default, independent of your saved and project [configuration](configuration.md). This enables files to render consistently anywhere. Switch to Nerd Font glyphs with:
 
 ```bash
 recursivist export --format md --icon-style nerd

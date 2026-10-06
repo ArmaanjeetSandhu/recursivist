@@ -161,7 +161,7 @@ Here files are ordered by lines of code, and each is annotated with LOC, size, a
 
 Flags are resolved by their **left-to-right order on the command line**:
 
-- Only the **first** sorting flag takes effect. A later `--sort-by-*` is discarded entirely — so `--sort-by-loc --sort-by-size` sorts by LOC and shows only LOC, _not_ both. Use `--sort-by-loc --size` to sort by LOC and display size too.
+- Only the **first** sorting flag takes effect. A later `--sort-by-*` is discarded entirely: `--sort-by-loc --sort-by-size` sorts by LOC and shows only LOC, _not_ both. Use `--sort-by-loc --size` to sort by LOC and display size too.
 - The winning sort metric is annotated first; display-only annotations follow in the order given.
 
 The [CLI Reference](../reference/cli-reference.md#sorting-and-display-flags) has the complete resolution rules.
@@ -226,7 +226,7 @@ recursivist visualize --git-status
   </div>
 </div>
 
-Markers are `[U]` untracked, `[M]` modified, `[A]` added, and `[D]` deleted. Deleted files are also shown struck through, and a file deleted from disk is still listed so the change is visible, along with its directory if that is gone too. If the directory isn't inside a repository (or has no changes), no markers are added.
+Markers are `[U]` untracked, `[M]` modified, `[A]` added, and `[D]` deleted. Deleted files are also shown struck through, and a file deleted from disk is still listed to keep the change visible, along with its directory if that is gone too. If the directory isn't inside a repository (or has no changes), no markers are added.
 
 `--git-status` is display-only. To also **sort** by Git status (modified, added, deleted, untracked, then clean), use the combined flag:
 
@@ -248,5 +248,5 @@ recursivist compare dir1 dir2 --git-status
 ```
 
 - Each export format writes the annotations in its own way; [Export Formats](../reference/export-formats.md) shows them.
-- In `compare`, the legend notes which metrics and ordering are active, and Git status is read independently for each directory, so both sides are annotated correctly even when they belong to different repositories.
+- In `compare`, the legend notes which metrics and ordering are active, and Git status is read independently for each directory. This way, both sides are annotated correctly even when they belong to different repositories.
 - For a GitHub repository URL, lines of code and size apply, while the Git-status and modification-time flags are skipped. See [GitHub Repositories](github-repositories.md#which-options-apply).
