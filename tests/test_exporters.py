@@ -248,7 +248,7 @@ class TestExporterFileOutput:
         ("option_name", "expected_in_content"),
         [
             ("sort_by_loc", "lines"),
-            ("sort_by_size", ["B", "KB", "MB"]),
+            ("sort_by_size", ["B", "KiB", "MiB"]),
             ("sort_by_mtime", ["Today", "Yesterday"]),
         ],
     )
@@ -512,7 +512,7 @@ def test_export_formats(
         (
             "sort_by_size",
             True,
-            lambda c, d: any(unit in c for unit in ["B", "KB", "MB"]),
+            lambda c, d: any(unit in c for unit in ["B", "KiB", "MiB"]),
         ),
         (
             "sort_by_mtime",
@@ -880,7 +880,7 @@ def test_combined_export_options(output_dir: str) -> None:
         assert any(str(count) in content for count in [100, 200, 300])
         assert any(
             size in content
-            for size in ["512 B", "0.5 KB", "1.0 KB", "1024 B", "2.0 KB", "2048 B"]
+            for size in ["512 B", "0.5 KiB", "1.0 KiB", "1024 B", "2.0 KiB", "2048 B"]
         )
         timestamp_patterns = [
             "Today",
@@ -1537,7 +1537,7 @@ class TestJsonGitAndMetrics:
         assert entry["path"] == "/p/a.py"
         assert entry["loc"] == 50
         assert entry["size"] == 1024
-        assert entry["size_formatted"] == "1.0 KB"
+        assert entry["size_formatted"] == "1.0 KiB"
         assert entry["git_status"] == "M"
         assert data["sort_key"] == "loc"
         assert data["metric_order"] == ["size", "loc"]

@@ -309,7 +309,7 @@ def test_visualize_with_verbose_mode(
     ("option", "expected_in_output"),
     [
         ("--sort-by-loc", "lines"),
-        ("--sort-by-size", ["B", "KB", "MB"]),
+        ("--sort-by-size", ["B", "KiB", "MiB"]),
         (
             "--sort-by-mtime",
             ["Today", "Yesterday", r"\d{4}-\d{2}-\d{2}", r"\w{3} \d{1,2}"],
@@ -1127,7 +1127,7 @@ def test_compare_with_sort_options(
     if option == "--sort-by-loc":
         assert "lines" in result.stdout
     elif option == "--sort-by-size":
-        assert any(unit in result.stdout for unit in ["B", "KB", "MB"])
+        assert any(unit in result.stdout for unit in ["B", "KiB", "MiB"])
     elif option == "--sort-by-mtime":
         assert any(
             (indicator is not None and indicator in result.stdout)

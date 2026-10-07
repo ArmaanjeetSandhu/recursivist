@@ -114,26 +114,26 @@ def get_file_size(file_path: str) -> int:
 def format_size(size_in_bytes: int) -> str:
     """Format a byte count as a human-readable size string.
 
-    Scales the value to bytes, KB, MB, or GB and formats it with one decimal place for
-    every unit above bytes. The unit is chosen after rounding: a value that rounds up to
-    1024 moves to the next unit (``1048575`` is ``"1.0 MB"``, not ``"1024.0 KB"``). GB,
-    the largest unit, is never promoted.
+    Scales the value to bytes, KiB, MiB, or GiB and formats it with one decimal place
+    for every unit above bytes. The unit is chosen after rounding: a value that rounds
+    up to 1024 moves to the next unit (``1048575`` is ``"1.0 MiB"``, not
+    ``"1024.0 KiB"``). GiB, the largest unit, is never promoted.
 
     Args:
         size_in_bytes: Size in bytes.
 
     Returns:
-        A human-readable size string (e.g. ``"512 B"`` or ``"4.2 MB"``).
+        A human-readable size string (e.g. ``"512 B"`` or ``"4.2 MiB"``).
     """
     if size_in_bytes < 1024:
         return f"{size_in_bytes} B"
     value = size_in_bytes / 1024
-    for unit in ("KB", "MB"):
+    for unit in ("KiB", "MiB"):
         text = f"{value:.1f}"
         if float(text) < 1024:
             return f"{text} {unit}"
         value /= 1024
-    return f"{value:.1f} GB"
+    return f"{value:.1f} GiB"
 
 
 def get_file_mtime(file_path: str) -> float:
@@ -213,7 +213,7 @@ def format_metrics(
     """Build the parenthetical metrics annotation for a file or directory.
 
     Includes exactly the metrics named in *metrics*, in that order — e.g.
-    ``metrics=("size", "loc")`` yields ``"(4.2 KB, 120 lines)"``. The metric names are
+    ``metrics=("size", "loc")`` yields ``"(4.2 KiB, 120 lines)"``. The metric names are
     those defined in [`recursivist.flags`][recursivist.flags]: ``"loc"``, ``"size"`` and
     ``"mtime"``.
 

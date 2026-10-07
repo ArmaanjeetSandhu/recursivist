@@ -372,7 +372,7 @@ def test_display_comparison_stays_side_by_side_when_names_are_long(
         ("exclude_dirs", ["exclude_me"], None, ["exclude_me", "excluded.txt"]),
         ("exclude_patterns", ["*.log"], None, "test_pattern.log"),
         ("sort_by_loc", True, "lines", None),
-        ("sort_by_size", True, ["B", "KB", "MB"], None),
+        ("sort_by_size", True, ["B", "KiB", "MiB"], None),
         ("sort_by_mtime", True, ["Today", "Yesterday", r"\d{4}-\d{2}-\d{2}"], None),
     ],
 )
@@ -445,7 +445,7 @@ def test_export_comparison_html(
         ("exclude_dirs", ["exclude_me"], None, ["exclude_me", "excluded.txt"]),
         ("exclude_patterns", ["*.log"], None, "test_pattern.log"),
         ("sort_by_loc", True, "lines", None),
-        ("sort_by_size", True, ["B", "KB", "MB"], None),
+        ("sort_by_size", True, ["B", "KiB", "MiB"], None),
         (
             "sort_by_mtime",
             True,
@@ -598,7 +598,7 @@ def test_comparison_with_statistics(
     with open(output_path, encoding="utf-8") as f:
         content = f.read()
     assert "lines" in content
-    assert "B" in content or "KB" in content
+    assert "B" in content or "KiB" in content
     has_time_indicator = False
     if re.search(r"Today|Yesterday|\d{4}-\d{2}-\d{2}", content):
         has_time_indicator = True

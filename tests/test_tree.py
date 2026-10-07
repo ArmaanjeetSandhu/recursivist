@@ -217,7 +217,7 @@ class TestDisplayTree:
         args, _ = mock_tree.call_args
         root_label = args[0]
         assert "100 lines" in root_label
-        assert "10.0 KB" in root_label
+        assert "10.0 KiB" in root_label
         date_formats = ["Today", "Yesterday", "Jul 1", "2021-07-01"]
         assert any(fmt in root_label for fmt in date_formats)
 
@@ -347,7 +347,10 @@ class TestBuildTreeStructures:
         ("spec", "expected_indicator"),
         [
             (DisplayOptions(sort_key=METRIC_LOC, metrics=(METRIC_LOC,)), "lines"),
-            (DisplayOptions(sort_key=METRIC_SIZE, metrics=(METRIC_SIZE,)), ["B", "KB"]),
+            (
+                DisplayOptions(sort_key=METRIC_SIZE, metrics=(METRIC_SIZE,)),
+                ["B", "KiB"],
+            ),
             (
                 DisplayOptions(sort_key=METRIC_MTIME, metrics=(METRIC_MTIME,)),
                 ["Today", "Yesterday", r"\d{4}-\d{2}-\d{2}"],

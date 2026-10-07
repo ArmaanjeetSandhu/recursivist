@@ -324,7 +324,7 @@ def test_export_formats_with_statistics(
         assert '"show_mtime": true' in content
     elif fmt in ["txt", "md", "html"]:
         has_stats = False
-        for indicator in ["lines", "B", "KB", "MB", "Today", "Yesterday"]:
+        for indicator in ["lines", "B", "KiB", "MiB", "Today", "Yesterday"]:
             if indicator in content:
                 has_stats = True
                 break
@@ -358,7 +358,7 @@ def test_comparison_with_statistics(temp_dir: str, output_dir: str) -> None:
     with open(output_path, encoding="utf-8") as f:
         content = f.read()
     has_stats = False
-    for indicator in ["lines", "B", "KB", "MB", "Today", "Yesterday"]:
+    for indicator in ["lines", "B", "KiB", "MiB", "Today", "Yesterday"]:
         if indicator in content:
             has_stats = True
             break

@@ -49,7 +49,7 @@ Every line of a text file is counted, blank lines and comments included. Files a
 
 ## File Sizes
 
-Display sizes with units (B, KB, MB, GB), largest first:
+Display sizes with units (B, KiB, MiB, GiB), largest first:
 
 ```bash
 recursivist visualize --sort-by-size
@@ -66,16 +66,16 @@ recursivist visualize --sort-by-size
   </div>
   <div class="terminal-body">
     <div class="terminal-output">
-      <pre>📂 my-project (57.1 KB)
-├── <span style="color: #f1fa8c;">📄 README.md</span> (4.2 KB)
-├── <span style="color: #83e43d;">📄 setup.py</span> (3.8 KB)
+      <pre>📂 my-project (57.1 KiB)
+├── <span style="color: #f1fa8c;">📄 README.md</span> (4.2 KiB)
+├── <span style="color: #83e43d;">📄 setup.py</span> (3.8 KiB)
 ├── <span style="color: #bd93f9;">📄 requirements.txt</span> (512 B)
-└── 📂 src (48.6 KB)
-    ├── <span style="color: #83e43d;">📄 main.py</span> (12.4 KB)
-    ├── <span style="color: #83e43d;">📄 utils.py</span> (8.2 KB)
-    └── 📂 tests (28.0 KB)
-        ├── <span style="color: #83e43d;">📄 test_main.py</span> (18.6 KB)
-        └── <span style="color: #83e43d;">📄 test_utils.py</span> (9.4 KB)</pre>
+└── 📂 src (48.6 KiB)
+    ├── <span style="color: #83e43d;">📄 main.py</span> (12.4 KiB)
+    ├── <span style="color: #83e43d;">📄 utils.py</span> (8.2 KiB)
+    └── 📂 tests (28.0 KiB)
+        ├── <span style="color: #83e43d;">📄 test_main.py</span> (18.6 KiB)
+        └── <span style="color: #83e43d;">📄 test_utils.py</span> (9.4 KiB)</pre>
     </div>
   </div>
 </div>
@@ -200,16 +200,16 @@ recursivist visualize --sort-by-loc --size --mtime
   </div>
   <div class="terminal-body">
     <div class="terminal-output">
-      <pre>📂 my-project (1262 lines, 57.1 KB, Today 14:30)
-├── <span style="color: #f1fa8c;">📄 README.md</span> (124 lines, 4.2 KB, Today 10:15)
-├── <span style="color: #83e43d;">📄 setup.py</span> (65 lines, 3.8 KB, Today 09:00)
+      <pre>📂 my-project (1262 lines, 57.1 KiB, Today 14:30)
+├── <span style="color: #f1fa8c;">📄 README.md</span> (124 lines, 4.2 KiB, Today 10:15)
+├── <span style="color: #83e43d;">📄 setup.py</span> (65 lines, 3.8 KiB, Today 09:00)
 ├── <span style="color: #bd93f9;">📄 requirements.txt</span> (18 lines, 512 B, Yesterday 16:00)
-└── 📂 src (1055 lines, 48.6 KB, Today 14:30)
-    ├── <span style="color: #83e43d;">📄 main.py</span> (245 lines, 12.4 KB, Today 14:30)
-    ├── <span style="color: #83e43d;">📄 utils.py</span> (157 lines, 8.2 KB, Today 09:15)
-    └── 📂 tests (653 lines, 28.0 KB, Today 14:25)
-        ├── <span style="color: #83e43d;">📄 test_main.py</span> (412 lines, 18.6 KB, Today 14:25)
-        └── <span style="color: #83e43d;">📄 test_utils.py</span> (241 lines, 9.4 KB, Yesterday 18:10)</pre>
+└── 📂 src (1055 lines, 48.6 KiB, Today 14:30)
+    ├── <span style="color: #83e43d;">📄 main.py</span> (245 lines, 12.4 KiB, Today 14:30)
+    ├── <span style="color: #83e43d;">📄 utils.py</span> (157 lines, 8.2 KiB, Today 09:15)
+    └── 📂 tests (653 lines, 28.0 KiB, Today 14:25)
+        ├── <span style="color: #83e43d;">📄 test_main.py</span> (412 lines, 18.6 KiB, Today 14:25)
+        └── <span style="color: #83e43d;">📄 test_utils.py</span> (241 lines, 9.4 KiB, Yesterday 18:10)</pre>
     </div>
   </div>
 </div>

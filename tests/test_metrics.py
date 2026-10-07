@@ -398,24 +398,24 @@ class TestFormatSize:
             (10, "10 B"),
             (999, "999 B"),
             (1023, "1023 B"),
-            (1024, "1.0 KB"),
-            (1500, "1.5 KB"),
-            (10 * 1024, "10.0 KB"),
-            (1023.9 * 1024, "1023.9 KB"),
-            (1024 * 1024 - 52, "1023.9 KB"),
-            (1024 * 1024 - 51, "1.0 MB"),
-            (1024 * 1024 - 1, "1.0 MB"),
-            (1024 * 1024, "1.0 MB"),
-            (1.5 * 1024 * 1024, "1.5 MB"),
-            (10 * 1024 * 1024, "10.0 MB"),
-            (1023.9 * 1024 * 1024, "1023.9 MB"),
-            (1024**3 - 1, "1.0 GB"),
-            (1024**4 - 1, "1024.0 GB"),
-            (1024 * 1024 * 1024, "1.0 GB"),
-            (1.5 * 1024 * 1024 * 1024, "1.5 GB"),
-            (10 * 1024 * 1024 * 1024, "10.0 GB"),
+            (1024, "1.0 KiB"),
+            (1500, "1.5 KiB"),
+            (10 * 1024, "10.0 KiB"),
+            (1023.9 * 1024, "1023.9 KiB"),
+            (1024 * 1024 - 52, "1023.9 KiB"),
+            (1024 * 1024 - 51, "1.0 MiB"),
+            (1024 * 1024 - 1, "1.0 MiB"),
+            (1024 * 1024, "1.0 MiB"),
+            (1.5 * 1024 * 1024, "1.5 MiB"),
+            (10 * 1024 * 1024, "10.0 MiB"),
+            (1023.9 * 1024 * 1024, "1023.9 MiB"),
+            (1024**3 - 1, "1.0 GiB"),
+            (1024**4 - 1, "1024.0 GiB"),
+            (1024 * 1024 * 1024, "1.0 GiB"),
+            (1.5 * 1024 * 1024 * 1024, "1.5 GiB"),
+            (10 * 1024 * 1024 * 1024, "10.0 GiB"),
             (-1, "-1 B"),
-            (1024 * 1024 * 1024 * 1024, "1024.0 GB"),
+            (1024 * 1024 * 1024 * 1024, "1024.0 GiB"),
         ],
     )
     def test_format_size(self, size: float, expected: str) -> None:
@@ -541,10 +541,10 @@ class TestFormatFunctions:
         _, unit = result.split(" ", 1)
         assert unit in [
             "B",
-            "KB",
-            "MB",
-            "GB",
-        ], f"Unit should be one of B, KB, MB, GB, got {unit}"
+            "KiB",
+            "MiB",
+            "GiB",
+        ], f"Unit should be one of B, KiB, MiB, GiB, got {unit}"
 
     @given(st.floats(min_value=1, max_value=1672531200))
     @settings(max_examples=100)
@@ -581,18 +581,18 @@ class TestFormatMetrics:
         assert format_metrics(loc=0, metrics=("loc",)) == "(0 lines)"
 
     def test_size_only(self) -> None:
-        assert format_metrics(size=1536, metrics=("size",)) == "(1.5 KB)"
+        assert format_metrics(size=1536, metrics=("size",)) == "(1.5 KiB)"
 
     def test_mtime_only(self) -> None:
         assert format_metrics(mtime=0.0, metrics=("mtime",)) == "(-)"
 
     def test_order_is_respected(self) -> None:
-        assert format_metrics(50, 1536, 0.0, ("size", "loc")) == "(1.5 KB, 50 lines)"
-        assert format_metrics(50, 1536, 0.0, ("loc", "size")) == "(50 lines, 1.5 KB)"
+        assert format_metrics(50, 1536, 0.0, ("size", "loc")) == "(1.5 KiB, 50 lines)"
+        assert format_metrics(50, 1536, 0.0, ("loc", "size")) == "(50 lines, 1.5 KiB)"
 
     def test_all_three_in_order(self) -> None:
         result = format_metrics(50, 1536, 0.0, ("loc", "size", "mtime"))
-        assert result == "(50 lines, 1.5 KB, -)"
+        assert result == "(50 lines, 1.5 KiB, -)"
 
     def test_unknown_metric_names_are_skipped(self) -> None:
         assert format_metrics(50, 1536, 0.0, ("bogus", "loc")) == "(50 lines)"
@@ -613,7 +613,7 @@ class TestFormatDirMetrics:
 
     def test_reads_totals_from_directory(self) -> None:
         content = Directory(loc=100, size=2048, mtime=0.0)
-        assert format_dir_metrics(content, ("loc", "size")) == " (100 lines, 2.0 KB)"
+        assert format_dir_metrics(content, ("loc", "size")) == " (100 lines, 2.0 KiB)"
 
     def test_only_present_metrics_included(self) -> None:
         """A requested metric the directory holds no total for is dropped."""
@@ -622,7 +622,7 @@ class TestFormatDirMetrics:
 
     def test_requested_order_preserved(self) -> None:
         content = Directory(loc=100, size=2048)
-        assert format_dir_metrics(content, ("size", "loc")) == " (2.0 KB, 100 lines)"
+        assert format_dir_metrics(content, ("size", "loc")) == " (2.0 KiB, 100 lines)"
 
     def test_zero_totals_are_still_shown(self) -> None:
         assert format_dir_metrics(Directory(loc=0, size=0), ("loc", "size")) == (
