@@ -43,7 +43,7 @@ class SvgExporter(BaseExporter):
             is_empty=not has_contents(self.structure),
         )
         root_label = f"{root_icon} {self.root_name}" + format_dir_metrics(
-            self.structure, self.metrics, self.date_format
+            self.structure, self.metrics, self.date_format, self.size_format
         )
 
         tree = Tree(Text(root_label))

@@ -80,7 +80,7 @@ class BaseExporter:
     [`DisplayOptions`][recursivist.flags.DisplayOptions]; the actual output is produced
     by each subclass's [`export`][recursivist.exporters.base.BaseExporter.export]. For
     convenience, the individual pieces of the spec are also exposed as plain attributes
-    (``metrics``, ``sort_key``, ``date_format``,
+    (``metrics``, ``sort_key``, ``date_format``, ``size_format``,
     ``show_loc``/``show_size``/``show_mtime``/``show_git_status``) for exporters to read
     directly.
 
@@ -124,6 +124,7 @@ class BaseExporter:
         self.show_mtime = self.spec.show_mtime
         self.show_git_status = self.spec.show_git_status
         self.date_format = self.spec.date_format
+        self.size_format = self.spec.size_format
         self.icon_style = icon_style
 
     def export(self, output_path: str) -> None:

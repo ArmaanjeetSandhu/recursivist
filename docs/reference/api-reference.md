@@ -45,7 +45,7 @@ from recursivist.flags import DisplayOptions
 spec = DisplayOptions(sort_key="loc", metrics=("loc", "size"))
 ```
 
-`sort_key` is one of `"loc"`, `"size"`, `"mtime"`, `"git_status"`, `"similarity"`, or `None` (the default extension/name order). `metrics` is the ordered tuple of numeric metrics to display, and `show_git_status` toggles the Git-status marker. `date_format` is how a modification time is written: `"relative"` (the default, `Today 14:30`) or `"iso"` (`2026-10-07T12:30:41Z`). The `export` command passes `"iso"`; an exporter built directly from a `DisplayOptions` uses whichever the spec holds. To build a `DisplayOptions` from raw CLI flags, use [`resolve_display_options`][recursivist.flags.resolve_display_options], passing the flag ids in the order they were given as `order`.
+`sort_key` is one of `"loc"`, `"size"`, `"mtime"`, `"git_status"`, `"similarity"`, or `None` (the default extension/name order). `metrics` is the ordered tuple of numeric metrics to display, and `show_git_status` toggles the Git-status marker. `date_format` is how a modification time is written: `"relative"` (the default, `Today 14:30`) or `"iso"` (`2026-10-07T12:30:41Z`). The `export` command passes `"iso"`; an exporter built directly from a `DisplayOptions` uses whichever the spec holds. `size_format` is the units a file size is written in: `"iec"` (the default, `4.2 MiB`) or `"si"` (`4.4 MB`). To build a `DisplayOptions` from raw CLI flags, use [`resolve_display_options`][recursivist.flags.resolve_display_options], passing the flag ids in the order they were given as `order`.
 
 ## Example: Custom Analysis Script
 

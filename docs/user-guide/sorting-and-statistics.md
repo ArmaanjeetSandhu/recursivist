@@ -49,7 +49,7 @@ Every line of a text file is counted, blank lines and comments included. Files a
 
 ## File Sizes
 
-Display sizes with units (B, KiB, MiB, GiB), largest first:
+Display sizes with units (B, KiB, MiB, GiB), largest first. A directory shows the total size of the files beneath it:
 
 ```bash
 recursivist visualize --sort-by-size
@@ -79,6 +79,54 @@ recursivist visualize --sort-by-size
     </div>
   </div>
 </div>
+
+### Size Format
+
+A size is written in one of two formats, chosen with `--size-format`:
+
+| Format | Example   | Units         | Description                                                   |
+| ------ | --------- | ------------- | ------------------------------------------------------------- |
+| `iec`  | `4.2 MiB` | KiB, MiB, GiB | Binary units, each 1024 times the one before it (the default) |
+| `si`   | `4.4 MB`  | kB, MB, GB    | Decimal units, each 1000 times the one before it              |
+
+Both examples are the same file of 4,400,000 bytes. In either format, a size below the first unit is written as a whole number of bytes (`512 B`), and anything larger with one decimal place.
+
+```bash
+recursivist visualize --sort-by-size --size-format si
+```
+
+<div class="terminal-demo">
+  <div class="terminal-header">
+    <div class="terminal-buttons">
+      <div class="terminal-button red"></div>
+      <div class="terminal-button yellow"></div>
+      <div class="terminal-button green"></div>
+    </div>
+    <div class="terminal-title">recursivist-demo ~ bash</div>
+  </div>
+  <div class="terminal-body">
+    <div class="terminal-output">
+      <pre>📂 my-project (58.5 kB)
+├── <span style="color: #f1fa8c;">📄 README.md</span> (4.3 kB)
+├── <span style="color: #83e43d;">📄 setup.py</span> (3.9 kB)
+├── <span style="color: #bd93f9;">📄 requirements.txt</span> (512 B)
+└── 📂 src (49.8 kB)
+    ├── <span style="color: #83e43d;">📄 main.py</span> (12.7 kB)
+    ├── <span style="color: #83e43d;">📄 utils.py</span> (8.4 kB)
+    └── 📂 tests (28.7 kB)
+        ├── <span style="color: #83e43d;">📄 test_main.py</span> (19.0 kB)
+        └── <span style="color: #83e43d;">📄 test_utils.py</span> (9.6 kB)</pre>
+    </div>
+  </div>
+</div>
+
+The default is `iec` everywhere: in `visualize`, in `export`, and in `compare`, in the terminal and saved with `--save`. To change the format for every run, save it as the `size-format` [setting](configuration.md#settings), which applies to all of them:
+
+```bash
+recursivist config set size-format si
+```
+
+The option only changes _how_ a size is written, not the order files are sorted in. It has no effect unless `--size` or `--sort-by-size` is given.
 
 ## Modification Times
 
@@ -168,7 +216,7 @@ A relative time is read at a glance in the terminal, but `Today 14:30` stops bei
 recursivist config set date-format iso
 ```
 
-The option only changes *how* a time is written. It has no effect unless `--mtime` or `--sort-by-mtime` is given.
+The option only changes _how_ a time is written. It has no effect unless `--mtime` or `--sort-by-mtime` is given.
 
 ## Displaying Without Sorting
 
@@ -308,6 +356,7 @@ recursivist compare dir1 dir2 --git-status
 
 - Each export format writes the annotations in its own way; [Export Formats](../reference/export-formats.md) shows them.
 - Exports, and a comparison saved with `--save`, write modification times in the `iso` [date format](#date-format) unless `--date-format relative` is given.
+- Sizes are written in the `iec` [size format](#size-format) in every output unless `--size-format si` is given or the `size-format` setting says otherwise.
 - In `compare`, the legend notes which metrics and ordering are active, and Git status is read independently for each directory. This way, both sides are annotated correctly even when they belong to different repositories.
-- In `compare`, two files of the same name are highlighted as different when their annotations read differently. With `--mtime`, that follows the date format: `iso` tells apart files modified a second apart, while `relative` only tells them apart when the coarser text differs.
+- In `compare`, two files of the same name are highlighted as different when their annotations read differently. With `--mtime`, that follows the date format: `iso` tells apart files modified a second apart, while `relative` only tells them apart when the coarser text differs. With `--size`, it follows the size format in the same way: two sizes that round to the same text in one format can differ in the other.
 - For a GitHub repository URL, lines of code and size apply, while the Git-status and modification-time flags are skipped. See [GitHub Repositories](github-repositories.md#which-options-apply).

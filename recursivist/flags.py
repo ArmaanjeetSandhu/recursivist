@@ -79,8 +79,8 @@ class DisplayOptions:
     This is the value produced by [`resolve_flags`][recursivist.flags.resolve_flags] and
     threaded through the renderers and exporters. It keeps two concerns separate: *how
     files are ordered* (`sort_key`) and *what is annotated, and in what order*
-    (`metrics` plus `show_git_status`), along with how a modification time is written
-    (`date_format`).
+    (`metrics` plus `show_git_status`), along with how a modification time
+    (`date_format`) and a file size (`size_format`) are written.
 
     Attributes:
         sort_key: The single metric files are ordered by — one of `METRIC_LOC`,
@@ -94,12 +94,16 @@ class DisplayOptions:
             for the recency-aware form (``Today 14:30``) or ``"iso"`` for ISO 8601 in
             UTC (``2026-10-07T12:30:41Z``). See
             [`format_timestamp`][recursivist.metrics.format_timestamp].
+        size_format: The units the file-size annotation is written in: ``"iec"`` for
+            powers of 1024 (``4.2 MiB``) or ``"si"`` for powers of 1000 (``4.4 MB``).
+            See [`format_size`][recursivist.metrics.format_size].
     """
 
     sort_key: str | None = None
     metrics: tuple[str, ...] = ()
     show_git_status: bool = False
     date_format: str = "relative"
+    size_format: str = "iec"
 
     @property
     def show_loc(self) -> bool:
@@ -124,7 +128,7 @@ class DisplayOptions:
         Git-status badge and the modification-time metric are dropped, and a sort keyed
         on either falls back to the default ordering. The lines-of-code and size metrics
         are retained, since those are computed from the file contents themselves. The
-        date format is kept as it is.
+        date and size formats are kept as they are.
 
         Returns:
             A [`DisplayOptions`][recursivist.flags.DisplayOptions] with Git status and
@@ -139,6 +143,7 @@ class DisplayOptions:
             metrics=metrics,
             show_git_status=False,
             date_format=self.date_format,
+            size_format=self.size_format,
         )
 
 
@@ -202,6 +207,7 @@ def resolve_display_options(
     disp_git: bool = False,
     order: Sequence[str] = (),
     date_format: str = "relative",
+    size_format: str = "iec",
 ) -> DisplayOptions:
     """Resolve the raw per-flag booleans into
     [`DisplayOptions`][recursivist.flags.DisplayOptions].
@@ -229,6 +235,8 @@ def resolve_display_options(
         date_format: How modification times are written, either ``"relative"`` or
             ``"iso"``. Unlike the flags above, its position on the command line does
             not matter.
+        size_format: The units file sizes are written in, either ``"iec"`` or ``"si"``.
+            Its position on the command line does not matter either.
 
     Returns:
         The resolved [`DisplayOptions`][recursivist.flags.DisplayOptions].
@@ -262,4 +270,5 @@ def resolve_display_options(
         metrics=resolved.metrics,
         show_git_status=resolved.show_git_status,
         date_format=date_format,
+        size_format=size_format,
     )

@@ -41,6 +41,7 @@ The following options are common to `visualize`, `export`, and `compare`.
 | `--git-status`         | `-G`  |                  | Display Git status markers without affecting sort order                        |
 | `--icon-style`         |       | `emoji`/`nerd`   | Icon style                                                                     |
 | `--date-format`        |       | `relative`/`iso` | Format of modification times                                                   |
+| `--size-format`        |       | `iec`/`si`       | Format of file sizes                                                           |
 | `--verbose`            | `-v`  |                  | Enable verbose (DEBUG) logging                                                 |
 
 Notes:
@@ -51,6 +52,7 @@ Notes:
 - **`--exclude`**, when omitted, falls back to the directories named by the `exclude` [setting](../user-guide/configuration.md#settings), if it is set. Directories given with `--exclude` are used in place of the configured ones for that run, not on top of them, and `--exclude ""` excludes no directory.
 - **`--icon-style`**, when omitted, falls back to the `icon-style` setting in `visualize` and in `compare` in the terminal; `export` and `compare --save` default to `emoji`.
 - **`--date-format`** sets how the modification times shown by `--mtime` and `--sort-by-mtime` are written; it has no effect without one of them. When omitted, it falls back to the `date-format` setting (`relative` unless changed) in `visualize` and in `compare` in the terminal; `export` and `compare --save` default to `iso`. See [Date Format](../user-guide/sorting-and-statistics.md#date-format).
+- **`--size-format`** sets the units of the file sizes shown by `--size` and `--sort-by-size`: `iec` for powers of 1024 (`4.2 MiB`) or `si` for powers of 1000 (`4.4 MB`). It has no effect without one of them. When omitted, it falls back to the `size-format` setting (`iec` unless changed) in every command. See [Size Format](../user-guide/sorting-and-statistics.md#size-format).
 
 ## Sorting and Display Flags
 
@@ -116,6 +118,7 @@ recursivist visualize --exclude-pattern "^test_.*\.py$" --regex
 recursivist visualize --sort-by-loc --size       # sort by LOC, show LOC and size
 recursivist visualize --mtime --git-status       # annotate only: mtime, then Git status
 recursivist visualize --mtime --date-format iso  # modification times as ISO 8601, in UTC
+recursivist visualize --size --size-format si    # sizes in kB, MB, GB instead of KiB, MiB, GiB
 recursivist visualize https://github.com/owner/repo/tree/main/src -l    # a subtree, showing blob URLs
 ```
 
@@ -147,6 +150,7 @@ recursivist export --format "json html md"
 recursivist export --format txt --output-dir ./exports --prefix my-project
 recursivist export --format html --sort-by-loc --size   # sort by LOC, show LOC and size
 recursivist export --format md --mtime --date-format relative   # "Today 14:30" instead of ISO 8601
+recursivist export --format json --size --size-format si        # sizes in kB, MB, GB
 recursivist export https://github.com/owner/repo --format md -l       # blob URLs as full paths
 ```
 
@@ -199,11 +203,11 @@ recursivist config list [OPTIONS] [DIRECTORY]
 recursivist config path
 ```
 
-| Argument    | Description                                                                                                                                                                            |
-| ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `KEY`       | Configuration key: `icon-style`, `date-format`, `ignore-file`, or `exclude`                                                                                                            |
-| `VALUE`     | Value to set: `emoji` or `nerd` for `icon-style`, `relative` or `iso` for `date-format`, a file name such as `.gitignore` for `ignore-file`, one or more directory names for `exclude` |
-| `DIRECTORY` | Directory whose project configuration applies, for `config list` (defaults to the current directory)                                                                                   |
+| Argument    | Description                                                                                                                                                                                                             |
+| ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `KEY`       | Configuration key: `icon-style`, `date-format`, `size-format`, `ignore-file`, or `exclude`                                                                                                                              |
+| `VALUE`     | Value to set: `emoji` or `nerd` for `icon-style`, `relative` or `iso` for `date-format`, `iec` or `si` for `size-format`, a file name such as `.gitignore` for `ignore-file`, one or more directory names for `exclude` |
+| `DIRECTORY` | Directory whose project configuration applies, for `config list` (defaults to the current directory)                                                                                                                    |
 
 The subcommands write only your user preferences file. A project configuration file is never created, changed, or removed; `config list` is the only subcommand that reads one.
 
@@ -257,6 +261,7 @@ recursivist config list ./my-project
     <div class="terminal-output">
       <pre>icon-style  = nerd                (project: /home/me/my-project/.recursivist.toml)
 date-format = relative            (default)
+size-format = iec                 (default)
 ignore-file = .gitignore          (user: /home/me/.config/recursivist/config.json)
 exclude     = node_modules, .git  (user: /home/me/.config/recursivist/config.json)</pre>
     </div>
@@ -290,6 +295,10 @@ date-format = relative
     project  (not set)           /home/me/my-project/.recursivist.toml
     user     (not set)           /home/me/.config/recursivist/config.json
   * default  relative
+size-format = iec
+    project  (not set)           /home/me/my-project/.recursivist.toml
+    user     (not set)           /home/me/.config/recursivist/config.json
+  * default  iec
 ignore-file = .gitignore
     project  (not set)           /home/me/my-project/.recursivist.toml
   * user     .gitignore          /home/me/.config/recursivist/config.json
@@ -330,6 +339,11 @@ recursivist config list ./my-project --json
     "layer": "default",
     "source": null
   },
+  "size-format": {
+    "value": "iec",
+    "layer": "default",
+    "source": null
+  },
   "ignore-file": {
     "value": ".gitignore",
     "layer": "user",
@@ -352,7 +366,7 @@ With `--all` as well, each entry also has a `layers` array holding the same thre
 
 Only the listing is written to standard output, ready to pipe to another program; warnings about a configuration file, and the error for a `DIRECTORY` that is not a directory, go to standard error. An invalid value is reported with a warning and counts as not set, as it does for a run. Nothing is created or changed.
 
-A command-line flag such as `--icon-style`, `--date-format`, `--ignore-file`, or `--exclude` still overrides the listed value for a run. Exports use the `emoji` icon style unless `--icon-style` is given, and the `iso` date format unless `--date-format` is given.
+A command-line flag such as `--icon-style`, `--date-format`, `--size-format`, `--ignore-file`, or `--exclude` still overrides the listed value for a run. Exports use the `emoji` icon style unless `--icon-style` is given, and the `iso` date format unless `--date-format` is given.
 
 ### `config path`
 
@@ -363,6 +377,7 @@ Prints where the user preferences file is on your system. The path is the only o
 ```bash
 recursivist config set icon-style nerd
 recursivist config set date-format iso          # ISO 8601 modification times in the terminal
+recursivist config set size-format si           # sizes in kB, MB, GB on every run
 recursivist config set ignore-file .gitignore   # honor .gitignore on every run
 recursivist config set exclude node_modules .git   # leave these directories out of every run
 recursivist config unset icon-style

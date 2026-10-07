@@ -10,8 +10,8 @@ Main commands:
         optional statistics.
     export: Export a directory structure to TXT, JSON, HTML, MD, SVG, or RST.
     compare: Compare two directory structures with highlighted differences.
-    config: Manage persistent user preferences like the icon style, the date format,
-        and the ignore file.
+    config: Manage persistent user preferences like the icon style, the date and size
+        formats, and the ignore file.
     version: Display the current version information.
 
 The visualize, export, and compare commands accept a GitHub repository URL anywhere they
@@ -26,6 +26,7 @@ All commands share a consistent set of filtering and display options:
     - Full-path display option.
     - File statistics with sorting by lines of code, size, or modification time.
     - Modification times in a relative or an ISO 8601 format.
+    - File sizes in IEC (KiB, MiB, GiB) or SI (kB, MB, GB) units.
 """
 
 import contextlib
@@ -55,6 +56,7 @@ from recursivist.config import (
     ConfigLayer,
     DateFormat,
     IconStyle,
+    SizeFormat,
     accepts_value,
     delete_config_file,
     describe_accepted_values,
@@ -168,6 +170,10 @@ HELP_GIT_STATUS = (
 HELP_DATE_FORMAT = (
     "Format of modification times: 'relative' (Today 14:30) or 'iso' "
     "(2026-10-07T12:30:41Z, in UTC)."
+)
+HELP_SIZE_FORMAT = (
+    "Format of file sizes: 'iec' (powers of 1024: KiB, MiB, GiB) or 'si' "
+    "(powers of 1000: kB, MB, GB)."
 )
 HELP_VERBOSE = "Enable verbose output"
 
@@ -285,6 +291,15 @@ OutputDirOption = Annotated[
 OutputPrefixOption = Annotated[
     str | None, typer.Option("--prefix", "-n", help="Prefix for exported filenames")
 ]
+SizeFormatOption = Annotated[
+    SizeFormat | None,
+    typer.Option(
+        "--size-format",
+        help=(
+            f"{HELP_SIZE_FORMAT} Defaults to the project config, then the user config."
+        ),
+    ),
+]
 VerboseOption = Annotated[bool, typer.Option("--verbose", "-v", help=HELP_VERBOSE)]
 
 
@@ -349,7 +364,10 @@ def config_set(
     key: Annotated[
         str,
         typer.Argument(
-            help="Configuration key (icon-style, date-format, ignore-file, or exclude)"
+            help=(
+                "Configuration key (icon-style, date-format, size-format, "
+                "ignore-file, or exclude)"
+            )
         ),
     ],
     value: Annotated[
@@ -366,15 +384,17 @@ def config_set(
 
     Saves a user preference to the global configuration file. The keys are
     `icon-style` (`emoji` or `nerd`), `date-format` (`relative` or `iso`, the
-    format of modification times), `ignore-file` (the name of an ignore file
-    to honor, such as `.gitignore`), and `exclude` (directory names to
-    exclude). `exclude` takes one name per argument and replaces the saved
-    names as a whole; every other key takes exactly one value. A project
-    configuration file overrides the value saved here.
+    format of modification times), `size-format` (`iec` or `si`, the format
+    of file sizes), `ignore-file` (the name of an ignore file to honor, such
+    as `.gitignore`), and `exclude` (directory names to exclude). `exclude`
+    takes one name per argument and replaces the saved names as a whole;
+    every other key takes exactly one value. A project configuration file
+    overrides the value saved here.
 
     Examples:
         >>> recursivist config set icon-style nerd
         >>> recursivist config set date-format iso
+        >>> recursivist config set size-format si
         >>> recursivist config set ignore-file .gitignore
         >>> recursivist config set exclude node_modules .git "Application Support"
     """
@@ -475,8 +495,8 @@ def config_reset(
 
     try:
         delete_config_file()
-    except OSError as e:
-        logger.exception("Could not remove the configuration file: %s", e)
+    except OSError:
+        logger.exception("Could not remove the configuration file")
         raise typer.Exit(1) from None
     typer.echo(
         f"Configuration reset: removed {entries}" if entries else "Configuration reset"
@@ -838,7 +858,7 @@ def _parse_filter_options(
             [*parsed_exclude_patterns, *parsed_include_patterns], use_regex
         )
     except InvalidPatternError as e:
-        logger.exception(MSG_ERROR, e, exc_info=verbose)
+        logger.error(MSG_ERROR, e, exc_info=verbose)
         raise typer.Exit(1) from None
     exclude_exts_set = normalize_extensions(parsed_exclude_exts)
     if exclude_exts_set:
@@ -1015,6 +1035,41 @@ def _with_date_format(
     else:
         resolved = "relative"
     return replace(spec, date_format=resolved)
+
+
+def _with_size_format(
+    spec: DisplayOptions,
+    size_format: SizeFormat | None,
+    configured: Callable[[], dict[str, Any]],
+) -> DisplayOptions:
+    """Return *spec* with the format of its file sizes chosen.
+
+    The ``--size-format`` option wins whenever it is given. Without it, the
+    ``size-format`` configuration setting is used, in the terminal and in output
+    written to a file alike: unlike a relative time, a size reads the same wherever and
+    whenever it is read.
+
+    The configuration is only read when the format decides something, that is, when
+    *spec* displays file sizes.
+
+    Args:
+        spec: The resolved sorting and annotation directives.
+        size_format: The value of the ``--size-format`` option, or ``None`` when it was
+            not given.
+        configured: The function returned by `_config_reader`.
+
+    Returns:
+        A [`DisplayOptions`][recursivist.flags.DisplayOptions] equal to *spec* except
+        for its size format.
+    """
+    resolved: str
+    if size_format is not None:
+        resolved = size_format
+    elif spec.show_size:
+        resolved = configured().get("size_format") or "iec"
+    else:
+        resolved = "iec"
+    return replace(spec, size_format=resolved)
 
 
 def _warn_if_ignore_file_missing(
@@ -1307,6 +1362,7 @@ def _plan_tree_scan(
     show_git_status: bool,
     icon_style: IconStyle | None,
     date_format: DateFormat | None,
+    size_format: SizeFormat | None,
     verbose: bool,
     use_configured_icon_style: bool,
     use_configured_date_format: bool,
@@ -1316,9 +1372,9 @@ def _plan_tree_scan(
     Runs the option handling both commands have in common, in the order its messages
     are logged: recognizing a GitHub input, resolving the sorting and annotation flags,
     validating a local directory, choosing the ignore file, the icon style and the date
-    format, logging the display options, and parsing the filters. For a GitHub input
-    the options that do not apply to a hosted repository are dropped, and reported when
-    they were given.
+    and size formats, logging the display options, and parsing the filters. For a
+    GitHub input the options that do not apply to a hosted repository are dropped, and
+    reported when they were given.
 
     Apart from the three below, the arguments are the command options of the same name,
     as received from Typer and documented on `visualize`.
@@ -1380,6 +1436,7 @@ def _plan_tree_scan(
         date_format,
         configured if use_configured_date_format else None,
     )
+    spec = _with_size_format(spec, size_format, configured)
 
     _log_display_options(max_depth, show_full_path, spec)
     dirs, extensions, excludes, includes = _parse_filter_options(
@@ -1504,6 +1561,7 @@ def visualize(
             ),
         ),
     ] = None,
+    size_format: SizeFormatOption = None,
     verbose: VerboseOption = False,
 ) -> None:
     """Visualize a directory structure as a tree in the terminal.
@@ -1518,8 +1576,9 @@ def visualize(
     Only the first `--sort-by-*` flag on the command line takes effect, while
     every display flag (`--loc`, `--size`, `--mtime`, `--git-status`)
     annotates, in the order given. Modification times are written in the
-    `relative` form (`Today 14:30`) unless `--date-format iso` or the
-    `date-format` setting asks for ISO 8601 in UTC.
+    `relative` form unless `--date-format iso` or the `date-format` setting
+    asks for ISO 8601 in UTC. File sizes are written in IEC units unless
+    `--size-format si` or the `size-format` setting asks for SI units.
 
     Examples:
         >>> recursivist visualize
@@ -1527,6 +1586,7 @@ def visualize(
         >>> recursivist visualize -p "*.test.js" -d 2
         >>> recursivist visualize --sort-by-loc --size
         >>> recursivist visualize --mtime --date-format iso
+        >>> recursivist visualize --size --size-format si
         >>> recursivist visualize https://github.com/owner/repo/tree/main/src
     """
     _enable_verbose_if_requested(verbose)
@@ -1553,6 +1613,7 @@ def visualize(
         show_git_status=show_git_status,
         icon_style=icon_style,
         date_format=date_format,
+        size_format=size_format,
         verbose=verbose,
         use_configured_icon_style=True,
         use_configured_date_format=True,
@@ -1632,6 +1693,7 @@ def export(
             ),
         ),
     ] = None,
+    size_format: SizeFormatOption = None,
     verbose: VerboseOption = False,
 ) -> None:
     """Export a directory structure to one or more file formats.
@@ -1647,13 +1709,16 @@ def export(
     Only the first `--sort-by-*` flag on the command line takes effect, while
     every display flag (`--loc`, `--size`, `--mtime`, `--git-status`)
     annotates, in the order given. Exports write modification times as ISO
-    8601 in UTC unless `--date-format relative` is given.
+    8601 in UTC unless `--date-format relative` is given. File sizes are
+    written in IEC units unless `--size-format si` or the `size-format`
+    setting asks for SI units.
 
     Examples:
         >>> recursivist export
         >>> recursivist export /path/to/project -f html -o ./exports
         >>> recursivist export -f "json md html"
         >>> recursivist export -f md --mtime --date-format relative
+        >>> recursivist export -f md --size --size-format si
         >>> recursivist export https://github.com/owner/repo -f md -l
     """
     _enable_verbose_if_requested(verbose)
@@ -1692,6 +1757,7 @@ def export(
         show_git_status=show_git_status,
         icon_style=icon_style,
         date_format=date_format,
+        size_format=size_format,
         verbose=verbose,
         use_configured_icon_style=False,
         use_configured_date_format=False,
@@ -1798,6 +1864,7 @@ def compare(
             ),
         ),
     ] = None,
+    size_format: SizeFormatOption = None,
     verbose: VerboseOption = False,
 ) -> None:
     """Compare two directory structures side by side.
@@ -1814,7 +1881,9 @@ def compare(
     every display flag (`--loc`, `--size`, `--mtime`, `--git-status`)
     annotates, in the order given. Modification times are written in the
     `relative` form in the terminal and as ISO 8601 in UTC in a saved HTML
-    file; `--date-format` chooses either for a run.
+    file; `--date-format` chooses either for a run. File sizes are written
+    in IEC units unless `--size-format si` or the `size-format` setting asks
+    for SI units.
 
     Examples:
         >>> recursivist compare dir1 dir2
@@ -1892,6 +1961,7 @@ def compare(
         ignore_file = _choose_ignore_file(local_paths, ignore_file, configured)
 
     spec = _with_date_format(spec, date_format, None if save_as_html else configured)
+    spec = _with_size_format(spec, size_format, configured)
 
     _log_display_options(max_depth, show_full_path, spec)
 

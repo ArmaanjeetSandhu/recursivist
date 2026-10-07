@@ -527,9 +527,11 @@ def test_checkout_repository_missing_subpath(
     )
     target = parse_github_url("https://github.com/o/r/tree/main/nope")
     assert target is not None
-    with pytest.raises(GitHubError, match="was not found"):
-        with checkout_repository(target):
-            pass
+    with (
+        pytest.raises(GitHubError, match="was not found"),
+        checkout_repository(target),
+    ):
+        pass
 
 
 def test_checkout_repository_download_404(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -539,9 +541,11 @@ def test_checkout_repository_download_404(monkeypatch: pytest.MonkeyPatch) -> No
     )
     target = parse_github_url("https://github.com/o/r")
     assert target is not None
-    with pytest.raises(GitHubError, match="Could not download"):
-        with checkout_repository(target):
-            pass
+    with (
+        pytest.raises(GitHubError, match="Could not download"),
+        checkout_repository(target),
+    ):
+        pass
 
 
 def test_checkout_repository_rejects_traversal(

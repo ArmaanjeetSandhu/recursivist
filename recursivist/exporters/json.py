@@ -87,7 +87,7 @@ class JsonExporter(BaseExporter):
                     result["loc"] = entry.loc
                 elif metric == "size":
                     result["size"] = entry.size
-                    result["size_formatted"] = format_size(entry.size)
+                    result["size_formatted"] = format_size(entry.size, self.size_format)
                 elif metric == "mtime":
                     result["mtime"] = entry.mtime
                     result["mtime_formatted"] = format_timestamp(
@@ -122,7 +122,7 @@ class JsonExporter(BaseExporter):
                 result["loc"] = directory.loc
             if self.show_size and directory.size is not None:
                 result["size"] = directory.size
-                result["size_formatted"] = format_size(directory.size)
+                result["size_formatted"] = format_size(directory.size, self.size_format)
             if self.show_mtime and directory.mtime is not None:
                 result["mtime"] = directory.mtime
                 result["mtime_formatted"] = format_timestamp(

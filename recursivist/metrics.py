@@ -16,6 +16,13 @@ from recursivist._models import Directory
 
 logger = logging.getLogger(__name__)
 
+_SIZE_UNITS: dict[str, tuple[int, tuple[str, ...]]] = {
+    "iec": (1024, ("KiB", "MiB", "GiB")),
+    "si": (1000, ("kB", "MB", "GB")),
+}
+"""The step between units and the unit labels above bytes, smallest first, for each
+size format."""
+
 
 def _open_nonblocking(path: str, flags: int) -> int:
     """Opener for [`open`][] that never waits for the other end of a named pipe.
@@ -111,29 +118,35 @@ def get_file_size(file_path: str) -> int:
         return 0
 
 
-def format_size(size_in_bytes: int) -> str:
+def format_size(size_in_bytes: int, size_format: str = "iec") -> str:
     """Format a byte count as a human-readable size string.
 
-    Scales the value to bytes, KiB, MiB, or GiB and formats it with one decimal place
-    for every unit above bytes. The unit is chosen after rounding: a value that rounds
-    up to 1024 moves to the next unit (``1048575`` is ``"1.0 MiB"``, not
-    ``"1024.0 KiB"``). GiB, the largest unit, is never promoted.
+    With the ``"iec"`` format the value is scaled by powers of 1024 to bytes, KiB, MiB,
+    or GiB. With the ``"si"`` format it is scaled by powers of 1000 to bytes, kB, MB, or
+    GB. Either way a size below one step is written as a whole number of bytes, and
+    every larger unit with one decimal place.
+
+    The unit is chosen after rounding: a value that rounds up to a full step moves to
+    the next unit (``1048575`` is ``"1.0 MiB"``, not ``"1024.0 KiB"``, and ``999950`` is
+    ``"1.0 MB"``, not ``"1000.0 kB"``). The largest unit, GiB or GB, is never promoted.
 
     Args:
         size_in_bytes: Size in bytes.
+        size_format: The units to use, either ``"iec"`` or ``"si"``.
 
     Returns:
-        A human-readable size string (e.g. ``"512 B"`` or ``"4.2 MiB"``).
+        A human-readable size string (e.g. ``"512 B"``, ``"4.2 MiB"`` or ``"4.4 MB"``).
     """
-    if size_in_bytes < 1024:
+    step, units = _SIZE_UNITS["si" if size_format == "si" else "iec"]
+    if size_in_bytes < step:
         return f"{size_in_bytes} B"
-    value = size_in_bytes / 1024
-    for unit in ("KiB", "MiB"):
+    value = size_in_bytes / step
+    for unit in units[:-1]:
         text = f"{value:.1f}"
-        if float(text) < 1024:
+        if float(text) < step:
             return f"{text} {unit}"
-        value /= 1024
-    return f"{value:.1f} GiB"
+        value /= step
+    return f"{value:.1f} {units[-1]}"
 
 
 def get_file_mtime(file_path: str) -> float:
@@ -209,6 +222,7 @@ def format_metrics(
     mtime: float = 0.0,
     metrics: Sequence[str] = (),
     date_format: str = "relative",
+    size_format: str = "iec",
 ) -> str:
     """Build the parenthetical metrics annotation for a file or directory.
 
@@ -224,6 +238,8 @@ def format_metrics(
         metrics: The metrics to include, in display order.
         date_format: How the modification time is written, either ``"relative"`` or
             ``"iso"`` (see [`format_timestamp`][recursivist.metrics.format_timestamp]).
+        size_format: The units the size is written in, either ``"iec"`` or ``"si"``
+            (see [`format_size`][recursivist.metrics.format_size]).
 
     Returns:
         The annotation string including the surrounding parentheses, or an empty string
@@ -231,7 +247,7 @@ def format_metrics(
     """
     renderers = {
         "loc": lambda: f"{loc} line" if loc == 1 else f"{loc} lines",
-        "size": lambda: format_size(size),
+        "size": lambda: format_size(size, size_format),
         "mtime": lambda: format_timestamp(mtime, date_format),
     }
     parts = [renderers[m]() for m in metrics if m in renderers]
@@ -244,6 +260,7 @@ def format_metrics_suffix(
     mtime: float = 0.0,
     metrics: Sequence[str] = (),
     date_format: str = "relative",
+    size_format: str = "iec",
 ) -> str:
     """Like [`format_metrics`][recursivist.metrics.format_metrics] but prefixed with a
     single space.
@@ -251,7 +268,7 @@ def format_metrics_suffix(
     Convenient for appending directly after a file or directory name. Returns an empty
     string (no leading space) when *metrics* is empty.
     """
-    annotation = format_metrics(loc, size, mtime, metrics, date_format)
+    annotation = format_metrics(loc, size, mtime, metrics, date_format, size_format)
     return f" {annotation}" if annotation else ""
 
 
@@ -282,6 +299,7 @@ def format_dir_metrics(
     directory: Directory,
     metrics: Sequence[str] = (),
     date_format: str = "relative",
+    size_format: str = "iec",
 ) -> str:
     """Return the space-prefixed metrics suffix for a directory.
 
@@ -296,6 +314,7 @@ def format_dir_metrics(
         metrics: The metrics to display, in order.
         date_format: How the modification time is written, either ``"relative"`` or
             ``"iso"``.
+        size_format: The units the size is written in, either ``"iec"`` or ``"si"``.
 
     Returns:
         The metrics suffix (with a leading space) or an empty string.
@@ -306,4 +325,5 @@ def format_dir_metrics(
         directory.mtime or 0.0,
         recorded_dir_metrics(directory, metrics),
         date_format,
+        size_format,
     )

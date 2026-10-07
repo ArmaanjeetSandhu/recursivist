@@ -124,8 +124,8 @@ def _has_visible_entries(
         except PermissionError:
             logger.warning("Permission denied: %s", root_dir)
             return False
-        except Exception as e:
-            logger.exception("Error reading directory %s: %s", root_dir, e)
+        except Exception:
+            logger.exception("Error reading directory %s", root_dir)
             return False
     for item in items:
         item_path = os.path.join(root_dir, item)
@@ -421,8 +421,8 @@ def _scan_level(
         except PermissionError:
             logger.warning("Permission denied: %s", root_dir)
             return structure, extensions_set
-        except Exception as e:
-            logger.exception("Error reading directory %s: %s", root_dir, e)
+        except Exception:
+            logger.exception("Error reading directory %s", root_dir)
             return structure, extensions_set
     entries: Iterator[tuple[str, bool, bool]] = (
         (item, os.path.isdir(os.path.join(root_dir, item)), True) for item in items

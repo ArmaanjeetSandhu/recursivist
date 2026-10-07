@@ -124,6 +124,7 @@ class RstExporter(BaseExporter):
                         entry.mtime,
                         self.metrics,
                         self.date_format,
+                        self.size_format,
                     )
                     + _git_suffix
                 )
@@ -135,7 +136,9 @@ class RstExporter(BaseExporter):
                     is_empty=not has_contents(content),
                 )
 
-                metrics = format_dir_metrics(content, self.metrics, self.date_format)
+                metrics = format_dir_metrics(
+                    content, self.metrics, self.date_format, self.size_format
+                )
                 lines.append(
                     f"{indent}- {folder_icon} **{_rst_escape(name)}**{metrics}"
                 )
@@ -156,7 +159,7 @@ class RstExporter(BaseExporter):
             is_empty=not has_contents(self.structure),
         )
         root_title = f"{root_icon} {_rst_escape(self.root_name)}" + format_dir_metrics(
-            self.structure, self.metrics, self.date_format
+            self.structure, self.metrics, self.date_format, self.size_format
         )
 
         rst_content = [

@@ -531,9 +531,10 @@ def test_export_comparison_unsupported_format(
 ) -> None:
     dir1, dir2 = comparison_directories
     output_path = os.path.join(output_dir, f"comparison.{format_name}")
-    with pytest.raises(ValueError) as excinfo:
+    with pytest.raises(
+        ValueError, match="Only HTML format is supported for comparison export"
+    ):
         export_comparison(dir1, dir2, format_name, output_path)
-    assert "Only HTML format is supported for comparison export" in str(excinfo.value)
 
 
 def test_complex_comparison(

@@ -175,32 +175,40 @@ class TestGitStatusParsing:
     def test_rev_parse_failure_raises_with_git_message(self) -> None:
         """A non-zero ``rev-parse`` exit raises, carrying Git's error output."""
         root = _completed(128, b"", b"fatal: not a git repository\n")
-        with patch("subprocess.run", side_effect=[root]):
-            with pytest.raises(GitStatusError, match=r"^fatal: not a git repository$"):
-                get_git_status("/repo")
+        with (
+            patch("subprocess.run", side_effect=[root]),
+            pytest.raises(GitStatusError, match=r"^fatal: not a git repository$"),
+        ):
+            get_git_status("/repo")
 
     def test_status_failure_raises(self) -> None:
         """A non-zero ``git status`` exit raises, naming the command and exit status
         when Git printed nothing."""
         root = _completed(0, b"/repo\n")
         status = _completed(1, b"")
-        with patch("subprocess.run", side_effect=[root, status]):
-            with pytest.raises(GitStatusError, match="git status exited with status 1"):
-                get_git_status("/repo")
+        with (
+            patch("subprocess.run", side_effect=[root, status]),
+            pytest.raises(GitStatusError, match="git status exited with status 1"),
+        ):
+            get_git_status("/repo")
 
     def test_git_not_runnable_raises(self) -> None:
         """An ``OSError`` from launching Git (e.g. ``git`` missing) is raised as a
         ``GitStatusError`` chained to the original error."""
         error = FileNotFoundError("git missing")
-        with patch("subprocess.run", side_effect=error):
-            with pytest.raises(GitStatusError, match="git missing") as excinfo:
-                get_git_status("/repo")
+        with (
+            patch("subprocess.run", side_effect=error),
+            pytest.raises(GitStatusError, match="git missing") as excinfo,
+        ):
+            get_git_status("/repo")
         assert excinfo.value.__cause__ is error
 
     def test_relpath_value_error_is_ignored(self) -> None:
         """A ``ValueError`` from ``relpath`` (e.g. cross-drive) skips the entry."""
         root = _completed(0, b"/repo\n")
         status = _completed(0, b" M somefile.txt\0")
-        with patch("subprocess.run", side_effect=[root, status]):
-            with patch("os.path.relpath", side_effect=ValueError("different drive")):
-                assert get_git_status("/repo") == {}
+        with (
+            patch("subprocess.run", side_effect=[root, status]),
+            patch("os.path.relpath", side_effect=ValueError("different drive")),
+        ):
+            assert get_git_status("/repo") == {}

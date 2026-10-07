@@ -118,6 +118,7 @@ class HtmlExporter(BaseExporter):
                         entry.mtime,
                         self.metrics,
                         self.date_format,
+                        self.size_format,
                     )
                     + f"{_git_badge}</li>"
                 )
@@ -139,6 +140,7 @@ class HtmlExporter(BaseExporter):
                         content.mtime or 0.0,
                         enabled,
                         self.date_format,
+                        self.size_format,
                     )
                     metric_html = f' <span class="{css}">{inner}</span>'
                 html_content.append(
@@ -163,7 +165,7 @@ class HtmlExporter(BaseExporter):
         )
 
         title = f"{root_icon} {html.escape(self.root_name)}" + format_dir_metrics(
-            self.structure, self.metrics, self.date_format
+            self.structure, self.metrics, self.date_format, self.size_format
         )
         metric_styles = (
             f"""

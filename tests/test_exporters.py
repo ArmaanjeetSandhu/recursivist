@@ -186,9 +186,8 @@ def test_get_exporter_invalid_format(temp_dir: str) -> None:
     """Test getting an exporter with an invalid format."""
     structure = Directory(files=[FileEntry("file1.txt", "file1.txt")])
     root_name = os.path.basename(temp_dir)
-    with pytest.raises(ValueError) as excinfo:
+    with pytest.raises(ValueError, match="Unsupported export format"):
         get_exporter("invalid", structure=structure, root_name=root_name)
-    assert "Unsupported export format" in str(excinfo.value)
 
 
 class TestExporterFileOutput:
