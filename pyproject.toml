@@ -121,21 +121,28 @@ extend-exclude = ["*.md"]
 
 [tool.ruff.lint]
 select = [
-    "E",    # pycodestyle errors
-    "W",    # pycodestyle warnings
-    "F",    # pyflakes
-    "I",    # isort
-    "B",    # flake8-bugbear
-    "C4",   # flake8-comprehensions
-    "PIE",  # flake8-pie
-    "RET",  # flake8-return
-    "ISC",  # flake8-implicit-str-concat
-    "TC",   # flake8-type-checking
-    "G",    # flake8-logging-format
-    "UP",   # pyupgrade
-    "FURB", # refurb
-    "PERF", # perflint
-    "RUF",  # Ruff-specific rules
+    "E",       # pycodestyle errors
+    "W",       # pycodestyle warnings
+    "F",       # pyflakes
+    "I",       # isort
+    "YTT",     # flake8-2020
+    "B",       # flake8-bugbear
+    "C4",      # flake8-comprehensions
+    "ISC",     # flake8-implicit-str-concat
+    "G",       # flake8-logging-format
+    "LOG",     # flake8-logging
+    "PIE",     # flake8-pie
+    "T20",     # flake8-print
+    "PT",      # flake8-pytest-style
+    "RET",     # flake8-return
+    "SIM",     # flake8-simplify
+    "TID",     # flake8-tidy-imports
+    "TC",      # flake8-type-checking
+    "UP",      # pyupgrade
+    "FURB",    # refurb
+    "PERF",    # perflint
+    "RUF",     # Ruff-specific rules
+    "TRY401",  # tryceratops-verbose-log-message
 ]
 
 [tool.ruff.lint.isort]
