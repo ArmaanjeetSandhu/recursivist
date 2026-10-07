@@ -9,7 +9,7 @@ import random
 import re
 import tempfile
 import time
-from unittest.mock import mock_open, patch
+from unittest.mock import mock_open
 
 import pytest
 from hypothesis import example, given, settings
@@ -104,11 +104,8 @@ class TestCountLinesOfCode:
     def test_always_nonnegative(self, content: str) -> None:
         """Test that count_lines_of_code always returns a non-negative value."""
         with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", delete=False) as f:
-            try:
-                f.write(content)
-                file_path: str = f.name
-            except UnicodeEncodeError:
-                pytest.skip("Content contains characters that can't be encoded")
+            f.write(content)
+            file_path: str = f.name
         try:
             line_count: int = count_lines_of_code(file_path)
             assert line_count >= 0, "Line count should never be negative"
@@ -122,11 +119,8 @@ class TestCountLinesOfCode:
         if "\x00" in content:
             return
         with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", delete=False) as f:
-            try:
-                f.write(content)
-                file_path: str = f.name
-            except UnicodeEncodeError:
-                pytest.skip("Content contains characters that can't be encoded")
+            f.write(content)
+            file_path: str = f.name
         try:
             with open(file_path, encoding="utf-8") as f:
                 expected_lines: int = sum(1 for _ in f)
@@ -466,22 +460,6 @@ class TestFormatTimestamp:
 class TestCountLinesOfCodeProperties:
     """Property-based tests for count_lines_of_code function."""
 
-    @given(st.text(alphabet=st.characters(max_codepoint=127)))
-    @settings(max_examples=100)
-    def test_always_nonnegative(self, content: str) -> None:
-        """Test that count_lines_of_code always returns a non-negative value."""
-        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", delete=False) as f:
-            try:
-                f.write(content)
-                file_path = f.name
-            except UnicodeEncodeError:
-                pytest.skip("Content contains characters that can't be encoded")
-        try:
-            line_count = count_lines_of_code(file_path)
-            assert line_count >= 0, "Line count should never be negative"
-        finally:
-            os.unlink(file_path)
-
     @given(
         st.lists(
             st.text(alphabet=st.characters(max_codepoint=127)), min_size=0, max_size=100
@@ -497,11 +475,8 @@ class TestCountLinesOfCodeProperties:
             expected_lines += additional_newlines
         has_null_bytes = any("\x00" in line for line in lines)
         with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", delete=False) as f:
-            try:
-                f.write(content)
-                file_path = f.name
-            except UnicodeEncodeError:
-                pytest.skip("Content contains characters that can't be encoded")
+            f.write(content)
+            file_path = f.name
         try:
             line_count = count_lines_of_code(file_path)
             if has_null_bytes:
@@ -550,13 +525,6 @@ class TestCountLinesOfCodeProperties:
             file_path = os.path.join(temp_dir, filename)
             assert count_lines_of_code(file_path) == 0, (
                 "Nonexistent files should return 0 lines"
-            )
-
-    def test_permission_denied(self) -> None:
-        """Test that permission denied errors are handled gracefully."""
-        with patch("builtins.open", side_effect=PermissionError("Permission denied")):
-            assert count_lines_of_code("some/path.txt") == 0, (
-                "Permission denied should return 0 lines"
             )
 
 

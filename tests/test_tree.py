@@ -49,7 +49,6 @@ def _text_plains(mock_tree: MagicMock) -> list[str]:
 class TestBuildTree:
     def test_basic_tree(
         self,
-        mocker: MockerFixture,
         simple_structure: Directory,
         color_map: dict[str, str],
     ) -> None:
@@ -62,15 +61,13 @@ class TestBuildTree:
         assert any("file1.txt" in text for text in file_texts)
         assert any("file2.py" in text for text in file_texts)
 
-    def test_empty_structure(self, mocker: MockerFixture) -> None:
+    def test_empty_structure(self) -> None:
         mock_tree = MagicMock(spec=Tree)
         color_map: dict[str, str] = {}
         build_tree(Directory(), mock_tree, color_map, DisplayOptions())
         mock_tree.add.assert_not_called()
 
-    def test_with_full_paths(
-        self, mocker: MockerFixture, color_map: dict[str, str]
-    ) -> None:
+    def test_with_full_paths(self, color_map: dict[str, str]) -> None:
         mock_tree = MagicMock(spec=Tree)
         mock_subtree = MagicMock(spec=Tree)
         mock_tree.add.return_value = mock_subtree
@@ -89,73 +86,6 @@ class TestBuildTree:
         file_texts = _text_plains(mock_tree)
         assert any("/path/to/file1.txt" in text for text in file_texts)
         assert any("/path/to/file2.py" in text for text in file_texts)
-
-    @pytest.mark.parametrize(
-        ("spec", "expected_indicator"),
-        [
-            (DisplayOptions(sort_key=METRIC_LOC, metrics=(METRIC_LOC,)), "lines"),
-            (
-                DisplayOptions(sort_key=METRIC_SIZE, metrics=(METRIC_SIZE,)),
-                ["B", "KB", "MB"],
-            ),
-            (
-                DisplayOptions(sort_key=METRIC_MTIME, metrics=(METRIC_MTIME,)),
-                ["Today", "Yesterday", r"\d{4}-\d{2}-\d{2}"],
-            ),
-        ],
-    )
-    def test_with_statistics(
-        self,
-        mocker: MockerFixture,
-        structure_with_stats: Directory,
-        color_map: dict[str, str],
-        spec: DisplayOptions,
-        expected_indicator: str | list[str],
-    ) -> None:
-        mock_tree = MagicMock(spec=Tree)
-        mock_subtree = MagicMock(spec=Tree)
-        mock_tree.add.return_value = mock_subtree
-        build_tree(structure_with_stats, mock_tree, color_map, spec)
-        calls = [str(call.args[0]) for call in mock_tree.add.call_args_list]
-        if isinstance(expected_indicator, list):
-            found = any(
-                re.search(indicator, call)
-                for indicator in expected_indicator
-                for call in calls
-            )
-            assert found, f"None of the expected indicators {expected_indicator} found"
-        else:
-            assert any(expected_indicator in call for call in calls), (
-                f"Expected indicator '{expected_indicator}' not found"
-            )
-
-    def test_max_depth_is_not_expanded(
-        self,
-        mocker: MockerFixture,
-        max_depth_structure: Directory,
-        color_map: dict[str, str],
-    ) -> None:
-        """A truncated directory is added without any children."""
-        mock_tree = MagicMock(spec=Tree)
-        mock_subtree = MagicMock(spec=Tree)
-        mock_tree.add.return_value = mock_subtree
-        build_tree(max_depth_structure, mock_tree, color_map, DisplayOptions())
-        mock_subtree.add.assert_not_called()
-
-    def test_max_depth_folder_icons(
-        self,
-        mocker: MockerFixture,
-        max_depth_structure: Directory,
-        color_map: dict[str, str],
-    ) -> None:
-        """Truncated directories still signal whether anything was cut off."""
-        mock_tree = MagicMock(spec=Tree)
-        mock_subtree = MagicMock(spec=Tree)
-        mock_tree.add.return_value = mock_subtree
-        build_tree(max_depth_structure, mock_tree, color_map, DisplayOptions())
-        labels = [str(call.args[0]) for call in mock_tree.add.call_args_list]
-        assert "📂 subdir" in labels
-        assert "📁 empty_subdir" in labels
 
 
 class TestBuildTreeGitStatus:
@@ -305,7 +235,7 @@ class TestDisplayTree:
             assert name in out
 
 
-def test_build_tree_combined(mocker: MockerFixture) -> None:
+def test_build_tree_combined() -> None:
     """Combined test of build_tree functionality across mixed file shapes."""
     mock_tree = MagicMock(spec=Tree)
     color_map = {".py": "#FF0000", ".txt": "#00FF00"}
@@ -446,6 +376,36 @@ class TestBuildTreeStructures:
             assert any(expected_indicator in call for call in calls), (
                 f"Expected indicator '{expected_indicator}' not found"
             )
+
+    def test_metric_annotations_on_files_and_directories(
+        self, mock_tree: MagicMock, mock_subtree: MagicMock
+    ) -> None:
+        """Every file is annotated with its own metrics and every directory with
+        its totals, in the order the metrics were requested."""
+        mock_tree.add.return_value = mock_subtree
+        structure = Directory(
+            loc=100,
+            size=1024,
+            files=[
+                FileEntry("big.py", "big.py", 50, 512),
+                FileEntry("small.py", "small.py", 30, 256),
+            ],
+            subdirectories={
+                "subdir": Directory(
+                    loc=20,
+                    size=256,
+                    files=[FileEntry("nested.py", "nested.py", 20, 256)],
+                )
+            },
+        )
+        spec = DisplayOptions(metrics=(METRIC_LOC, METRIC_SIZE))
+        build_tree(structure, mock_tree, {}, spec)
+        assert _text_plains(mock_tree) == [
+            "📄 big.py (50 lines, 512 B)",
+            "📄 small.py (30 lines, 256 B)",
+            "📂 subdir (20 lines, 256 B)",
+        ]
+        assert _text_plains(mock_subtree) == ["📄 nested.py (20 lines, 256 B)"]
 
     def test_max_depth_is_not_expanded(
         self,

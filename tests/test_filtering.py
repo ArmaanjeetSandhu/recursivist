@@ -9,12 +9,10 @@ import re
 import tempfile
 from collections.abc import Iterable, Sequence
 from typing import Any
-from unittest.mock import patch
 
 import pytest
-from hypothesis import given, settings
+from hypothesis import given
 from hypothesis import strategies as st
-from pytest_mock import MockerFixture
 
 from recursivist.filtering import (
     compile_regex_patterns,
@@ -71,7 +69,6 @@ def _make_entry(base_dir: str, rel_path: str, is_dir: bool) -> tuple[str, str]:
     ],
 )
 def test_should_exclude(
-    mocker: MockerFixture,
     path: str,
     patterns: list[str],
     extensions: set[str],
@@ -79,7 +76,6 @@ def test_should_exclude(
     exclude_patterns: list[Any] | None,
 ) -> None:
     """Test file exclusion logic."""
-    mocker.patch("os.path.isfile", return_value=True)
     ignore_context = _ignore_context(patterns)
     result = should_exclude(
         path,
@@ -329,8 +325,10 @@ def test_normalize_extensions_is_idempotent(extensions: list[str]) -> None:
         ),
         ("", []),
         (
-            "# Logs\n*.log\nlogs/\n!important.log\n"
-            "# Directories\nnode_modules/\ndist/\n",
+            (
+                "# Logs\n*.log\nlogs/\n!important.log\n"
+                "# Directories\nnode_modules/\ndist/\n"
+            ),
             [
                 "# Logs",
                 "*.log",
@@ -372,37 +370,20 @@ def test_parse_ignore_file_missing(temp_dir: str) -> None:
     assert parse_ignore_file(os.path.join(temp_dir, "does-not-exist")) == []
 
 
-class TestShouldExcludeProperties:
-    """Property-based tests for the should_exclude function."""
-
-    @given(
-        st.text(min_size=1, max_size=100),
-        st.lists(st.text(min_size=1, max_size=20), min_size=0, max_size=5),
-        st.text(min_size=1, max_size=100),
-    )
-    @settings(max_examples=100)
-    def test_should_exclude_patterns(
-        self, path: str, patterns: list[str], current_dir: str
-    ) -> None:
-        """Test that should_exclude correctly applies patterns."""
-
-    def test_should_exclude_extensions_basic(self) -> None:
-        """Test that should_exclude applies extension exclusions in basic cases."""
-        exclude_extensions = {".txt", ".md", ".py"}
-        with patch("os.path.isfile", return_value=True):
-            for ext in exclude_extensions:
-                path = f"test_file{ext}"
-                ignore_context = _ignore_context()
-                result = should_exclude(
-                    path, ignore_context, exclude_extensions=exclude_extensions
-                )
-                assert result, f"Path with excluded extension {ext} should be excluded"
-            path = "test_file.allowed_ext"
-            ignore_context = _ignore_context()
-            result = should_exclude(
-                path, ignore_context, exclude_extensions=exclude_extensions
-            )
-            assert not result, "Path without excluded extension should not be excluded"
+def test_should_exclude_extensions_basic() -> None:
+    """Test that should_exclude applies extension exclusions in basic cases."""
+    exclude_extensions = {".txt", ".md", ".py"}
+    for ext in exclude_extensions:
+        path = f"test_file{ext}"
+        ignore_context = _ignore_context()
+        result = should_exclude(
+            path, ignore_context, exclude_extensions=exclude_extensions
+        )
+        assert result, f"Path with excluded extension {ext} should be excluded"
+    path = "test_file.allowed_ext"
+    ignore_context = _ignore_context()
+    result = should_exclude(path, ignore_context, exclude_extensions=exclude_extensions)
+    assert not result, "Path without excluded extension should not be excluded"
 
 
 class TestCompileRegexPatterns:
@@ -428,20 +409,6 @@ class TestCompileRegexPatterns:
         assert compile_regex_patterns([], is_regex=False) == []
         assert compile_regex_patterns([], is_regex=True) == []
 
-    def test_regex_matching(self) -> None:
-        """Test compiled regex patterns match correctly."""
-        patterns = [r"^data_\d{8}\.csv$", r".*\.(?:log|tmp)$", r"^\..*"]
-        compiled = [re.compile(p) for p in patterns]
-        assert len(compiled) == 3
-        assert all(isinstance(p, re.Pattern) for p in compiled)
-        assert compiled[0].match("data_20230101.csv")
-        assert not compiled[0].match("data_20230101.txt")
-        assert compiled[1].match("app.log")
-        assert compiled[1].match("temp.tmp")
-        assert not compiled[1].match("app.txt")
-        assert compiled[2].match(".hidden")
-        assert not compiled[2].match("visible")
-
 
 class TestShouldExclude:
     @pytest.mark.parametrize(
@@ -454,10 +421,9 @@ class TestShouldExclude:
         ],
     )
     def test_with_ignore_patterns(
-        self, mocker: MockerFixture, path: str, patterns: list[str], expected: bool
+        self, path: str, patterns: list[str], expected: bool
     ) -> None:
         """Test exclusion based on ignore patterns."""
-        mocker.patch("os.path.isfile", return_value=True)
         ignore_context = _ignore_context(patterns)
         result = should_exclude(path, ignore_context)
         assert result == expected
@@ -471,10 +437,9 @@ class TestShouldExclude:
         ],
     )
     def test_with_file_extensions(
-        self, mocker: MockerFixture, path: str, extensions: set[str], expected: bool
+        self, path: str, extensions: set[str], expected: bool
     ) -> None:
         """Test exclusion based on file extensions."""
-        mocker.patch("os.path.isfile", return_value=True)
         ignore_context = _ignore_context()
         result = should_exclude(path, ignore_context, exclude_extensions=extensions)
         assert result == expected
@@ -487,27 +452,22 @@ class TestShouldExclude:
             ("/test/app.py", r"test_.*\.py$", False),
         ],
     )
-    def test_with_regex_patterns(
-        self, mocker: MockerFixture, path: str, pattern: str, expected: bool
-    ) -> None:
+    def test_with_regex_patterns(self, path: str, pattern: str, expected: bool) -> None:
         """Test exclusion based on regex patterns."""
-        mocker.patch("os.path.isfile", return_value=True)
         ignore_context = _ignore_context()
         exclude_patterns = [re.compile(pattern)]
         result = should_exclude(path, ignore_context, exclude_patterns=exclude_patterns)
         assert result == expected
 
-    def test_with_negation_patterns(self, mocker: MockerFixture) -> None:
+    def test_with_negation_patterns(self) -> None:
         """Test negation patterns in ignore files."""
-        mocker.patch("os.path.isfile", return_value=True)
         ignore_context = _ignore_context(["*.txt", "!important.txt"])
         assert should_exclude("/test/file.txt", ignore_context)
         assert not should_exclude("/test/important.txt", ignore_context)
         assert not should_exclude("/test/file.py", ignore_context)
 
-    def test_with_include_patterns(self, mocker: MockerFixture) -> None:
+    def test_with_include_patterns(self) -> None:
         """Test include patterns override exclusion."""
-        mocker.patch("os.path.isfile", return_value=True)
         ignore_context = _ignore_context(["*.py"])
         exclude_patterns = [re.compile(r"\.js$")]
         include_patterns = [re.compile(r"important\.py$")]
@@ -543,19 +503,15 @@ class TestShouldExclude:
             ("/test/path/to/other.txt", "file.txt", False),
         ],
     )
-    def test_basename_matching(
-        self, mocker: MockerFixture, path: str, pattern: str, expected: bool
-    ) -> None:
+    def test_basename_matching(self, path: str, pattern: str, expected: bool) -> None:
         """Test matching against the basename only."""
-        mocker.patch("os.path.isfile", return_value=True)
         ignore_context = _ignore_context()
         exclude_patterns = [re.compile(pattern + "$")]
         result = should_exclude(path, ignore_context, exclude_patterns=exclude_patterns)
         assert result == expected
 
-    def test_case_sensitivity(self, mocker: MockerFixture) -> None:
+    def test_case_sensitivity(self) -> None:
         """Test case sensitivity in pattern matching."""
-        mocker.patch("os.path.isfile", return_value=True)
         ignore_context = _ignore_context()
         exclude_patterns = [re.compile(r"\.py$")]
         assert should_exclude(

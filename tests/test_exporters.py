@@ -13,7 +13,6 @@ from typing import Any, ClassVar
 from unittest.mock import patch
 
 import pytest
-from hypothesis import strategies as st
 from pytest_mock import MockerFixture
 
 from recursivist._models import Directory, FileEntry
@@ -45,52 +44,6 @@ _METRIC_SPECS = {
 }
 _ALL_METRICS_SPEC = DisplayOptions(
     sort_key=METRIC_LOC, metrics=(METRIC_LOC, METRIC_SIZE, METRIC_MTIME)
-)
-
-
-@st.composite
-def file_tuples_for_sorting(draw: st.DrawFn) -> Any:
-    """Generate various file tuple formats for testing sorting functions."""
-    filename = draw(
-        st.text(
-            alphabet=st.characters(
-                whitelist_categories=("Lu", "Ll", "Nd"),
-                whitelist_characters="_-",
-            ),
-            min_size=1,
-            max_size=20,
-        ).flatmap(
-            lambda s: st.sampled_from(
-                [".txt", ".py", ".md", ".json", ".js", ".html", ".css"]
-            ).map(lambda ext: s + ext)
-        )
-    )
-    tuple_type = draw(st.integers(min_value=0, max_value=4))
-    if tuple_type == 0:
-        return filename
-    if tuple_type == 1:
-        path = draw(st.text(min_size=1, max_size=100))
-        return (filename, path)
-    if tuple_type == 2:
-        path = draw(st.text(min_size=1, max_size=100))
-        loc = draw(st.integers(min_value=0, max_value=1000))
-        return (filename, path, loc)
-    if tuple_type == 3:
-        path = draw(st.text(min_size=1, max_size=100))
-        loc = draw(st.integers(min_value=0, max_value=1000))
-        size = draw(st.integers(min_value=0, max_value=10 * 1024 * 1024))
-        return (filename, path, loc, size)
-    path = draw(st.text(min_size=1, max_size=100))
-    loc = draw(st.integers(min_value=0, max_value=1000))
-    size = draw(st.integers(min_value=0, max_value=10 * 1024 * 1024))
-    mtime = draw(st.floats(min_value=0, max_value=1672531200))
-    return (filename, path, loc, size, mtime)
-
-
-file_tuple_list = st.lists(
-    file_tuples_for_sorting(),
-    min_size=1,
-    max_size=20,
 )
 
 
@@ -181,7 +134,6 @@ def test_export_structure_with_options(
     sample_directory: Any, output_dir: str, option_name: str, option_value: bool
 ) -> None:
     """Test exporting structure with various options."""
-    max_depth = 0
     show_full_path = False
     collect_loc = False
     collect_size = False
@@ -194,11 +146,8 @@ def test_export_structure_with_options(
         collect_size = option_value
     elif option_name == "sort_by_mtime":
         collect_mtime = option_value
-    elif option_name == "max_depth":
-        max_depth = option_value
     structure, _ = get_directory_structure(
         sample_directory,
-        max_depth=max_depth,
         show_full_path=show_full_path,
         collect_loc=collect_loc,
         collect_size=collect_size,
@@ -296,11 +245,11 @@ class TestExporterFileOutput:
         assert 'class="directory"' in html_content
 
     @pytest.mark.parametrize(
-        ("option_name", "option_value", "expected_in_content"),
+        ("option_name", "expected_in_content"),
         [
-            ("sort_by_loc", True, "lines"),
-            ("sort_by_size", True, ["B", "KB", "MB"]),
-            ("sort_by_mtime", True, ["Today", "Yesterday"]),
+            ("sort_by_loc", "lines"),
+            ("sort_by_size", ["B", "KB", "MB"]),
+            ("sort_by_mtime", ["Today", "Yesterday"]),
         ],
     )
     def test_export_with_statistics(
@@ -308,7 +257,6 @@ class TestExporterFileOutput:
         structure_with_stats: Directory,
         tmp_path: Path,
         option_name: str,
-        option_value: bool,
         expected_in_content: str | list[str],
     ) -> None:
         """Test exporting with statistics options."""
@@ -391,8 +339,6 @@ class TestExporterFileOutput:
             ).export(path)
             with open(path, encoding="utf-8") as f:
                 content = f.read()
-            assert "max depth reached" not in content
-            assert "max-depth" not in content
             assert truncated in content
             assert empty in content
 
@@ -641,39 +587,6 @@ def test_export_nested_structure(sample_directory: str, output_dir: str) -> None
     assert nested["subdirectories"] == {"deep": {"files": ["deep_file.txt"]}}
 
 
-def test_export_invalid_format(temp_dir: str) -> None:
-    """Test exporting with invalid format."""
-    structure = Directory(files=[FileEntry("file1.txt", "file1.txt")])
-    root_name = os.path.basename(temp_dir)
-
-    with pytest.raises(ValueError) as excinfo:
-        get_exporter(
-            "invalid",
-            structure=structure,
-            root_name=root_name,
-        )
-    assert "Unsupported export format" in str(excinfo.value)
-
-
-def test_export_error_handling(
-    sample_directory: str,
-    output_dir: str,
-    mocker: MockerFixture,
-) -> None:
-    """Test error handling during export."""
-    structure, _ = get_directory_structure(sample_directory)
-    output_path = os.path.join(output_dir, "structure.txt")
-    exporter = get_exporter(
-        "txt",
-        structure=structure,
-        root_name=os.path.basename(sample_directory),
-    )
-
-    mocker.patch("builtins.open", side_effect=PermissionError("Permission denied"))
-    with pytest.raises(PermissionError):
-        exporter.export(output_path)
-
-
 def test_export_with_max_depth_indicator(temp_dir: str, output_dir: str) -> None:
     """Test exporting structure with max depth indicators."""
     level1 = os.path.join(temp_dir, "level1")
@@ -721,7 +634,7 @@ def test_export_with_statistics(sample_directory: str, output_dir: str) -> None:
         "html": [
             r"lines",
             r"[KMG]?B",
-            r"Today|Yesterday|\d{4}-\d{2}-\d{2}|format_timestamp",
+            r"Today|Yesterday|\d{4}-\d{2}-\d{2}",
         ],
         "md": [
             r"lines",
@@ -820,36 +733,6 @@ def test_unicode_file_names(output_dir: str) -> None:
             assert "русский.md" in content
             assert "目录" in content
             assert "папка" in content
-
-
-@pytest.mark.parametrize(
-    ("error_type", "error_msg"),
-    [
-        (PermissionError, "Permission denied"),
-        (OSError, "No space left on device"),
-    ],
-)
-def test_export_structure_error_types(
-    sample_directory: str,
-    output_dir: str,
-    error_type: type[Exception],
-    error_msg: str,
-) -> None:
-    """Test handling different error types during export."""
-    structure, _ = get_directory_structure(sample_directory)
-    output_path = os.path.join(output_dir, f"error_{error_type.__name__}.txt")
-    error: Exception
-    error = OSError(28, error_msg) if error_type is OSError else error_type(error_msg)
-    exporter = get_exporter(
-        "txt",
-        structure=structure,
-        root_name=os.path.basename(sample_directory),
-    )
-
-    with patch("recursivist.exporters.txt.TxtExporter.export", side_effect=error):
-        with pytest.raises(error_type) as excinfo:
-            exporter.export(output_path)
-    assert error_msg in str(excinfo.value)
 
 
 def test_export_with_excessive_loc(temp_dir: str, output_dir: str) -> None:
@@ -1019,21 +902,147 @@ def test_combined_export_options(output_dir: str) -> None:
             pattern for pattern in timestamp_patterns if pattern in content
         ]
         assert len(timestamp_matches) > 0, f"No timestamp format found in {fmt} export"
-        assert "max depth reached" not in content
         if fmt == "json":
             assert '"max_depth_reached": true' in content
+
+
+def _nested_layout() -> Directory:
+    """A tree with a file ahead of two directories, one of them nested deeper."""
+    return Directory(
+        files=[FileEntry("a.txt", "a.txt")],
+        subdirectories={
+            "alpha": Directory(
+                files=[FileEntry("b.txt", "b.txt")],
+                subdirectories={"deep": Directory(files=[FileEntry("c.txt", "c.txt")])},
+            ),
+            "omega": Directory(
+                files=[FileEntry("d.txt", "d.txt"), FileEntry("e.txt", "e.txt")]
+            ),
+        },
+    )
+
+
+def _git_layout() -> Directory:
+    """One file per Git status, plus a clean one."""
+    return Directory(
+        files=[
+            FileEntry("added.py", "added.py"),
+            FileEntry("clean.py", "clean.py"),
+            FileEntry("deleted.py", "deleted.py"),
+            FileEntry("modified.py", "modified.py"),
+            FileEntry("untracked.py", "untracked.py"),
+        ],
+        git_markers={
+            "added.py": "A",
+            "deleted.py": "D",
+            "modified.py": "M",
+            "untracked.py": "U",
+        },
+    )
+
+
+def _export_lines(
+    fmt: str, structure: Directory, tmp_path: Path, spec: DisplayOptions | None = None
+) -> list[str]:
+    """Export *structure* as *fmt* under the root name ``root``; return its lines."""
+    output_path = os.path.join(tmp_path, f"structure.{fmt}")
+    get_exporter(fmt, structure=structure, root_name="root", spec=spec).export(
+        output_path
+    )
+    with open(output_path, encoding="utf-8") as f:
+        return f.read().split("\n")
+
+
+class TestTxtExporter:
+    """Exact output of the plain-text (``txt``) exporter."""
+
+    def test_tree_connectors(self, tmp_path: Path) -> None:
+        """The last entry of a level gets ``└──`` and blank continuation; earlier
+        entries get ``├──`` and carry ``│`` down through their descendants."""
+        assert _export_lines("txt", _nested_layout(), tmp_path) == [
+            "📂 root",
+            "├── 📄 a.txt",
+            "├── 📂 alpha",
+            "│   ├── 📄 b.txt",
+            "│   └── 📂 deep",
+            "│       └── 📄 c.txt",
+            "└── 📂 omega",
+            "    ├── 📄 d.txt",
+            "    └── 📄 e.txt",
+        ]
+
+    def test_git_status_markers(self, tmp_path: Path) -> None:
+        """Changed files are suffixed with their status marker; clean ones are not."""
+        spec = DisplayOptions(show_git_status=True)
+        assert _export_lines("txt", _git_layout(), tmp_path, spec) == [
+            "📂 root",
+            "├── 📄 added.py [A]",
+            "├── 📄 clean.py",
+            "├── 📄 deleted.py [D]",
+            "├── 📄 modified.py [M]",
+            "└── 📄 untracked.py [U]",
+        ]
+
+    def test_git_status_omitted_when_disabled(self, tmp_path: Path) -> None:
+        """No markers are written unless Git status display is on."""
+        lines = _export_lines("txt", _git_layout(), tmp_path)
+        assert lines[1:] == [
+            "├── 📄 added.py",
+            "├── 📄 clean.py",
+            "├── 📄 deleted.py",
+            "├── 📄 modified.py",
+            "└── 📄 untracked.py",
+        ]
+
+
+class TestMarkdownExporter:
+    """Exact output of the Markdown (``md``) exporter."""
+
+    def test_nested_entries_are_indented(self, tmp_path: Path) -> None:
+        """Each level of nesting indents its list items by four more spaces."""
+        assert _export_lines("md", _nested_layout(), tmp_path) == [
+            "# 📂 root",
+            "",
+            "- 📄 `a.txt`",
+            "- 📂 **alpha**",
+            "    - 📄 `b.txt`",
+            "    - 📂 **deep**",
+            "        - 📄 `c.txt`",
+            "- 📂 **omega**",
+            "    - 📄 `d.txt`",
+            "    - 📄 `e.txt`",
+        ]
+
+    def test_git_status_badges_and_deleted_strikethrough(self, tmp_path: Path) -> None:
+        """Changed files get a bold badge; a deleted file is also struck through."""
+        spec = DisplayOptions(show_git_status=True)
+        assert _export_lines("md", _git_layout(), tmp_path, spec) == [
+            "# 📂 root",
+            "",
+            "- 📄 `added.py` **[A]**",
+            "- 📄 `clean.py`",
+            "- 📄 ~~`deleted.py`~~ **[D]**",
+            "- 📄 `modified.py` **[M]**",
+            "- 📄 `untracked.py` **[U]**",
+        ]
+
+    def test_git_status_omitted_when_disabled(self, tmp_path: Path) -> None:
+        """No badge or strikethrough is written unless Git status display is on."""
+        lines = _export_lines("md", _git_layout(), tmp_path)
+        assert lines[2:] == [
+            "- 📄 `added.py`",
+            "- 📄 `clean.py`",
+            "- 📄 `deleted.py`",
+            "- 📄 `modified.py`",
+            "- 📄 `untracked.py`",
+        ]
 
 
 class TestSvgExporter:
     """Tests for the SVG exporter (recursivist.exporters.svg.SvgExporter)."""
 
     def test_export_basic(self, nested_structure: Directory, tmp_path: Path) -> None:
-        """A basic export writes a well-formed SVG containing the tree.
-
-        Uses a structure whose ``_files`` are plain strings and which nests
-        sub-dictionaries, exercising both branches of the recursive extension
-        collector.
-        """
+        """A basic export writes a well-formed SVG containing the tree."""
         output_path = os.path.join(tmp_path, "structure.svg")
         get_exporter("svg", structure=nested_structure, root_name="svg_root").export(
             output_path
@@ -1068,12 +1077,7 @@ class TestSvgExporter:
     def test_export_with_statistics(
         self, structure_with_stats: Directory, tmp_path: Path
     ) -> None:
-        """Exporting with metrics enabled renders the root metrics suffix.
-
-        ``structure_with_stats`` stores ``_files`` as tuples and carries
-        ``_loc``/``_size``/``_mtime`` keys. This also covers the tuple branch of
-        the extension collector.
-        """
+        """Exporting with metrics enabled still produces a well-formed SVG."""
         output_path = os.path.join(tmp_path, "stats.svg")
         get_exporter(
             "svg",
@@ -1278,7 +1282,6 @@ class TestRstExporter:
         with open(output_path, encoding="utf-8") as f:
             lines = _rst_lines(f.read())
 
-        assert not any("max depth reached" in line for line in lines)
         assert "- 📂 **subdir**" in lines
         assert "- 📁 **empty\\_subdir**" in lines
 

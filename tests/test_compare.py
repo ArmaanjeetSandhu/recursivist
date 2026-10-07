@@ -421,16 +421,6 @@ def test_display_comparison_with_options(
             )
 
 
-def test_export_comparison_txt(
-    comparison_directories: tuple[str, str], output_dir: str
-) -> None:
-    dir1, dir2 = comparison_directories
-    output_path = os.path.join(output_dir, "comparison.txt")
-    with pytest.raises(ValueError) as excinfo:
-        export_comparison(dir1, dir2, "txt", output_path)
-    assert "Only HTML format is supported for comparison export" in str(excinfo.value)
-
-
 def test_export_comparison_html(
     comparison_directories: tuple[str, str], output_dir: str
 ) -> None:
@@ -459,7 +449,7 @@ def test_export_comparison_html(
         (
             "sort_by_mtime",
             True,
-            ["Today", "Yesterday", r"\d{4}-\d{2}-\d{2}", r"format_timestamp"],
+            ["Today", "Yesterday", r"\d{4}-\d{2}-\d{2}"],
             None,
         ),
     ],
@@ -535,13 +525,14 @@ def test_export_comparison_with_options(
         assert found_at_least_one_full_path, "No full paths found in the HTML export"
 
 
+@pytest.mark.parametrize("format_name", ["txt", "unsupported"])
 def test_export_comparison_unsupported_format(
-    comparison_directories: tuple[str, str], output_dir: str
+    comparison_directories: tuple[str, str], output_dir: str, format_name: str
 ) -> None:
     dir1, dir2 = comparison_directories
-    output_path = os.path.join(output_dir, "comparison.unsupported")
+    output_path = os.path.join(output_dir, f"comparison.{format_name}")
     with pytest.raises(ValueError) as excinfo:
-        export_comparison(dir1, dir2, "unsupported", output_path)
+        export_comparison(dir1, dir2, format_name, output_path)
     assert "Only HTML format is supported for comparison export" in str(excinfo.value)
 
 
@@ -609,7 +600,7 @@ def test_comparison_with_statistics(
     assert "lines" in content
     assert "B" in content or "KB" in content
     has_time_indicator = False
-    if re.search(r"Today|Yesterday|\d{4}-\d{2}-\d{2}|format_timestamp", content):
+    if re.search(r"Today|Yesterday|\d{4}-\d{2}-\d{2}", content):
         has_time_indicator = True
     assert has_time_indicator, "No time indicators found in the comparison"
 
@@ -833,20 +824,6 @@ class TestExportComparison:
         output_path=safe_path,
     )
     @settings(max_examples=5)
-    def test_export_comparison_invalid_format(
-        self, dir1: str, dir2: str, output_path: str
-    ) -> None:
-        """Test that export_comparison raises an error for invalid formats."""
-        with pytest.raises(ValueError) as excinfo:
-            export_comparison(dir1, dir2, "invalid", output_path)
-        assert "Only HTML format is supported" in str(excinfo.value)
-
-    @given(
-        dir1=safe_path,
-        dir2=safe_path,
-        output_path=safe_path,
-    )
-    @settings(max_examples=5)
     def test_export_comparison_with_options(
         self, dir1: str, dir2: str, output_path: str
     ) -> None:
@@ -961,8 +938,6 @@ class TestBuildComparisonTreeProperties:
                 "build_comparison_tree should make at least one call to tree.add "
                 "when there are files or folders"
             )
-        else:
-            pass
 
 
 class TestBuildComparisonTreeStructures:
@@ -1187,12 +1162,7 @@ class TestBuildComparisonTreeStructures:
         )
         mock_tree.add.return_value = mock_subtree
         build_comparison_tree(structure1, structure2, mock_tree, DisplayOptions())
-        subtree_calls = [
-            call.args[0]
-            for call in mock_subtree.add.call_args_list
-            if isinstance(call.args[0], Text)
-        ]
-        assert not any("max depth reached" in text.plain for text in subtree_calls)
+        mock_subtree.add.assert_not_called()
         labels = [str(call.args[0]) for call in mock_tree.add.call_args_list]
         assert any("📂 subdir" in label for label in labels)
 

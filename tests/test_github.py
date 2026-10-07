@@ -11,10 +11,8 @@ from __future__ import annotations
 import io
 import os
 import tarfile
-from collections.abc import Callable, Mapping
 from email.message import Message
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from unittest import mock
 from urllib.error import HTTPError, URLError
 
@@ -35,6 +33,10 @@ from recursivist.github import (
     resolve_commit_shas,
     resolve_default_branch,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Mapping
+    from pathlib import Path
 
 
 def _make_tarball(

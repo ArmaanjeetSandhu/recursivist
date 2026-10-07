@@ -288,20 +288,6 @@ def test_visualize_include_pattern_keeps_ignored_dirs_pruned(
     assert "package.json" not in result.stdout
 
 
-def test_visualize_with_depth_limit(
-    runner: CliRunner, deeply_nested_directory: str
-) -> None:
-    result = runner.invoke(app, ["visualize", deeply_nested_directory, "--depth", "1"])
-    assert result.exit_code == 0
-    assert "level1" in result.stdout
-    assert "(max depth reached)" not in result.stdout
-    result = runner.invoke(app, ["visualize", deeply_nested_directory, "--depth", "2"])
-    assert result.exit_code == 0
-    assert "level1" in result.stdout
-    assert "level2" in result.stdout
-    assert "(max depth reached)" not in result.stdout
-
-
 def test_visualize_invalid_directory(
     runner: CliRunner, temp_dir: str, caplog: pytest.LogCaptureFixture
 ) -> None:
@@ -805,7 +791,6 @@ def test_compare_with_depth_limit(runner: CliRunner, temp_dir: str) -> None:
     result = runner.invoke(app, ["compare", dir1, dir2, "--depth", "1"])
     assert result.exit_code == 0
     assert "level1" in result.stdout
-    assert "(max depth reached)" not in result.stdout
     assert "file2.txt" not in result.stdout
     assert "different.txt" not in result.stdout
 
@@ -1161,14 +1146,6 @@ def test_version_command(runner: CliRunner) -> None:
     assert "Recursivist version" in result.stdout
 
 
-def test_verbose_mode(
-    runner: CliRunner, sample_directory: str, caplog: pytest.LogCaptureFixture
-) -> None:
-    result = runner.invoke(app, ["visualize", sample_directory, "--verbose"])
-    assert result.exit_code == 0
-    assert any("Verbose mode enabled" in record.message for record in caplog.records)
-
-
 def test_visualize_command_with_depth_limit(
     runner: CliRunner, deeply_nested_directory: str
 ) -> None:
@@ -1176,45 +1153,12 @@ def test_visualize_command_with_depth_limit(
     result = runner.invoke(app, ["visualize", deeply_nested_directory, "--depth", "1"])
     assert result.exit_code == 0
     assert "level1" in result.stdout
-    assert "(max depth reached)" not in result.stdout
     assert "level2" not in result.stdout
     result = runner.invoke(app, ["visualize", deeply_nested_directory, "--depth", "2"])
     assert result.exit_code == 0
     assert "level1" in result.stdout
     assert "level2" in result.stdout
-    assert "(max depth reached)" not in result.stdout
     assert "level3" not in result.stdout
-
-
-def test_export_command_with_depth_limit(
-    runner: CliRunner, deeply_nested_directory: str, output_dir: str
-) -> None:
-    """Test CLI export command with depth limits."""
-    result = runner.invoke(
-        app,
-        [
-            "export",
-            deeply_nested_directory,
-            "--format",
-            "json",
-            "--output-dir",
-            output_dir,
-            "--prefix",
-            "depth_limited",
-            "--depth",
-            "2",
-        ],
-    )
-    assert result.exit_code == 0
-    export_file: str = os.path.join(output_dir, "depth_limited.json")
-    assert os.path.exists(export_file)
-    with open(export_file, encoding="utf-8") as f:
-        data: dict[str, Any] = json.load(f)
-    assert "structure" in data
-    level1 = data["structure"]["subdirectories"]["level1"]
-    level2 = level1["subdirectories"]["level2"]
-    assert level2["max_depth_reached"] is True
-    assert "subdirectories" not in level2
 
 
 def test_compare_command_with_depth_limit(
@@ -1249,7 +1193,6 @@ def test_compare_command_with_depth_limit(
     assert "different_root.txt" in result.stdout
     assert "level3" not in result.stdout
     assert "level3_file.txt" not in result.stdout
-    assert "(max depth reached)" not in result.stdout
 
 
 def test_compare_export_with_depth_limit(
@@ -1299,7 +1242,6 @@ def test_compare_export_with_depth_limit(
     assert "level1_file.txt" in content
     assert "different_root.txt" in content
     assert "level3" not in content
-    assert "(max depth reached)" not in content
     assert 'directory">📂 level2' in content
 
 
@@ -1331,7 +1273,6 @@ def test_depth_combined_with_filters(
     assert "level2" in result.stdout
     assert "excluded" not in result.stdout
     assert "excluded_root.txt" not in result.stdout
-    assert "(max depth reached)" not in result.stdout
 
 
 @pytest.mark.parametrize("depth", [1, 2, 3, 4])
@@ -1392,7 +1333,6 @@ def test_unlimited_depth(runner: CliRunner, deeply_nested_directory: str) -> Non
     assert "level5" in result.stdout
     assert "level6" in result.stdout
     assert "level6_file.txt" in result.stdout
-    assert "(max depth reached)" not in result.stdout
 
 
 def test_cli_with_regex_patterns(

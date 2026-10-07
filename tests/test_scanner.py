@@ -1,13 +1,12 @@
 """Tests for recursivist.scanner.get_directory_structure.
 
-Covers traversal, depth limits, filtering integration, and pathlib support.
+Covers traversal, depth limits, metric totals, and filtering integration.
 """
 
 import contextlib
 import logging
 import os
 import re
-from pathlib import Path
 from typing import Any
 
 import pytest
@@ -189,22 +188,6 @@ def test_get_directory_structure_with_options(
     elif expected_result == "mtime recorded":
         assert structure.mtime is not None
         assert level1.mtime is not None
-
-
-def test_pathlib_compatibility(temp_dir: str) -> None:
-    """Test compatibility with pathlib.Path objects."""
-    test_file = os.path.join(temp_dir, "test.txt")
-    with open(test_file, "w") as f:
-        f.write("Test content")
-    path_obj = Path(temp_dir)
-    structure, _ = get_directory_structure(str(path_obj))
-    assert structure.files
-    file_found = False
-    for file_item in structure.files:
-        file_name = file_item.name
-        if file_name == "test.txt":
-            file_found = True
-    assert file_found, "File not found when using pathlib.Path"
 
 
 class TestGetDirectoryStructure:
@@ -416,19 +399,6 @@ class TestPatternMatching:
         assert "exclude_me.py" not in file_names
         assert "regular_file.txt" not in file_names
         assert "config.json" not in file_names
-
-
-def test_get_directory_structure_pathlib(pattern_test_directory: str) -> None:
-    """Test compatibility with pathlib.Path objects."""
-    path_obj = Path(pattern_test_directory)
-    include_patterns = [re.compile(r"\.py$")]
-    structure, extensions = get_directory_structure(
-        str(path_obj), include_patterns=include_patterns
-    )
-    assert ".py" in extensions
-    for file_item in structure.files:
-        file_name = file_item.name
-        assert file_name.endswith(".py"), f"Non-Python file {file_name} was included"
 
 
 def _supports_symlinks(base: str) -> bool:
@@ -683,8 +653,10 @@ class TestUnmatchedFilterReporting:
         caplog.set_level(logging.INFO, logger="recursivist")
         get_directory_structure(tree, exclude_patterns=["module.py"], max_depth=1)
         assert self._messages(caplog) == [
-            "No files or directories matched --exclude-pattern 'module.py' "
-            "within the scanned depth"
+            (
+                "No files or directories matched --exclude-pattern 'module.py' "
+                "within the scanned depth"
+            )
         ]
 
     def test_reported_once_per_scan(
@@ -720,6 +692,36 @@ class TestFieldNamedDirectories:
         assert [e.name for e in subdirs["files"].files] == ["inner.txt"]
         assert subdirs["loc"].loc == 1
         assert [e.name for e in subdirs["subdirectories"].files] == ["nested.txt"]
+
+
+class TestMetricTotals:
+    """Directory totals cover everything beneath the directory, not just its files."""
+
+    def test_totals_include_nested_subdirectories(self, temp_dir: str) -> None:
+        """LOC and size are summed over the whole subtree, and the modification
+        time is that of the newest file anywhere in it."""
+        newest = 1_700_000_000
+        files = {
+            "a.txt": (b"1\n", newest - 200),
+            "sub/b.txt": (b"1\n2\n", newest),
+            "sub/deep/c.txt": (b"1\n2\n3\n", newest - 100),
+        }
+        for rel, (content, mtime) in files.items():
+            path = os.path.join(temp_dir, *rel.split("/"))
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, "wb") as fh:
+                fh.write(content)
+            os.utime(path, (mtime, mtime))
+
+        structure, _ = get_directory_structure(
+            temp_dir, collect_loc=True, collect_size=True, collect_mtime=True
+        )
+        sub = structure.subdirectories["sub"]
+        deep = sub.subdirectories["deep"]
+
+        assert (deep.loc, deep.size, deep.mtime) == (3, 6, newest - 100)
+        assert (sub.loc, sub.size, sub.mtime) == (5, 10, newest)
+        assert (structure.loc, structure.size, structure.mtime) == (6, 12, newest)
 
 
 class TestIterSubdirectories:

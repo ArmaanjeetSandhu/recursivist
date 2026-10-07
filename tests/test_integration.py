@@ -3,7 +3,6 @@
 import json
 import os
 import re
-from pathlib import Path
 
 import pytest
 from typer.testing import CliRunner
@@ -364,27 +363,3 @@ def test_comparison_with_statistics(temp_dir: str, output_dir: str) -> None:
             has_stats = True
             break
     assert has_stats, "No statistics found in comparison export"
-
-
-def test_pathlib_compatibility(temp_dir: str, output_dir: str) -> None:
-    """Test compatibility with pathlib.Path objects."""
-    test_file = os.path.join(temp_dir, "test.txt")
-    with open(test_file, "w") as f:
-        f.write("Test content")
-    path_obj = Path(temp_dir)
-    structure, _ = get_directory_structure(str(path_obj))
-    assert "test.txt" in get_file_names(structure), (
-        "File not found when using pathlib.Path"
-    )
-
-    output_path = Path(output_dir) / "pathlib_test.json"
-    get_exporter(
-        "json", structure=structure, root_name=os.path.basename(str(path_obj))
-    ).export(str(output_path))
-
-    assert output_path.exists()
-    with open(output_path, encoding="utf-8") as f:
-        data = json.load(f)
-    assert "root" in data
-    assert "structure" in data
-    assert data["structure"]["files"] == ["test.txt"]
