@@ -11,7 +11,7 @@
 | `rst`      | `structure.rst`               | [reStructuredText nested list](#restructuredtext-rst) |
 | `svg`      | `structure.svg`               | [Image of the terminal tree](#svg-svg)                |
 
-Every format honors the filtering, depth, full-path, file-statistics, Git-status, and icon-style options. Exports use the `emoji` icon style unless `--icon-style nerd` is given. A directory that was not descended into because it is a [symbolic link back to an ancestor](../user-guide/visualization.md#symbolic-links) is marked `↩ (symlink loop)`, or carries a `symlink_loop` key in JSON.
+Every format honors the filtering, depth, full-path, file-statistics, Git-status, icon-style, and date-format options. Exports use the `emoji` icon style unless `--icon-style nerd` is given, and write modification times as ISO 8601 in UTC unless [`--date-format relative`](../user-guide/sorting-and-statistics.md#date-format) is given. A directory that was not descended into because it is a [symbolic link back to an ancestor](../user-guide/visualization.md#symbolic-links) is marked `↩ (symlink loop)`, or carries a `symlink_loop` key in JSON.
 
 The examples below all describe the same project, first as a plain export and then with `--sort-by-loc`.
 
@@ -168,7 +168,7 @@ The fields that can appear:
 |                            | `max_depth_reached`, `hidden_contents` | `--depth`, on a directory cut off by the limit (`hidden_contents` when it is not empty)                       |
 |                            | `symlink_loop`                         | A directory that links back to an ancestor                                                                    |
 
-Sizes are in bytes and modification times are Unix timestamps; the `_formatted` variants hold the human-readable text shown by the other formats. A directory that was cut off by the depth limit or links back to an ancestor was not read, so it carries no totals. This format pairs well with [jq](https://jqlang.org) — see [Analyzing a Codebase with JSON](../recipes/json.md).
+Sizes are in bytes and modification times are Unix timestamps; the `_formatted` variants hold the human-readable text shown by the other formats. `mtime_formatted` follows `--date-format`, so it is an ISO 8601 time in UTC by default; `mtime` is the same number either way. A directory that was cut off by the depth limit or links back to an ancestor was not read, so it carries no totals. This format pairs well with [jq](https://jqlang.org) — see [Analyzing a Codebase with JSON](../recipes/json.md).
 
 ## HTML (`.html`)
 

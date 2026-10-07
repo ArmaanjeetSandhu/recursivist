@@ -79,7 +79,8 @@ class DisplayOptions:
     This is the value produced by [`resolve_flags`][recursivist.flags.resolve_flags] and
     threaded through the renderers and exporters. It keeps two concerns separate: *how
     files are ordered* (`sort_key`) and *what is annotated, and in what order*
-    (`metrics` plus `show_git_status`).
+    (`metrics` plus `show_git_status`), along with how a modification time is written
+    (`date_format`).
 
     Attributes:
         sort_key: The single metric files are ordered by — one of `METRIC_LOC`,
@@ -89,11 +90,16 @@ class DisplayOptions:
             with, in the exact order they should be displayed.
         show_git_status: Whether to append the Git-status badge to each file. The badge
             always trails the numeric-metric parenthetical.
+        date_format: How the modification-time annotation is written: ``"relative"``
+            for the recency-aware form (``Today 14:30``) or ``"iso"`` for ISO 8601 in
+            UTC (``2026-10-07T12:30:41Z``). See
+            [`format_timestamp`][recursivist.metrics.format_timestamp].
     """
 
     sort_key: str | None = None
     metrics: tuple[str, ...] = ()
     show_git_status: bool = False
+    date_format: str = "relative"
 
     @property
     def show_loc(self) -> bool:
@@ -117,7 +123,8 @@ class DisplayOptions:
         because every file effectively shares the tip commit's status and timestamp. The
         Git-status badge and the modification-time metric are dropped, and a sort keyed
         on either falls back to the default ordering. The lines-of-code and size metrics
-        are retained, since those are computed from the file contents themselves.
+        are retained, since those are computed from the file contents themselves. The
+        date format is kept as it is.
 
         Returns:
             A [`DisplayOptions`][recursivist.flags.DisplayOptions] with Git status and
@@ -131,6 +138,7 @@ class DisplayOptions:
             sort_key=sort_key,
             metrics=metrics,
             show_git_status=False,
+            date_format=self.date_format,
         )
 
 
@@ -193,6 +201,7 @@ def resolve_display_options(
     disp_mtime: bool = False,
     disp_git: bool = False,
     order: Sequence[str] = (),
+    date_format: str = "relative",
 ) -> DisplayOptions:
     """Resolve the raw per-flag booleans into
     [`DisplayOptions`][recursivist.flags.DisplayOptions].
@@ -217,6 +226,9 @@ def resolve_display_options(
             encountered them on the command line. A repeated id counts at its first
             position. When omitted, every active flag falls back to its registry
             position.
+        date_format: How modification times are written, either ``"relative"`` or
+            ``"iso"``. Unlike the flags above, its position on the command line does
+            not matter.
 
     Returns:
         The resolved [`DisplayOptions`][recursivist.flags.DisplayOptions].
@@ -244,4 +256,10 @@ def resolve_display_options(
     active_specs = [spec for spec in FLAG_SPECS if active[spec.id]]
     ordered = sorted(active_specs, key=lambda spec: position.get(spec.id, len(order)))
     events = [(spec.mode, spec.metric) for spec in ordered]
-    return resolve_flags(events)
+    resolved = resolve_flags(events)
+    return DisplayOptions(
+        sort_key=resolved.sort_key,
+        metrics=resolved.metrics,
+        show_git_status=resolved.show_git_status,
+        date_format=date_format,
+    )

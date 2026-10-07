@@ -101,7 +101,11 @@ class MarkdownExporter(BaseExporter):
                 lines.append(
                     f"{indent}- {file_icon} {_md_display}"
                     + format_metrics_suffix(
-                        entry.loc, entry.size, entry.mtime, self.metrics
+                        entry.loc,
+                        entry.size,
+                        entry.mtime,
+                        self.metrics,
+                        self.date_format,
                     )
                     + _md_git_suffix
                 )
@@ -113,7 +117,7 @@ class MarkdownExporter(BaseExporter):
                     is_empty=not has_contents(content),
                 )
 
-                metrics = format_dir_metrics(content, self.metrics)
+                metrics = format_dir_metrics(content, self.metrics, self.date_format)
                 lines.append(
                     f"{indent}- {folder_icon} **{_md_escape_text(name)}**{metrics}"
                 )
@@ -132,7 +136,7 @@ class MarkdownExporter(BaseExporter):
 
         md_content = [
             f"# {root_icon} {_md_escape_text(self.root_name)}"
-            + format_dir_metrics(self.structure, self.metrics),
+            + format_dir_metrics(self.structure, self.metrics, self.date_format),
             "",
         ]
 

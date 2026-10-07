@@ -10,7 +10,8 @@ Main commands:
         optional statistics.
     export: Export a directory structure to TXT, JSON, HTML, MD, SVG, or RST.
     compare: Compare two directory structures with highlighted differences.
-    config: Manage persistent user preferences like the icon style and the ignore file.
+    config: Manage persistent user preferences like the icon style, the date format,
+        and the ignore file.
     version: Display the current version information.
 
 The visualize, export, and compare commands accept a GitHub repository URL anywhere they
@@ -24,6 +25,7 @@ All commands share a consistent set of filtering and display options:
     - Depth limitation for large directories.
     - Full-path display option.
     - File statistics with sorting by lines of code, size, or modification time.
+    - Modification times in a relative or an ISO 8601 format.
 """
 
 import contextlib
@@ -32,7 +34,7 @@ import json
 import logging
 import os
 from collections.abc import Callable, Generator
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from re import Pattern
 from typing import Annotated, Any
@@ -51,6 +53,7 @@ from recursivist.config import (
     CONFIG_KEYS,
     LIST_KEYS,
     ConfigLayer,
+    DateFormat,
     IconStyle,
     accepts_value,
     delete_config_file,
@@ -161,6 +164,10 @@ HELP_MTIME = "Display modification times without affecting sort order"
 HELP_GIT_STATUS = (
     "Display Git status markers without affecting sort order: "
     "[U] untracked, [M] modified, [A] added, [D] deleted"
+)
+HELP_DATE_FORMAT = (
+    "Format of modification times: 'relative' (Today 14:30) or 'iso' "
+    "(2026-10-07T12:30:41Z, in UTC)."
 )
 HELP_VERBOSE = "Enable verbose output"
 
@@ -341,13 +348,15 @@ def _quoted(value: str | list[str]) -> str:
 def config_set(
     key: Annotated[
         str,
-        typer.Argument(help="Configuration key (icon-style, ignore-file, or exclude)"),
+        typer.Argument(
+            help="Configuration key (icon-style, date-format, ignore-file, or exclude)"
+        ),
     ],
     value: Annotated[
         list[str],
         typer.Argument(
             help=(
-                "Configuration value (e.g., nerd or .gitignore); "
+                "Configuration value (e.g., nerd, iso, or .gitignore); "
                 "exclude takes one or more directory names"
             ),
         ),
@@ -356,14 +365,16 @@ def config_set(
     """Set a persistent configuration value.
 
     Saves a user preference to the global configuration file. The keys are
-    `icon-style` (`emoji` or `nerd`), `ignore-file` (the name of an ignore
-    file to honor, such as `.gitignore`), and `exclude` (directory names to
+    `icon-style` (`emoji` or `nerd`), `date-format` (`relative` or `iso`, the
+    format of modification times), `ignore-file` (the name of an ignore file
+    to honor, such as `.gitignore`), and `exclude` (directory names to
     exclude). `exclude` takes one name per argument and replaces the saved
     names as a whole; every other key takes exactly one value. A project
     configuration file overrides the value saved here.
 
     Examples:
         >>> recursivist config set icon-style nerd
+        >>> recursivist config set date-format iso
         >>> recursivist config set ignore-file .gitignore
         >>> recursivist config set exclude node_modules .git "Application Support"
     """
@@ -968,6 +979,44 @@ def _choose_exclude_dirs(
     return exclude_dirs
 
 
+def _with_date_format(
+    spec: DisplayOptions,
+    date_format: DateFormat | None,
+    configured: Callable[[], dict[str, Any]] | None,
+) -> DisplayOptions:
+    """Return *spec* with the format of its modification times chosen.
+
+    The ``--date-format`` option wins whenever it is given. Without it, output shown in
+    the terminal uses the ``date-format`` configuration setting, and output written to
+    a file uses ``"iso"``: a relative time such as ``Today 14:30`` stops being true once
+    the file is read on another day.
+
+    The configuration is only read when the format decides something, that is, when
+    *spec* displays modification times.
+
+    Args:
+        spec: The resolved sorting and annotation directives.
+        date_format: The value of the ``--date-format`` option, or ``None`` when it was
+            not given.
+        configured: The function returned by `_config_reader` for output shown in the
+            terminal, or ``None`` for output written to a file.
+
+    Returns:
+        A [`DisplayOptions`][recursivist.flags.DisplayOptions] equal to *spec* except
+        for its date format.
+    """
+    resolved: str
+    if date_format is not None:
+        resolved = date_format
+    elif configured is None:
+        resolved = "iso"
+    elif spec.show_mtime:
+        resolved = configured().get("date_format") or "relative"
+    else:
+        resolved = "relative"
+    return replace(spec, date_format=resolved)
+
+
 def _warn_if_ignore_file_missing(
     directory: Path, ignore_file: str | None, *, configured: bool = False
 ) -> None:
@@ -1257,18 +1306,21 @@ def _plan_tree_scan(
     mtime: bool,
     show_git_status: bool,
     icon_style: IconStyle | None,
+    date_format: DateFormat | None,
     verbose: bool,
     use_configured_icon_style: bool,
+    use_configured_date_format: bool,
 ) -> _TreeScanPlan:
     """Resolve the options shared by visualize and export into a scan plan.
 
     Runs the option handling both commands have in common, in the order its messages
     are logged: recognizing a GitHub input, resolving the sorting and annotation flags,
-    validating a local directory, choosing the ignore file and the icon style, logging
-    the display options, and parsing the filters. For a GitHub input the options that
-    do not apply to a hosted repository are dropped, and reported when they were given.
+    validating a local directory, choosing the ignore file, the icon style and the date
+    format, logging the display options, and parsing the filters. For a GitHub input
+    the options that do not apply to a hosted repository are dropped, and reported when
+    they were given.
 
-    Apart from the two below, the arguments are the command options of the same name,
+    Apart from the three below, the arguments are the command options of the same name,
     as received from Typer and documented on `visualize`.
 
     Args:
@@ -1276,6 +1328,9 @@ def _plan_tree_scan(
         use_configured_icon_style: Whether the ``icon_style`` configuration setting
             applies when *icon_style* is ``None``. When ``False`` the style falls back
             to ``"emoji"`` regardless of the configuration.
+        use_configured_date_format: Whether the ``date_format`` configuration setting
+            applies when *date_format* is ``None``. When ``False`` the format falls back
+            to ``"iso"`` regardless of the configuration.
 
     Returns:
         The resolved plan.
@@ -1319,6 +1374,11 @@ def _plan_tree_scan(
         configured().get("icon_style", "emoji")
         if use_configured_icon_style
         else "emoji"
+    )
+    spec = _with_date_format(
+        spec,
+        date_format,
+        configured if use_configured_date_format else None,
     )
 
     _log_display_options(max_depth, show_full_path, spec)
@@ -1434,6 +1494,16 @@ def visualize(
             ),
         ),
     ] = None,
+    date_format: Annotated[
+        DateFormat | None,
+        typer.Option(
+            "--date-format",
+            help=(
+                f"{HELP_DATE_FORMAT} Defaults to the project config, then the user "
+                "config."
+            ),
+        ),
+    ] = None,
     verbose: VerboseOption = False,
 ) -> None:
     """Visualize a directory structure as a tree in the terminal.
@@ -1447,13 +1517,16 @@ def visualize(
 
     Only the first `--sort-by-*` flag on the command line takes effect, while
     every display flag (`--loc`, `--size`, `--mtime`, `--git-status`)
-    annotates, in the order given.
+    annotates, in the order given. Modification times are written in the
+    `relative` form (`Today 14:30`) unless `--date-format iso` or the
+    `date-format` setting asks for ISO 8601 in UTC.
 
     Examples:
         >>> recursivist visualize
         >>> recursivist visualize /path/to/project -e node_modules -e .git
         >>> recursivist visualize -p "*.test.js" -d 2
         >>> recursivist visualize --sort-by-loc --size
+        >>> recursivist visualize --mtime --date-format iso
         >>> recursivist visualize https://github.com/owner/repo/tree/main/src
     """
     _enable_verbose_if_requested(verbose)
@@ -1479,8 +1552,10 @@ def visualize(
         mtime=mtime,
         show_git_status=show_git_status,
         icon_style=icon_style,
+        date_format=date_format,
         verbose=verbose,
         use_configured_icon_style=True,
+        use_configured_date_format=True,
     )
     try:
         with _scanned_tree(plan) as scanned:
@@ -1547,6 +1622,16 @@ def export(
             help="Override icon style. Defaults to 'emoji' for safe file exports.",
         ),
     ] = None,
+    date_format: Annotated[
+        DateFormat | None,
+        typer.Option(
+            "--date-format",
+            help=(
+                f"{HELP_DATE_FORMAT} Defaults to 'iso', which stays accurate after "
+                "the file is written."
+            ),
+        ),
+    ] = None,
     verbose: VerboseOption = False,
 ) -> None:
     """Export a directory structure to one or more file formats.
@@ -1561,12 +1646,14 @@ def export(
 
     Only the first `--sort-by-*` flag on the command line takes effect, while
     every display flag (`--loc`, `--size`, `--mtime`, `--git-status`)
-    annotates, in the order given.
+    annotates, in the order given. Exports write modification times as ISO
+    8601 in UTC unless `--date-format relative` is given.
 
     Examples:
         >>> recursivist export
         >>> recursivist export /path/to/project -f html -o ./exports
         >>> recursivist export -f "json md html"
+        >>> recursivist export -f md --mtime --date-format relative
         >>> recursivist export https://github.com/owner/repo -f md -l
     """
     _enable_verbose_if_requested(verbose)
@@ -1604,8 +1691,10 @@ def export(
         mtime=mtime,
         show_git_status=show_git_status,
         icon_style=icon_style,
+        date_format=date_format,
         verbose=verbose,
         use_configured_icon_style=False,
+        use_configured_date_format=False,
     )
     failed_formats: list[str] = []
     try:
@@ -1699,6 +1788,16 @@ def compare(
             ),
         ),
     ] = None,
+    date_format: Annotated[
+        DateFormat | None,
+        typer.Option(
+            "--date-format",
+            help=(
+                f"{HELP_DATE_FORMAT} Defaults to 'iso' if saving to HTML, else the "
+                "project config, then the user config."
+            ),
+        ),
+    ] = None,
     verbose: VerboseOption = False,
 ) -> None:
     """Compare two directory structures side by side.
@@ -1713,7 +1812,9 @@ def compare(
 
     Only the first `--sort-by-*` flag on the command line takes effect, while
     every display flag (`--loc`, `--size`, `--mtime`, `--git-status`)
-    annotates, in the order given.
+    annotates, in the order given. Modification times are written in the
+    `relative` form in the terminal and as ISO 8601 in UTC in a saved HTML
+    file; `--date-format` chooses either for a run.
 
     Examples:
         >>> recursivist compare dir1 dir2
@@ -1789,6 +1890,8 @@ def compare(
 
     if local_paths:
         ignore_file = _choose_ignore_file(local_paths, ignore_file, configured)
+
+    spec = _with_date_format(spec, date_format, None if save_as_html else configured)
 
     _log_display_options(max_depth, show_full_path, spec)
 

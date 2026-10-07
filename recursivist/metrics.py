@@ -10,7 +10,7 @@ import logging
 import os
 import stat
 from collections.abc import Sequence
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from recursivist._models import Directory
 
@@ -152,10 +152,11 @@ def get_file_mtime(file_path: str) -> float:
         return 0.0
 
 
-def format_timestamp(timestamp: float) -> str:
-    """Format a Unix timestamp as a human-readable, recency-aware string.
+def format_timestamp(timestamp: float, date_format: str = "relative") -> str:
+    """Format a Unix timestamp as a date/time string.
 
-    The representation becomes coarser as the timestamp gets older:
+    With the ``"relative"`` format the result is recency-aware, in local time, and
+    becomes coarser as the timestamp gets older:
 
     - Today: ``"Today HH:MM"``
     - Yesterday: ``"Yesterday HH:MM"``
@@ -163,8 +164,13 @@ def format_timestamp(timestamp: float) -> str:
     - Earlier this year: abbreviated month and day (e.g. ``"Mar 15"``)
     - Older: ``"YYYY-MM-DD"``
 
+    With the ``"iso"`` format the result is the ISO 8601 date and time in UTC, to the
+    second. Unlike the relative form, it does not depend on when or where it is read,
+    which suits output that is kept.
+
     Args:
         timestamp: Seconds since the epoch.
+        date_format: The format to use, either ``"relative"`` or ``"iso"``.
 
     Returns:
         The formatted date/time string, or ``"-"`` when *timestamp* is zero or falls
@@ -172,6 +178,12 @@ def format_timestamp(timestamp: float) -> str:
     """
     if not timestamp:
         return "-"
+    if date_format == "iso":
+        try:
+            utc_dt = datetime.fromtimestamp(timestamp, tz=timezone.utc)
+        except (OSError, OverflowError, ValueError):
+            return "-"
+        return utc_dt.replace(tzinfo=None).isoformat(timespec="seconds") + "Z"
     try:
         dt_object = datetime.fromtimestamp(timestamp)
     except (OSError, OverflowError, ValueError):
@@ -196,6 +208,7 @@ def format_metrics(
     size: int = 0,
     mtime: float = 0.0,
     metrics: Sequence[str] = (),
+    date_format: str = "relative",
 ) -> str:
     """Build the parenthetical metrics annotation for a file or directory.
 
@@ -209,6 +222,8 @@ def format_metrics(
         size: Size in bytes.
         mtime: Modification time (seconds since epoch).
         metrics: The metrics to include, in display order.
+        date_format: How the modification time is written, either ``"relative"`` or
+            ``"iso"`` (see [`format_timestamp`][recursivist.metrics.format_timestamp]).
 
     Returns:
         The annotation string including the surrounding parentheses, or an empty string
@@ -217,7 +232,7 @@ def format_metrics(
     renderers = {
         "loc": lambda: f"{loc} line" if loc == 1 else f"{loc} lines",
         "size": lambda: format_size(size),
-        "mtime": lambda: format_timestamp(mtime),
+        "mtime": lambda: format_timestamp(mtime, date_format),
     }
     parts = [renderers[m]() for m in metrics if m in renderers]
     return f"({', '.join(parts)})" if parts else ""
@@ -228,6 +243,7 @@ def format_metrics_suffix(
     size: int = 0,
     mtime: float = 0.0,
     metrics: Sequence[str] = (),
+    date_format: str = "relative",
 ) -> str:
     """Like [`format_metrics`][recursivist.metrics.format_metrics] but prefixed with a
     single space.
@@ -235,7 +251,7 @@ def format_metrics_suffix(
     Convenient for appending directly after a file or directory name. Returns an empty
     string (no leading space) when *metrics* is empty.
     """
-    annotation = format_metrics(loc, size, mtime, metrics)
+    annotation = format_metrics(loc, size, mtime, metrics, date_format)
     return f" {annotation}" if annotation else ""
 
 
@@ -262,7 +278,11 @@ def recorded_dir_metrics(
     return [m for m in metrics if totals.get(m) is not None]
 
 
-def format_dir_metrics(directory: Directory, metrics: Sequence[str] = ()) -> str:
+def format_dir_metrics(
+    directory: Directory,
+    metrics: Sequence[str] = (),
+    date_format: str = "relative",
+) -> str:
     """Return the space-prefixed metrics suffix for a directory.
 
     Wraps [`format_metrics_suffix`][recursivist.metrics.format_metrics_suffix], reading
@@ -274,6 +294,8 @@ def format_dir_metrics(directory: Directory, metrics: Sequence[str] = ()) -> str
     Args:
         directory: The directory whose totals are formatted.
         metrics: The metrics to display, in order.
+        date_format: How the modification time is written, either ``"relative"`` or
+            ``"iso"``.
 
     Returns:
         The metrics suffix (with a leading space) or an empty string.
@@ -283,4 +305,5 @@ def format_dir_metrics(directory: Directory, metrics: Sequence[str] = ()) -> str
         directory.size or 0,
         directory.mtime or 0.0,
         recorded_dir_metrics(directory, metrics),
+        date_format,
     )

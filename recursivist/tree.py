@@ -49,6 +49,8 @@ def build_tree(
 
     - ``spec.metrics``: the ordered lines-of-code, size, and modification-time metrics
       to append (in the exact order requested).
+    - ``spec.date_format``: how a modification time is written, ``"relative"`` or
+      ``"iso"``.
     - ``spec.show_git_status``: append a colored marker to each file — ``[U]`` untracked
       (grey), ``[M]`` modified (yellow), ``[A]`` added (green), ``[D]`` deleted (red).
       The marker always trails the metric parenthetical, and deleted files no longer on
@@ -77,7 +79,9 @@ def build_tree(
         colored_text.append(f"{icon} ", style=color)
         colored_text.append(
             entry.path
-            + format_metrics_suffix(entry.loc, entry.size, entry.mtime, spec.metrics),
+            + format_metrics_suffix(
+                entry.loc, entry.size, entry.mtime, spec.metrics, spec.date_format
+            ),
             style=name_style,
         )
 
@@ -95,7 +99,7 @@ def build_tree(
             style=icon_style,
             is_empty=not has_contents(content),
         )
-        metrics = format_dir_metrics(content, spec.metrics)
+        metrics = format_dir_metrics(content, spec.metrics, spec.date_format)
         folder_display = f"{folder_icon} {folder}{metrics}"
         subtree = tree.add(Text(folder_display))
         if content.symlink_loop:
@@ -142,7 +146,7 @@ def display_tree(
         is_empty=not has_contents(structure),
     )
     root_label = f"{root_icon} {root_name}" + format_dir_metrics(
-        structure, spec.metrics
+        structure, spec.metrics, spec.date_format
     )
     tree = Tree(Text(root_label))
     build_tree(structure, tree, color_map, spec, icon_style=icon_style)

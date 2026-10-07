@@ -86,7 +86,7 @@ This writes `comparison.html` to the current directory. Change the location or f
 recursivist compare dir1 dir2 --save --output-dir ./reports --prefix project-diff
 ```
 
-The document contains the same side-by-side comparison, highlighting, and legend as the terminal view. Use it to share results or keep a record of structural changes. It uses the `emoji` icon style by default for cross-platform consistency; override it with `--icon-style nerd`.
+The document contains the same side-by-side comparison, highlighting, and legend as the terminal view. Use it to share results or keep a record of structural changes. It uses the `emoji` icon style by default for cross-platform consistency; override it with `--icon-style nerd`. Modification times (`--mtime`) are written in the `iso` [date format](sorting-and-statistics.md#date-format) by default, to keep the document always accurate; override that with `--date-format relative`.
 
 !!! note
 

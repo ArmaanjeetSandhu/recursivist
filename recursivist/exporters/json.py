@@ -90,7 +90,9 @@ class JsonExporter(BaseExporter):
                     result["size_formatted"] = format_size(entry.size)
                 elif metric == "mtime":
                     result["mtime"] = entry.mtime
-                    result["mtime_formatted"] = format_timestamp(entry.mtime)
+                    result["mtime_formatted"] = format_timestamp(
+                        entry.mtime, self.date_format
+                    )
             if git_status:
                 result["git_status"] = git_status
             return result
@@ -123,7 +125,9 @@ class JsonExporter(BaseExporter):
                 result["size_formatted"] = format_size(directory.size)
             if self.show_mtime and directory.mtime is not None:
                 result["mtime"] = directory.mtime
-                result["mtime_formatted"] = format_timestamp(directory.mtime)
+                result["mtime_formatted"] = format_timestamp(
+                    directory.mtime, self.date_format
+                )
             result.update(_traversal_flags(directory))
             result.update(_subdirectories_to_json(directory, detailed))
             return result

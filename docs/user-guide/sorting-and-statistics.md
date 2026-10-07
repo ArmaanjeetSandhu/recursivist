@@ -82,7 +82,7 @@ recursivist visualize --sort-by-size
 
 ## Modification Times
 
-Show when files were last modified, newest first, with recency-aware formatting (`Today HH:MM`, `Yesterday HH:MM`, a weekday and time within the last week, `Mon DD` earlier this year, or `YYYY-MM-DD` for older files). A directory shows the time of its most recently modified file:
+Show when files were last modified, newest first. A directory shows the time of its most recently modified file:
 
 ```bash
 recursivist visualize --sort-by-mtime
@@ -112,6 +112,63 @@ recursivist visualize --sort-by-mtime
     </div>
   </div>
 </div>
+
+### Date Format
+
+A modification time is written in one of two formats, chosen with `--date-format`:
+
+| Format     | Example                | Description                                                                                                                                                                                    |
+| ---------- | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `relative` | `Today 14:30`          | Recency-aware, in your local time: `Today HH:MM`, `Yesterday HH:MM`, a weekday and time within the last week, `Mon DD` earlier this year, or `YYYY-MM-DD` for older and for future-dated files |
+| `iso`      | `2026-10-07T12:30:41Z` | ISO 8601, in UTC, to the second                                                                                                                                                                |
+
+Both examples are the same moment, on a machine two hours ahead of UTC: the `relative` form is in local time and drops the seconds.
+
+```bash
+recursivist visualize --sort-by-mtime --date-format iso
+```
+
+<div class="terminal-demo">
+  <div class="terminal-header">
+    <div class="terminal-buttons">
+      <div class="terminal-button red"></div>
+      <div class="terminal-button yellow"></div>
+      <div class="terminal-button green"></div>
+    </div>
+    <div class="terminal-title">recursivist-demo ~ bash</div>
+  </div>
+  <div class="terminal-body">
+    <div class="terminal-output">
+      <pre>📂 my-project (2026-10-07T12:30:41Z)
+├── <span style="color: #f1fa8c;">📄 README.md</span> (2026-10-07T08:15:02Z)
+├── <span style="color: #83e43d;">📄 setup.py</span> (2026-10-07T07:00:19Z)
+├── <span style="color: #bd93f9;">📄 requirements.txt</span> (2026-10-06T14:00:55Z)
+└── 📂 src (2026-10-07T12:30:41Z)
+    ├── <span style="color: #83e43d;">📄 main.py</span> (2026-10-07T12:30:41Z)
+    ├── <span style="color: #83e43d;">📄 utils.py</span> (2026-10-07T07:15:33Z)
+    └── 📂 tests (2026-10-07T12:25:07Z)
+        ├── <span style="color: #83e43d;">📄 test_main.py</span> (2026-10-07T12:25:07Z)
+        └── <span style="color: #83e43d;">📄 test_utils.py</span> (2026-10-06T16:10:48Z)</pre>
+    </div>
+  </div>
+</div>
+
+The default depends on where the times end up:
+
+| Output                                 | Default    |
+| -------------------------------------- | ---------- |
+| `visualize`                            | `relative` |
+| `compare` in the terminal              | `relative` |
+| `export`, in every format              | `iso`      |
+| `compare --save` (the comparison HTML) | `iso`      |
+
+A relative time is read at a glance in the terminal, but `Today 14:30` stops being true once a file is read on another day, which is why everything written to a file defaults to `iso`. `--date-format` overrides the default of any command. To change the format used in the terminal for every run, save it as the `date-format` [setting](configuration.md#settings):
+
+```bash
+recursivist config set date-format iso
+```
+
+The option only changes *how* a time is written. It has no effect unless `--mtime` or `--sort-by-mtime` is given.
 
 ## Displaying Without Sorting
 
@@ -250,5 +307,7 @@ recursivist compare dir1 dir2 --git-status
 ```
 
 - Each export format writes the annotations in its own way; [Export Formats](../reference/export-formats.md) shows them.
+- Exports, and a comparison saved with `--save`, write modification times in the `iso` [date format](#date-format) unless `--date-format relative` is given.
 - In `compare`, the legend notes which metrics and ordering are active, and Git status is read independently for each directory. This way, both sides are annotated correctly even when they belong to different repositories.
+- In `compare`, two files of the same name are highlighted as different when their annotations read differently. With `--mtime`, that follows the date format: `iso` tells apart files modified a second apart, while `relative` only tells them apart when the coarser text differs.
 - For a GitHub repository URL, lines of code and size apply, while the Git-status and modification-time flags are skipped. See [GitHub Repositories](github-repositories.md#which-options-apply).

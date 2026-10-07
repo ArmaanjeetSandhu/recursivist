@@ -71,6 +71,16 @@ Exports use the `emoji` icon style by default, independent of your saved and pro
 recursivist export --format md --icon-style nerd
 ```
 
+## Date Format
+
+Exports write modification times (`--mtime`, `--sort-by-mtime`) as ISO 8601 in UTC, such as `2026-10-07T12:30:41Z`, independent of your saved and project [configuration](configuration.md). Unlike the relative form shown in the terminal (`Today 14:30`), it stays accurate however long the file is kept. Switch to the relative form with:
+
+```bash
+recursivist export --format md --mtime --date-format relative
+```
+
+See [Date Format](sorting-and-statistics.md#date-format) for both formats.
+
 ## Examples
 
 ```bash

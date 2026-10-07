@@ -1,16 +1,19 @@
 # Configuration
 
-Options you would otherwise pass on every run can be saved once. Recursivist has three settings, and each can be set in three places: on the command line for a single run, in a project file for everyone who works on a project, and in your own user preferences.
+Options you would otherwise pass on every run can be saved once. Recursivist has four settings, and each can be set in three places: on the command line for a single run, in a project file for everyone who works on a project, and in your own user preferences.
 
 ## Settings
 
-| Key           | Values                            | Default | What it sets                                                                                      |
-| ------------- | --------------------------------- | ------- | ------------------------------------------------------------------------------------------------- |
-| `icon-style`  | `emoji` or `nerd`                 | `emoji` | The icons of `visualize`, and of `compare` in the terminal                                        |
-| `ignore-file` | A file name, such as `.gitignore` | Not set | The ignore file honored by `visualize`, `export`, and `compare` when `--ignore-file` is not given |
-| `exclude`     | One or more directory names       | Not set | The directories excluded by `visualize`, `export`, and `compare` when `--exclude` is not given    |
+| Key           | Values                            | Default    | What it sets                                                                                      |
+| ------------- | --------------------------------- | ---------- | ------------------------------------------------------------------------------------------------- |
+| `icon-style`  | `emoji` or `nerd`                 | `emoji`    | The icons of `visualize`, and of `compare` in the terminal                                        |
+| `date-format` | `relative` or `iso`               | `relative` | How `visualize`, and `compare` in the terminal, write modification times                          |
+| `ignore-file` | A file name, such as `.gitignore` | Not set    | The ignore file honored by `visualize`, `export`, and `compare` when `--ignore-file` is not given |
+| `exclude`     | One or more directory names       | Not set    | The directories excluded by `visualize`, `export`, and `compare` when `--exclude` is not given    |
 
 **`icon-style`** chooses between the two [icon styles](visualization.md#icon-styles). Exported files, and a comparison saved as HTML, use the `emoji` style regardless of this setting, to render consistently on any machine; pass `--icon-style nerd` to override that for a run.
+
+**`date-format`** chooses between the two [date formats](sorting-and-statistics.md#date-format) of a modification time: `relative` (`Today 14:30`) or `iso` (`2026-10-07T12:30:41Z`). Exported files, and a comparison saved as HTML, use the `iso` format regardless of this setting, because a relative time stops being true once the file is read on another day; pass `--date-format relative` to override that for a run.
 
 **`ignore-file`** names a gitignore-style [ignore file](pattern-filtering.md#ignore-files), exactly as `--ignore-file` does: the leading dot is optional, and the file is looked up in the directory being scanned and at every level below it. Any name that is not blank is accepted. A directory that has no file of that name is scanned without one, and no warning is shown, so the setting can be saved once and left on.
 
@@ -20,7 +23,7 @@ Options you would otherwise pass on every run can be saved once. Recursivist has
 
 Each setting is resolved in this order, the first one found winning:
 
-1. The command-line flag (`--icon-style`, `--ignore-file`, or `--exclude`)
+1. The command-line flag (`--icon-style`, `--date-format`, `--ignore-file`, or `--exclude`)
 2. The [project configuration](#project-configuration)
 3. Your [user preferences](#user-preferences) (`config set`)
 4. The built-in default
@@ -34,6 +37,7 @@ Your own preferences are stored as JSON in your platform's application-data dire
 ```bash
 # Save a value
 recursivist config set icon-style nerd
+recursivist config set date-format iso             # ISO 8601 modification times in the terminal
 recursivist config set ignore-file .gitignore      # honor .gitignore on every run
 recursivist config set exclude node_modules .git   # leave these directories out of every run
 
@@ -59,6 +63,7 @@ A project can carry its own settings in a TOML file, which override your user pr
 ```toml
 # .recursivist.toml
 icon-style = "nerd"
+date-format = "iso"
 ignore-file = ".gitignore"
 exclude = ["node_modules", ".git"]
 ```
@@ -67,6 +72,7 @@ exclude = ["node_modules", ".git"]
 # pyproject.toml
 [tool.recursivist]
 icon-style = "nerd"
+date-format = "iso"
 ignore-file = ".gitignore"
 exclude = ["node_modules", ".git"]
 ```
@@ -95,6 +101,7 @@ recursivist config list ./my-project
   <div class="terminal-body">
     <div class="terminal-output">
       <pre>icon-style  = nerd                (project: /home/me/my-project/.recursivist.toml)
+date-format = relative            (default)
 ignore-file = .gitignore          (user: /home/me/.config/recursivist/config.json)
 exclude     = node_modules, .git  (user: /home/me/.config/recursivist/config.json)</pre>
     </div>
@@ -109,6 +116,7 @@ An unknown key or an invalid value is reported with a warning and ignored, and t
 
 ## How Commands Use Settings
 
-- **`export`** applies `ignore-file` and `exclude` as the other commands do, but always defaults to the `emoji` icon style.
+- **`export`** applies `ignore-file` and `exclude` as the other commands do, but always defaults to the `emoji` icon style and the `iso` date format.
+- **`compare --save`** defaults to the `emoji` icon style and the `iso` date format in the same way; in the terminal, `compare` uses the `icon-style` and `date-format` settings.
 - **`compare`** uses the project configuration of the first local directory given: it looks for the ignore file that configuration names in each local directory, and excludes the directories it names from both sides.
 - **A GitHub repository input** has no project configuration. The `ignore-file` setting is not applied to it; the `exclude` setting of your user preferences is. See [GitHub Repositories](github-repositories.md#which-options-apply).

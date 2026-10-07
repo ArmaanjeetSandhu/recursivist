@@ -8,8 +8,9 @@ the directory being scanned: either a dedicated ``.recursivist.toml`` or a
 
 [`resolve_config`][recursivist.config.resolve_config] merges them, each layer overriding
 the ones before it: built-in defaults, then the user file, then the project file. A
-command-line flag overrides all three. The preferences are the icon style, the name of
-the ignore file to honor, and the directories to exclude.
+command-line flag overrides all three. The preferences are the icon style, the format of
+modification times, the name of the ignore file to honor, and the directories to
+exclude.
 
 [`resolve_config_layers`][recursivist.config.resolve_config_layers] gives the same
 resolution layer by layer, naming the file each value comes from. It is what
@@ -53,8 +54,16 @@ IconStyle = Literal["emoji", "nerd"]
 
 ICON_STYLES: tuple[str, ...] = get_args(IconStyle)
 
+DateFormat = Literal["relative", "iso"]
+"""Modification-time formats accepted by ``--date-format`` and the ``date-format``
+config key: ``relative`` is the recency-aware form (``Today 14:30``) and ``iso`` is ISO
+8601 in UTC (``2026-10-07T12:30:41Z``)."""
+
+DATE_FORMATS: tuple[str, ...] = get_args(DateFormat)
+
 CONFIG_KEYS: dict[str, tuple[str, ...] | None] = {
     "icon_style": ICON_STYLES,
+    "date_format": DATE_FORMATS,
     "ignore_file": None,
     "exclude": None,
 }
@@ -67,6 +76,7 @@ LIST_KEYS: frozenset[str] = frozenset({"exclude"})
 
 DEFAULT_CONFIG: dict[str, Any] = {
     "icon_style": "emoji",
+    "date_format": "relative",
     "ignore_file": None,
     "exclude": None,
 }

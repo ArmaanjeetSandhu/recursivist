@@ -113,7 +113,11 @@ class HtmlExporter(BaseExporter):
                     f'<li class="file" style="{_file_style}">{file_icon} '
                     f"{_name_open}{html.escape(entry.path)}{_name_close}"
                     + format_metrics_suffix(
-                        entry.loc, entry.size, entry.mtime, self.metrics
+                        entry.loc,
+                        entry.size,
+                        entry.mtime,
+                        self.metrics,
+                        self.date_format,
                     )
                     + f"{_git_badge}</li>"
                 )
@@ -134,6 +138,7 @@ class HtmlExporter(BaseExporter):
                         content.size or 0,
                         content.mtime or 0.0,
                         enabled,
+                        self.date_format,
                     )
                     metric_html = f' <span class="{css}">{inner}</span>'
                 html_content.append(
@@ -158,7 +163,7 @@ class HtmlExporter(BaseExporter):
         )
 
         title = f"{root_icon} {html.escape(self.root_name)}" + format_dir_metrics(
-            self.structure, self.metrics
+            self.structure, self.metrics, self.date_format
         )
         metric_styles = (
             f"""

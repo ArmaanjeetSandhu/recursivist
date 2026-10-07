@@ -76,7 +76,11 @@ class TxtExporter(BaseExporter):
                 lines.append(
                     f"{item_prefix}{file_icon} {entry.path}"
                     + format_metrics_suffix(
-                        entry.loc, entry.size, entry.mtime, self.metrics
+                        entry.loc,
+                        entry.size,
+                        entry.mtime,
+                        self.metrics,
+                        self.date_format,
                     )
                     + _git_suffix
                 )
@@ -92,7 +96,7 @@ class TxtExporter(BaseExporter):
                 )
                 lines.append(
                     f"{item_prefix}{folder_icon} {name}"
-                    + format_dir_metrics(content, self.metrics)
+                    + format_dir_metrics(content, self.metrics, self.date_format)
                 )
                 if content.symlink_loop:
                     next_prefix = prefix + ("    " if is_last_item else "│   ")
@@ -110,7 +114,7 @@ class TxtExporter(BaseExporter):
             is_empty=not has_contents(self.structure),
         )
         root_label = f"{root_icon} {self.root_name}" + format_dir_metrics(
-            self.structure, self.metrics
+            self.structure, self.metrics, self.date_format
         )
 
         tree_lines = [root_label]

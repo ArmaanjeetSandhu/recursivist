@@ -201,8 +201,9 @@ Exporters live in `recursivist/exporters/` and subclass `BaseExporter`, which st
             with open(output_path, "w", encoding="utf-8") as f:
                 # Build output from self.structure and self.root_name,
                 # honoring the resolved display options exposed by BaseExporter:
-                # self.sort_key, self.metrics (ordered), self.show_git_status,
-                # self.icon_style, and self.show_full_path as appropriate.
+                # self.sort_key, self.metrics (ordered), self.date_format,
+                # self.show_git_status, self.icon_style, and self.show_full_path
+                # as appropriate.
                 ...
     ```
 

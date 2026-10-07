@@ -333,6 +333,7 @@ def _comparison_identity(
     metrics: Sequence[str],
     show_git_status: bool,
     markers: Mapping[str, str],
+    date_format: str = "relative",
 ) -> tuple[str, str, str]:
     """Return the key that decides whether a file matches one across the sides.
 
@@ -349,16 +350,24 @@ def _comparison_identity(
     side). Only the bare *name* is used for the filename component, never the full path,
     or full-path display would by itself make every file look unique.
 
+    For the same reason, how finely modification times are told apart follows
+    *date_format*: the ``"iso"`` form separates two files modified a second apart, while
+    the ``"relative"`` form only separates them when the coarser text it shows differs.
+
     Args:
         entry: The file whose identity is wanted.
         metrics: The numeric metrics being displayed, in display order.
         show_git_status: Whether the Git-status badge is displayed.
         markers: The ``{filename: status_char}`` map for *entry*'s own side.
+        date_format: How the modification time is displayed, either ``"relative"`` or
+            ``"iso"``.
 
     Returns:
         A ``(name, metric_annotation, git_badge)`` tuple usable as a set key.
     """
-    metric_annotation = format_metrics(entry.loc, entry.size, entry.mtime, metrics)
+    metric_annotation = format_metrics(
+        entry.loc, entry.size, entry.mtime, metrics, date_format
+    )
     git_badge = ""
     if show_git_status:
         marker = _git_badge_marker(markers, entry.name)
@@ -475,6 +484,7 @@ class _ComparisonWalker:
             self.identity_spec.metrics,
             self.identity_spec.show_git_status,
             markers,
+            self.spec.date_format,
         )
 
     def _file(
@@ -491,7 +501,7 @@ class _ComparisonWalker:
             icon=get_icon(entry.name, is_dir=False, style=self.icon_style),
             label=entry.path,
             metrics_suffix=format_metrics_suffix(
-                entry.loc, entry.size, entry.mtime, metrics
+                entry.loc, entry.size, entry.mtime, metrics, self.spec.date_format
             ),
             git_marker=git_marker,
             uniqueness=uniqueness,
@@ -517,7 +527,7 @@ class _ComparisonWalker:
         return _DirNode(
             icon=get_icon(name, is_dir=True, style=self.icon_style, is_empty=is_empty),
             name=name,
-            metrics_suffix=format_dir_metrics(content, metrics),
+            metrics_suffix=format_dir_metrics(content, metrics, self.spec.date_format),
             uniqueness=uniqueness,
             symlink_loop=content.symlink_loop,
             children=children,
@@ -900,14 +910,16 @@ def display_comparison(
 
     tree1 = Tree(
         Text(
-            f"{root_icon1} {root_base1}" + format_dir_metrics(structure1, dir1_metrics),
+            f"{root_icon1} {root_base1}"
+            + format_dir_metrics(structure1, dir1_metrics, spec.date_format),
             style="bold",
         )
     )
 
     tree2 = Tree(
         Text(
-            f"{root_icon2} {root_base2}" + format_dir_metrics(structure2, dir2_metrics),
+            f"{root_icon2} {root_base2}"
+            + format_dir_metrics(structure2, dir2_metrics, spec.date_format),
             style="bold",
         )
     )
@@ -1228,8 +1240,12 @@ def _export_comparison_to_html(
     dir1_metrics = _side_metrics(spec.metrics, is_remote1)
     dir2_metrics = _side_metrics(spec.metrics, is_remote2)
 
-    dir1_title = dir1_name + format_dir_metrics(structure1, dir1_metrics)
-    dir2_title = dir2_name + format_dir_metrics(structure2, dir2_metrics)
+    dir1_title = dir1_name + format_dir_metrics(
+        structure1, dir1_metrics, spec.date_format
+    )
+    dir2_title = dir2_name + format_dir_metrics(
+        structure2, dir2_metrics, spec.date_format
+    )
 
     root_icon1 = get_icon(
         dir1_name,
