@@ -54,3 +54,24 @@
     document.addEventListener("DOMContentLoaded", init);
   else init();
 })();
+
+(function () {
+  function isExternal(link) {
+    return (
+      /^https?:$/.test(link.protocol) && link.host !== window.location.host
+    );
+  }
+
+  function openExternalLinksInNewTab() {
+    document.querySelectorAll("a[href]").forEach((link) => {
+      if (!isExternal(link)) return;
+      link.target = "_blank";
+      link.relList.add("noopener");
+    });
+  }
+
+  if (window.document$) window.document$.subscribe(openExternalLinksInNewTab);
+  else if (document.readyState === "loading")
+    document.addEventListener("DOMContentLoaded", openExternalLinksInNewTab);
+  else openExternalLinksInNewTab();
+})();
