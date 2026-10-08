@@ -80,8 +80,6 @@ dev = [
     {include-group = "test"},
     {include-group = "lint"},
     {include-group = "typecheck"},
-    "build",
-    "twine>=6.1",
 ]
 
 [tool.hatch.build.targets.wheel]

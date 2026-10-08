@@ -298,6 +298,8 @@ Recursivist follows [Semantic Versioning](https://semver.org/): MAJOR for incomp
 4. **Publish to PyPI** (maintainers only):
 
     ```bash
-    python -m build
-    python -m twine upload dist/*
+    uv build --clear
+    uv publish
     ```
+
+    `uv publish` uploads everything in `dist/`, so `--clear` empties that directory first to keep artifacts left over from an earlier release out of the upload.
