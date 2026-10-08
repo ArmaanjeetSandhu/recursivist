@@ -67,7 +67,7 @@ The blob URLs make `--full-path` convenient for a Markdown or JSON export that l
 recursivist export https://github.com/owner/repo --format md --full-path
 ```
 
-[Saved and project settings](configuration.md) follow the same logic. The `ignore-file` setting is not applied to a GitHub input, and no message is shown for it. The `exclude` and `size-format` settings of your user preferences are applied, as `--exclude` and `--size-format` are. A GitHub input has no project configuration of its own.
+[Saved and project settings](configuration.md) follow the same logic. The `ignore-file` setting is not applied to a GitHub input, and no message is shown for it. The `exclude`, `size-format`, and `depth` settings of your user preferences are applied, as `--exclude`, `--size-format`, and `--depth` are. A GitHub input has no project configuration of its own.
 
 ## Symbolic Links
 

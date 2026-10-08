@@ -1797,6 +1797,8 @@ def test_flags_for_every_setting_skip_config(
             ".gitignore",
             "-e",
             "subdir",
+            "-d",
+            "1",
         ],
     )
     assert result.exit_code == 0
@@ -1810,6 +1812,7 @@ def test_flags_for_every_setting_skip_config(
         ["--icon-style", "nerd"],
         ["--ignore-file", ".gitignore"],
         ["--exclude", "subdir"],
+        ["--depth", "1"],
     ],
 )
 def test_config_resolved_once_per_run(
@@ -2007,7 +2010,9 @@ def test_flags_for_every_setting_do_not_read_user_config(
     runner: CliRunner, sample_directory: str
 ) -> None:
     """When flags settle every setting, a bad saved value is not even reported."""
-    _write_user_config('{"icon_style": "bogus", "ignore_file": 3, "exclude": 3}')
+    _write_user_config(
+        '{"icon_style": "bogus", "ignore_file": 3, "exclude": 3, "depth": "deep"}'
+    )
     result = runner.invoke(
         app,
         [
@@ -2019,6 +2024,8 @@ def test_flags_for_every_setting_do_not_read_user_config(
             ".gitignore",
             "-e",
             "subdir",
+            "-d",
+            "1",
         ],
     )
     assert result.exit_code == 0

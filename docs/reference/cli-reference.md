@@ -28,7 +28,7 @@ The following options are common to `visualize`, `export`, and `compare`.
 | `--include-pattern`    | `-i`  | Pattern          | File-name pattern to include (repeatable)                                      |
 | `--regex`              | `-r`  |                  | Treat patterns as regular expressions instead of globs                         |
 | `--ignore-file`        | `-g`  | File name        | Gitignore-style ignore file to honor (e.g. `.gitignore`)                       |
-| `--depth`              | `-d`  | Integer          | Maximum depth to traverse (`0`, the default, for unlimited)                    |
+| `--depth`              | `-d`  | Integer          | Maximum depth to traverse (`0` for unlimited)                                  |
 | `--full-path`          | `-l`  |                  | Show full paths instead of bare filenames (GitHub blob URLs for GitHub inputs) |
 | `--sort-by-similarity` | `-S`  |                  | Group files with similar names together                                        |
 | `--sort-by-loc`        | `-s`  |                  | Sort files by lines of code and display LOC counts                             |
@@ -50,6 +50,7 @@ Notes:
 - **Pattern scope.** `--exclude-pattern` and `--include-pattern` match against each file's **name**, not its path. For path-based filtering, use `--exclude` (directory names) or `--ignore-file` (gitignore-style). See [Pattern Matching](pattern-matching.md) for the syntax and [Pattern Filtering](../user-guide/pattern-filtering.md#order-of-precedence) for the order in which filters are applied.
 - **`--ignore-file`** matches the name with or without a leading dot, so `--ignore-file gitignore` and `--ignore-file .gitignore` behave the same when a `.gitignore` is present. Without the option, the ignore file named by the `ignore-file` [setting](../user-guide/configuration.md#settings) is used, if one is set; `--ignore-file ""` honors no ignore file for that run.
 - **`--exclude`**, when omitted, falls back to the directories named by the `exclude` [setting](../user-guide/configuration.md#settings), if it is set. Directories given with `--exclude` are used in place of the configured ones for that run, not on top of them, and `--exclude ""` excludes no directory.
+- **`--depth`**, when omitted, falls back to the `depth` [setting](../user-guide/configuration.md#settings) (`0`, no limit, unless changed) in every command. `--depth 0` lifts a configured limit for that run.
 - **`--icon-style`**, when omitted, falls back to the `icon-style` setting in `visualize` and in `compare` in the terminal; `export` and `compare --save` default to `emoji`.
 - **`--date-format`** sets how the modification times shown by `--mtime` and `--sort-by-mtime` are written; it has no effect without one of them. When omitted, it falls back to the `date-format` setting (`relative` unless changed) in `visualize` and in `compare` in the terminal; `export` and `compare --save` default to `iso`. See [Date Format](../user-guide/sorting-and-statistics.md#date-format).
 - **`--size-format`** sets the units of the file sizes shown by `--size` and `--sort-by-size`: `iec` for powers of 1024 (`4.2 MiB`) or `si` for powers of 1000 (`4.4 MB`). It has no effect without one of them. When omitted, it falls back to the `size-format` setting (`iec` unless changed) in every command. See [Size Format](../user-guide/sorting-and-statistics.md#size-format).
@@ -203,11 +204,11 @@ recursivist config list [OPTIONS] [DIRECTORY]
 recursivist config path
 ```
 
-| Argument    | Description                                                                                                                                                                                                             |
-| ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `KEY`       | Configuration key: `icon-style`, `date-format`, `size-format`, `ignore-file`, or `exclude`                                                                                                                              |
-| `VALUE`     | Value to set: `emoji` or `nerd` for `icon-style`, `relative` or `iso` for `date-format`, `iec` or `si` for `size-format`, a file name such as `.gitignore` for `ignore-file`, one or more directory names for `exclude` |
-| `DIRECTORY` | Directory whose project configuration applies, for `config list` (defaults to the current directory)                                                                                                                    |
+| Argument    | Description                                                                                                                                                                                                                                                 |
+| ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `KEY`       | Configuration key: `icon-style`, `date-format`, `size-format`, `ignore-file`, `exclude`, or `depth`                                                                                                                                                         |
+| `VALUE`     | Value to set: `emoji` or `nerd` for `icon-style`, `relative` or `iso` for `date-format`, `iec` or `si` for `size-format`, a file name such as `.gitignore` for `ignore-file`, one or more directory names for `exclude`, a non-negative integer for `depth` |
+| `DIRECTORY` | Directory whose project configuration applies, for `config list` (defaults to the current directory)                                                                                                                                                        |
 
 The subcommands write only your user preferences file. A project configuration file is never created, changed, or removed; `config list` is the only subcommand that reads one.
 
@@ -231,7 +232,7 @@ It asks for confirmation first, in a question that names the entries about to be
 
 ### `config get`
 
-Prints the value of a setting: the one saved in the file, or the built-in default when none is saved or the saved one is invalid. For `ignore-file`, whose default is to honor no ignore file, that is an empty line. The directory names of `exclude` are printed one per line, and nothing is printed when no directory is excluded.
+Prints the value of a setting: the one saved in the file, or the built-in default when none is saved or the saved one is invalid. For `ignore-file`, whose default is to honor no ignore file, that is an empty line; for `depth`, whose default is no limit, it is `0`. The directory names of `exclude` are printed one per line, and nothing is printed when no directory is excluded.
 
 The value is the only thing written to standard output, so it can be captured in a script; warnings about the file, and the error for a key Recursivist does not recognize, go to standard error. It reads only your user preferences, so a project configuration or a command-line flag can still override the printed value for a run; `config list` shows the value in effect for a directory. Nothing is created or changed.
 
@@ -263,7 +264,8 @@ recursivist config list ./my-project
 date-format = relative            (default)
 size-format = iec                 (default)
 ignore-file = .gitignore          (user: /home/me/.config/recursivist/config.json)
-exclude     = node_modules, .git  (user: /home/me/.config/recursivist/config.json)</pre>
+exclude     = node_modules, .git  (user: /home/me/.config/recursivist/config.json)
+depth       = 0                   (default)</pre>
     </div>
   </div>
 </div>
@@ -306,12 +308,16 @@ ignore-file = .gitignore
 exclude = node_modules, .git
     project  (not set)           /home/me/my-project/.recursivist.toml
   * user     node_modules, .git  /home/me/.config/recursivist/config.json
-    default  (not set)</pre>
+    default  (not set)
+depth = 0
+    project  (not set)           /home/me/my-project/.recursivist.toml
+    user     (not set)           /home/me/.config/recursivist/config.json
+  * default  0</pre>
     </div>
   </div>
 </div>
 
-`--json` prints the listing as a JSON object keyed by setting. Each entry holds the winning `value`, the `layer` it comes from (`project`, `user`, or `default`), and its `source` file, which is `null` for a built-in default. The `value` is `null` for a setting that no layer sets, and an array of directory names for `exclude`:
+`--json` prints the listing as a JSON object keyed by setting. Each entry holds the winning `value`, the `layer` it comes from (`project`, `user`, or `default`), and its `source` file, which is `null` for a built-in default. The `value` is `null` for a setting that no layer sets, an array of directory names for `exclude`, and a number for `depth`:
 
 ```bash
 recursivist config list ./my-project --json
@@ -356,6 +362,11 @@ recursivist config list ./my-project --json
     ],
     "layer": "user",
     "source": "/home/me/.config/recursivist/config.json"
+  },
+  "depth": {
+    "value": 0,
+    "layer": "default",
+    "source": null
   }
 }</pre>
     </div>
@@ -366,7 +377,7 @@ With `--all` as well, each entry also has a `layers` array holding the same thre
 
 Only the listing is written to standard output, ready to pipe to another program; warnings about a configuration file, and the error for a `DIRECTORY` that is not a directory, go to standard error. An invalid value is reported with a warning and counts as not set, as it does for a run. Nothing is created or changed.
 
-A command-line flag such as `--icon-style`, `--date-format`, `--size-format`, `--ignore-file`, or `--exclude` still overrides the listed value for a run. Exports use the `emoji` icon style unless `--icon-style` is given, and the `iso` date format unless `--date-format` is given.
+A command-line flag such as `--icon-style`, `--date-format`, `--size-format`, `--ignore-file`, `--exclude`, or `--depth` still overrides the listed value for a run. Exports use the `emoji` icon style unless `--icon-style` is given, and the `iso` date format unless `--date-format` is given.
 
 ### `config path`
 
@@ -380,6 +391,7 @@ recursivist config set date-format iso          # ISO 8601 modification times in
 recursivist config set size-format si           # sizes in kB, MB, GB on every run
 recursivist config set ignore-file .gitignore   # honor .gitignore on every run
 recursivist config set exclude node_modules .git   # leave these directories out of every run
+recursivist config set depth 3                  # go three levels deep on every run
 recursivist config unset icon-style
 recursivist config reset --yes               # remove every saved preference without being asked
 recursivist config get exclude               # one directory name per line

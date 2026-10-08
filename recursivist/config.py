@@ -9,8 +9,8 @@ the directory being scanned: either a dedicated ``.recursivist.toml`` or a
 [`resolve_config`][recursivist.config.resolve_config] merges them, each layer overriding
 the ones before it: built-in defaults, then the user file, then the project file. A
 command-line flag overrides all three. The preferences are the icon style, the format of
-modification times, the format of file sizes, the name of the ignore file to honor, and
-the directories to exclude.
+modification times, the format of file sizes, the name of the ignore file to honor, the
+directories to exclude, and the maximum depth to scan.
 
 [`resolve_config_layers`][recursivist.config.resolve_config_layers] gives the same
 resolution layer by layer, naming the file each value comes from. It is what
@@ -74,13 +74,19 @@ CONFIG_KEYS: dict[str, tuple[str, ...] | None] = {
     "size_format": SIZE_FORMATS,
     "ignore_file": None,
     "exclude": None,
+    "depth": None,
 }
 """Recognized configuration keys (in their stored, underscored form) mapped to the
 strings each one accepts: a tuple of choices, or ``None`` for a key that accepts any
-string that is not blank. A key in `LIST_KEYS` holds a list of such strings."""
+string that is not blank. A key in `LIST_KEYS` holds a list of such strings, and a key
+in `INT_KEYS` holds an integer instead of a string."""
 
 LIST_KEYS: frozenset[str] = frozenset({"exclude"})
 """Configuration keys whose value is a list of strings rather than a single string."""
+
+INT_KEYS: frozenset[str] = frozenset({"depth"})
+"""Configuration keys whose value is an integer that is not negative, rather than a
+string."""
 
 DEFAULT_CONFIG: dict[str, Any] = {
     "icon_style": "emoji",
@@ -88,10 +94,11 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "size_format": "iec",
     "ignore_file": None,
     "exclude": None,
+    "depth": 0,
 }
 """Built-in value of every configuration key, used when no layer sets it. A value of
 ``None`` leaves the setting without a value: by default, no ignore file is honored and
-no directory is excluded."""
+no directory is excluded. A depth of ``0`` is no limit."""
 
 LAYER_PROJECT = "project"
 """Name of the layer read from the project configuration file."""
@@ -119,7 +126,7 @@ class ConfigLayer:
     """
 
     name: str
-    value: str | list[str] | None
+    value: str | int | list[str] | None
     source: Path | None
 
 
@@ -128,7 +135,8 @@ def accepts_value(key: str, value: Any) -> bool:
 
     A key with a set of choices accepts exactly those strings; any other key accepts a
     string that is not empty or made of whitespace only. A key in `LIST_KEYS` accepts a
-    list of one or more such strings, and every other key a single one.
+    list of one or more such strings, and every other key a single one. A key in
+    `INT_KEYS` accepts an integer that is not negative instead; a boolean is not one.
 
     Args:
         key: A key of `CONFIG_KEYS`, in its underscored form.
@@ -137,6 +145,9 @@ def accepts_value(key: str, value: Any) -> bool:
     Returns:
         ``True`` if *key* accepts *value*, ``False`` otherwise.
     """
+    if key in INT_KEYS:
+        return isinstance(value, int) and not isinstance(value, bool) and value >= 0
+
     choices = CONFIG_KEYS[key]
 
     def accepts_string(item: Any) -> bool:
@@ -162,9 +173,11 @@ def describe_accepted_values(key: str) -> str:
     Returns:
         A phrase that completes the sentence "Use ...": the quoted choices of a key
         that has them (``'emoji' or 'nerd'``), ``a list of one or more non-empty
-        strings`` for a key in `LIST_KEYS`, and ``a non-empty string`` for any other
-        key.
+        strings`` for a key in `LIST_KEYS`, ``a non-negative integer`` for a key in
+        `INT_KEYS`, and ``a non-empty string`` for any other key.
     """
+    if key in INT_KEYS:
+        return "a non-negative integer"
     choices = CONFIG_KEYS[key]
     if choices is not None:
         return " or ".join(f"'{v}'" for v in choices)

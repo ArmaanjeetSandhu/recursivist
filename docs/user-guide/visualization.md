@@ -96,6 +96,14 @@ recursivist visualize --depth 2
 
 Subtrees cut off by the limit are left unexpanded. Their folder icon still distinguishes the two cases: 📂 means contents were hidden by the limit (as for `tests` above), while 📁 means the directory is genuinely empty.
 
+To apply a limit on every run, save it as the [`depth`](configuration.md#settings) setting or set it for a project:
+
+```bash
+recursivist config set depth 2
+```
+
+The setting applies to `export` and `compare` as well. `--depth` still overrides it for a run, and `--depth 0` shows the whole tree.
+
 ## Full Path Display
 
 Show absolute paths instead of bare filenames:

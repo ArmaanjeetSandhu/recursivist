@@ -11,7 +11,7 @@ Main commands:
     export: Export a directory structure to TXT, JSON, HTML, MD, SVG, or RST.
     compare: Compare two directory structures with highlighted differences.
     config: Manage persistent user preferences like the icon style, the date and size
-        formats, and the ignore file.
+        formats, the ignore file, and the depth limit.
     version: Display the current version information.
 
 The visualize, export, and compare commands accept a GitHub repository URL anywhere they
@@ -52,6 +52,7 @@ from recursivist.compare import (
 )
 from recursivist.config import (
     CONFIG_KEYS,
+    INT_KEYS,
     LIST_KEYS,
     ConfigLayer,
     DateFormat,
@@ -214,8 +215,15 @@ IgnoreFileOption = Annotated[
     str | None, typer.Option("--ignore-file", "-g", help=HELP_IGNORE_FILE)
 ]
 MaxDepthDisplayOption = Annotated[
-    int,
-    typer.Option("--depth", "-d", help="Maximum depth to display (0 for unlimited)"),
+    int | None,
+    typer.Option(
+        "--depth",
+        "-d",
+        help=(
+            "Maximum depth to display (0 for unlimited). Defaults to the project "
+            "config, then the user config."
+        ),
+    ),
 ]
 ShowFullPathOption = Annotated[
     bool, typer.Option("--full-path", "-l", help=HELP_SHOW_FULL_PATH)
@@ -349,12 +357,14 @@ def _known_config_key(key: str) -> str:
     return config_key
 
 
-def _quoted(value: str | list[str]) -> str:
+def _quoted(value: str | int | list[str]) -> str:
     """Return a configuration value for a message, each string in single quotes.
 
     A list is shown as its quoted strings separated by commas. The quotes keep names
-    holding spaces distinguishable.
+    holding spaces distinguishable. An integer is shown as it is, without quotes.
     """
+    if isinstance(value, int):
+        return str(value)
     strings = value if isinstance(value, list) else [value]
     return ", ".join(f"'{string}'" for string in strings)
 
@@ -366,7 +376,7 @@ def config_set(
         typer.Argument(
             help=(
                 "Configuration key (icon-style, date-format, size-format, "
-                "ignore-file, or exclude)"
+                "ignore-file, exclude, or depth)"
             )
         ),
     ],
@@ -374,7 +384,7 @@ def config_set(
         list[str],
         typer.Argument(
             help=(
-                "Configuration value (e.g., nerd, iso, or .gitignore); "
+                "Configuration value (e.g., nerd, iso, .gitignore, or 2); "
                 "exclude takes one or more directory names"
             ),
         ),
@@ -386,10 +396,11 @@ def config_set(
     `icon-style` (`emoji` or `nerd`), `date-format` (`relative` or `iso`, the
     format of modification times), `size-format` (`iec` or `si`, the format
     of file sizes), `ignore-file` (the name of an ignore file to honor, such
-    as `.gitignore`), and `exclude` (directory names to exclude). `exclude`
-    takes one name per argument and replaces the saved names as a whole;
-    every other key takes exactly one value. A project configuration file
-    overrides the value saved here.
+    as `.gitignore`), `exclude` (directory names to exclude), and `depth` (the
+    maximum depth to scan, `0` for unlimited). `exclude` takes one name per
+    argument and replaces the saved names as a whole; every other key takes
+    exactly one value. A project configuration file overrides the value saved
+    here.
 
     Examples:
         >>> recursivist config set icon-style nerd
@@ -397,10 +408,11 @@ def config_set(
         >>> recursivist config set size-format si
         >>> recursivist config set ignore-file .gitignore
         >>> recursivist config set exclude node_modules .git "Application Support"
+        >>> recursivist config set depth 2
     """
     config_key = _known_config_key(key)
 
-    setting: str | list[str]
+    setting: str | int | list[str]
     if config_key in LIST_KEYS:
         setting = list(dict.fromkeys(parse_list_option(value)))
     elif len(value) > 1:
@@ -413,6 +425,9 @@ def config_set(
         raise typer.Exit(1)
     else:
         setting = value[0]
+        if config_key in INT_KEYS:
+            with contextlib.suppress(ValueError):
+                setting = int(setting)
 
     if not accepts_value(config_key, setting):
         logger.error(
@@ -521,6 +536,7 @@ def config_get(
     Examples:
         >>> recursivist config get icon-style
         >>> recursivist config get exclude
+        >>> recursivist config get depth
         >>> recursivist export --icon-style "$(recursivist config get icon-style)"
     """
     config_key = _known_config_key(key)
@@ -529,7 +545,7 @@ def config_get(
         for item in value or []:
             typer.echo(item)
     else:
-        typer.echo(value or "")
+        typer.echo("" if value is None else value)
 
 
 _NOT_SET = "(not set)"
@@ -553,7 +569,7 @@ def _shown_value(layer: ConfigLayer) -> str:
         return _NOT_SET
     if isinstance(layer.value, list):
         return ", ".join(layer.value)
-    return layer.value
+    return str(layer.value)
 
 
 def _layer_record(layer: ConfigLayer) -> dict[str, Any]:
@@ -999,6 +1015,24 @@ def _choose_exclude_dirs(
     return exclude_dirs
 
 
+def _choose_max_depth(
+    max_depth: int | None,
+    configured: Callable[[], dict[str, Any]],
+) -> int:
+    """Choose the maximum depth of a scan.
+
+    The ``--depth`` option wins whenever it is given, and ``0`` there means that the
+    depth is not limited. Without the option, the ``depth`` configuration setting is
+    used.
+
+    *configured* is the function returned by `_config_reader`; it is only called when
+    the option was not supplied. The result is ``0`` when the depth is not limited.
+    """
+    if max_depth is None:
+        return configured().get("depth") or 0
+    return max_depth
+
+
 def _with_date_format(
     spec: DisplayOptions,
     date_format: DateFormat | None,
@@ -1349,7 +1383,7 @@ def _plan_tree_scan(
     include_patterns: list[str] | None,
     use_regex: bool,
     ignore_file: str | None,
-    max_depth: int,
+    max_depth: int | None,
     show_full_path: bool,
     sort_by_loc: bool,
     sort_by_size: bool,
@@ -1371,10 +1405,10 @@ def _plan_tree_scan(
 
     Runs the option handling both commands have in common, in the order its messages
     are logged: recognizing a GitHub input, resolving the sorting and annotation flags,
-    validating a local directory, choosing the ignore file, the icon style and the date
-    and size formats, logging the display options, and parsing the filters. For a
-    GitHub input the options that do not apply to a hosted repository are dropped, and
-    reported when they were given.
+    validating a local directory, choosing the ignore file, the icon style, the date
+    and size formats and the depth, logging the display options, and parsing the
+    filters. For a GitHub input the options that do not apply to a hosted repository
+    are dropped, and reported when they were given.
 
     Apart from the three below, the arguments are the command options of the same name,
     as received from Typer and documented on `visualize`.
@@ -1437,8 +1471,9 @@ def _plan_tree_scan(
         configured if use_configured_date_format else None,
     )
     spec = _with_size_format(spec, size_format, configured)
+    resolved_depth = _choose_max_depth(max_depth, configured)
 
-    _log_display_options(max_depth, show_full_path, spec)
+    _log_display_options(resolved_depth, show_full_path, spec)
     dirs, extensions, excludes, includes = _parse_filter_options(
         _choose_exclude_dirs(exclude_dirs, configured),
         exclude_extensions,
@@ -1459,7 +1494,7 @@ def _plan_tree_scan(
         exclude_patterns=excludes,
         include_patterns=includes,
         use_regex=use_regex,
-        max_depth=max_depth,
+        max_depth=resolved_depth,
         show_full_path=show_full_path,
     )
 
@@ -1530,7 +1565,7 @@ def visualize(
     include_patterns: IncludePatternsOption = None,
     use_regex: UseRegexOption = False,
     ignore_file: IgnoreFileOption = None,
-    max_depth: MaxDepthDisplayOption = 0,
+    max_depth: MaxDepthDisplayOption = None,
     show_full_path: ShowFullPathOption = False,
     sort_by_loc: SortByLocOption = False,
     sort_by_size: SortBySizeOption = False,
@@ -1578,7 +1613,9 @@ def visualize(
     annotates, in the order given. Modification times are written in the
     `relative` form unless `--date-format iso` or the `date-format` setting
     asks for ISO 8601 in UTC. File sizes are written in IEC units unless
-    `--size-format si` or the `size-format` setting asks for SI units.
+    `--size-format si` or the `size-format` setting asks for SI units. The
+    tree is shown to its full depth unless `--depth` or the `depth` setting
+    limits it.
 
     Examples:
         >>> recursivist visualize
@@ -1663,9 +1700,16 @@ def export(
     use_regex: UseRegexOption = False,
     ignore_file: IgnoreFileOption = None,
     max_depth: Annotated[
-        int,
-        typer.Option("--depth", "-d", help="Maximum depth to export (0 for unlimited)"),
-    ] = 0,
+        int | None,
+        typer.Option(
+            "--depth",
+            "-d",
+            help=(
+                "Maximum depth to export (0 for unlimited). Defaults to the project "
+                "config, then the user config."
+            ),
+        ),
+    ] = None,
     show_full_path: ShowFullPathOption = False,
     sort_by_loc: SortByLocOption = False,
     sort_by_size: SortBySizeOption = False,
@@ -1711,7 +1755,8 @@ def export(
     annotates, in the order given. Exports write modification times as ISO
     8601 in UTC unless `--date-format relative` is given. File sizes are
     written in IEC units unless `--size-format si` or the `size-format`
-    setting asks for SI units.
+    setting asks for SI units. The tree is exported to its full depth unless
+    `--depth` or the `depth` setting limits it.
 
     Examples:
         >>> recursivist export
@@ -1823,7 +1868,7 @@ def compare(
     include_patterns: IncludePatternsOption = None,
     use_regex: UseRegexOption = False,
     ignore_file: IgnoreFileOption = None,
-    max_depth: MaxDepthDisplayOption = 0,
+    max_depth: MaxDepthDisplayOption = None,
     save_as_html: Annotated[
         bool,
         typer.Option(
@@ -1883,7 +1928,8 @@ def compare(
     `relative` form in the terminal and as ISO 8601 in UTC in a saved HTML
     file; `--date-format` chooses either for a run. File sizes are written
     in IEC units unless `--size-format si` or the `size-format` setting asks
-    for SI units.
+    for SI units. Both trees are compared to their full depth unless
+    `--depth` or the `depth` setting limits it.
 
     Examples:
         >>> recursivist compare dir1 dir2
@@ -1962,8 +2008,9 @@ def compare(
 
     spec = _with_date_format(spec, date_format, None if save_as_html else configured)
     spec = _with_size_format(spec, size_format, configured)
+    resolved_depth = _choose_max_depth(max_depth, configured)
 
-    _log_display_options(max_depth, show_full_path, spec)
+    _log_display_options(resolved_depth, show_full_path, spec)
 
     if icon_style:
         resolved_style = icon_style
@@ -2014,7 +2061,7 @@ def compare(
                 exclude_patterns=parsed_exclude_patterns,
                 include_patterns=parsed_include_patterns,
                 use_regex=use_regex,
-                max_depth=max_depth,
+                max_depth=resolved_depth,
                 show_full_path=show_full_path,
                 spec=spec,
                 icon_style=resolved_style,
@@ -2031,7 +2078,7 @@ def compare(
                 exclude_patterns=parsed_exclude_patterns,
                 include_patterns=parsed_include_patterns,
                 use_regex=use_regex,
-                max_depth=max_depth,
+                max_depth=resolved_depth,
                 show_full_path=show_full_path,
                 spec=spec,
                 icon_style=resolved_style,

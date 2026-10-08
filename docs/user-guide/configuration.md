@@ -1,6 +1,6 @@
 # Configuration
 
-Options you would otherwise pass on every run can be saved once. Recursivist has five settings, and each can be set in three places: on the command line for a single run, in a project file for everyone who works on a project, and in your own user preferences.
+Options you would otherwise pass on every run can be saved once. Recursivist has six settings, and each can be set in three places: on the command line for a single run, in a project file for everyone who works on a project, and in your own user preferences.
 
 ## Settings
 
@@ -11,6 +11,7 @@ Options you would otherwise pass on every run can be saved once. Recursivist has
 | `size-format` | `iec` or `si`                     | `iec`      | How `visualize`, `export`, and `compare` write file sizes                                         |
 | `ignore-file` | A file name, such as `.gitignore` | Not set    | The ignore file honored by `visualize`, `export`, and `compare` when `--ignore-file` is not given |
 | `exclude`     | One or more directory names       | Not set    | The directories excluded by `visualize`, `export`, and `compare` when `--exclude` is not given    |
+| `depth`       | A non-negative integer            | `0`        | How deep `visualize`, `export`, and `compare` go when `--depth` is not given; `0` is unlimited    |
 
 **`icon-style`** chooses between the two [icon styles](visualization.md#icon-styles). Exported files, and a comparison saved as HTML, use the `emoji` style regardless of this setting, to render consistently on any machine; pass `--icon-style nerd` to override that for a run.
 
@@ -22,16 +23,18 @@ Options you would otherwise pass on every run can be saved once. Recursivist has
 
 **`exclude`** names directories to leave out, exactly as `--exclude` does: a directory with one of the names is pruned wherever it appears in the tree. A list is always used whole, never merged with another: a project's list replaces the one in your user preferences, and `--exclude` replaces both for a run.
 
+**`depth`** limits how many levels of the tree are shown, exactly as [`--depth`](visualization.md#directory-depth-control) does: with `2`, the entries of the directory being scanned and of its subdirectories are listed, and nothing below them. `0`, the default, sets no limit. Like `size-format`, it applies to exported files and to a comparison saved as HTML as well. Because `0` is a value like any other, a project can set it to lift a limit saved in your user preferences.
+
 ## Order of Precedence
 
 Each setting is resolved in this order, the first one found winning:
 
-1. The command-line flag (`--icon-style`, `--date-format`, `--size-format`, `--ignore-file`, or `--exclude`)
+1. The command-line flag (`--icon-style`, `--date-format`, `--size-format`, `--ignore-file`, `--exclude`, or `--depth`)
 2. The [project configuration](#project-configuration)
 3. Your [user preferences](#user-preferences) (`config set`)
 4. The built-in default
 
-To switch a saved setting off for one run, pass the flag with an empty value: `--ignore-file ""` honors no ignore file, and `--exclude ""` excludes no directory.
+To switch a saved setting off for one run, pass the flag with an empty value: `--ignore-file ""` honors no ignore file, and `--exclude ""` excludes no directory. A saved depth limit is lifted with `--depth 0`.
 
 ## User Preferences
 
@@ -44,6 +47,7 @@ recursivist config set date-format iso             # ISO 8601 modification times
 recursivist config set size-format si              # sizes in kB, MB, GB on every run
 recursivist config set ignore-file .gitignore      # honor .gitignore on every run
 recursivist config set exclude node_modules .git   # leave these directories out of every run
+recursivist config set depth 3                     # go three levels deep on every run
 
 # Read a value back
 recursivist config get icon-style
@@ -71,6 +75,7 @@ date-format = "iso"
 size-format = "si"
 ignore-file = ".gitignore"
 exclude = ["node_modules", ".git"]
+depth = 3
 ```
 
 ```toml
@@ -81,11 +86,12 @@ date-format = "iso"
 size-format = "si"
 ignore-file = ".gitignore"
 exclude = ["node_modules", ".git"]
+depth = 3
 ```
 
 The file is looked up in the directory being scanned, then in each parent directory; the nearest one is used and files further up are not merged in. When a directory holds both files, `.recursivist.toml` is used. A `pyproject.toml` without a `[tool.recursivist]` table is skipped.
 
-Project files accept the same keys and values as `config set` (`exclude` is a list of one or more names, none of them blank), and are edited by hand: `config set` only writes your user preferences.
+Project files accept the same keys and values as `config set` (`exclude` is a list of one or more names, none of them blank, and `depth` is a number written without quotes), and are edited by hand: `config set` only writes your user preferences.
 
 ## Seeing What Is in Effect
 
@@ -110,7 +116,8 @@ recursivist config list ./my-project
 date-format = relative            (default)
 size-format = iec                 (default)
 ignore-file = .gitignore          (user: /home/me/.config/recursivist/config.json)
-exclude     = node_modules, .git  (user: /home/me/.config/recursivist/config.json)</pre>
+exclude     = node_modules, .git  (user: /home/me/.config/recursivist/config.json)
+depth       = 0                   (default)</pre>
     </div>
   </div>
 </div>
@@ -123,7 +130,7 @@ An unknown key or an invalid value is reported with a warning and ignored, and t
 
 ## How Commands Use Settings
 
-- **`export`** applies `size-format`, `ignore-file`, and `exclude` as the other commands do, but always defaults to the `emoji` icon style and the `iso` date format.
-- **`compare --save`** defaults to the `emoji` icon style and the `iso` date format in the same way; in the terminal, `compare` uses the `icon-style` and `date-format` settings. It uses the `size-format` setting either way.
-- **`compare`** uses the project configuration of the first local directory given: it looks for the ignore file that configuration names in each local directory, and excludes the directories it names from both sides.
-- **A GitHub repository input** has no project configuration. The `ignore-file` setting is not applied to it; the `size-format` and `exclude` settings of your user preferences are. See [GitHub Repositories](github-repositories.md#which-options-apply).
+- **`export`** applies `size-format`, `ignore-file`, `exclude`, and `depth` as the other commands do, but always defaults to the `emoji` icon style and the `iso` date format.
+- **`compare --save`** defaults to the `emoji` icon style and the `iso` date format in the same way; in the terminal, `compare` uses the `icon-style` and `date-format` settings. It uses the `size-format` and `depth` settings either way.
+- **`compare`** uses the project configuration of the first local directory given: it looks for the ignore file that configuration names in each local directory, excludes the directories it names from both sides, and limits both sides to its depth.
+- **A GitHub repository input** has no project configuration. The `ignore-file` setting is not applied to it; the `size-format`, `exclude`, and `depth` settings of your user preferences are. See [GitHub Repositories](github-repositories.md#which-options-apply).
