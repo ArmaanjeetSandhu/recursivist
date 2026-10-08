@@ -23,6 +23,7 @@ The following options are common to `visualize`, `export`, and `compare`.
 | Option                 | Short | Value            | Description                                                                    |
 | ---------------------- | ----- | ---------------- | ------------------------------------------------------------------------------ |
 | `--exclude`            | `-e`  | Name             | Directory name to exclude (repeatable)                                         |
+| `--extend-exclude`     | `-E`  | Name             | Directory name to add to the excluded ones (repeatable)                        |
 | `--exclude-ext`        | `-x`  | Extension        | File extension to exclude, leading dot optional (repeatable)                   |
 | `--exclude-pattern`    | `-p`  | Pattern          | File-name pattern to exclude; glob by default, regex with `-r` (repeatable)    |
 | `--include-pattern`    | `-i`  | Pattern          | File-name pattern to include (repeatable)                                      |
@@ -50,6 +51,7 @@ Notes:
 - **Pattern scope.** `--exclude-pattern` and `--include-pattern` match against each file's **name**, not its path. For path-based filtering, use `--exclude` (directory names) or `--ignore-file` (gitignore-style). See [Pattern Matching](pattern-matching.md) for the syntax and [Pattern Filtering](../user-guide/pattern-filtering.md#order-of-precedence) for the order in which filters are applied.
 - **`--ignore-file`** matches the name with or without a leading dot, so `--ignore-file gitignore` and `--ignore-file .gitignore` behave the same when a `.gitignore` is present. Without the option, the ignore file named by the `ignore-file` [setting](../user-guide/configuration.md#settings) is used, if one is set; `--ignore-file ""` honors no ignore file for that run.
 - **`--exclude`**, when omitted, falls back to the directories named by the `exclude` [setting](../user-guide/configuration.md#settings), if it is set. Directories given with `--exclude` are used in place of the configured ones for that run, not on top of them, and `--exclude ""` excludes no directory.
+- **`--extend-exclude`** adds directories to the ones in effect without replacing them: those given with `--exclude`, or else the configured ones. With `node_modules` and `.git` configured, `--extend-exclude dist` leaves out all three for that run. A name given more than once counts once.
 - **`--depth`**, when omitted, falls back to the `depth` [setting](../user-guide/configuration.md#settings) (`0`, no limit, unless changed) in every command. `--depth 0` lifts a configured limit for that run.
 - **`--icon-style`**, when omitted, falls back to the `icon-style` setting in `visualize` and in `compare` in the terminal; `export` and `compare --save` default to `emoji`.
 - **`--date-format`** sets how the modification times shown by `--mtime` and `--sort-by-mtime` are written; it has no effect without one of them. When omitted, it falls back to the `date-format` setting (`relative` unless changed) in `visualize` and in `compare` in the terminal; `export` and `compare --save` default to `iso`. See [Date Format](../user-guide/sorting-and-statistics.md#date-format).
@@ -115,6 +117,7 @@ recursivist visualize [OPTIONS] [DIRECTORY]
 recursivist visualize
 recursivist visualize /path/to/project --depth 3
 recursivist visualize --exclude node_modules --exclude .git --exclude-ext .pyc
+recursivist visualize --extend-exclude dist      # leave out dist as well as the configured directories
 recursivist visualize --exclude-pattern "^test_.*\.py$" --regex
 recursivist visualize --sort-by-loc --size       # sort by LOC, show LOC and size
 recursivist visualize --mtime --git-status       # annotate only: mtime, then Git status
@@ -377,7 +380,7 @@ With `--all` as well, each entry also has a `layers` array holding the same thre
 
 Only the listing is written to standard output, ready to pipe to another program; warnings about a configuration file, and the error for a `DIRECTORY` that is not a directory, go to standard error. An invalid value is reported with a warning and counts as not set, as it does for a run. Nothing is created or changed.
 
-A command-line flag such as `--icon-style`, `--date-format`, `--size-format`, `--ignore-file`, `--exclude`, or `--depth` still overrides the listed value for a run. Exports use the `emoji` icon style unless `--icon-style` is given, and the `iso` date format unless `--date-format` is given.
+A command-line flag such as `--icon-style`, `--date-format`, `--size-format`, `--ignore-file`, `--exclude`, or `--depth` still overrides the listed value for a run, and `--extend-exclude` adds to the listed directories. Exports use the `emoji` icon style unless `--icon-style` is given, and the `iso` date format unless `--date-format` is given.
 
 ### `config path`
 

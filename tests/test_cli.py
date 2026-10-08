@@ -1797,6 +1797,8 @@ def test_flags_for_every_setting_skip_config(
             ".gitignore",
             "-e",
             "subdir",
+            "-E",
+            "node_modules",
             "-d",
             "1",
         ],
@@ -1812,6 +1814,7 @@ def test_flags_for_every_setting_skip_config(
         ["--icon-style", "nerd"],
         ["--ignore-file", ".gitignore"],
         ["--exclude", "subdir"],
+        ["--extend-exclude", "subdir"],
         ["--depth", "1"],
     ],
 )
@@ -2030,6 +2033,102 @@ def test_flags_for_every_setting_do_not_read_user_config(
     )
     assert result.exit_code == 0
     assert "Ignoring" not in result.output
+
+
+@pytest.mark.parametrize(
+    ("flags", "expected"),
+    [
+        ([], ["node_modules"]),
+        (["--extend-exclude", "subdir"], ["node_modules", "subdir"]),
+        (
+            ["-E", "subdir", "-E", "Application Support"],
+            ["node_modules", "subdir", "Application Support"],
+        ),
+        (["--exclude", "subdir"], ["subdir"]),
+        (["--exclude", "subdir", "--extend-exclude", "docs"], ["subdir", "docs"]),
+        (["--extend-exclude", "docs", "--exclude", "subdir"], ["subdir", "docs"]),
+        (["--exclude", "", "--extend-exclude", "subdir"], ["subdir"]),
+        (["--exclude", ""], []),
+        (["--extend-exclude", ""], ["node_modules"]),
+        (
+            ["-E", " subdir ", "-E", "node_modules", "-E", "subdir"],
+            ["node_modules", "subdir"],
+        ),
+    ],
+)
+def test_extend_exclude_adds_to_the_directories_in_effect(
+    runner: CliRunner, sample_directory: str, flags: list[str], expected: list[str]
+) -> None:
+    """``--extend-exclude`` adds to the saved list, or to ``--exclude`` when given."""
+    _write_user_config('{"exclude": ["node_modules"]}')
+    with mock.patch.object(
+        cli_module, "get_directory_structure", wraps=get_directory_structure
+    ) as scan:
+        result = runner.invoke(app, ["visualize", sample_directory, *flags])
+    assert result.exit_code == 0
+    assert scan.call_args.kwargs["exclude_dirs"] == expected
+
+
+def test_extend_exclude_without_configured_exclude(
+    runner: CliRunner, sample_directory: str
+) -> None:
+    result = runner.invoke(
+        app, ["visualize", sample_directory, "--extend-exclude", "subdir"]
+    )
+    assert result.exit_code == 0
+    assert "subfile1.md" not in result.stdout
+    assert "package.json" in result.stdout
+
+
+def test_extend_exclude_adds_to_project_exclude(
+    runner: CliRunner, sample_directory: str
+) -> None:
+    Path(sample_directory, ".recursivist.toml").write_text(
+        'exclude = ["node_modules"]\n', encoding="utf-8"
+    )
+    result = runner.invoke(
+        app, ["visualize", sample_directory, "--extend-exclude", "subdir"]
+    )
+    assert result.exit_code == 0
+    assert "package.json" not in result.stdout
+    assert "subfile1.md" not in result.stdout
+    assert "file1.txt" in result.stdout
+
+
+def test_export_extend_exclude_adds_to_saved_exclude(
+    runner: CliRunner, sample_directory: str, output_dir: str
+) -> None:
+    _write_user_config('{"exclude": ["node_modules"]}')
+    result = runner.invoke(
+        app,
+        [
+            "export",
+            sample_directory,
+            "--format",
+            "json",
+            "--output-dir",
+            output_dir,
+            "--extend-exclude",
+            "output",
+        ],
+    )
+    assert result.exit_code == 0
+    with open(os.path.join(output_dir, "structure.json"), encoding="utf-8") as f:
+        data: dict[str, Any] = json.load(f)
+    assert list(data["structure"]["subdirectories"]) == ["subdir"]
+
+
+def test_compare_extend_exclude_adds_to_saved_exclude(
+    runner: CliRunner, comparison_directories: tuple[str, str]
+) -> None:
+    dir1, dir2 = comparison_directories
+    _write_user_config('{"exclude": ["dir1_only"]}')
+    with mock.patch("recursivist.cli.display_comparison") as display:
+        result = runner.invoke(
+            app, ["compare", dir1, dir2, "--extend-exclude", "dir2_only"]
+        )
+    assert result.exit_code == 0
+    assert display.call_args.args[2] == ["dir1_only", "dir2_only"]
 
 
 def test_config_set_repairs_invalid_value(runner: CliRunner) -> None:

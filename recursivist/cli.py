@@ -137,7 +137,12 @@ def _flag_order(ctx: typer.Context) -> list[str]:
 
 HELP_EXCLUDE_DIRS = (
     "Directory to exclude; repeat the flag for several (values may contain spaces). "
-    "Defaults to the project config, then the user config."
+    "Used in place of the configured directories. Defaults to the project config, "
+    "then the user config."
+)
+HELP_EXTEND_EXCLUDE_DIRS = (
+    "Directory to exclude on top of those from --exclude or the config; repeat the "
+    "flag for several (values may contain spaces)"
 )
 HELP_EXCLUDE_EXTS = "File extension to exclude; repeat the flag for several"
 HELP_EXCLUDE_PATTERNS = (
@@ -198,6 +203,10 @@ MSG_DISPLAY_METRIC = {
 
 ExcludeDirsOption = Annotated[
     list[str] | None, typer.Option("--exclude", "-e", help=HELP_EXCLUDE_DIRS)
+]
+ExtendExcludeDirsOption = Annotated[
+    list[str] | None,
+    typer.Option("--extend-exclude", "-E", help=HELP_EXTEND_EXCLUDE_DIRS),
 ]
 ExcludeExtensionsOption = Annotated[
     list[str] | None, typer.Option("--exclude-ext", "-x", help=HELP_EXCLUDE_EXTS)
@@ -849,7 +858,8 @@ def _parse_filter_options(
     shared by the visualize, export, and compare commands.
 
     Args:
-        exclude_dirs: Raw directory-exclusion values from Typer.
+        exclude_dirs: Directory names to exclude, as chosen by
+            `_choose_exclude_dirs`.
         exclude_extensions: Raw extension-exclusion values from Typer.
         exclude_patterns: Raw exclude-pattern values from Typer.
         include_patterns: Raw include-pattern values from Typer.
@@ -998,21 +1008,25 @@ def _choose_ignore_file(
 
 def _choose_exclude_dirs(
     exclude_dirs: list[str] | None,
+    extend_exclude_dirs: list[str] | None,
     configured: Callable[[], dict[str, Any]],
-) -> list[str] | None:
+) -> list[str]:
     """Choose the directories to exclude from a scan.
 
-    The ``--exclude`` option wins whenever it is given: its values are used on their
-    own, without the configured ones, and an empty value there means that no directory
-    is excluded. Without the option, the ``exclude`` configuration setting is used.
+    The ``--exclude`` option wins over the configuration whenever it is given: its
+    values are used on their own, without the configured ones, and an empty value there
+    means that none of the configured directories is excluded. Without the option, the
+    ``exclude`` configuration setting is used. The values of ``--extend-exclude`` are
+    then added to whichever of the two applies.
 
     *configured* is the function returned by `_config_reader`; it is only called when
-    the option was not supplied. The names are returned as given, not yet normalized,
-    and the result is ``None`` when there are none.
+    ``--exclude`` was not supplied. The names are normalized as `parse_list_option`
+    does, and a name that is given more than once is kept at its first position. The
+    result is empty when there are none.
     """
-    if exclude_dirs is None:
-        return configured().get("exclude")
-    return exclude_dirs
+    base = configured().get("exclude") if exclude_dirs is None else exclude_dirs
+    names = parse_list_option([*(base or []), *(extend_exclude_dirs or [])])
+    return list(dict.fromkeys(names))
 
 
 def _choose_max_depth(
@@ -1378,6 +1392,7 @@ def _plan_tree_scan(
     directory: str,
     *,
     exclude_dirs: list[str] | None,
+    extend_exclude_dirs: list[str] | None,
     exclude_extensions: list[str] | None,
     exclude_patterns: list[str] | None,
     include_patterns: list[str] | None,
@@ -1475,7 +1490,7 @@ def _plan_tree_scan(
 
     _log_display_options(resolved_depth, show_full_path, spec)
     dirs, extensions, excludes, includes = _parse_filter_options(
-        _choose_exclude_dirs(exclude_dirs, configured),
+        _choose_exclude_dirs(exclude_dirs, extend_exclude_dirs, configured),
         exclude_extensions,
         exclude_patterns,
         include_patterns,
@@ -1560,6 +1575,7 @@ def visualize(
         ),
     ] = ".",
     exclude_dirs: ExcludeDirsOption = None,
+    extend_exclude_dirs: ExtendExcludeDirsOption = None,
     exclude_extensions: ExcludeExtensionsOption = None,
     exclude_patterns: ExcludePatternsOption = None,
     include_patterns: IncludePatternsOption = None,
@@ -1620,6 +1636,7 @@ def visualize(
     Examples:
         >>> recursivist visualize
         >>> recursivist visualize /path/to/project -e node_modules -e .git
+        >>> recursivist visualize --extend-exclude dist
         >>> recursivist visualize -p "*.test.js" -d 2
         >>> recursivist visualize --sort-by-loc --size
         >>> recursivist visualize --mtime --date-format iso
@@ -1632,6 +1649,7 @@ def visualize(
         ctx,
         directory,
         exclude_dirs=exclude_dirs,
+        extend_exclude_dirs=extend_exclude_dirs,
         exclude_extensions=exclude_extensions,
         exclude_patterns=exclude_patterns,
         include_patterns=include_patterns,
@@ -1694,6 +1712,7 @@ def export(
     output_dir: OutputDirOption = None,
     output_prefix: OutputPrefixOption = "structure",
     exclude_dirs: ExcludeDirsOption = None,
+    extend_exclude_dirs: ExtendExcludeDirsOption = None,
     exclude_extensions: ExcludeExtensionsOption = None,
     exclude_patterns: ExcludePatternsOption = None,
     include_patterns: IncludePatternsOption = None,
@@ -1784,6 +1803,7 @@ def export(
         ctx,
         directory,
         exclude_dirs=exclude_dirs,
+        extend_exclude_dirs=extend_exclude_dirs,
         exclude_extensions=exclude_extensions,
         exclude_patterns=exclude_patterns,
         include_patterns=include_patterns,
@@ -1863,6 +1883,7 @@ def compare(
         ),
     ],
     exclude_dirs: ExcludeDirsOption = None,
+    extend_exclude_dirs: ExtendExcludeDirsOption = None,
     exclude_extensions: ExcludeExtensionsOption = None,
     exclude_patterns: ExcludePatternsOption = None,
     include_patterns: IncludePatternsOption = None,
@@ -2025,7 +2046,7 @@ def compare(
         parsed_exclude_patterns,
         parsed_include_patterns,
     ) = _parse_filter_options(
-        _choose_exclude_dirs(exclude_dirs, configured),
+        _choose_exclude_dirs(exclude_dirs, extend_exclude_dirs, configured),
         exclude_extensions,
         exclude_patterns,
         include_patterns,

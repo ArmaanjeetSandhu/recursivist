@@ -42,15 +42,15 @@ By default, `visualize` and `export`:
 
 `visualize`, `export`, and `compare` accept the same options for choosing what is shown and how:
 
-| To...                                          | Use                                                                                                        | Guide                                                          |
-| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| Leave out directories, file types, or files    | `--exclude`, `--exclude-ext`, `--exclude-pattern`, `--include-pattern`, `--regex`, `--ignore-file`         | [Pattern Filtering](pattern-filtering.md)                      |
-| Limit how deep the tree goes                   | `--depth`                                                                                                  | [Visualization](visualization.md#directory-depth-control)      |
-| Show full paths instead of bare filenames      | `--full-path`                                                                                              | [Visualization](visualization.md#full-path-display)            |
-| Sort files, or annotate them with a metric     | `--sort-by-loc`, `--sort-by-size`, `--sort-by-mtime`, `--sort-by-similarity`, `--loc`, `--size`, `--mtime` | [Sorting and Statistics](sorting-and-statistics.md)            |
-| Show or sort by Git status                     | `--git-status`, `--sort-by-git-status`                                                                     | [Sorting and Statistics](sorting-and-statistics.md#git-status) |
-| Choose between emoji and Nerd Font icons       | `--icon-style`                                                                                             | [Visualization](visualization.md#icon-styles)                  |
-| See how filters and settings are being applied | `--verbose`                                                                                                | [Below](#verbose-output)                                       |
+| To...                                          | Use                                                                                                                    | Guide                                                          |
+| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| Leave out directories, file types, or files    | `--exclude`, `--extend-exclude`, `--exclude-ext`, `--exclude-pattern`, `--include-pattern`, `--regex`, `--ignore-file` | [Pattern Filtering](pattern-filtering.md)                      |
+| Limit how deep the tree goes                   | `--depth`                                                                                                              | [Visualization](visualization.md#directory-depth-control)      |
+| Show full paths instead of bare filenames      | `--full-path`                                                                                                          | [Visualization](visualization.md#full-path-display)            |
+| Sort files, or annotate them with a metric     | `--sort-by-loc`, `--sort-by-size`, `--sort-by-mtime`, `--sort-by-similarity`, `--loc`, `--size`, `--mtime`             | [Sorting and Statistics](sorting-and-statistics.md)            |
+| Show or sort by Git status                     | `--git-status`, `--sort-by-git-status`                                                                                 | [Sorting and Statistics](sorting-and-statistics.md#git-status) |
+| Choose between emoji and Nerd Font icons       | `--icon-style`                                                                                                         | [Visualization](visualization.md#icon-styles)                  |
+| See how filters and settings are being applied | `--verbose`                                                                                                            | [Below](#verbose-output)                                       |
 
 Two more things apply to all three commands:
 

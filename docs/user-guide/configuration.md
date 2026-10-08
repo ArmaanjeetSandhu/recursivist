@@ -21,7 +21,7 @@ Options you would otherwise pass on every run can be saved once. Recursivist has
 
 **`ignore-file`** names a gitignore-style [ignore file](pattern-filtering.md#ignore-files), exactly as `--ignore-file` does: the leading dot is optional, and the file is looked up in the directory being scanned and at every level below it. Any name that is not blank is accepted. A directory that has no file of that name is scanned without one, and no warning is shown, so the setting can be saved once and left on.
 
-**`exclude`** names directories to leave out, exactly as `--exclude` does: a directory with one of the names is pruned wherever it appears in the tree. A list is always used whole, never merged with another: a project's list replaces the one in your user preferences, and `--exclude` replaces both for a run.
+**`exclude`** names directories to leave out, exactly as `--exclude` does: a directory with one of the names is pruned wherever it appears in the tree. A list is always used whole, never merged with another: a project's list replaces the one in your user preferences, and `--exclude` replaces both for a run. To leave out more directories for a run while keeping the list in effect, name them with `--extend-exclude`.
 
 **`depth`** limits how many levels of the tree are shown, exactly as [`--depth`](visualization.md#directory-depth-control) does: with `2`, the entries of the directory being scanned and of its subdirectories are listed, and nothing below them. `0`, the default, sets no limit. Like `size-format`, it applies to exported files and to a comparison saved as HTML as well. Because `0` is a value like any other, a project can set it to lift a limit saved in your user preferences.
 
@@ -35,6 +35,14 @@ Each setting is resolved in this order, the first one found winning:
 4. The built-in default
 
 To switch a saved setting off for one run, pass the flag with an empty value: `--ignore-file ""` honors no ignore file, and `--exclude ""` excludes no directory. A saved depth limit is lifted with `--depth 0`.
+
+`--extend-exclude` takes no part in this order. It adds directories to the `exclude` list the order settles on, whichever place that list comes from:
+
+```bash
+recursivist config set exclude node_modules .git
+recursivist visualize --extend-exclude dist   # leaves out node_modules, .git, and dist
+recursivist visualize --exclude dist          # leaves out dist only
+```
 
 ## User Preferences
 

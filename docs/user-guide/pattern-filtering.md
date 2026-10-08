@@ -8,14 +8,14 @@ Nothing is filtered by default: every file and directory is listed, including `.
 
 | Mechanism                | Option                                    | Matches against                |
 | ------------------------ | ----------------------------------------- | ------------------------------ |
-| Directory exclusion      | `--exclude`                               | Directory **name**             |
+| Directory exclusion      | `--exclude` / `--extend-exclude`          | Directory **name**             |
 | Extension exclusion      | `--exclude-ext`                           | File **extension**             |
 | Include/exclude patterns | `--include-pattern` / `--exclude-pattern` | File **name** (glob or regex)  |
 | Ignore file              | `--ignore-file`                           | File **path**, gitignore-style |
 
 The distinction in the last column matters: **include and exclude patterns test a file's name, not its path**, whereas an ignore file matches paths. This determines which tool to reach for, as explained below.
 
-`--exclude`, `--exclude-ext`, `--exclude-pattern`, and `--include-pattern` each take one value; repeat the option to give several.
+`--exclude`, `--extend-exclude`, `--exclude-ext`, `--exclude-pattern`, and `--include-pattern` each take one value; repeat the option to give several.
 
 ## Directory Exclusion
 
@@ -29,6 +29,12 @@ To exclude the same directories on every run, save their names as the `exclude` 
 
 ```bash
 recursivist config set exclude node_modules .git venv
+```
+
+Directories given with `--exclude` are used in place of the saved ones. To leave out more directories for one run while keeping the saved ones, name them with `--extend-exclude`:
+
+```bash
+recursivist visualize --extend-exclude dist --extend-exclude build
 ```
 
 ## Extension Exclusion
@@ -106,7 +112,7 @@ recursivist config set ignore-file .gitignore
 
 When several mechanisms are combined, Recursivist resolves them per file as follows:
 
-1. **Directory exclusions** (`--exclude`) prune matching directories before anything else.
+1. **Directory exclusions** (`--exclude`, `--extend-exclude`) prune matching directories before anything else.
 2. **Include patterns** (`--include-pattern`): if any are set, a file must match at least one, or it is dropped.
 3. **Exclude patterns** (`--exclude-pattern`): a matching file is removed — **this overrides include patterns**.
 4. **Excluded extensions** (`--exclude-ext`): a matching file is removed — **this also overrides include patterns**.
