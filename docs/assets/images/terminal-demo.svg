@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="414" viewBox="0 0 720 414" role="img" aria-labelledby="title desc" xml:space="preserve">
+<title id="title">recursivist visualize --sort-by-loc --size --git-status --exclude .git</title>
+<desc id="desc">A terminal showing the tree of my-project. Every file and folder is annotated with its lines of code and size, files are colored by type, and utils.py and config.py carry Git status markers.</desc>
+<style>
+  text {
+    font-family: "JetBrainsMono NFM", "JetBrains Mono", "IBM Plex Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    font-size: 15px;
+    font-variant-ligatures: none;
+    white-space: pre;
+    fill: #e6edf3;
+  }
+  .title { font-size: 13px; letter-spacing: 0.04em; text-anchor: middle; fill: #ffffff; fill-opacity: 0.45; }
+  .prompt { fill: #4ade80; }
+  .md { fill: #f1fa8c; }
+  .py { fill: #83e43d; }
+  .txt { fill: #bd93f9; }
+  .modified { fill: #e3b341; }
+  .untracked { fill: #8b949e; }
+</style>
+<rect x="0.5" y="0.5" width="719" height="413" rx="12" fill="#0d1117" stroke="#30363d"/>
+<path d="M1 44V12.5A11.5 11.5 0 0 1 12.5 1h695A11.5 11.5 0 0 1 719 12.5V44z" fill="#161b22"/>
+<rect x="1" y="44" width="718" height="1" fill="#ffffff" fill-opacity="0.06"/>
+<circle cx="24" cy="22.5" r="6" fill="#ff5f57"/>
+<circle cx="42" cy="22.5" r="6" fill="#febc2e"/>
+<circle cx="60" cy="22.5" r="6" fill="#28c840"/>
+<text class="title" x="360" y="27">recursivist-demo ~ bash</text>
+<text x="27" y="85"><tspan class="prompt">$</tspan> recursivist visualize --sort-by-loc --size --git-status --exclude .git</text>
+<text x="27" y="125">📂 my-project (1358 lines, 60.5 KiB)</text>
+<text x="27" y="150">├── <tspan class="md">📄 README.md</tspan> (124 lines, 4.2 KiB)</text>
+<text x="27" y="175">├── <tspan class="py">📄 setup.py</tspan> (65 lines, 3.8 KiB)</text>
+<text x="27" y="200">├── <tspan class="txt">📄 requirements.txt</tspan> (18 lines, 512 B)</text>
+<text x="27" y="225">└── 📂 src (1151 lines, 52.0 KiB)</text>
+<text x="27" y="250">    ├── <tspan class="py">📄 main.py</tspan> (245 lines, 12.4 KiB)</text>
+<text x="27" y="275">    ├── <tspan class="py">📄 utils.py</tspan> (157 lines, 8.2 KiB) <tspan class="modified">[M]</tspan></text>
+<text x="27" y="300">    ├── <tspan class="py">📄 config.py</tspan> (96 lines, 3.4 KiB) <tspan class="untracked">[U]</tspan></text>
+<text x="27" y="325">    └── 📂 tests (653 lines, 28.0 KiB)</text>
+<text x="27" y="350">        ├── <tspan class="py">📄 test_main.py</tspan> (412 lines, 18.6 KiB)</text>
+<text x="27" y="375">        └── <tspan class="py">📄 test_utils.py</tspan> (241 lines, 9.4 KiB)</text>
+</svg>

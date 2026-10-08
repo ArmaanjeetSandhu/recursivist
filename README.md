@@ -19,55 +19,80 @@
 
 </div>
 
+Recursivist draws any directory as a color-coded tree and annotates it with lines of code, file sizes, modification times, and Git status. It can filter that tree, compare it with another, and export it in six formats, for a local folder or for a GitHub repository you haven't cloned.
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/ArmaanjeetSandhu/recursivist/main/docs/assets/images/terminal-demo.svg" alt="Terminal output of recursivist visualize --sort-by-loc --size --git-status --exclude .git: the tree of my-project, where every file and folder shows its lines of code and size, and two files carry Git status markers" width="720">
+</p>
+
+Each file type gets its own color. Folder figures are totals for the files beneath them, and `[M]` and `[U]` mark modified and untracked files.
+
 ## Installation
 
 ```bash
 pip install recursivist
 ```
 
-Prefer an isolated install? `pipx install recursivist` and `uv tool install recursivist` both work.
+Prefer an isolated install? `pipx install recursivist` and `uv tool install recursivist` both work. Each installs the `recursivist` command and its shorter alias, `rcv`.
 
-## Key Features
+## Features
 
-- 🎨 **Colorful Visualization**: Each file type is assigned a unique color for easy identification
-- 🌳 **Tree Structure**: Displays your directories in an intuitive, hierarchical tree format
-- 📁 **Smart Filtering**: Easily exclude directories and file extensions you don't want to see
-- 🧩 **Gitignore Support**: Automatically respects your `.gitignore` patterns
-- 🔄 **Directory Comparison**: Compare two directory structures side by side with highlighted differences
-- 📊 **Multiple Export Formats**: Export to TXT, rST, Markdown, HTML, JSON, and SVG
+- **[File statistics][stats]**: lines of code, size, and modification time for every file, rolled up per folder. Sort by any of them, or just display them.
+- **[Git status][git]**: modified, added, deleted, and untracked files are marked in the tree and can be sorted first.
+- **[Filtering][filtering]**: exclude directories and extensions, match file names by glob or regex, and apply `.gitignore`-style files at every level of the tree.
+- **[GitHub repositories][github]**: pass a URL wherever a path is accepted, pinned to a branch, tag, or subfolder if you like. Private repositories work with `GITHUB_TOKEN` set.
+- **[Comparison][compare]**: two trees side by side with their differences highlighted, in the terminal or as a self-contained HTML page. Either side can be local or on GitHub.
+- **[Export][export]**: Markdown, JSON, HTML, SVG, plain text, and reStructuredText, with a [pre-commit hook][hook] that regenerates them on every commit.
+- **[Configuration][config]**: save your defaults once, or commit a project's to `.recursivist.toml` or `pyproject.toml`.
+- **And more**: [Nerd Font icons][icons], [shell completion][completion] for Bash, Zsh, Fish, and PowerShell, and a typed [Python API][api].
 
 ## Quick Start
 
-Just run the command in any directory to see a beautifully formatted directory tree:
-
 ```bash
+# The current directory, or any path, as a tree
 recursivist visualize
-```
+recursivist visualize path/to/project --depth 2
 
-For a specific directory:
+# Most lines of code first, with size and modification time alongside
+recursivist visualize --sort-by-loc --size --mtime
 
-```bash
-recursivist visualize /path/to/directory
-```
+# Changed files first, leaving out whatever .gitignore ignores
+recursivist visualize --sort-by-git-status --ignore-file .gitignore
 
-To exclude common directories:
+# Python files only, without the tests
+recursivist visualize --include-pattern "*.py" --exclude-pattern "test_*"
 
-```bash
-recursivist visualize --exclude node_modules --exclude .git
-```
+# A GitHub repository, or one folder of one branch
+recursivist visualize https://github.com/owner/repo
+recursivist visualize https://github.com/owner/repo/tree/develop/src
 
-To export the structure to markdown:
+# A fork against its upstream, saved as an HTML report
+recursivist compare ./my-fork https://github.com/owner/repo --save
 
-```bash
-recursivist export --format md
-```
+# Markdown for the docs, JSON for scripts, SVG for a README
+recursivist export --format "md json svg" --output-dir docs
 
-To compare two directories:
-
-```bash
-recursivist compare dir1 dir2
+# Defaults for every run
+recursivist config set exclude node_modules .git
+recursivist config set ignore-file .gitignore
 ```
 
 ## Documentation
 
-For comprehensive documentation, including detailed usage instructions, examples, and API reference, click [here](https://armaanjeetsandhu.github.io/recursivist/).
+The [documentation][docs] covers every command and option. Begin with the [quick start][quickstart], borrow from the [recipes][recipes] for CI pipelines, self-updating structure docs, and `jq` analysis, or look things up in the [CLI reference][cli].
+
+[docs]: https://armaanjeetsandhu.github.io/recursivist/
+[quickstart]: https://armaanjeetsandhu.github.io/recursivist/getting-started/quick-start/
+[recipes]: https://armaanjeetsandhu.github.io/recursivist/recipes/
+[cli]: https://armaanjeetsandhu.github.io/recursivist/reference/cli-reference/
+[stats]: https://armaanjeetsandhu.github.io/recursivist/user-guide/sorting-and-statistics/
+[git]: https://armaanjeetsandhu.github.io/recursivist/user-guide/sorting-and-statistics/#git-status
+[filtering]: https://armaanjeetsandhu.github.io/recursivist/user-guide/pattern-filtering/
+[github]: https://armaanjeetsandhu.github.io/recursivist/user-guide/github-repositories/
+[compare]: https://armaanjeetsandhu.github.io/recursivist/user-guide/compare/
+[export]: https://armaanjeetsandhu.github.io/recursivist/reference/export-formats/
+[hook]: https://armaanjeetsandhu.github.io/recursivist/recipes/documentation/#pre-commit-framework
+[config]: https://armaanjeetsandhu.github.io/recursivist/user-guide/configuration/
+[icons]: https://armaanjeetsandhu.github.io/recursivist/user-guide/visualization/#icon-styles
+[completion]: https://armaanjeetsandhu.github.io/recursivist/user-guide/shell-completion/
+[api]: https://armaanjeetsandhu.github.io/recursivist/reference/api-reference/
