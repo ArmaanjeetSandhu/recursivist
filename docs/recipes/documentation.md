@@ -33,7 +33,7 @@ Recursivist ships an official [pre-commit](https://pre-commit.com) hook (id `rec
 ```yaml
 repos:
     - repo: https://github.com/ArmaanjeetSandhu/recursivist
-      rev: v2.1.0 # use the latest release tag
+      rev: v3.0.0 # use the latest release tag
       hooks:
           - id: recursivist-export
             args:

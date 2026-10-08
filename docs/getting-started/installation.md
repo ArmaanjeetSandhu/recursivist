@@ -56,7 +56,7 @@ To work on Recursivist itself, follow the [Development Guide](../contributing/de
 recursivist version
 ```
 
-This prints the installed version, e.g. `Recursivist version: 2.1.0`.
+This prints the installed version, e.g. `Recursivist version: 3.0.0`.
 
 ## Short Alias
 
