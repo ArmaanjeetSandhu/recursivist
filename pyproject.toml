@@ -136,12 +136,16 @@ select = [
     "SIM",     # flake8-simplify
     "TID",     # flake8-tidy-imports
     "TC",      # flake8-type-checking
+    "ARG",     # flake8-unused-arguments
     "UP",      # pyupgrade
     "FURB",    # refurb
     "PERF",    # perflint
     "RUF",     # Ruff-specific rules
     "TRY401",  # tryceratops-verbose-log-message
 ]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["ARG"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["recursivist"]

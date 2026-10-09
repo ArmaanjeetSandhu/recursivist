@@ -1333,7 +1333,7 @@ class TestCompareGitStatus:
         )
         mocker.patch(
             "recursivist.compare.compile_regex_patterns",
-            side_effect=lambda patterns, use_regex: list(patterns),
+            side_effect=lambda patterns, is_regex: list(patterns),
         )
 
         def fake_scan(
@@ -1373,7 +1373,7 @@ class TestCompareGitStatus:
         """No git legend block appears when git status is disabled."""
         mocker.patch(
             "recursivist.compare.compile_regex_patterns",
-            side_effect=lambda patterns, use_regex: list(patterns),
+            side_effect=lambda patterns, is_regex: list(patterns),
         )
         mocker.patch(
             "recursivist.compare.get_directory_structure",
@@ -1491,7 +1491,7 @@ class TestCompareAnnotationAwareDifferences:
         """The HTML exporter tags a same-named, differing-LOC file as unique."""
         mocker.patch(
             "recursivist.compare.compile_regex_patterns",
-            side_effect=lambda patterns, use_regex: list(patterns),
+            side_effect=lambda patterns, is_regex: list(patterns),
         )
         mocker.patch(
             "recursivist.compare.get_directory_structure",
@@ -1651,7 +1651,7 @@ class TestCompareRemoteIdentity:
         """HTML export: a shared file differing only in mtime is not unique."""
         mocker.patch(
             "recursivist.compare.compile_regex_patterns",
-            side_effect=lambda patterns, use_regex: list(patterns),
+            side_effect=lambda patterns, is_regex: list(patterns),
         )
         local = Directory(
             files=[FileEntry(name="a.py", path="a.py", loc=5, mtime=1.6e9)]
@@ -1683,7 +1683,7 @@ class TestCompareRemoteIdentity:
         """The same inputs between two local paths still split on mtime."""
         mocker.patch(
             "recursivist.compare.compile_regex_patterns",
-            side_effect=lambda patterns, use_regex: list(patterns),
+            side_effect=lambda patterns, is_regex: list(patterns),
         )
         left = Directory(
             files=[FileEntry(name="a.py", path="a.py", loc=5, mtime=1.6e9)]

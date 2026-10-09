@@ -631,7 +631,8 @@ def patch_network(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("recursivist.github.urllib.request.urlopen", fake)
 
 
-def test_cli_visualize_github(runner: CliRunner, patch_network: None) -> None:
+@pytest.mark.usefixtures("patch_network")
+def test_cli_visualize_github(runner: CliRunner) -> None:
     result = runner.invoke(app, ["visualize", "https://github.com/o/r"])
     assert result.exit_code == 0
     assert "r" in result.stdout
@@ -639,16 +640,16 @@ def test_cli_visualize_github(runner: CliRunner, patch_network: None) -> None:
     assert "core.py" in result.stdout
 
 
-def test_cli_visualize_github_full_path_shows_blob_urls(
-    runner: CliRunner, patch_network: None
-) -> None:
+@pytest.mark.usefixtures("patch_network")
+def test_cli_visualize_github_full_path_shows_blob_urls(runner: CliRunner) -> None:
     result = runner.invoke(app, ["visualize", "https://github.com/o/r", "--full-path"])
     assert result.exit_code == 0
     assert "https://github.com/o/r/blob/main/README.md" in result.stdout
 
 
+@pytest.mark.usefixtures("patch_network")
 def test_cli_visualize_github_ignores_flags(
-    runner: CliRunner, patch_network: None, caplog: pytest.LogCaptureFixture
+    runner: CliRunner, caplog: pytest.LogCaptureFixture
 ) -> None:
     import logging
 
@@ -673,8 +674,9 @@ def test_cli_visualize_github_ignores_flags(
         assert flag in caplog.text
 
 
+@pytest.mark.usefixtures("patch_network")
 def test_cli_visualize_github_does_not_use_configured_ignore_file(
-    runner: CliRunner, patch_network: None, caplog: pytest.LogCaptureFixture
+    runner: CliRunner, caplog: pytest.LogCaptureFixture
 ) -> None:
     """A saved ignore file is left out for a GitHub input, without a message."""
     import logging
@@ -700,9 +702,8 @@ def _rendered_tree(stdout: str) -> str:
     return stdout[stdout.index("📂 r") :]
 
 
-def test_cli_visualize_github_uses_saved_exclude(
-    runner: CliRunner, patch_network: None
-) -> None:
+@pytest.mark.usefixtures("patch_network")
+def test_cli_visualize_github_uses_saved_exclude(runner: CliRunner) -> None:
     """Saved directory exclusions apply to a GitHub input as ``--exclude`` does."""
     baseline = runner.invoke(app, ["visualize", "https://github.com/o/r"])
     saved = runner.invoke(app, ["config", "set", "exclude", "pkg"])
@@ -713,9 +714,8 @@ def test_cli_visualize_github_uses_saved_exclude(
     assert "README.md" in _rendered_tree(excluded.stdout)
 
 
-def test_cli_visualize_github_mtime_not_annotated(
-    runner: CliRunner, patch_network: None
-) -> None:
+@pytest.mark.usefixtures("patch_network")
+def test_cli_visualize_github_mtime_not_annotated(runner: CliRunner) -> None:
     baseline = runner.invoke(app, ["visualize", "https://github.com/o/r"])
     with_mtime = runner.invoke(app, ["visualize", "https://github.com/o/r", "--mtime"])
     with_loc = runner.invoke(app, ["visualize", "https://github.com/o/r", "--loc"])
@@ -724,9 +724,8 @@ def test_cli_visualize_github_mtime_not_annotated(
     assert _rendered_tree(with_loc.stdout) != _rendered_tree(baseline.stdout)
 
 
-def test_cli_visualize_github_sort_by_loc(
-    runner: CliRunner, patch_network: None
-) -> None:
+@pytest.mark.usefixtures("patch_network")
+def test_cli_visualize_github_sort_by_loc(runner: CliRunner) -> None:
     result = runner.invoke(
         app, ["visualize", "https://github.com/o/r", "--sort-by-loc"]
     )
@@ -734,9 +733,8 @@ def test_cli_visualize_github_sort_by_loc(
     assert "lines" in result.stdout
 
 
-def test_cli_export_github_json_blob_urls(
-    runner: CliRunner, patch_network: None, tmp_path: Any
-) -> None:
+@pytest.mark.usefixtures("patch_network")
+def test_cli_export_github_json_blob_urls(runner: CliRunner, tmp_path: Any) -> None:
     import json
 
     result = runner.invoke(
@@ -763,8 +761,9 @@ def test_cli_visualize_invalid_local_dir(runner: CliRunner) -> None:
     assert result.exit_code == 1
 
 
+@pytest.mark.usefixtures("patch_network")
 def test_cli_compare_both_github(
-    runner: CliRunner, patch_network: None, caplog: pytest.LogCaptureFixture
+    runner: CliRunner, caplog: pytest.LogCaptureFixture
 ) -> None:
     import logging
 
@@ -782,9 +781,8 @@ def test_cli_compare_both_github(
     assert "not applicable to hosted repositories" in caplog.text
 
 
-def test_cli_compare_mixed_local_and_github(
-    runner: CliRunner, patch_network: None, tmp_path: Any
-) -> None:
+@pytest.mark.usefixtures("patch_network")
+def test_cli_compare_mixed_local_and_github(runner: CliRunner, tmp_path: Any) -> None:
     local = tmp_path / "local"
     local.mkdir()
     (local / "only_local.py").write_text("print('x')\n")
@@ -797,9 +795,9 @@ def test_cli_compare_mixed_local_and_github(
     assert "core.py" in result.stdout
 
 
+@pytest.mark.usefixtures("patch_network")
 def test_cli_compare_mixed_honors_local_flags(
     runner: CliRunner,
-    patch_network: None,
     tmp_path: Any,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
@@ -822,9 +820,9 @@ def test_cli_compare_mixed_honors_local_flags(
     assert "still apply to the local directory" in caplog.text
 
 
+@pytest.mark.usefixtures("patch_network")
 def test_cli_compare_mixed_applies_configured_ignore_file_to_local_side(
     runner: CliRunner,
-    patch_network: None,
     tmp_path: Any,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
@@ -847,7 +845,8 @@ def test_cli_compare_mixed_applies_configured_ignore_file_to_local_side(
     assert "still apply to the local directory" not in caplog.text
 
 
-def test_cli_compare_invalid_local_side(runner: CliRunner, patch_network: None) -> None:
+@pytest.mark.usefixtures("patch_network")
+def test_cli_compare_invalid_local_side(runner: CliRunner) -> None:
     result = runner.invoke(app, ["compare", "/no/such/dir", "https://github.com/o/r"])
     assert result.exit_code == 1
 

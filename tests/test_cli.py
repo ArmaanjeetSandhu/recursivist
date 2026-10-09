@@ -1746,9 +1746,8 @@ def test_logging_setup_is_undone_when_the_command_fails(
     assert (list(package.handlers), package.level) == before
 
 
-def test_log_messages_reach_the_terminal(
-    runner: CliRunner, saved_config: dict[str, Any]
-) -> None:
+@pytest.mark.usefixtures("saved_config")
+def test_log_messages_reach_the_terminal(runner: CliRunner) -> None:
     result = runner.invoke(app, ["config", "set", "icon-style", "bogus"])
     assert result.exit_code == 1
     assert "Invalid value for icon-style" in result.output
