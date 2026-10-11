@@ -25,7 +25,7 @@ def _name_key(entry: FileEntry) -> tuple[str, str]:
     """Total order on names: case-insensitive first, exact name to split case twins.
 
     Used as the final tie-breaker of every ordering so the result never depends on the
-    order the scanner happened to list the directory in (``os.listdir`` order is
+    order the scanner happened to list the directory in (``os.scandir`` order is
     arbitrary and differs between filesystems).
     """
     return (entry.name.lower(), entry.name)
@@ -105,7 +105,7 @@ def sort_files_by_type(
       [`sort_files_by_similarity`][recursivist.sorting.sort_files_by_similarity].
 
     Every ordering ends in a name tie-breaker, making the result independent of the
-    order of *files* (which the scanner takes from ``os.listdir``).
+    order of *files* (which the scanner takes from ``os.scandir``).
 
     This mirrors the resolution in [`recursivist.flags`][recursivist.flags], where only
     the first sorting flag on the command line takes effect and there is never more than

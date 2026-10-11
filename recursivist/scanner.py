@@ -80,6 +80,43 @@ class _DeletedEntries:
                 yield name, True
 
 
+def _list_directory(root_dir: str) -> list[os.DirEntry[str]] | None:
+    """Return the entries of *root_dir*, or ``None`` if it cannot be listed.
+
+    The directory is read in one go with `os.scandir`, whose entries carry their file
+    type on most platforms, so telling files from directories needs no further system
+    call. The handle is closed before returning, so a deep walk never holds one open per
+    level.
+
+    Args:
+        root_dir: Directory to list.
+
+    Returns:
+        The entries in the order the operating system reports them, or ``None`` when
+        the directory is unreadable, which is logged.
+    """
+    try:
+        with os.scandir(root_dir) as entries:
+            return list(entries)
+    except PermissionError:
+        logger.warning("Permission denied: %s", root_dir)
+    except Exception:
+        logger.exception("Error reading directory %s", root_dir)
+    return None
+
+
+def _is_directory(entry: os.DirEntry[str]) -> bool:
+    """Return whether *entry* is a directory, following symlinks.
+
+    Never raises: a symlink whose target cannot be examined (one that points to itself,
+    say, or into an unreadable directory) is reported as not a directory.
+    """
+    try:
+        return entry.is_dir()
+    except OSError:
+        return False
+
+
 def _has_visible_entries(
     root_dir: str,
     exclude_dirs: Sequence[str],
@@ -117,24 +154,17 @@ def _has_visible_entries(
     Returns:
         ``True`` if any child survives the exclusion rules.
     """
-    items: list[str] = []
-    if on_disk:
-        try:
-            items = os.listdir(root_dir)
-        except PermissionError:
-            logger.warning("Permission denied: %s", root_dir)
-            return False
-        except Exception:
-            logger.exception("Error reading directory %s", root_dir)
-            return False
-    for item in items:
-        item_path = os.path.join(root_dir, item)
-        if item in exclude_dirs or should_exclude(
-            item_path,
+    listing = _list_directory(root_dir) if on_disk else []
+    if listing is None:
+        return False
+    for entry in listing:
+        if entry.name in exclude_dirs or should_exclude(
+            entry.path,
             ignore_context,
             exclude_extensions,
             exclude_patterns,
             include_patterns,
+            is_dir=_is_directory(entry),
         ):
             continue
         return True
@@ -414,30 +444,22 @@ def _scan_level(
             ),
         )
         return truncated, extensions_set
-    items: list[str] = []
-    if on_disk:
-        try:
-            items = os.listdir(root_dir)
-        except PermissionError:
-            logger.warning("Permission denied: %s", root_dir)
-            return structure, extensions_set
-        except Exception:
-            logger.exception("Error reading directory %s", root_dir)
-            return structure, extensions_set
-    entries: Iterator[tuple[str, bool, bool]] = (
-        (item, os.path.isdir(os.path.join(root_dir, item)), True) for item in items
+    listing = _list_directory(root_dir) if on_disk else []
+    if listing is None:
+        return structure, extensions_set
+    entries: Iterator[tuple[str, str, bool, bool]] = (
+        (entry.name, entry.path, _is_directory(entry), True) for entry in listing
     )
     if deleted is not None:
         entries = chain(
             entries,
             (
-                (item, is_dir, False)
+                (item, os.path.join(root_dir, item), is_dir, False)
                 for item, is_dir in deleted.missing_from(root_dir, current_path)
             ),
         )
     subdirectories: list[tuple[str, str, bool]] = []
-    for item, is_dir, exists in entries:
-        item_path = os.path.join(root_dir, item)
+    for item, item_path, is_dir, exists in entries:
         if pattern_tracker.pending:
             pattern_tracker.observe(item_path, is_dir)
         if item in exclude_dirs or should_exclude(

@@ -7,6 +7,7 @@ import contextlib
 import logging
 import os
 import re
+from collections.abc import Iterator
 from typing import Any
 
 import pytest
@@ -34,7 +35,7 @@ def _materialize_tree(root: str, files: dict[str, str]) -> None:
 def _normalize_structure(structure: Directory) -> tuple[set[str], dict[str, Any]]:
     """Make a get_directory_structure result comparable: each directory becomes
     a ``(file_names, subdirectories)`` pair, with the files as a set of names
-    (order from os.listdir isn't stable) and the subdirectories normalized
+    (order from os.scandir isn't stable) and the subdirectories normalized
     recursively under their names."""
     return (
         {item.name for item in structure.files},
@@ -546,14 +547,14 @@ class TestHiddenContentsAtDepthLimit:
     ) -> None:
         """A directory we cannot list is truncated as empty rather than raising."""
         os.makedirs(os.path.join(temp_dir, "outer", "locked"), exist_ok=True)
-        real_listdir = os.listdir
+        real_scandir = os.scandir
 
-        def fake_listdir(path: str) -> list[str]:
+        def fake_scandir(path: str) -> Iterator[os.DirEntry[str]]:
             if os.path.basename(path) == "locked":
                 raise error
-            return real_listdir(path)
+            return real_scandir(path)
 
-        mocker.patch("recursivist.scanner.os.listdir", side_effect=fake_listdir)
+        mocker.patch("recursivist.scanner.os.scandir", side_effect=fake_scandir)
         structure, _ = get_directory_structure(temp_dir, max_depth=2)
 
         assert structure.subdirectories["outer"].subdirectories["locked"] == Directory(

@@ -232,7 +232,7 @@ def test_permission_denied(tmp_path, monkeypatch):
     def deny(_):
         raise PermissionError("denied")
 
-    monkeypatch.setattr(os, "listdir", deny)
+    monkeypatch.setattr(os, "scandir", deny)
     structure, extensions = get_directory_structure(str(tmp_path))
     assert structure == Directory()
     assert not extensions
