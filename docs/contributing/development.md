@@ -90,7 +90,7 @@ See the [Python API reference](../reference/api-reference.md) for the public fun
 | ------------------ | ---------------------------------------------------------------------- |
 | `nox -s lint`      | `ruff check` and `ruff format --check`                                 |
 | `nox -s typecheck` | strict `mypy` and `pyright`                                            |
-| `nox -s tests`     | pytest on every supported Python version (3.10–3.14)                   |
+| `nox -s tests`     | pytest on every supported Python version (3.10–3.15)                   |
 | `nox -s docs`      | A strict build of the documentation, which fails on a broken reference |
 
 Running `nox` with no arguments runs `lint`, `typecheck`, and `tests`. Arguments after `--` are passed through to pytest; see the [Testing Guide](testing.md).

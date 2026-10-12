@@ -27,6 +27,7 @@ jobs:
             3.12
             3.13
             3.14
+            3.15
 
       - name: Install nox
         run: uv pip install nox nox-uv --system

@@ -4,7 +4,7 @@ This guide covers Recursivist's test suite and conventions. It's intended for co
 
 ## Framework
 
-Recursivist uses [pytest](https://pytest.org/), with [Hypothesis](https://hypothesis.readthedocs.io/) for property-based tests and [Nox](https://nox.thea.codes/) as the task runner. Tests run across Python 3.10–3.14 in isolated environments. Coverage reporting is enabled by default through `addopts` in `pyproject.toml`.
+Recursivist uses [pytest](https://pytest.org/), with [Hypothesis](https://hypothesis.readthedocs.io/) for property-based tests and [Nox](https://nox.thea.codes/) as the task runner. Tests run across Python 3.10–3.15 in isolated environments. Coverage reporting is enabled by default through `addopts` in `pyproject.toml`.
 
 The suite exercises directory scanning, filtering, sorting, tree rendering, every export format, comparison, file statistics, Git status, GitHub repository inputs, colorization, and the CLI.
 
@@ -263,7 +263,7 @@ You can also add `breakpoint()` inside a test to start an interactive session at
 
 ## Continuous Integration
 
-Tests run automatically on every push and pull request via GitHub Actions, exercising the full suite across Python 3.10–3.14 with Nox. Push your branch and check the results — no local CI configuration is needed.
+Tests run automatically on every push and pull request via GitHub Actions, exercising the full suite across Python 3.10–3.15 with Nox. Push your branch and check the results — no local CI configuration is needed.
 
 ## Best Practices
 
