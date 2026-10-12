@@ -283,6 +283,7 @@ def _fetch_refs_advertisement(target: GitHubTarget, token: str | None) -> bytes:
         with urllib.request.urlopen(_request(url, token), timeout=30) as response:
             return cast("bytes", response.read())
     except urllib.error.HTTPError as exc:
+        exc.close()
         if exc.code in (401, 404):
             raise GitHubError(
                 f"Repository '{target.slug}' was not found. It may not exist, "
@@ -514,6 +515,7 @@ def _download_archive(
         ):
             shutil.copyfileobj(response, fh)
     except urllib.error.HTTPError as exc:
+        exc.close()
         if exc.code in (401, 404):
             raise GitHubError(
                 f"Could not download '{target.slug}' at ref '{ref}'. The "

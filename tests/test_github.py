@@ -97,6 +97,13 @@ def _http_error(url: str, code: int) -> HTTPError:
     return HTTPError(url, code, "error", Message(), None)
 
 
+def _assert_closed_http_error(error: GitHubError) -> None:
+    """Assert *error* wraps an ``HTTPError`` whose response has been closed."""
+    cause = error.__cause__
+    assert isinstance(cause, HTTPError)
+    assert cause.fp.closed
+
+
 def _fake_urlopen(
     *,
     branch: str = "main",
@@ -310,8 +317,9 @@ def test_resolve_default_branch_not_found(monkeypatch: pytest.MonkeyPatch) -> No
         "recursivist.github.urllib.request.urlopen", _fake_urlopen(refs_fail=404)
     )
     target = GitHubTarget("o", "missing")
-    with pytest.raises(GitHubError, match="was not found"):
+    with pytest.raises(GitHubError, match="was not found") as excinfo:
         resolve_default_branch(target)
+    _assert_closed_http_error(excinfo.value)
 
 
 def test_resolve_default_branch_network_error(
@@ -542,10 +550,11 @@ def test_checkout_repository_download_404(monkeypatch: pytest.MonkeyPatch) -> No
     target = parse_github_url("https://github.com/o/r")
     assert target is not None
     with (
-        pytest.raises(GitHubError, match="Could not download"),
+        pytest.raises(GitHubError, match="Could not download") as excinfo,
         checkout_repository(target),
     ):
         pass
+    _assert_closed_http_error(excinfo.value)
 
 
 def test_checkout_repository_rejects_traversal(
