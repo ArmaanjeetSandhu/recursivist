@@ -156,7 +156,7 @@ def ensure_contrast(
     foreground = hex_to_rgb(hex_color)
     background_rgb = hex_to_rgb(background)
     if contrast_ratio(foreground, background_rgb) >= min_ratio:
-        return hex_color
+        return rgb_to_hex(foreground)
     hue, saturation, value = colorsys.rgb_to_hsv(*[c / 255 for c in foreground])
     darken = contrast_ratio((0, 0, 0), background_rgb) >= contrast_ratio(
         (255, 255, 255), background_rgb

@@ -122,11 +122,13 @@ def _fake_urlopen(
 
     def fake(request: Any, timeout: Any = None) -> io.BytesIO:
         url = request.full_url
-        if "info/refs" in url:
+        if "info/refs" in url or url.endswith("/git-upload-pack"):
             if refs_error is not None:
                 raise refs_error
             if refs_fail is not None:
                 raise _http_error(url, refs_fail)
+            if url.endswith("/git-upload-pack"):
+                return io.BytesIO(_ls_refs_payload({"HEAD": "0" * 40}))
             return io.BytesIO(_refs_payload(branch))
         if "codeload" in url or url.endswith(".tar.gz") or "/tar.gz/" in url:
             if download_fail is not None:
@@ -443,6 +445,20 @@ def test_resolve_commit_shas_network_error(monkeypatch: pytest.MonkeyPatch) -> N
     target = GitHubTarget("o", "r")
     with pytest.raises(GitHubError, match="Could not reach GitHub"):
         resolve_commit_shas(target, [None])
+
+
+def _ls_refs_payload(
+    refs: Mapping[str, str], peeled: Mapping[str, str] | None = None
+) -> bytes:
+    """Build a protocol v2 ``ls-refs`` response, peeling the refs in *peeled*."""
+    peeled = peeled or {}
+    lines = []
+    for name, sha in refs.items():
+        line = f"{sha} {name}"
+        if name in peeled:
+            line += f" peeled:{peeled[name]}"
+        lines.append(_pkt(line.encode() + b"\n"))
+    return b"".join(lines) + b"0000"
 
 
 def test_commit_shas_equal() -> None:

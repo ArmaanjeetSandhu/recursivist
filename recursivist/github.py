@@ -8,9 +8,11 @@ directory.
 
 The archive endpoint is used rather than the REST API on purpose: the REST API limits
 unauthenticated clients to 60 requests/hour (shared per public IP), which is easily
-exhausted, whereas archive downloads are not subject to that limit. Only the default
-branch is resolved through a lightweight, unlimited ``info/refs`` request when the
-caller did not pin a ref explicitly.
+exhausted, whereas archive downloads are not subject to that limit. Refs are resolved
+through Git's smart-HTTP endpoints, which are not subject to it either. When the caller
+did not pin a ref, the default branch is read from the first line of the ``info/refs``
+advertisement. To tell whether two inputs to ``compare`` name the same commit, both refs
+are resolved with a single protocol v2 ``ls-refs`` request filtered to just those refs.
 
 Because a hosted repository already reflects its ignore rules — files excluded by a
 ``.gitignore`` are simply absent — and because every file in a checkout shares the same
@@ -249,15 +251,41 @@ def parse_github_url(text: str) -> GitHubTarget | None:
 
 
 def _request(
-    url: str, token: str | None, *, accept: str | None = None
+    url: str,
+    token: str | None,
+    *,
+    accept: str | None = None,
+    data: bytes | None = None,
+    headers: dict[str, str] | None = None,
 ) -> urllib.request.Request:
-    """Build a urllib request with the shared headers and optional auth."""
-    headers = {"User-Agent": _USER_AGENT}
+    """Build a urllib request with the shared headers and optional auth.
+
+    Passing *data* makes the request a ``POST`` carrying it as the body; *headers* are
+    added after the shared ones.
+    """
+    all_headers = {"User-Agent": _USER_AGENT}
     if accept:
-        headers["Accept"] = accept
+        all_headers["Accept"] = accept
     if token:
-        headers["Authorization"] = f"Bearer {token}"
-    return urllib.request.Request(url, headers=headers)
+        all_headers["Authorization"] = f"Bearer {token}"
+    if headers:
+        all_headers.update(headers)
+    return urllib.request.Request(url, data=data, headers=all_headers)
+
+
+def _http_failure(target: GitHubTarget, exc: urllib.error.HTTPError) -> GitHubError:
+    """Close *exc*'s response and build the matching user-facing error.
+
+    A 401 or 404 from GitHub's Git endpoints means the repository does not exist or is
+    private and the token (if any) cannot see it; GitHub does not distinguish the two.
+    """
+    exc.close()
+    if exc.code in (401, 404):
+        return GitHubError(
+            f"Repository '{target.slug}' was not found. It may not exist, "
+            "or it may be private (set GITHUB_TOKEN to access private repositories)"
+        )
+    return GitHubError(f"Could not reach GitHub for '{target.slug}' (HTTP {exc.code}).")
 
 
 @contextmanager
@@ -295,15 +323,7 @@ def _open_refs_advertisement(
         with urllib.request.urlopen(_request(url, token), timeout=30) as response:
             yield response
     except urllib.error.HTTPError as exc:
-        exc.close()
-        if exc.code in (401, 404):
-            raise GitHubError(
-                f"Repository '{target.slug}' was not found. It may not exist, "
-                "or it may be private (set GITHUB_TOKEN to access private repositories)"
-            ) from exc
-        raise GitHubError(
-            f"Could not reach GitHub for '{target.slug}' (HTTP {exc.code})."
-        ) from exc
+        raise _http_failure(target, exc) from exc
     except OSError as exc:
         raise GitHubError(f"Could not reach GitHub for '{target.slug}': {exc}") from exc
 
@@ -440,6 +460,148 @@ def resolve_default_branch(target: GitHubTarget, token: str | None = None) -> st
     return match.group(1).decode("utf-8", "replace")
 
 
+_UPLOAD_PACK_REQUEST_TYPE = "application/x-git-upload-pack-request"
+_UPLOAD_PACK_RESULT_TYPE = "application/x-git-upload-pack-result"
+_LS_REFS_LINE_RE = re.compile(rb"([0-9a-fA-F]{40}) (\S+)((?: \S+)*)\n?")
+_PEELED_RE = re.compile(rb"peeled:([0-9a-fA-F]{40})")
+_UNSAFE_REF_RE = re.compile(r"[\x00-\x20\x7f]")
+
+
+def _pkt_line(content: bytes) -> bytes:
+    """Frame *content* as a single pkt-line."""
+    return b"%04x" % (len(content) + 4) + content
+
+
+def _ls_refs_prefixes(refs: list[str | None]) -> list[str]:
+    """Build the ``ref-prefix`` arguments that cover every lookup *refs* needs.
+
+    Mirrors the lookup order in
+    [`resolve_commit_shas`][recursivist.github.resolve_commit_shas]: ``None`` needs
+    ``HEAD``; a name needs ``refs/heads/<name>`` and ``refs/tags/<name>``, plus the name
+    itself when it is ``HEAD`` or a full ``refs/...`` name (the only top-level refs a
+    server advertises). Names containing whitespace or control characters cannot be
+    valid refs and could corrupt the request framing, so they contribute nothing.
+    """
+    prefixes: list[str] = []
+    for ref in refs:
+        if ref is None:
+            candidates = ["HEAD"]
+        elif _UNSAFE_REF_RE.search(ref):
+            continue
+        else:
+            candidates = [f"refs/heads/{ref}", f"refs/tags/{ref}"]
+            if ref == "HEAD" or ref.startswith("refs/"):
+                candidates.append(ref)
+        for candidate in candidates:
+            if candidate not in prefixes:
+                prefixes.append(candidate)
+    return prefixes
+
+
+def _parse_ls_refs_response(payload: bytes) -> dict[str, str] | None:
+    """Parse a protocol v2 ``ls-refs`` response into a ``ref name -> commit SHA`` map.
+
+    Each line is ``<oid> <refname>`` followed by optional attributes; with ``peel``
+    requested, annotated tags carry ``peeled:<oid>``, which is preferred so that a tag
+    always maps to a commit. The response must end with a flush packet.
+
+    Parsing is strict: anything that is not a well-formed ``ls-refs`` response, such as
+    an ``ERR`` packet or a protocol v0 reply from a server that ignored the v2 request,
+    yields ``None`` so the caller can fall back to the v0 advertisement.
+
+    Args:
+        payload: The raw response body.
+
+    Returns:
+        A mapping from ref name to lowercase 40-character commit SHA, or ``None`` if
+        *payload* is not a valid ``ls-refs`` response.
+    """
+    refs: dict[str, str] = {}
+    i, n = 0, len(payload)
+    while i + 4 <= n:
+        try:
+            length = int(payload[i : i + 4], 16)
+        except ValueError:
+            return None
+        if length == 0:
+            return refs if i + 4 == n else None
+        if length < 4 or i + length > n:
+            return None
+        match = _LS_REFS_LINE_RE.fullmatch(payload[i + 4 : i + length])
+        if not match:
+            return None
+        sha, name, attributes = match.groups()
+        for attribute in attributes.split():
+            peeled = _PEELED_RE.fullmatch(attribute)
+            if peeled:
+                sha = peeled.group(1)
+        refs[name.decode("utf-8", "replace")] = sha.decode("ascii").lower()
+        i += length
+    return None
+
+
+def _ls_refs(
+    target: GitHubTarget, prefixes: list[str], token: str | None
+) -> dict[str, str] | None:
+    """List only the refs matching *prefixes*, using Git protocol v2 ``ls-refs``.
+
+    ``ls-refs`` returns just the refs under the requested prefixes, so the response
+    stays small even on repositories with many thousands of refs, where the full v0
+    advertisement runs to several megabytes (mostly ``refs/pull/*``).
+
+    Args:
+        target: The repository to query.
+        prefixes: The ``ref-prefix`` arguments; must not be empty, since an
+            unfiltered ``ls-refs`` lists every ref.
+        token: Optional GitHub token for private repositories.
+
+    Returns:
+        A mapping from ref name to commit SHA, or ``None`` if the server rejected the
+        request or did not answer in protocol v2, in which case the caller should fall
+        back to the v0 advertisement.
+
+    Raises:
+        GitHubError: If the repository is missing or private without a valid token, or
+            GitHub cannot be reached at all.
+    """
+    body = b"".join(
+        [
+            _pkt_line(b"command=ls-refs\n"),
+            _pkt_line(f"agent={_USER_AGENT}\n".encode()),
+            b"0001",
+            _pkt_line(b"peel\n"),
+            *(_pkt_line(f"ref-prefix {prefix}\n".encode()) for prefix in prefixes),
+            b"0000",
+        ]
+    )
+    url = f"{_WEB_HOST}/{target.owner}/{target.repo}/git-upload-pack"
+    request = _request(
+        url,
+        token,
+        accept=_UPLOAD_PACK_RESULT_TYPE,
+        data=body,
+        headers={
+            "Content-Type": _UPLOAD_PACK_REQUEST_TYPE,
+            "Git-Protocol": "version=2",
+        },
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            payload = response.read()
+    except urllib.error.HTTPError as exc:
+        if exc.code in (401, 404):
+            raise _http_failure(target, exc) from exc
+        exc.close()
+        logger.debug("ls-refs for %s failed (HTTP %s)", target.slug, exc.code)
+        return None
+    except OSError as exc:
+        raise GitHubError(f"Could not reach GitHub for '{target.slug}': {exc}") from exc
+    refs = _parse_ls_refs_response(payload)
+    if refs is None:
+        logger.debug("ls-refs for %s returned an unexpected response", target.slug)
+    return refs
+
+
 _SHA_RE = re.compile(r"[0-9a-fA-F]{7,40}")
 
 
@@ -448,10 +610,14 @@ def resolve_commit_shas(
     refs: list[str | None],
     token: str | None = None,
 ) -> list[str | None]:
-    """Resolve each ref in *refs* to a commit SHA using one advertisement fetch.
+    """Resolve each ref in *refs* to a commit SHA using one ref listing.
 
-    A single ``info/refs`` request serves every ref, however many are resolved on the
-    same repository. Each entry is resolved as follows:
+    A single Git protocol v2 ``ls-refs`` request, filtered to the prefixes these refs
+    need, serves every ref, however many are resolved on the same repository. If the
+    server rejects that request or does not answer in protocol v2, the refs are read
+    from the full v0 ``info/refs`` advertisement, which resolves them identically.
+    When no entry can name a ref (every one is malformed), no request is made at all.
+    Each entry is resolved as follows:
 
     * ``None`` resolves to the commit the default branch (``HEAD``) points at.
     * A branch or tag name resolves to its tip commit; annotated tags resolve to the
@@ -472,7 +638,11 @@ def resolve_commit_shas(
     Raises:
         GitHubError: If the repository is missing, private, or unreachable.
     """
-    advertised = _parse_advertised_refs(_fetch_refs_advertisement(target, token))
+    prefixes = _ls_refs_prefixes(refs)
+    advertised = _ls_refs(target, prefixes, token) if prefixes else {}
+    if advertised is None:
+        logger.debug("Falling back to the full ref advertisement for %s", target.slug)
+        advertised = _parse_advertised_refs(_fetch_refs_advertisement(target, token))
     resolved: list[str | None] = []
     for ref in refs:
         if ref is None:
