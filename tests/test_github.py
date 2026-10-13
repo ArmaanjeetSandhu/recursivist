@@ -85,11 +85,17 @@ def _make_traversal_tarball() -> bytes:
 
 
 def _refs_payload(branch: str) -> bytes:
-    """Build a smart-HTTP advertisement carrying the default-branch symref."""
+    """Build a pkt-framed advertisement carrying the default-branch symref."""
     return (
-        b"001e# service=git-upload-pack\n0000"
-        b"0000000000000000000000000000000000000000 HEAD\x00multi_ack "
-        b"symref=HEAD:refs/heads/" + branch.encode() + b" object-format=sha1\x00"
+        _pkt(b"# service=git-upload-pack\n")
+        + b"0000"
+        + _pkt(
+            b"0" * 40
+            + b" HEAD\x00multi_ack symref=HEAD:refs/heads/"
+            + branch.encode()
+            + b" object-format=sha1\n"
+        )
+        + b"0000"
     )
 
 

@@ -28,6 +28,7 @@ which raises the rate limits and enables access to private repositories.
 
 from __future__ import annotations
 
+import io
 import logging
 import os
 import posixpath
@@ -40,7 +41,7 @@ import urllib.parse
 import urllib.request
 from contextlib import contextmanager
 from dataclasses import dataclass, replace
-from typing import TYPE_CHECKING, cast
+from typing import IO, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Iterator
@@ -259,20 +260,31 @@ def _request(
     return urllib.request.Request(url, headers=headers)
 
 
-def _fetch_refs_advertisement(target: GitHubTarget, token: str | None) -> bytes:
-    """Fetch a repository's Git smart-HTTP ``info/refs`` advertisement.
+@contextmanager
+def _open_refs_advertisement(
+    target: GitHubTarget, token: str | None
+) -> Generator[IO[bytes]]:
+    """Open a repository's Git smart-HTTP ``info/refs`` advertisement as a stream.
 
     The advertisement is served by the ``git-upload-pack`` service and lists every ref
-    (branches, tags, and the symbolic ``HEAD``) together with the commit each points at.
-    It is not subject to the REST API's unauthenticated rate limit, so it is used both
-    to discover the default branch and to resolve refs to commit SHAs.
+    (branches, tags, pull requests, and the symbolic ``HEAD``) together with the commit
+    each points at. It is not subject to the REST API's unauthenticated rate limit, so
+    it is used both to discover the default branch and to resolve refs to commit SHAs.
+
+    On large repositories the full advertisement runs to several megabytes, mostly
+    ``refs/pull/*`` entries, so callers that need only the leading lines should read
+    just those and exit the context, which closes the connection without draining it.
+
+    Network errors raised while the caller reads from the stream are converted to
+    [`GitHubError`][recursivist.github.GitHubError] in the same way as errors raised
+    while opening it.
 
     Args:
         target: The repository whose refs are wanted.
         token: Optional GitHub token for private repositories.
 
-    Returns:
-        The raw advertisement payload.
+    Yields:
+        The open response, positioned at the start of the advertisement.
 
     Raises:
         GitHubError: If the repository is missing or private without a valid token, or
@@ -281,7 +293,7 @@ def _fetch_refs_advertisement(target: GitHubTarget, token: str | None) -> bytes:
     url = f"{_WEB_HOST}/{target.owner}/{target.repo}/info/refs?service=git-upload-pack"
     try:
         with urllib.request.urlopen(_request(url, token), timeout=30) as response:
-            return cast("bytes", response.read())
+            yield response
     except urllib.error.HTTPError as exc:
         exc.close()
         if exc.code in (401, 404):
@@ -296,27 +308,65 @@ def _fetch_refs_advertisement(target: GitHubTarget, token: str | None) -> bytes:
         raise GitHubError(f"Could not reach GitHub for '{target.slug}': {exc}") from exc
 
 
-def _iter_pkt_lines(payload: bytes) -> Iterator[bytes]:
-    """Yield the content of each pkt-line in a Git smart-HTTP *payload*.
+def _fetch_refs_advertisement(target: GitHubTarget, token: str | None) -> bytes:
+    """Fetch a repository's complete ``info/refs`` advertisement.
+
+    See [`_open_refs_advertisement`][recursivist.github._open_refs_advertisement] for
+    what the advertisement contains and how errors are reported.
+
+    Args:
+        target: The repository whose refs are wanted.
+        token: Optional GitHub token for private repositories.
+
+    Returns:
+        The raw advertisement payload.
+
+    Raises:
+        GitHubError: If the repository is missing or private without a valid token, or
+            cannot otherwise be reached.
+    """
+    with _open_refs_advertisement(target, token) as response:
+        return response.read()
+
+
+def _read_exact(stream: IO[bytes], size: int) -> bytes:
+    """Read *size* bytes from *stream*, returning fewer only at end of stream."""
+    chunks: list[bytes] = []
+    remaining = size
+    while remaining > 0:
+        chunk = stream.read(remaining)
+        if not chunk:
+            break
+        chunks.append(chunk)
+        remaining -= len(chunk)
+    return b"".join(chunks)
+
+
+def _iter_pkt_lines(stream: IO[bytes]) -> Iterator[bytes]:
+    """Yield the content of each pkt-line read from a Git smart-HTTP *stream*.
 
     The advertisement is framed as pkt-lines: a 4-hex-digit length prefix (counting
     itself) followed by that many bytes of content, with ``0000`` acting as a flush
-    marker. Malformed framing stops iteration rather than raising, since callers treat
-    missing data as an unresolved ref.
+    marker. Lines are read from *stream* only as they are consumed, so a caller can stop
+    early without reading the rest. Malformed or truncated framing stops iteration
+    rather than raising, since callers treat missing data as an unresolved ref.
     """
-    i, n = 0, len(payload)
-    while i + 4 <= n:
+    while True:
+        header = _read_exact(stream, 4)
+        if len(header) < 4:
+            return
         try:
-            length = int(payload[i : i + 4], 16)
+            length = int(header, 16)
         except ValueError:
             return
         if length == 0:
-            i += 4
             continue
-        if length < 4 or i + length > n:
+        if length < 4:
             return
-        yield payload[i + 4 : i + length]
-        i += length
+        content = _read_exact(stream, length - 4)
+        if len(content) < length - 4:
+            return
+        yield content
 
 
 def _parse_advertised_refs(payload: bytes) -> dict[str, str]:
@@ -335,7 +385,7 @@ def _parse_advertised_refs(payload: bytes) -> dict[str, str]:
     """
     refs: dict[str, str] = {}
     peeled: dict[str, str] = {}
-    for content in _iter_pkt_lines(payload):
+    for content in _iter_pkt_lines(io.BytesIO(payload)):
         line = content.split(b"\x00", 1)[0].strip(b"\n")
         parts = line.split(b" ", 1)
         if len(parts) != 2 or len(parts[0]) != 40:
@@ -353,12 +403,17 @@ def _parse_advertised_refs(payload: bytes) -> dict[str, str]:
     return refs
 
 
+_SYMREF_HEAD_RE = re.compile(rb"symref=HEAD:refs/heads/([^\x00 \n]+)")
+
+
 def resolve_default_branch(target: GitHubTarget, token: str | None = None) -> str:
     """Resolve a repository's default branch without using the REST API.
 
     Reads the symbolic ``HEAD`` reference from the repository's Git smart-HTTP
     ``info/refs`` advertisement, which is not subject to the REST API's unauthenticated
-    rate limit.
+    rate limit. The ``symref`` capability is carried on the advertisement's first ref
+    line, so only that line is read and the rest of the advertisement, which can run to
+    megabytes on large repositories, is never downloaded.
 
     Args:
         target: The repository whose default branch is wanted.
@@ -371,8 +426,13 @@ def resolve_default_branch(target: GitHubTarget, token: str | None = None) -> st
         GitHubError: If the repository is missing or private without a valid token, or
             if the default branch cannot be determined.
     """
-    payload = _fetch_refs_advertisement(target, token)
-    match = re.search(rb"symref=HEAD:refs/heads/([^\x00 \n]+)", payload)
+    first_ref_line = b""
+    with _open_refs_advertisement(target, token) as response:
+        for content in _iter_pkt_lines(response):
+            if not content.startswith(b"# "):
+                first_ref_line = content
+                break
+    match = _SYMREF_HEAD_RE.search(first_ref_line)
     if not match:
         raise GitHubError(
             f"Could not determine the default branch for '{target.slug}'."
