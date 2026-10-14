@@ -153,6 +153,10 @@ def _build_ignore_spec(patterns: tuple[str, ...]) -> PathSpec[IgnorePattern]:
     rejects with a `ValueError`) is skipped with a warning rather than aborting the
     whole scan. Blank lines and comments compile to inert patterns and are harmless.
     Cached so each unique tuple of patterns is compiled only once per run.
+
+    No backend is passed, so pathspec (1.0+) uses its best available one: the ``re2``
+    backend when `google-re2` is installed (the ``recursivist[re2]`` extra), which
+    matches all patterns in one pass, and otherwise one regex test per pattern.
     """
     compiled: list[IgnorePattern] = []
     for line in patterns:

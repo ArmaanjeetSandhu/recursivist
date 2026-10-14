@@ -23,6 +23,16 @@ pipx install recursivist
 uv tool install recursivist
 ```
 
+### Faster Matching for Large Ignore Files
+
+By default, every gitignore pattern's regular expression is tested against every path, so scan time grows with the number of patterns. If you work with large ignore files (hundreds of patterns or more), install the `re2` extra:
+
+```bash
+pip install "recursivist[re2]"
+```
+
+This adds [google-re2](https://pypi.org/project/google-re2/), which pathspec detects and uses automatically to match all patterns in a single pass. Results are identical; nothing needs configuring. Wheels are published for common platforms; elsewhere, google-re2 builds from source and needs the RE2 C++ library.
+
 ### Installing in a Virtual Environment
 
 To keep the install isolated from system packages by hand, use a virtual environment:
