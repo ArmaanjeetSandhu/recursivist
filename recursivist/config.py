@@ -130,7 +130,7 @@ class ConfigLayer:
     source: Path | None
 
 
-def accepts_value(key: str, value: Any) -> bool:
+def accepts_value(key: str, value: object) -> bool:
     """Return whether *value* is one the configuration *key* accepts.
 
     A key with a set of choices accepts exactly those strings; any other key accepts a
@@ -150,7 +150,7 @@ def accepts_value(key: str, value: Any) -> bool:
 
     choices = CONFIG_KEYS[key]
 
-    def accepts_string(item: Any) -> bool:
+    def accepts_string(item: object) -> bool:
         if not isinstance(item, str):
             return False
         return bool(item.strip()) if choices is None else item in choices
@@ -385,7 +385,7 @@ def _validate_settings(
     return settings
 
 
-def _validate_project_table(table: Any, source: Path) -> dict[str, Any]:
+def _validate_project_table(table: object, source: Path) -> dict[str, Any]:
     """Keep the recognized, valid settings of a project configuration table.
 
     A ``[tool.recursivist]`` entry that is not a table is reported with a warning and
