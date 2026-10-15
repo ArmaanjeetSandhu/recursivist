@@ -23,15 +23,16 @@ import fnmatch
 import logging
 import os
 import re
+from dataclasses import dataclass, replace
 from functools import cache
 from re import Pattern
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, cast
 
 from pathspec import PathSpec
 from pathspec.util import lookup_pattern
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Mapping, Sequence
+    from collections.abc import Iterable, Sequence
 
     from pathspec.pattern import Pattern as IgnorePattern
 
@@ -169,30 +170,61 @@ def _build_ignore_spec(patterns: tuple[str, ...]) -> PathSpec[IgnorePattern]:
     return PathSpec(compiled)
 
 
-def _resolve_ignore_levels(
-    ignore_context: Mapping[str, Any],
-) -> tuple[tuple[str, tuple[str, ...]], ...]:
-    """Return the active ignore levels as ``(base, patterns)`` pairs.
+@dataclass(frozen=True, slots=True)
+class IgnoreContext:
+    """The gitignore-style rules in force for one directory of a scan, precompiled.
 
-    Each pair is one ignore file: *base* is the file's directory relative to the scan
-    root (``""`` for the root ignore file) and *patterns* are its verbatim pattern
-    lines. Levels are ordered shallowest-first, which lets a deeper file's verdict
-    override a shallower one, matching Git's precedence.
+    Holds the active ignore files as a shallowest-first stack of *levels*, each a pair
+    of the file's directory (relative to the scan root, normalized to a forward-slashed
+    prefix such as ``"src/"``, or ``""`` for the scan root) and its patterns already
+    compiled into a `PathSpec`. *rel_dir* is the directory whose entries are being
+    tested, relative to the scan root.
 
-    The levels are read from the ``"pattern_stack"`` entry of *ignore_context*; a
-    context without one carries no ignore rules.
+    An ignore file's base is normalized and its patterns compiled when it is pushed,
+    so [`should_exclude`][recursivist.filtering.should_exclude] only matches each
+    entry against the compiled levels. The scanner builds one context per directory:
+    [`push`][recursivist.filtering.IgnoreContext.push] when the directory has an
+    ignore file of its own, then [`at`][recursivist.filtering.IgnoreContext.at] to
+    point it at the directory.
+
+    Contexts are immutable, so a directory's context can be shared by all of its
+    entries and extended for a subdirectory without affecting its siblings.
     """
-    stack = ignore_context.get("pattern_stack") or ()
-    return tuple((base, tuple(pats)) for base, pats in stack)
+
+    levels: tuple[tuple[str, PathSpec[IgnorePattern]], ...] = ()
+    rel_dir: str = ""
+
+    def push(self, base: str, patterns: Iterable[str]) -> IgnoreContext:
+        """Return a context with one more, deeper, ignore file on the stack.
+
+        Args:
+            base: Directory containing the ignore file, relative to the scan root
+                (``""`` for the scan root). Backslashes are accepted.
+            patterns: The file's verbatim pattern lines, as returned by
+                [`parse_ignore_file`][recursivist.filtering.parse_ignore_file].
+
+        Returns:
+            The extended context, or this one unchanged when *patterns* is empty.
+        """
+        pattern_tuple = tuple(patterns)
+        if not pattern_tuple:
+            return self
+        prefix = base.replace("\\", "/").strip("/")
+        level = (f"{prefix}/" if prefix else "", _build_ignore_spec(pattern_tuple))
+        return replace(self, levels=(*self.levels, level))
+
+    def at(self, rel_dir: str) -> IgnoreContext:
+        """Return a copy of this context for the entries of the directory *rel_dir*."""
+        return replace(self, rel_dir=rel_dir)
 
 
 def _is_ignored_by_stack(
-    target: str, levels: tuple[tuple[str, tuple[str, ...]], ...]
+    target: str, levels: tuple[tuple[str, PathSpec[IgnorePattern]], ...]
 ) -> bool:
     """Apply a shallow-to-deep stack of ignore files to a single path.
 
     *target* is the path relative to the scan root, forward-slashed and with a trailing
-    ``/`` when it is a directory. Each level is matched relative to its own *base*
+    ``/`` when it is a directory. Each level is matched relative to its own base
     directory (levels whose base does not contain *target* are skipped), and the last
     level that expresses an opinion wins. A level's opinion is tri-state via
     `check_file`: matched by an ignore pattern, re-included by a ``!`` negation, or
@@ -200,12 +232,8 @@ def _is_ignored_by_stack(
     exactly as Git resolves precedence between nested ``.gitignore`` files.
     """
     decision: bool | None = None
-    for base, patterns in levels:
-        if not patterns:
-            continue
-        base = base.replace("\\", "/").strip("/")
-        if base:
-            prefix = f"{base}/"
+    for prefix, spec in levels:
+        if prefix:
             if not target.startswith(prefix):
                 continue
             rel = target[len(prefix) :]
@@ -213,7 +241,7 @@ def _is_ignored_by_stack(
             rel = target
         if not rel or rel == "/":
             continue
-        verdict = _build_ignore_spec(patterns).check_file(rel).include
+        verdict = spec.check_file(rel).include
         if verdict is not None:
             decision = verdict
     return decision is True
@@ -331,7 +359,7 @@ class PatternMatchTracker:
 
 def should_exclude(
     path: str,
-    ignore_context: dict[str, Any],
+    ignore_context: IgnoreContext,
     exclude_extensions: set[str] | None = None,
     exclude_patterns: Sequence[str | Pattern[str]] | None = None,
     include_patterns: Sequence[str | Pattern[str]] | None = None,
@@ -358,11 +386,10 @@ def should_exclude(
 
     Args:
         path: Filesystem path to test.
-        ignore_context: Mapping describing the active ignore rules. Recognized keys are
-            ``"pattern_stack"`` (a shallowest-first sequence of
-            ``(base_dir_relative_to_root, patterns)`` pairs, one per ignore file; a
-            single ignore file at the scan root is ``[("", patterns)]``) and
-            ``"rel_dir"`` (the current directory's path relative to the scan root).
+        ignore_context: The ignore rules in force in the directory containing
+            *path*, as an [`IgnoreContext`][recursivist.filtering.IgnoreContext]. Build
+            it once per directory and reuse it for every entry; ``IgnoreContext()``
+            carries no ignore rules.
         exclude_extensions: Lowercase, dot-prefixed extensions to exclude.
         exclude_patterns: Glob or compiled-regex patterns to exclude, matched against
             the entry's name.
@@ -395,12 +422,11 @@ def should_exclude(
         return True
     if include_patterns and not is_dir:
         return False
-    levels = _resolve_ignore_levels(ignore_context)
-    if not levels:
+    if not ignore_context.levels:
         return False
-    rel_dir = ignore_context.get("rel_dir", "")
+    rel_dir = ignore_context.rel_dir
     target = (f"{rel_dir}/{basename}" if rel_dir else basename).replace("\\", "/")
     target = target.lstrip("/")
     if is_dir:
         target += "/"
-    return _is_ignored_by_stack(target, levels)
+    return _is_ignored_by_stack(target, ignore_context.levels)

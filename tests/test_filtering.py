@@ -15,6 +15,7 @@ from hypothesis import given
 from hypothesis import strategies as st
 
 from recursivist.filtering import (
+    IgnoreContext,
     compile_regex_patterns,
     normalize_extensions,
     parse_ignore_file,
@@ -22,13 +23,13 @@ from recursivist.filtering import (
 )
 
 
-def _ignore_context(patterns: Sequence[str] = (), rel_dir: str = "") -> dict[str, Any]:
+def _ignore_context(patterns: Sequence[str] = (), rel_dir: str = "") -> IgnoreContext:
     """Build the ignore context for a single ignore file at the scan root.
 
     *patterns* are that file's lines and *rel_dir* is the directory of the entry under
     test, relative to the scan root.
     """
-    return {"pattern_stack": [("", tuple(patterns))], "rel_dir": rel_dir}
+    return IgnoreContext().push("", patterns).at(rel_dir)
 
 
 def _make_entry(base_dir: str, rel_path: str, is_dir: bool) -> tuple[str, str]:
@@ -149,21 +150,23 @@ def test_should_exclude_nested_ignore_stack(
     is_dir: bool,
     expected: bool,
 ) -> None:
-    """should_exclude honors a per-directory ``pattern_stack``: each ignore file
+    """should_exclude honors a per-directory stack of ignore files: each one
     is anchored to its own base directory and deeper files override shallower
     ones, so a nested file's anchored patterns stay scoped to its subtree,
     matching Git's treatment of nested ``.gitignore`` files."""
     target, rel_dir = _make_entry(temp_dir, rel_path, is_dir)
-    ignore_context = {"pattern_stack": stack, "rel_dir": rel_dir}
-    assert should_exclude(target, ignore_context) is expected
+    ignore_context = IgnoreContext()
+    for base, patterns in stack:
+        ignore_context = ignore_context.push(base, patterns)
+    assert should_exclude(target, ignore_context.at(rel_dir)) is expected
 
 
-def test_should_exclude_without_pattern_stack(temp_dir: str) -> None:
-    """A context with no ``pattern_stack`` carries no ignore rules; the other
-    filters apply as usual."""
+def test_should_exclude_without_ignore_files(temp_dir: str) -> None:
+    """An empty context carries no ignore rules; the other filters apply as usual."""
     target, rel_dir = _make_entry(temp_dir, "app.log", is_dir=False)
-    assert should_exclude(target, {"rel_dir": rel_dir}) is False
-    assert should_exclude(target, {"rel_dir": rel_dir}, exclude_extensions={".log"})
+    context = IgnoreContext().at(rel_dir)
+    assert should_exclude(target, context) is False
+    assert should_exclude(target, context, exclude_extensions={".log"})
 
 
 @pytest.mark.parametrize(

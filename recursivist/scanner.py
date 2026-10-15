@@ -12,10 +12,10 @@ import os
 from collections.abc import Iterator, Mapping, Sequence
 from itertools import chain
 from re import Pattern
-from typing import Any
 
 from recursivist._models import Directory, FileEntry
 from recursivist.filtering import (
+    IgnoreContext,
     PatternMatchTracker,
     parse_ignore_file,
     should_exclude,
@@ -120,7 +120,7 @@ def _is_directory(entry: os.DirEntry[str]) -> bool:
 def _has_visible_entries(
     root_dir: str,
     exclude_dirs: Sequence[str],
-    ignore_context: dict[str, Any],
+    ignore_context: IgnoreContext,
     exclude_extensions: set[str],
     exclude_patterns: Sequence[str | Pattern[str]],
     include_patterns: Sequence[str | Pattern[str]],
@@ -138,8 +138,7 @@ def _has_visible_entries(
     Args:
         root_dir: Directory to peek into.
         exclude_dirs: Directory names to skip entirely.
-        ignore_context: Ignore-file context for
-            [`should_exclude`][recursivist.filtering.should_exclude].
+        ignore_context: The ignore rules in force in *root_dir*.
         exclude_extensions: Lowercase, dot-prefixed extensions to exclude.
         exclude_patterns: Glob or compiled-regex patterns to exclude.
         include_patterns: Glob or compiled-regex patterns to include.
@@ -170,7 +169,7 @@ def _has_visible_entries(
         return True
     if deleted is None:
         return False
-    rel_dir = ignore_context.get("rel_dir", "")
+    rel_dir = ignore_context.rel_dir
     for item, is_dir in deleted.missing_from(root_dir, rel_dir):
         item_path = os.path.join(root_dir, item)
         if item in exclude_dirs or should_exclude(
@@ -185,7 +184,7 @@ def _has_visible_entries(
         if not is_dir or _has_visible_entries(
             item_path,
             exclude_dirs,
-            {**ignore_context, "rel_dir": os.path.join(rel_dir, item)},
+            ignore_context.at(os.path.join(rel_dir, item)),
             exclude_extensions,
             exclude_patterns,
             include_patterns,
@@ -342,7 +341,7 @@ def get_directory_structure(
         exclude_dirs,
         ignore_file,
         exclude_extensions,
-        (),
+        IgnoreContext(),
         exclude_patterns,
         include_patterns,
         max_depth,
@@ -367,7 +366,7 @@ def _scan_level(
     exclude_dirs: Sequence[str],
     ignore_file: str | None,
     exclude_extensions: set[str],
-    parent_ignore_patterns: Sequence[tuple[str, tuple[str, ...]]],
+    parent_ignore: IgnoreContext,
     exclude_patterns: Sequence[str | Pattern[str]],
     include_patterns: Sequence[str | Pattern[str]],
     max_depth: int,
@@ -394,10 +393,11 @@ def _scan_level(
 
     The state of the walk places *root_dir* relative to the scan root:
 
-    - *parent_ignore_patterns*: ignore files inherited from the directories above, as a
-      shallowest-first stack of ``(base_dir_relative_to_root, patterns)`` pairs. Each
-      ignore file keeps its own anchoring, scoping its patterns to its subtree as Git
-      does.
+    - *parent_ignore*: the precompiled ignore files inherited from the directories
+      above, shallowest first. Each ignore file keeps its own anchoring, scoping its
+      patterns to its subtree as Git does. *root_dir*'s own ignore file, if any, is
+      compiled once here and pushed onto it, and the result is shared by every entry
+      of this level and passed down to its subdirectories.
     - *current_depth*: depth of *root_dir* below the scan root (``0`` for the root).
     - *current_path*: path of *root_dir* relative to the scan root (``""`` for the
       root).
@@ -411,18 +411,12 @@ def _scan_level(
     into afterwards. *on_disk* is ``False`` for a directory that is itself gone and is
     being walked only for its deleted files.
     """
-    ignore_stack: list[tuple[str, tuple[str, ...]]] = list(parent_ignore_patterns)
+    ignore_context = parent_ignore
     if ignore_file:
-        current_ignore_patterns = parse_ignore_file(os.path.join(root_dir, ignore_file))
-        if current_ignore_patterns:
-            ignore_stack = [
-                *ignore_stack,
-                (current_path, tuple(current_ignore_patterns)),
-            ]
-    ignore_context = {
-        "pattern_stack": ignore_stack,
-        "rel_dir": current_path,
-    }
+        ignore_context = ignore_context.push(
+            current_path, parse_ignore_file(os.path.join(root_dir, ignore_file))
+        )
+    ignore_context = ignore_context.at(current_path)
     structure = Directory()
     extensions_set: set[str] = set()
     total_loc = 0
@@ -525,7 +519,7 @@ def _scan_level(
             exclude_dirs,
             ignore_file,
             exclude_extensions,
-            ignore_stack,
+            ignore_context,
             exclude_patterns,
             include_patterns,
             max_depth,
