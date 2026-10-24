@@ -144,7 +144,8 @@ select = [
     "UP",      # pyupgrade
     "FURB",    # refurb
     "PERF",    # perflint
-    "RUF",     # Ruff-specific rules
+    "PLE",     # pylint
+    "RUF",     # ruff
     "TRY401",  # tryceratops-verbose-log-message
 ]
 
